@@ -162,3 +162,30 @@ $ cargo run -p l6patch -- unpacked-l6max firmware-dual-efx-combo-v113 --patch kn
 Wrote firmware-dual-efx-combo-v113/L6max.bin (1737216 bytes; SHA-256 a0a594ac980cc773f063ed96d588e02f8b962ec37e5a1b7c664c9c8bbd728ec2)
 24132 bytes of Rust payload (knob-dialog + dual-efx); patched firmware: firmware-dual-efx-combo-v113
 ```
+
+---
+
+## 7. Emulator (QEMU) Qualification
+
+The patched `dual-efx` firmware was qualified using the repository's embedded QEMU ARM emulator and `l6test` runner.
+
+### 1. QEMU Build & Configuration
+- Built the pinned QEMU 11.1.2 binary with the LiveTrak L6max board model (`emulator/qemu/hw/arm/l6max.c`).
+- Enabled `--enable-fdt=auto` in [`tools/qemu-build/src/lib.rs`](file:///home/vcarlson/zoom-l6max/tools/qemu-build/src/lib.rs) for clean out-of-the-box building.
+- Binary SHA-256: `07410e0513545265d77638616b2127fce855c04c7448a54fff777e701e1a1c37`.
+
+### 2. Preflight Check
+```text
+$ cargo run --offline --locked -p l6test -- check --config smoke.local.toml
+Preflight passed. QEMU is pinned by binary hash; source provenance is explicitly unattested.
+```
+
+### 3. Executable Scenarios (L6max Headless)
+| Scenario | Command | Outcome | Description |
+| --- | --- | --- | --- |
+| `boot` | `cargo run -p l6test -- run --case boot --model l6max` | **PASS** | Boots guest OS, initializes SDRAM & NOR, achieves stable panel link |
+| `encoder` | `cargo run -p l6test -- run --case encoder --model l6max` | **PASS** | Tests encoder scrolls and verifies corresponding LED ring updates |
+| `controls` | `cargo run -p l6test -- run --case controls --model l6max` | **PASS** | Exercises level faders and controls across channels |
+| `mute` | `cargo run -p l6test -- run --case mute --model l6max` | **PASS** | Verifies mute buttons, indicator transitions, and MIDI output |
+| `buttons` | `cargo run -p l6test -- run --case buttons --model l6max` | **PASS** | Verifies panel button state machine and channel switching |
+
