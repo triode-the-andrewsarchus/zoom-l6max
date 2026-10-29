@@ -11,6 +11,7 @@ in ignored output directories.
 | [knob-dialog](knob-dialog/README.md) | L6max 1.10 | Show channel encoder values using the stock notification renderer | `l6patch` |
 | [midi-sync](midi-sync/README.md) | L6max 1.10; L6 1.10 | Send the channel mixer state as Control Change on request | `l6patch` |
 | [din-mixer-control](din-mixer-control/README.md) | L6max 1.10 | Let the physical MIDI IN/OUT jacks control the mixer when Mixer Control via MIDI is on, as documented but never implemented | `l6patch` |
+| [dual-efx](dual-efx/README.md) | L6max 1.10 | Replace Spring Reverb with Velvet Noise Decorrelator and Room Reverb with Valley Plateau plate reverb; concurrent dual send routing | `l6patch` |
 
 ## Directory layout
 

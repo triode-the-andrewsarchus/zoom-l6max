@@ -1,0 +1,305 @@
+#![no_std]
+#![no_main]
+#![allow(dead_code)]
+
+use core::ptr::{read_volatile as read, write_volatile as write};
+
+mod firmware;
+mod math;
+mod parameters;
+mod plateau;
+mod routing;
+mod trampolines;
+mod velvet;
+
+use firmware::*;
+use routing::{DualEfxProcessor, RoutingMode};
+use trampolines as original;
+
+/// The DualEfxProcessor instance.
+/// Placed in high SDRAM (0x83e00000) by link.ld (.bss section).
+static mut PROCESSOR: DualEfxProcessor = DualEfxProcessor::new();
+static mut INITIALIZED: bool = false;
+
+/// Current parameter editing bank:
+/// 0 = Velvet Noise Decorrelator (Effect A)
+/// 1 = Plateau Plate Reverb (Effect B)
+static mut EDIT_BANK: u8 = 0;
+
+/// Selected channel for per-channel routing setup (0..7)
+static mut SELECTED_ROUTING_CHANNEL: u8 = 0;
+
+unsafe fn get_processor() -> &'static mut DualEfxProcessor {
+    unsafe {
+        let initialized = read(core::ptr::addr_of!(INITIALIZED));
+        let proc = &mut *core::ptr::addr_of_mut!(PROCESSOR);
+        if !initialized {
+            proc.init();
+            write(core::ptr::addr_of_mut!(INITIALIZED), true);
+        }
+        proc
+    }
+}
+
+/// Dispatches effect audio processing.
+/// Hooked at 0x8000277c in MAIN firmware (displaces bl 0x80003c58).
+///
+/// Registers:
+/// - r0: instance/mixer id (0)
+/// - r1: efx_type (1=Room, 2=Spring, 3=Delay, 4=Chorus, 5=AINR)
+/// - r2: param0 (0..127)
+/// - r3: param1 (0..127)
+#[unsafe(no_mangle)]
+#[unsafe(link_section = ".text.efx_dispatch_hook")]
+pub unsafe extern "C" fn efx_dispatch_hook(
+    inst: u32,
+    efx_type: u32,
+    param0: u32,
+    param1: u32,
+) {
+    unsafe {
+        let proc = get_processor();
+
+        // Stock effect type mapping:
+        // efx_type == 1: Room Reverb -> Replaced with Plateau
+        // efx_type == 2: Spring Reverb -> Replaced with Velvet Noise Decorrelator
+        // If efx_type is Delay (3), Chorus (4), or AINR (5), forward to stock DSP!
+        if efx_type == 1 || efx_type == 2 {
+            // Update parameters from stock knobs if in stock mode
+            if efx_type == 1 {
+                // Room Reverb: param0 = PreDelay, param1 = Decay
+                proc.plateau.params.predelay_ms = (param0 as f32 / 127.0) * 150.0;
+                proc.plateau.params.decay = 0.1 + (param1 as f32 / 127.0) * 0.899;
+                proc.plateau.set_parameters(proc.plateau.params);
+            } else {
+                // Spring Reverb: param0 = VND Time Spread, param1 = VND Decay
+                proc.velvet.current.length_ms = 1.0 + (param0 as f32 / 127.0) * 94.0;
+                proc.velvet.current.decay_db = -120.0 + (param1 as f32 / 127.0) * 120.0;
+                proc.velvet.set_parameters(proc.velvet.current);
+            }
+
+            // Read send levels from mixer channels (0..7 for L6max)
+            let mut any_send = false;
+            for ch in 0..8 {
+                let send_val = call2(MIXER_GET_EFX, ch as u32, 0);
+                if send_val > 0 {
+                    any_send = true;
+                    // If routing hasn't been explicitly configured, default according to efx_type:
+                    // efx_type == 1 -> SendB (Plateau)
+                    // efx_type == 2 -> SendA (Velvet Noise)
+                    if proc.channel_routing[ch] == RoutingMode::Neither {
+                        proc.channel_routing[ch] = if efx_type == 1 {
+                            RoutingMode::SendB
+                        } else {
+                            RoutingMode::SendA
+                        };
+                    }
+                }
+            }
+
+            if !any_send {
+                return;
+            }
+
+            // Audio buffers: 16 stereo frames (typical 32-sample block)
+            // Stock buffer pointers:
+            // Input send buffer: AUDIO_EFX_IN_BUFFER (0x804683a4)
+            // Output return buffer: AUDIO_EFX_OUT_BUFFER (0x8045fe98)
+            let in_buf = AUDIO_EFX_IN_BUFFER as *const f32;
+            let out_buf = AUDIO_EFX_OUT_BUFFER as *mut f32;
+
+            // Block size is 16 frames (32 samples interleaved)
+            const FRAMES: usize = 16;
+            let mut in_l = [0.0f32; FRAMES];
+            let mut in_r = [0.0f32; FRAMES];
+            let mut out_l = [0.0f32; FRAMES];
+            let mut out_r = [0.0f32; FRAMES];
+
+            for i in 0..FRAMES {
+                in_l[i] = read(in_buf.add(i * 2));
+                in_r[i] = read(in_buf.add(i * 2 + 1));
+            }
+
+            // If efx_type == 1, enable Plateau (Effect B). If 2, enable Velvet Noise (Effect A).
+            // When dual mode or cascade is configured, both run concurrently!
+            let enable_a = efx_type == 2 || proc.cascade_gain > 1e-4;
+            let enable_b = efx_type == 1 || proc.cascade_gain > 1e-4;
+            proc.process_stereo_send(&in_l, &in_r, &mut out_l, &mut out_r, enable_a, enable_b);
+
+            for i in 0..FRAMES {
+                write(out_buf.add(i * 2), out_l[i]);
+                write(out_buf.add(i * 2 + 1), out_r[i]);
+            }
+        } else {
+            // Forward stock Delay, Chorus, or AINR to original implementation
+            original::original_efx_dispatch(inst, efx_type, param0, param1);
+        }
+    }
+}
+
+/// Replaces the stock knob changed hook to provide extended parameter editing
+/// across all 8 encoders with OLED notification dialog updates.
+#[unsafe(no_mangle)]
+#[unsafe(link_section = ".text.knob_changed")]
+pub unsafe extern "C" fn knob_changed(
+    channel: u32,
+    mode: u32,
+    absolute: u32,
+    delta: i32,
+    value: u32,
+) {
+    unsafe {
+        // Forward to mixer parameter applicator so stock mixer state updates
+        core::mem::transmute::<usize, unsafe extern "C" fn(u32, u32, u32, i32, u32)>(
+            MIXER_APPLY_CHANNEL_PARAMETER | 1,
+        )(channel, mode, absolute, delta, value);
+
+        if channel >= 8 || mode >= 10 || delta == 0 {
+            return;
+        }
+
+        // Mode 6 is EFX
+        if mode == 6 {
+            let proc = get_processor();
+            let bank = read(core::ptr::addr_of!(EDIT_BANK));
+
+            // Map the 8 encoders (channels 0..7) to extended parameters:
+            match channel {
+                0 => {
+                    // Encoder 1: Effect A Amount or Effect B PreDelay
+                    if bank == 0 {
+                        proc.velvet.current.amount = math::clamp(
+                            proc.velvet.current.amount + (delta as f32 * 0.02),
+                            0.0,
+                            1.0,
+                        );
+                        proc.velvet.set_parameters(proc.velvet.current);
+                    } else {
+                        proc.plateau.params.predelay_ms = math::clamp(
+                            proc.plateau.params.predelay_ms + (delta as f32 * 2.0),
+                            0.0,
+                            150.0,
+                        );
+                        proc.plateau.set_parameters(proc.plateau.params);
+                    }
+                }
+                1 => {
+                    // Encoder 2: Effect A Time Spread or Effect B Size
+                    if bank == 0 {
+                        proc.velvet.current.length_ms = math::clamp(
+                            proc.velvet.current.length_ms + (delta as f32 * 1.0),
+                            1.0,
+                            95.0,
+                        );
+                        proc.velvet.set_parameters(proc.velvet.current);
+                    } else {
+                        proc.plateau.params.size = math::clamp(
+                            proc.plateau.params.size + (delta as f32 * 0.02),
+                            0.2,
+                            1.2,
+                        );
+                        proc.plateau.set_parameters(proc.plateau.params);
+                    }
+                }
+                2 => {
+                    // Encoder 3: Effect A Density or Effect B Decay
+                    if bank == 0 {
+                        proc.velvet.current.density = math::clamp(
+                            proc.velvet.current.density + (delta as f32 * 50.0),
+                            100.0,
+                            3000.0,
+                        );
+                        proc.velvet.set_parameters(proc.velvet.current);
+                    } else {
+                        proc.plateau.params.decay = math::clamp(
+                            proc.plateau.params.decay + (delta as f32 * 0.02),
+                            0.1,
+                            0.999,
+                        );
+                        proc.plateau.set_parameters(proc.plateau.params);
+                    }
+                }
+                3 => {
+                    // Encoder 4: Effect A Decay or Effect B Low-Cut
+                    if bank == 0 {
+                        proc.velvet.current.decay_db = math::clamp(
+                            proc.velvet.current.decay_db + (delta as f32 * 2.0),
+                            -120.0,
+                            0.0,
+                        );
+                        proc.velvet.set_parameters(proc.velvet.current);
+                    } else {
+                        proc.plateau.params.low_cut_hz = math::clamp(
+                            proc.plateau.params.low_cut_hz + (delta as f32 * 20.0),
+                            20.0,
+                            1000.0,
+                        );
+                        proc.plateau.set_parameters(proc.plateau.params);
+                    }
+                }
+                4 => {
+                    // Encoder 5: Effect A Refresh or Effect B High-Cut
+                    if bank == 0 {
+                        proc.velvet.current.refresh_seconds = math::clamp(
+                            proc.velvet.current.refresh_seconds + (delta as f32 * 0.5),
+                            0.1,
+                            30.0,
+                        );
+                        proc.velvet.set_parameters(proc.velvet.current);
+                    } else {
+                        proc.plateau.params.high_cut_hz = math::clamp(
+                            proc.plateau.params.high_cut_hz + (delta as f32 * 250.0),
+                            1000.0,
+                            16000.0,
+                        );
+                        proc.plateau.set_parameters(proc.plateau.params);
+                    }
+                }
+                5 => {
+                    // Encoder 6: Effect A Dynamic Crossfade or Effect B Diffusion
+                    if bank == 0 {
+                        if delta > 0 {
+                            proc.velvet.current.dynamic = true;
+                        } else if delta < 0 {
+                            proc.velvet.current.dynamic = false;
+                        }
+                    } else {
+                        proc.plateau.params.diffusion = math::clamp(
+                            proc.plateau.params.diffusion + (delta as f32 * 0.05),
+                            0.0,
+                            1.0,
+                        );
+                        proc.plateau.set_parameters(proc.plateau.params);
+                    }
+                }
+                6 => {
+                    // Encoder 7: Per-Channel Routing selection
+                    let sel = read(core::ptr::addr_of!(SELECTED_ROUTING_CHANNEL)) as usize;
+                    let current = proc.channel_routing[sel];
+                    let next = match current {
+                        RoutingMode::Neither => RoutingMode::SendA,
+                        RoutingMode::SendA => RoutingMode::SendB,
+                        RoutingMode::SendB => RoutingMode::SendAtoB,
+                        RoutingMode::SendAtoB => RoutingMode::Neither,
+                    };
+                    proc.channel_routing[sel] = next;
+                }
+                7 => {
+                    // Encoder 8: Global Cascade toggle (A -> B) or Freeze toggle
+                    if bank == 0 {
+                        proc.cascade_gain = if proc.cascade_gain > 0.5 { 0.0 } else { 1.0 };
+                    } else {
+                        proc.plateau.params.freeze = !proc.plateau.params.freeze;
+                        proc.plateau.set_parameters(proc.plateau.params);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
