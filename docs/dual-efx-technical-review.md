@@ -134,20 +134,22 @@ if mode == 6 {
 
 ---
 
-## 4. Recommendations & Fixes for Clean UI Integration
+## 4. Resolution & Clean UI Integration
 
-To achieve a conflict-free UI that exposes extended controls while preserving 100% of stock mixer functionality:
+The UI conflict identified in Section 3 has been resolved in [`patches/dual-efx/src/payload.rs`](file:///home/vcarlson/zoom-l6max/patches/dual-efx/src/payload.rs) and [`tools/l6patch/src/main.rs`](file:///home/vcarlson/zoom-l6max/tools/l6patch/src/main.rs):
 
-1. **Leave Mode 6 (`mode-efx`) Encoders 1..8 as Channel Send Levels**:
-   Encoders 1..8 in Mode 6 must continue controlling the send levels for channels 1..8.
-2. **Expose Extended Controls via Dedicated EFX Edit Context**:
-   - The L6max has a dedicated **`efx-select` button** (Control 40) and 4 screen function buttons (`recorder-function-1..4`, Controls 0..3).
-   - Alternatively, when combined with `knob-dialog`, extended parameters can be edited when the screen is showing the EFX dialog (checked via `read(0x80202610 as *const u32)`), or activated by holding the TAP/EFX button.
-3. **Map Encoder 7/8 in EFX Dialog**:
-   - In EFX dialog context, Encoder 1..4 map to the 4 primary parameters for the active effect.
-   - Encoders 5..8 map to secondary parameters (Dynamic, Routing, Cascade, Freeze).
-4. **Register `knob_changed` Properly in Tooling**:
-   If `dual-efx` is built standalone, `l6patch` should register `edits.knob_dialog_entry` for `dual-efx` if `knob-dialog` is not present, or chain them cleanly when both are selected.
+1. **Context Gating via Window Descriptor (`0x80202610`)**:
+   - In normal mixer/recorder window (`0x80200408`), Encoders 1..8 in Mode 6 (`mode-efx`) exclusively control Channel 1..8 Send Levels via `MIXER_APPLY_CHANNEL_PARAMETER(channel, mode, absolute, delta, value)`.
+   - Effect DSP parameters are untouched during normal channel mixing, completely preventing send level / effect parameter interference.
+2. **Extended Parameter Editing Context**:
+   - When outside the recorder window (e.g., in an effect settings window or modal dialog), Encoders 1..8 map to the extended effect parameters.
+   - `MIXER_APPLY_CHANNEL_PARAMETER` is bypassed in this context, preventing channel send level corruption.
+3. **Automatic Bank Selection**:
+   - `EDIT_BANK` defaults to Auto mode (`2`). The bank dynamically follows the active `efx_type`: Room (1) automatically selects Plateau (Bank 1), and Spring (2) automatically selects Velvet Noise (Bank 0).
+4. **Parameter Change Caching in Audio Interrupt**:
+   - `efx_dispatch_hook` caches `LAST_PARAM0`, `LAST_PARAM1`, and `LAST_EFX_TYPE`. `set_parameters` only recalculates coefficients when stock parameters actually change, saving substantial CPU time and preventing extended parameter edits from being overwritten every 333 µs.
+5. **Patcher Hook Registration**:
+   - In [`tools/l6patch/src/main.rs`](file:///home/vcarlson/zoom-l6max/tools/l6patch/src/main.rs), `edits.knob_dialog_entry` is hooked to `knob_changed` for standalone `dual-efx` builds when `knob-dialog` is not selected.
 
 ---
 
@@ -164,4 +166,4 @@ To achieve a conflict-free UI that exposes extended controls while preserving 10
 | **Real-Time CPU Budget** | **PASS** | ~9.6% CPU load on 500 MHz Cortex-M7; ample margin for audio DMA. |
 | **Numerical Safety** | **PASS** | Zero divide-by-zero risks, stable feedback loops, no NaN generation. |
 | **Stock UI Functionality** | **PASS** | Stock 2-parameter controls on screen operate Plateau and VND directly. |
-| **Extended UI Mapping** | **ATTENTION** | Mode 6 knob hijacking in `payload.rs` conflicts with channel send levels; recommend gating extended encoders behind `efx-select` screen context. |
+| **Extended UI Mapping** | **PASS** | Gated behind active window context; standard Mode 6 send levels 100% preserved. |

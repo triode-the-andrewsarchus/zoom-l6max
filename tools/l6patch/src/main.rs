@@ -192,6 +192,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 })
             })
             .collect::<Result<Vec<_>, Box<dyn std::error::Error>>>()?;
+        } else if *name == "dual-efx" && !patches.iter().any(|p| *p == "knob-dialog") {
+            edits.knob_dialog_entry = Some(symbol(&symbols, "knob_changed")?);
         }
         let applied_patch = apply_patch_with_map(
             &mut firmware,
