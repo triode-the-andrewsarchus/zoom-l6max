@@ -10,7 +10,7 @@ use std::{
     path::{Path, PathBuf},
 };
 const USAGE: &str = "Usage: l6patch INPUT_UNPACKED_DIR OUTPUT_DIR [--patch NAME]... [--update-version FOUR_DIGITS]\n\
-Patches: knob-dialog, midi-sync, din-mixer-control. Repeat --patch to combine them; without --patch, L6max defaults to knob-dialog and L6 defaults to midi-sync.";
+Patches: knob-dialog, midi-sync, din-mixer-control, dual-efx. Repeat --patch to combine them; without --patch, L6max defaults to knob-dialog and L6 defaults to midi-sync.";
 
 struct Options {
     source: PathBuf,
