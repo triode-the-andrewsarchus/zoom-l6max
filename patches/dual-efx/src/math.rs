@@ -17,6 +17,21 @@ pub fn clamp(val: f32, min: f32, max: f32) -> f32 {
     }
 }
 
+/// Continuous cubic soft-clipper to prevent harsh digital clipping and protect downstream DACs:
+/// f(x) = x - (4/27)*x^3 for |x| < 1.5, clamped to [-1.0, 1.0].
+/// Small-signal gain f'(0) is exactly 1.0 (unity gain).
+/// Derivative f'(1.5) = 1 - 4/9*(2.25) = 0.0 (smooth C1 transition at ±1.0 ceiling).
+#[inline(always)]
+pub fn soft_clip(x: f32) -> f32 {
+    if x <= -1.5 {
+        -1.0
+    } else if x >= 1.5 {
+        1.0
+    } else {
+        x - (4.0 / 27.0) * (x * x * x)
+    }
+}
+
 /// Fast clamp for usize.
 #[inline(always)]
 pub fn clamp_usize(val: usize, min: usize, max: usize) -> usize {

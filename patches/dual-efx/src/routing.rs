@@ -55,7 +55,7 @@ impl DualEfxProcessor {
             plateau: PlateauReverb::new(),
             channel_routing: [RoutingMode::Neither; MAX_CHANNELS],
             channel_send: [0.0; MAX_CHANNELS],
-            cascade_gain: 1.0,
+            cascade_gain: 0.0,
             return_gain_a: 1.0,
             return_gain_b: 1.0,
             pre_ainr_enabled: false,
@@ -169,10 +169,10 @@ impl DualEfxProcessor {
             wet_b_r[i] = r;
         }
 
-        // 5. Sum to Master Return
+        // 5. Sum to Master Return with soft clipping to protect downstream DAC
         for i in 0..n {
-            out_l[i] = wet_a_l[i] * self.return_gain_a + wet_b_l[i] * self.return_gain_b;
-            out_r[i] = wet_a_r[i] * self.return_gain_a + wet_b_r[i] * self.return_gain_b;
+            out_l[i] = super::math::soft_clip(wet_a_l[i] * self.return_gain_a + wet_b_l[i] * self.return_gain_b);
+            out_r[i] = super::math::soft_clip(wet_a_r[i] * self.return_gain_a + wet_b_r[i] * self.return_gain_b);
         }
     }
 
@@ -229,8 +229,8 @@ impl DualEfxProcessor {
             let val_a_r = if enable_a { a_out_r[i] * self.return_gain_a } else { 0.0 };
             let val_b_l = if enable_b { b_out_l[i] * self.return_gain_b } else { 0.0 };
             let val_b_r = if enable_b { b_out_r[i] * self.return_gain_b } else { 0.0 };
-            out_l[i] = val_a_l + val_b_l;
-            out_r[i] = val_a_r + val_b_r;
+            out_l[i] = super::math::soft_clip(val_a_l + val_b_l);
+            out_r[i] = super::math::soft_clip(val_a_r + val_b_r);
         }
     }
 }

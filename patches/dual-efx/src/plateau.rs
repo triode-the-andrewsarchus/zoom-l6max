@@ -500,11 +500,11 @@ impl PlateauReverb {
         out_l = self.out_hp_l.process(out_l * 0.6);
         out_r = self.out_hp_r.process(out_r * 0.6);
 
-        // Soft clipper to prevent harsh digital clipping
-        out_l = clamp(out_l, -1.0, 1.0);
-        out_r = clamp(out_r, -1.0, 1.0);
+        // Continuous cubic soft clipper to prevent harsh digital clipping
+        out_l = soft_clip(out_l) * self.params.wet;
+        out_r = soft_clip(out_r) * self.params.wet;
 
-        (out_l * self.params.wet, out_r * self.params.wet)
+        (out_l, out_r)
     }
 
     pub fn process_block(&mut self, left: &mut [f32], right: &mut [f32]) {
