@@ -24,10 +24,16 @@ static mut INITIALIZED: bool = false;
 /// Current parameter editing bank:
 /// 0 = Velvet Noise Decorrelator (Effect A)
 /// 1 = Plateau Plate Reverb (Effect B)
-static mut EDIT_BANK: u8 = 0;
+/// 2 = Auto (follow active efx_type: Room -> Plateau, Spring -> Velvet Noise)
+static mut EDIT_BANK: u8 = 2;
 
 /// Selected channel for per-channel routing setup (0..7)
 static mut SELECTED_ROUTING_CHANNEL: u8 = 0;
+
+/// Last observed parameters to prevent redundant recalculation
+static mut LAST_PARAM0: u32 = 0xffff;
+static mut LAST_PARAM1: u32 = 0xffff;
+static mut LAST_EFX_TYPE: u32 = 0xffff;
 
 unsafe fn get_processor() -> &'static mut DualEfxProcessor {
     unsafe {
@@ -65,17 +71,29 @@ pub unsafe extern "C" fn efx_dispatch_hook(
         // efx_type == 2: Spring Reverb -> Replaced with Velvet Noise Decorrelator
         // If efx_type is Delay (3), Chorus (4), or AINR (5), forward to stock DSP!
         if efx_type == 1 || efx_type == 2 {
-            // Update parameters from stock knobs if in stock mode
-            if efx_type == 1 {
-                // Room Reverb: param0 = PreDelay, param1 = Decay
-                proc.plateau.params.predelay_ms = (param0 as f32 / 127.0) * 150.0;
-                proc.plateau.params.decay = 0.1 + (param1 as f32 / 127.0) * 0.899;
-                proc.plateau.set_parameters(proc.plateau.params);
-            } else {
-                // Spring Reverb: param0 = VND Time Spread, param1 = VND Decay
-                proc.velvet.current.length_ms = 1.0 + (param0 as f32 / 127.0) * 94.0;
-                proc.velvet.current.decay_db = -120.0 + (param1 as f32 / 127.0) * 120.0;
-                proc.velvet.set_parameters(proc.velvet.current);
+            let last_p0 = read(core::ptr::addr_of!(LAST_PARAM0));
+            let last_p1 = read(core::ptr::addr_of!(LAST_PARAM1));
+            let last_type = read(core::ptr::addr_of!(LAST_EFX_TYPE));
+
+            // Only update parameters if param0/param1/efx_type changed:
+            // This prevents recalculating filter/delay coefficients on every audio block (3000 Hz)
+            // and preserves extended parameter edits made via encoders.
+            if param0 != last_p0 || param1 != last_p1 || efx_type != last_type {
+                write(core::ptr::addr_of_mut!(LAST_PARAM0), param0);
+                write(core::ptr::addr_of_mut!(LAST_PARAM1), param1);
+                write(core::ptr::addr_of_mut!(LAST_EFX_TYPE), efx_type);
+
+                if efx_type == 1 {
+                    // Room Reverb: param0 = PreDelay, param1 = Decay
+                    proc.plateau.params.predelay_ms = (param0 as f32 / 127.0) * 150.0;
+                    proc.plateau.params.decay = 0.1 + (param1 as f32 / 127.0) * 0.899;
+                    proc.plateau.set_parameters(proc.plateau.params);
+                } else {
+                    // Spring Reverb: param0 = VND Time Spread, param1 = VND Decay
+                    proc.velvet.current.length_ms = 1.0 + (param0 as f32 / 127.0) * 94.0;
+                    proc.velvet.current.decay_db = -120.0 + (param1 as f32 / 127.0) * 120.0;
+                    proc.velvet.set_parameters(proc.velvet.current);
+                }
             }
 
             // Read send levels from mixer channels (0..7 for L6max)
@@ -138,7 +156,8 @@ pub unsafe extern "C" fn efx_dispatch_hook(
 }
 
 /// Replaces the stock knob changed hook to provide extended parameter editing
-/// across all 8 encoders with OLED notification dialog updates.
+/// when in an effect edit context, while preserving standard channel send levels
+/// when in the normal mixer screen.
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".text.knob_changed")]
 pub unsafe extern "C" fn knob_changed(
@@ -149,11 +168,20 @@ pub unsafe extern "C" fn knob_changed(
     value: u32,
 ) {
     unsafe {
-        // Forward to mixer parameter applicator so stock mixer state updates
-        core::mem::transmute::<usize, unsafe extern "C" fn(u32, u32, u32, i32, u32)>(
-            MIXER_APPLY_CHANNEL_PARAMETER | 1,
-        )(channel, mode, absolute, delta, value);
+        // Normal recorder window descriptor is 0x80200408.
+        let active_window = read(0x80202610 as *const u32);
+        let in_recorder_window = active_window == 0x80200408;
 
+        // When in standard mixer/recorder window, encoders 0..7 control
+        // Channel 1..8 Send Levels (for Mode 6) and other channel parameters normally.
+        if in_recorder_window {
+            core::mem::transmute::<usize, unsafe extern "C" fn(u32, u32, u32, i32, u32)>(
+                MIXER_APPLY_CHANNEL_PARAMETER | 1,
+            )(channel, mode, absolute, delta, value);
+            return;
+        }
+
+        // When in an extended screen context / dialog:
         if channel >= 8 || mode >= 10 || delta == 0 {
             return;
         }
@@ -161,7 +189,13 @@ pub unsafe extern "C" fn knob_changed(
         // Mode 6 is EFX
         if mode == 6 {
             let proc = get_processor();
-            let bank = read(core::ptr::addr_of!(EDIT_BANK));
+            let efx_type = call1(MIXER_GET_EFX_TYPE, 0);
+            let configured_bank = read(core::ptr::addr_of!(EDIT_BANK));
+            let bank = match configured_bank {
+                0 => 0,
+                1 => 1,
+                _ => if efx_type == 1 { 1 } else { 0 },
+            };
 
             // Map the 8 encoders (channels 0..7) to extended parameters:
             match channel {
@@ -275,14 +309,16 @@ pub unsafe extern "C" fn knob_changed(
                 6 => {
                     // Encoder 7: Per-Channel Routing selection
                     let sel = read(core::ptr::addr_of!(SELECTED_ROUTING_CHANNEL)) as usize;
-                    let current = proc.channel_routing[sel];
-                    let next = match current {
-                        RoutingMode::Neither => RoutingMode::SendA,
-                        RoutingMode::SendA => RoutingMode::SendB,
-                        RoutingMode::SendB => RoutingMode::SendAtoB,
-                        RoutingMode::SendAtoB => RoutingMode::Neither,
-                    };
-                    proc.channel_routing[sel] = next;
+                    if sel < 8 {
+                        let current = proc.channel_routing[sel];
+                        let next = match current {
+                            RoutingMode::Neither => RoutingMode::SendA,
+                            RoutingMode::SendA => RoutingMode::SendB,
+                            RoutingMode::SendB => RoutingMode::SendAtoB,
+                            RoutingMode::SendAtoB => RoutingMode::Neither,
+                        };
+                        proc.channel_routing[sel] = next;
+                    }
                 }
                 7 => {
                     // Encoder 8: Global Cascade toggle (A -> B) or Freeze toggle
@@ -295,6 +331,11 @@ pub unsafe extern "C" fn knob_changed(
                 }
                 _ => {}
             }
+        } else {
+            // For other modes on dialog screens, apply normally
+            core::mem::transmute::<usize, unsafe extern "C" fn(u32, u32, u32, i32, u32)>(
+                MIXER_APPLY_CHANNEL_PARAMETER | 1,
+            )(channel, mode, absolute, delta, value);
         }
     }
 }
