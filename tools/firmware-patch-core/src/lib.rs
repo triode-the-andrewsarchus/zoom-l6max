@@ -210,7 +210,10 @@ pub fn apply_patch_with_map(
     }
     for hook in &edits.hooks {
         let off = (hook.address - firmware_base) as usize;
-        firmware[off..off + 4].copy_from_slice(&branch(hook.address, hook.target, false));
+        let hw1 = u16::from_le_bytes([firmware[off], firmware[off + 1]]);
+        let hw2 = u16::from_le_bytes([firmware[off + 2], firmware[off + 3]]);
+        let is_bl = (hw1 & 0xf800) == 0xf000 && (hw2 & 0xd000) == 0xd000;
+        firmware[off..off + 4].copy_from_slice(&branch(hook.address, hook.target, is_bl));
         for chunk in firmware[off + 4..off + hook.length].chunks_exact_mut(2) {
             chunk.copy_from_slice(&[0, 0xbf]);
         }

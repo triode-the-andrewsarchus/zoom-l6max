@@ -19,7 +19,7 @@ use trampolines as original;
 /// The DualEfxProcessor instance.
 /// Placed in high SDRAM (0x83e00000) by link.ld (.bss section).
 static mut PROCESSOR: DualEfxProcessor = DualEfxProcessor::new();
-static mut INITIALIZED: bool = false;
+static mut MAGIC_TAG: u32 = 0;
 
 /// Current parameter editing bank:
 /// 0 = Velvet Noise Decorrelator (Effect A)
@@ -35,13 +35,23 @@ static mut LAST_PARAM0: u32 = 0xffff;
 static mut LAST_PARAM1: u32 = 0xffff;
 static mut LAST_EFX_TYPE: u32 = 0xffff;
 
+const INIT_MAGIC: u32 = 0x44454658; // "DEFX"
+
 unsafe fn get_processor() -> &'static mut DualEfxProcessor {
     unsafe {
-        let initialized = read(core::ptr::addr_of!(INITIALIZED));
+        let tag = read(core::ptr::addr_of!(MAGIC_TAG));
         let proc = &mut *core::ptr::addr_of_mut!(PROCESSOR);
-        if !initialized {
+        if tag != INIT_MAGIC {
+            // Mask interrupts during critical cold-start initialization
+            core::arch::asm!("cpsid i", options(nomem, nostack));
             proc.init();
-            write(core::ptr::addr_of_mut!(INITIALIZED), true);
+            write(core::ptr::addr_of_mut!(EDIT_BANK), 2);
+            write(core::ptr::addr_of_mut!(SELECTED_ROUTING_CHANNEL), 0);
+            write(core::ptr::addr_of_mut!(LAST_PARAM0), 0xffff);
+            write(core::ptr::addr_of_mut!(LAST_PARAM1), 0xffff);
+            write(core::ptr::addr_of_mut!(LAST_EFX_TYPE), 0xffff);
+            write(core::ptr::addr_of_mut!(MAGIC_TAG), INIT_MAGIC);
+            core::arch::asm!("cpsie i", options(nomem, nostack));
         }
         proc
     }
@@ -197,6 +207,9 @@ pub unsafe extern "C" fn knob_changed(
                 _ => if efx_type == 1 { 1 } else { 0 },
             };
 
+            // Mask interrupts during parameter updates to prevent torn state in audio ISR
+            core::arch::asm!("cpsid i", options(nomem, nostack));
+
             // Map the 8 encoders (channels 0..7) to extended parameters:
             match channel {
                 0 => {
@@ -307,17 +320,33 @@ pub unsafe extern "C" fn knob_changed(
                     }
                 }
                 6 => {
-                    // Encoder 7: Per-Channel Routing selection
-                    let sel = read(core::ptr::addr_of!(SELECTED_ROUTING_CHANNEL)) as usize;
-                    if sel < 8 {
+                    // Encoder 7: Velvet Noise Routing cycle or Plateau Modulation Depth
+                    if bank == 0 {
+                        let mut sel = read(core::ptr::addr_of!(SELECTED_ROUTING_CHANNEL)) as usize;
+                        if sel >= 8 {
+                            sel = 0;
+                        }
                         let current = proc.channel_routing[sel];
                         let next = match current {
                             RoutingMode::Neither => RoutingMode::SendA,
                             RoutingMode::SendA => RoutingMode::SendB,
                             RoutingMode::SendB => RoutingMode::SendAtoB,
-                            RoutingMode::SendAtoB => RoutingMode::Neither,
+                            RoutingMode::SendAtoB => {
+                                // Once completed full cycle for this channel, advance to next channel
+                                let next_ch = (sel + 1) % 8;
+                                write(core::ptr::addr_of_mut!(SELECTED_ROUTING_CHANNEL), next_ch as u8);
+                                RoutingMode::Neither
+                            }
                         };
                         proc.channel_routing[sel] = next;
+                    } else {
+                        // Plateau Modulation Depth (0.0 to 10.0 samples)
+                        proc.plateau.params.mod_depth = math::clamp(
+                            proc.plateau.params.mod_depth + (delta as f32 * 0.25),
+                            0.0,
+                            10.0,
+                        );
+                        proc.plateau.set_parameters(proc.plateau.params);
                     }
                 }
                 7 => {
@@ -331,6 +360,7 @@ pub unsafe extern "C" fn knob_changed(
                 }
                 _ => {}
             }
+            core::arch::asm!("cpsie i", options(nomem, nostack));
         } else {
             // For other modes on dialog screens, apply normally
             core::mem::transmute::<usize, unsafe extern "C" fn(u32, u32, u32, i32, u32)>(

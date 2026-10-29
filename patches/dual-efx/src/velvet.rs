@@ -308,7 +308,8 @@ impl VelvetDecorrelator {
                 wet = old_weight * wet + new_weight * self.convolve(&self.channels[c], self.pending_bank);
             }
 
-            outputs[c] = dry + self.current.amount * (wet - dry);
+            // In an Aux Send bus effect, return pure wet scaled by amount, soft-clipped to [-1.0, 1.0].
+            outputs[c] = soft_clip(wet * self.current.amount);
         }
 
         for c in 0..2 {
