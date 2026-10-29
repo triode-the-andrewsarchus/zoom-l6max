@@ -27,6 +27,7 @@ task at hand.
 - [Dual-EFX feasibility analysis](codebase-review-and-velvet-noise-feasibility.md): algorithm feasibility, architecture review, and CPU/memory budget.
 - [Dual-EFX implementation plan](dual-efx-implementation-plan.md): engineering plan and parameter architecture.
 - [Dual-EFX technical walkthrough](dual-efx-implementation-walkthrough.md): complete implementation walkthrough and test evidence.
+- [Dual-EFX technical review](dual-efx-technical-review.md): functionality, embedded safety, and UI interaction review.
 
 ## Emulator and firmware references
 
