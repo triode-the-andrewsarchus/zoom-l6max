@@ -1640,6 +1640,25 @@ above; its recipe and result SHA-256 were
 `01b53375b847e6d5bbf1edb45cf9d37f78a988f5ea8f9a3e4c174e7ac3650a82` and
 `2df1ee4ea91408b6ebd2e23f8c31a0b3288a63625785156fa53f9d6da25c2b0f`.
 
+A separate matched cadence experiment selected Room and sampled the diagnostic
+callback counter at guest times 51.760, 56.760, 61.760 and 66.760 seconds.
+With active synthetic sends, the counts were 1,053, 3,471, 5,829 and 8,188;
+with DSP bypassed they were 1,633, 5,383, 9,133 and 12,881. Thus the sampled
+15-second interval averaged approximately 476 versus 750 callbacks per guest
+second. The active diagnostic is not keeping up with the emulator's modeled
+cadence in this observation. These counters alone do not identify dropped audio
+samples or establish physical hardware timing. The active MAIN, ELF, recipe
+and result hashes were
+`80800cb808f7ea5e7de4c8c641cef66d788ce6c2edd44572deb886c959f3b6a9`,
+`81865d430af5d4ea95451ebf1eba205ab62fe03799117b7313983ae533b94e2d`,
+`9c2b12b81cdcdb99014db0c523a68a22e9824684f51d75fb6c2b59ec4a847b4a`, and
+`3db71bbe6945ff6069f633c5de12cf417e5a668d7b1f614608fd4b87c3c5cc0c`;
+the bypass hashes in the same order were
+`724cf0870a8813ef57c719bd0969207a7009ad2481856dbd6091de3f489492d5`,
+`6ec2efce652f404407f9cb4665d49bed3a915a72dd32bc6aaba69e733459647d`,
+`78b13a723d77b30096e2dea33c782f29fa519d89c5375d2f1824ca20a9905af4`, and
+`020abd08d2973df1618338d105b5cdfe282685617df0fdfd4e0da5c1825a24ee`.
+
 The tap loop now checks the range first and uses an out-of-line modulo only
 for out-of-range delays. Cortex-M7 disassembly confirmed that valid delays
 branch around the divide; the first inline version had not done so. A host
