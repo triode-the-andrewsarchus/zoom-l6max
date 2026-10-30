@@ -289,13 +289,13 @@ mod tests {
 
         zeroed.channel_routing[0] = routing::RoutingMode::SendA;
         zeroed.channel_send[0] = 0.7;
-        zeroed.cascade_gain = 1.0;
+        zeroed.cascade_gain = 0.0;
         zeroed.return_gain_a = 0.0;
         zeroed.pre_ainr_enabled = true;
         zeroed.init();
         assert_eq!(zeroed.channel_routing[0], routing::RoutingMode::Neither);
         assert_eq!(zeroed.channel_send[0], 0.0);
-        assert_eq!(zeroed.cascade_gain, 0.0);
+        assert_eq!(zeroed.cascade_gain, 1.0);
         assert_eq!(zeroed.return_gain_a, 1.0);
         assert!(!zeroed.pre_ainr_enabled);
     }
@@ -435,6 +435,29 @@ mod tests {
             input[0] = 0.0;
         }
         assert!(peak > 0.0000001 && peak < 0.001, "quiet send peak was {peak}");
+    }
+
+    #[test]
+    fn cascade_route_feeds_reverb_with_default_settings() {
+        let mut processor = Box::new(routing::DualEfxProcessor::new());
+        processor.init();
+        processor.set_channel_routing(0, routing::RoutingMode::SendAtoB);
+        processor.set_channel_send(0, 1.0);
+        // Isolate the reverb return from the direct decorrelator return.
+        processor.return_gain_a = 0.0;
+        let mut input = [0.0f32; 64];
+        input[0] = 1.0;
+        let mut left = [0.0; 64];
+        let mut right = [0.0; 64];
+        let mut peak = 0.0f32;
+        for _ in 0..200 {
+            processor.process_block(&[&input], &mut left, &mut right);
+            for (&l, &r) in left.iter().zip(&right) {
+                peak = peak.max(l.abs()).max(r.abs());
+            }
+            input[0] = 0.0;
+        }
+        assert!(peak > 0.001, "cascade produced no reverb response: {peak}");
     }
 
     #[test]
