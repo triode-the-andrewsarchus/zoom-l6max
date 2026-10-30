@@ -2545,6 +2545,21 @@ All firmware and runtime artifacts remain local.
 
 ## Evidence and limits
 
+A later control-path change applies Plateau decay, modulation-depth and
+freeze encoder edits without recalculating unrelated delay lengths or filter
+coefficients in the audio task. A host comparison exercised repeated edits
+and 40,000 frames against the full setter with equal output. In a separate
+QEMU-only timing-control run, the inspector accepted the three encoder turns
+and reported `87.0 %`, `8.3 samples`, and `FROZEN`. This run bypassed effects
+DSP, so it does not establish active-audio responsiveness or target timing.
+The diagnostic MAIN, ELF, modified recipe and result SHA-256 values were
+`8f00b902ccb39d492bbb7d439249176c1ad39d4cd7c29286028b1ce5693df24f`,
+`7bf0b7c7ba0a92486a638d1ca601cb12da88ac46fb08cef4fb3440e024192cf5`,
+`91213366cdee9c1ba82d9a456127bb3505e21caba1b37950c217e1d564b2bddc`, and
+`f792afe653080a8739da60b4711eb7aab49e0e3a2194dff60c56e2975a6d5482`.
+The stock MAIN, NOR and QEMU executable match the automatic AINR experiment
+above; the QEMU executable's source provenance remains unattested.
+
 - QEMU binary SHA-256:
   `9724d60a31400becad8f1e98d6fd67bb9456c8dfbdeebe833e7636ed8e9cf536`.
   The `l6test` runner records its source provenance as unattested.

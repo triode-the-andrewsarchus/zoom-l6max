@@ -54,7 +54,11 @@ pub fn edit_encoder(
                 6 => { p.mod_depth += step * 0.25; PlatModDepth }
                 _ => { p.freeze = delta > 0; PlatFreeze }
             };
-            processor.plateau.set_parameters(p);
+            if matches!(encoder, 2 | 6 | 7) {
+                processor.plateau.set_live_parameters(p);
+            } else {
+                processor.plateau.set_parameters(p);
+            }
             id
         }
     };

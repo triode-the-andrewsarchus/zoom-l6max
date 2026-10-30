@@ -140,6 +140,33 @@ mod tests {
     }
 
     #[test]
+    fn plateau_live_encoder_edits_match_full_parameter_updates() {
+        use parameters::{edit_encoder, ParameterBank};
+        let (mut fast, mut reference) = paired_reverb_return();
+        let mut peak = 0.0f32;
+        for frame in 0..40_000 {
+            if frame % 997 == 0 {
+                let encoder = [2, 6, 7][(frame / 997) % 3];
+                let delta = if (frame / 997) % 2 == 0 { 3 } else { -4 };
+                let mut p = reference.plateau.params;
+                match encoder {
+                    2 => p.decay += delta as f32 * 0.02,
+                    6 => p.mod_depth += delta as f32 * 0.25,
+                    _ => p.freeze = delta > 0,
+                }
+                reference.plateau.set_parameters(p);
+                assert!(edit_encoder(&mut fast, ParameterBank::Plateau, encoder, delta).is_some());
+            }
+            let input = if frame % 131 == 0 { 0.5 } else { 0.0 };
+            let actual = fast.process_bus_sample(0.0, input, 0.0);
+            let expected = reference.process_bus_sample(0.0, input, 0.0);
+            assert_eq!(actual, expected, "frame {frame}");
+            peak = peak.max(actual.0.abs()).max(actual.1.abs());
+        }
+        assert!(peak > 0.001, "test must observe a reverb response");
+    }
+
+    #[test]
     fn efx_select_defers_short_press_and_distinguishes_hold() {
         use controls::EfxSelectAction as Action;
         let mut gesture = controls::EfxSelectGesture::default();
