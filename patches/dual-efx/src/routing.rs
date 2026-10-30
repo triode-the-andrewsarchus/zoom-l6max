@@ -71,6 +71,14 @@ impl IdlePlateau {
         self.inner.set_parameters(params);
     }
 
+    /// Update controls consumed directly per sample, without recalculating
+    /// delay lengths or filter coefficients on the audio task.
+    pub(crate) fn set_live_parameters(&mut self, params: PlateauParameters) {
+        self.inner.params.decay = super::math::clamp(params.decay, 0.1, 0.999);
+        self.inner.params.mod_depth = super::math::clamp(params.mod_depth, 0.0, 16.0);
+        self.inner.params.freeze = params.freeze;
+    }
+
     pub fn process_sample(&mut self, l: f32, r: f32) -> (f32, f32) {
         // Requiring positive zero preserves the ordinary path for signed zero.
         if self.pristine && l.to_bits() == 0 && r.to_bits() == 0 {
