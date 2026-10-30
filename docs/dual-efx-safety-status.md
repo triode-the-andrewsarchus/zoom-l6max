@@ -55,6 +55,13 @@ The blocking findings for L6max MAIN 1.10
   a nonzero-sends diagnostic failed to open the inspector or select the next
   effect; a DSP-bypassed control completed the same sequence. This emulator
   workload dependence does not measure physical execution time.
+- A QEMU-only chain using three copied, learned AINR processors before the
+  synthetic effect sends ran below modeled audio cadence. In a separate
+  matched pair, two TAP presses during the active chain did not reach the
+  traced stock queue or dispatcher, while the DSP-bypassed control delivered
+  them. This does not establish physical behavior, but TAP is not a validated
+  control workaround under that modeled workload. The copies use unowned
+  scratch memory and have no independent learning or target qualification.
 
 Some standalone DSP defects have been fixed and tested on the host. Those
 tests do not exercise the firmware bindings or establish hardware safety.

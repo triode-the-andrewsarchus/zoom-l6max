@@ -1444,6 +1444,46 @@ result and QEMU executable SHA-256 values were
 The stock MAIN and initial NOR matched the preceding experiments; QEMU source
 provenance remains unattested.
 
+To check whether the physical TAP input could offer a control path while the
+experimental chain is active, two further QEMU-only runs added two TAP presses
+after returning to Room. A plugin traced the stock EventPort queue calls and
+MAIN dispatcher. Both runs first selected AINR and used one TAP press for
+learning; that press produced a down/up pair at the queue and dispatcher and
+the learned flag became 1. In the active-effects run, QEMU acknowledged both
+later presses, but the trace recorded no additional TAP queue or dispatcher
+events. The routed callback remained active with finite, nonzero output.
+
+The matched control kept the same copied-state setup and synthetic inputs but
+deliberately bypassed both the three AINR calls and effect DSP, outputting
+silence. It recorded all three TAP down/up pairs at both traced sites. Between
+the two snapshots, the active run counted 2,079 blocks in 4,534 guest ms
+(about 459/s), and the bypass counted 3,402 (about 750/s). These are individual
+instrumented emulator runs; they indicate workload-dependent input delivery
+in this model, not a physical deadline or proof of the precise stall location.
+In particular, routing an added pre-AINR control through TAP is not validated
+as a workaround for the observed active-load failure.
+
+The active and bypass diagnostic MAIN hashes were
+`1dd114e338bc41d9f4aa64d8363302240a5940ad16bd5945af233f6cb93c3fd6` and
+`f9c0849e8cf99549d93b11412bff7e5a167b1fba439b7abd25f282915416d1f4`;
+the ELFs were `72fbfef648db39416d7f4920c1a590a821a2ef6c9406b8b6f65341a56ba1a987`
+and `5c0f0ea9cd1409eda9dd3bc66abe5ef7809979ea4a66bd890d4da620f3476e90`;
+the recipes were `1acdb59b1eb0c46cf3155998e7075a14105b2be99e18b009305fbe069952a48a`
+and `d9e756177d8d0cac954af878f1c2d097304701e2476fdfba5fb903d556e47925`;
+the result JSONs were `24fe1e3b6f10e268ee099266cdbe63b045d1fdc6db082d585522d5b2c1a3eea1`
+and `13f3e5d0da8eb81e087d199a31a10353c8f75df7978a2b2b5c4557bcbefada83`;
+and the plugin logs were `1840d0e8786b0399bc681386943d52f7d15269a6419d96ec3c9976c35345a34e`
+and `da1893f5768c37081bec35116c31c4ed01ef02f9f90defa84ef042d2d422d5f6`.
+The bypass callback source SHA-256 was
+`181862b7611104d5909072b95d56dd8e1f3e6888a7bc70bb8453d50dba22628e`.
+The plugin source, plugin binary, QEMU executable and wrapper hashes were
+`35a1bc4c774ba765d54a07c003c89f76a66ecebd67bb9bcea44debe7e9797806`,
+`2708a43002a6ba79a969c7a830a93f4f21c99d4a013e9b671b1505b72f402e4`,
+`249a29abb9e52e50d46472250475f2903a7b74e840ac0296545f3dad6ba41fee`, and
+`e0cdc14726d4ab96b18345acd28b6984f38371fd46037afb0365beb2efe90efd`.
+The stock MAIN and initial NOR matched the preceding experiment; QEMU source
+provenance remains unattested.
+
 An instrumented stock-QEMU run on the newer board model traced CPU memory
 accesses between entry to `0x00001060` and the two stock caller returns. It
 armed at the learning-start handler and skipped 64 subsequent entries before
