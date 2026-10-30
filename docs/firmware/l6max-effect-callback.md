@@ -1444,6 +1444,42 @@ result and QEMU executable SHA-256 values were
 The stock MAIN and initial NOR matched the preceding experiments; QEMU source
 provenance remains unattested.
 
+A further QEMU-only layout experiment placed the copied AINR states inside the
+observed stock effect buffer instead of the earlier high scratch region. A
+separate `thumbv7em-none-eabihf` layout object reported the current effects
+processor as 297,936 bytes with 8-byte alignment. In this build it occupies
+`0x80d00000..0x80d48bd0`; the three 128 KiB copies start at `0x80d50000`,
+`0x80d70000` and `0x80d90000`, ending at `0x80db0000`, before the observed
+stock buffer end `0x80dbb800`. The diagnostic put the relocated code copies
+at `0x80130000`, `0x80136000` and `0x8013c000` in the erased application
+tail of this fixture; it did not create an update package.
+
+The observer captured stock learned state in host memory, waited until Room's
+initialized callback, stopped the guest, copied and read back all three
+states, and checked that the initialized effects state was unchanged. The
+callback then ran with synthetic sends. At guest times 87,160 and 92,160 ms,
+its counter was 2,416 and 4,713: approximately 459 blocks per second. The
+sampled send values and final effect output were finite and nonzero. The
+observer, callback, preparer, diagnostic MAIN, ELF, recipe and result hashes
+were `49590e20dc27fdf2132b723165f77c038aaeddc9070a81ed1ed93ccb39b75822`,
+`8169ea841b3a9bcd9cbe6f5c3844275d9a4f933e748905069cbb2ef03521a50f`,
+`1c315accaa725580e9bdf126e1d5e5ff9e0d4bb1eac3a696a80f7af02349e6bc`,
+`89921e238c6ad4bc3b9a14b399197005563a41a6ef600525afe99ed74a38795d`,
+`b33b2dbdf7a0ce3e965fd3345b34d0a06dec9dbc50c3d782575fae119f8e9b8e`,
+`598a39b78c0de7eabbc979dc36425cd4672f60d296cc539b8ca23e5acc4981db`, and
+`b36586771d6e8f0bdf91b71fb1b8c70d6d89e435dc79d30d1bb94f0dd01013e8`.
+The stock MAIN, initial NOR and QEMU executable matched the preceding
+experiment. The layout source and object hashed to
+`abeca8fcb7c91d1e200e235d60bf9ac8f08ffbde6d24584247a46b9cd617517f` and
+`a7121d9439ff4cc495a209d68850ad637ef8ed052a3d9e0c0b70d7eea5673ca3`.
+
+This supports investigating that buffer layout, not a hardware reservation.
+The host-held snapshot and debugger stop are not a device initialization
+protocol; other stock or DMA users, effect-switch interleavings, physical RAM,
+packaging, audio quality and the target deadline remain unqualified. The image
+must not be installed. The probe's `--effect-buffer` option reproduces the
+experiment.
+
 To check whether the physical TAP input could offer a control path while the
 experimental chain is active, two further QEMU-only runs added two TAP presses
 after returning to Room. A plugin traced the stock EventPort queue calls and
