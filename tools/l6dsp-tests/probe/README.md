@@ -77,8 +77,8 @@ and limitations.
 
 Pass `--callback --inspector` to prepare a separate QEMU-only image. Its
 generated recipe selects EFX mode and Room, opens the inspector with a long
-EFX SEL hold, turns encoder 1, selects Spring, repeats the hold and turn,
-then closes the inspector and turns the normal mixer control. The three
+EFX SEL hold, edits both parameter banks, revisits each, then closes the
+inspector and turns the normal mixer control. The three
 revision-specific call sites are byte-guarded. The input hook queues edits;
 the diagnostic audio callback applies up to eight events per block and formats
 their captured text itself. That formatting placement is not qualified for
@@ -86,15 +86,19 @@ real-time use. Summary
 memory at `0x83e00400` contains parameter ID, value length, 16 text bytes,
 consumed-event count and inspector-open flag. Queue head, tail and overflow
 count are captured at `0x83e00200`.
+For gesture investigation, `0x83e00500` stores a count followed by up to
+20 triples of event, tick, and inspector-active flag, recorded at the selector
+hook. The trace adds work to that hook and can change timing.
 
 For the prepared fixture identified in the investigation, the expected
-captured values are `26.0 ms` for Room and `84.0 %` for Spring, with eight
-consumed events and no queue overflow in each bank. The mixer send changes
-before and after the inspector but stays fixed during both edits. Check the
+captured values are `26.0 ms` for Plateau and `84.0 %` for Velvet, followed
+by `28.0 ms` and `86.0 %` when revisiting them. The mixer send changes
+before and after the inspector but stays fixed during the edits. Check the
 captured observations; a completed recipe alone does not assert them.
 
-While the inspector is open, pressing EFX changes between parameter and
-routing pages. Turning a strip encoder on the routing page cycles that strip
+While the inspector is open, a short EFX SEL press switches the parameter
+bank without changing the selected stock effect; pressing EFX changes between
+parameter and routing pages. Turning a strip encoder on the routing page cycles that strip
 through off, A, B and A-to-B. This experiment does not draw an OLED popup.
 Effect changes reinitialize the DSP and queue, so edits and tails can be lost.
 The queue can overflow, and synchronization, context changes, stock patch

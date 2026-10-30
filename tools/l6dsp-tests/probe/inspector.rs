@@ -18,6 +18,7 @@ struct UiState {
     arg1: u32,
     active: bool,
     routing_page: bool,
+    velvet_bank: bool,
 }
 
 unsafe fn atomic(address: usize) -> &'static AtomicU32 {
@@ -25,7 +26,7 @@ unsafe fn atomic(address: usize) -> &'static AtomicU32 {
 }
 
 /// Called while the stock effect callback is disabled during selection.
-pub unsafe fn initialize() {
+pub unsafe fn initialize(entry: u32) {
     unsafe {
         core::ptr::write(QUEUE as *mut AtomicU32, AtomicU32::new(0));
         core::ptr::write((QUEUE + 4) as *mut AtomicU32, AtomicU32::new(0));
@@ -33,12 +34,14 @@ pub unsafe fn initialize() {
         core::ptr::write_volatile(SUMMARY as *mut u32, u32::MAX);
         core::ptr::write_volatile((SUMMARY + 24) as *mut u32, 0);
         core::ptr::write_volatile((SUMMARY + 28) as *mut u32, 0);
+        core::ptr::write_volatile(0x83e00500 as *mut u32, 0);
         // A selection closes the previous inspector, but preserves gesture
         // state until the selector event returns to its caller.
         let ui = INSPECTOR as *mut UiState;
         if core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) == MAGIC {
             (*ui).active = false;
             (*ui).routing_page = false;
+            (*ui).velvet_bank = entry != 0x2028b8dc;
         }
     }
 }
@@ -57,9 +60,17 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
     unsafe {
         let ui = INSPECTOR as *mut UiState;
         if core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) != MAGIC {
-            core::ptr::write(ui, UiState { magic: MAGIC, gesture: controls::EfxSelectGesture::default(), arg0: 0, arg1: 0, active: false, routing_page: false });
+            core::ptr::write(ui, UiState { magic: MAGIC, gesture: controls::EfxSelectGesture::default(), arg0: 0, arg1: 0, active: false, routing_page: false, velvet_bank: core::ptr::read_volatile(0x83e00004 as *const u32) != 0x2028b8dc });
         }
         let s = &mut *ui;
+        let count = core::ptr::read_volatile(0x83e00500 as *const u32);
+        if count < 20 {
+            let record = (0x83e00504 as *mut u32).add(count as usize * 3);
+            core::ptr::write_volatile(record, event);
+            core::ptr::write_volatile(record.add(1), core::ptr::read_volatile(0x8020ab4c as *const u32));
+            core::ptr::write_volatile(record.add(2), s.active as u32);
+            core::ptr::write_volatile(0x83e00500 as *mut u32, count + 1);
+        }
         if event > 1 || !custom_active() || !recorder_active() {
             s.gesture.cancel();
             s.active = false;
@@ -72,6 +83,13 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
         match s.gesture.edge(event == 1, tick, 750) {
             controls::EfxSelectAction::None => 0,
             controls::EfxSelectAction::SelectNext => {
+                if s.active {
+                    s.velvet_bank = !s.velvet_bank;
+                    s.routing_page = false;
+                    #[cfg(knob_inspector)]
+                    inspector_notify_hook(24, (if s.velvet_bank { 2.0f32 } else { 0.0f32 }).to_bits());
+                    return 0;
+                }
                 s.active = false;
                 s.routing_page = false;
                 core::ptr::write_volatile((SUMMARY + 28) as *mut u32, 0);
@@ -82,7 +100,7 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
                 s.routing_page = false;
                 core::ptr::write_volatile((SUMMARY + 28) as *mut u32, s.active as u32);
                 #[cfg(knob_inspector)]
-                if s.active { inspector_notify_hook(24, 0.0f32.to_bits()); }
+                if s.active { inspector_notify_hook(24, (if s.velvet_bank { 2.0f32 } else { 0.0f32 }).to_bits()); }
                 0
             }
         }
@@ -100,7 +118,7 @@ pub unsafe extern "C" fn inspector_mode(mode: u32, event: u32) {
             && core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) == MAGIC && (*ui).active {
             (*ui).routing_page = !(*ui).routing_page;
             #[cfg(knob_inspector)]
-            inspector_notify_hook(24, ((*ui).routing_page as u8 as f32).to_bits());
+            inspector_notify_hook(24, (if (*ui).routing_page { 1.0f32 } else if (*ui).velvet_bank { 2.0f32 } else { 0.0f32 }).to_bits());
         }
     }
 }
@@ -127,7 +145,7 @@ pub unsafe extern "C" fn inspector_knob(channel: u32, mode: u32, absolute: u32, 
             return;
         }
         let signed = delta.clamp(-8_388_608, 8_388_607) as u32 & 0x00ff_ffff;
-        let encoded_channel = channel | if (*ui).routing_page { 0x80 } else { 0 };
+        let encoded_channel = channel | if (*ui).routing_page { 0x80 } else if (*ui).velvet_bank { 0x40 } else { 0 };
         core::ptr::write_volatile((QUEUE + 16 + ((head % CAPACITY) as usize) * 4) as *mut u32, (signed << 8) | encoded_channel);
         atomic(QUEUE).store(head.wrapping_add(1), Ordering::Release);
     }
@@ -138,11 +156,6 @@ pub unsafe fn consume(processor: &mut routing::DualEfxProcessor) {
     unsafe {
         let head = atomic(QUEUE).load(Ordering::Acquire);
         let mut tail = atomic(QUEUE + 4).load(Ordering::Relaxed);
-        let bank = if core::ptr::read_volatile(0x83e00004 as *const u32) == 0x2028b8dc {
-            parameters::ParameterBank::Plateau
-        } else {
-            parameters::ParameterBank::Velvet
-        };
         for _ in 0..8 {
             if tail == head { break; }
             let item = core::ptr::read_volatile((QUEUE + 16 + ((tail % CAPACITY) as usize) * 4) as *const u32);
@@ -169,7 +182,9 @@ pub unsafe fn consume(processor: &mut routing::DualEfxProcessor) {
                     let count = (SUMMARY + 24) as *mut u32;
                     core::ptr::write_volatile(count, core::ptr::read_volatile(count).wrapping_add(1));
                 }
-            } else if let Some(id) = parameters::edit_encoder(processor, bank, (item & 0xff) as usize, delta) {
+            } else if let Some(id) = parameters::edit_encoder(processor,
+                if item & 0x40 != 0 { parameters::ParameterBank::Velvet } else { parameters::ParameterBank::Plateau },
+                (item & 0x3f) as usize, delta) {
                 #[cfg(knob_inspector)]
                 {
                     let value = parameters::snapshot_parameter(id, processor);

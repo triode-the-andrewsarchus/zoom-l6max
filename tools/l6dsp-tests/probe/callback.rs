@@ -32,7 +32,7 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
         routing::DualEfxProcessor::initialize_in_place(storage);
         unsafe {
             #[cfg(inspector_probe)]
-            inspector::initialize();
+            inspector::initialize(entry as u32);
             core::ptr::write_volatile(0x83e00000 as *mut u32, 0x494e4954);
             core::ptr::write_volatile(0x83e00004 as *mut u32, entry as u32);
             core::ptr::write_volatile(0x83e00008 as *mut u32, 0);

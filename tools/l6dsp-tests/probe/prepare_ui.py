@@ -136,7 +136,7 @@ recipe = (seed / "recipe.toml").read_text()
 seed_hash = hashlib.sha256((seed / "firmware/main_firmware.bin").read_bytes()).hexdigest()
 image_hash = hashlib.sha256(image).hexdigest()
 recipe = recipe.replace(seed_hash, image_hash).replace("guest_ms = 3000", "guest_ms = 500")
-for name in ("room_edit", "spring_edit"):
+for name in ("room_edit", "spring_edit", "room_return_edit", "spring_return_edit"):
     marker = f'[[step]]\naction = "memory"\nname = "{name}"'
     snapshot = f'[[step]]\naction = "snapshot"\nname = "{name}_screen"\n'
     if recipe.count(marker) != 1:

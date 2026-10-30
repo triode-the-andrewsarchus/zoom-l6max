@@ -103,10 +103,10 @@ mod tests {
                 assert_eq!(&formatted.value_str[..formatted.value_len], expected.as_bytes());
             }
         }
-        for (id, value) in [(25, 0.0), (24, 2.0), (16, -1.0), (16, 0.5), (16, 4.0), (16, f32::NAN)] {
+        for (id, value) in [(25, 0.0), (24, 3.0), (16, -1.0), (16, 0.5), (16, 4.0), (16, f32::NAN)] {
             assert!(DisplaySnapshot::from_words(id, value.to_bits()).is_none());
         }
-        for (raw, expected) in [(0.0f32, "PARAMETERS"), (1.0f32, "ROUTING")] {
+        for (raw, expected) in [(0.0f32, "PLATEAU PARAM"), (1.0f32, "ROUTING"), (2.0f32, "VELVET PARAM")] {
             let formatted = format_display(DisplaySnapshot::from_words(24, raw.to_bits()).unwrap());
             assert_eq!(formatted.title, "EFX CONTROLS");
             assert_eq!(&formatted.value_str[..formatted.value_len], expected.as_bytes());
