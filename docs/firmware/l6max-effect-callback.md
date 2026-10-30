@@ -876,6 +876,29 @@ handler was absent. Its recipe, script, debugger log and JSON hashes were
 `1f0fb5b1ece3fb885c330bc3eb503c20bd25015c47398dc64b49fd3c0f2e15f1`, and
 `221adb687767e68781f9c6e6555888fdce960e586aa4a12934e5a0cd02991db9`.
 
+The earlier QEMU mapped L6max TAP to GPIO2.22, but a traced press found no
+guest test of bit 22. The L6max stock key table at `0x800c42ac` instead maps
+event `0x23` to reader `0x80021db0`, which reads GPIO2.31; the event dispatcher
+labels that event `EV_BTN_TAP`. After correcting the model, a fresh diagnostic
+observed the guest testing bit 31 and the learning-in-progress byte changing
+from 0 to 1. It remained 1 after 4.5 guest seconds, so completion and denoised
+audio are still unverified. The diagnostic JSON and trace SHA-256 values were
+`44b6e8c8f9e5122a06a55be2d84309b771030ec8a10feec26291773186ca01c0` and
+`ec1210a75a3436c98f1f8da0ceacffd28c62ba156f228cd7d0d03044d86168f8`.
+
+The `l6max-ainr-tap` driver case passed with the corrected QEMU, stock 1.10
+MAIN and the prepared NOR above. The scenario, result, and inputs hashes were
+`33ca2a6459ff424ddf00e6ab04b33396b563db7c7c54e7c5b85cb34b37e2d083`,
+`ae38d85d64561becc8376df136d5068b67af11bb0fe46ee98e58a0258dcf0a56`, and
+`77d9e5f2e695855620d58c46fda18a1ee766c9d3cc16ced435ce15f860e12ba0`.
+The tested QEMU executable SHA-256 was
+`e118041bd66ee13130998fc24810bbcb268f1fd1d25ba22328cf4f1c7f96211a`;
+the driver marks its source provenance unattested. Two earlier driver runs
+with shorter startup and inter-selection waits failed to observe the flag,
+including one with a longer TAP hold. Their timing sensitivity remains
+unresolved; the passing run does not establish a general readiness deadline or
+physical wiring.
+
 ## QEMU routing controls
 
 On the stock MAIN, a GDB stop at `0x80036f8a` observed the EFX button call
