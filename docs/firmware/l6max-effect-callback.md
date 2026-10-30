@@ -277,6 +277,39 @@ The experimental MAIN, probe ELF, recipe, debugger script and log hashes were
 `f6e427dbf7fd2b6764b77b6864bed80b66eef30c06f9210914126552e451ef96`.
 The modified firmware and debugger artifacts remain local.
 
+## Experimental automatic callback installation
+
+A follow-up QEMU-only payload redirected the stock effect-buffer clear
+veneer. For descriptor entries 1 and 2, it called the original clear,
+initialized the replacement state in the stock effect buffer, disabled the
+copied stock post-selection callback, and changed the selected descriptor's
+audio callback before the stock selector published it. After one EFX SEL
+press, diagnostic telemetry counted 595 callback invocations before a debugger
+connected. The debugger then injected a `0.5` impulse into the stock scratch
+buffers and observed 64 consecutive callback returns without substituting the
+callback pointer. All output blocks were finite and nonzero; the peak was
+`0.3052642345428467`. This run used input NOR SHA-256
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+diagnostic MAIN `407561e81f59d1406aaf951347e68dec14205b1522168ee09bb126d272e78ed4`,
+probe ELF `24ed3b539a3aa3f16337e900c1013369294c9136ecc469eb21a41112d12f4dd1`,
+recipe `d2cb842dabc50ea3eecfbdc4c18ca9367b93d7a1e68c6c6ce9ea8f314f96c559`,
+debugger script `33c3a8d965e9ba068106006c31c454633c48b44996742a74ce34d0e6bcea60db`,
+log `3772cf5effc3a30daabf3eebdff6a290afea1f00112d92f69ed841b465868292`,
+and returned samples `07ecbc9638d93ae6523b692476a8b4ecc2fb9ce132ab06317d2567c71abd1472`.
+The QEMU executable matched the publication probe above.
+
+The reproducible [`--callback` diagnostic](../../tools/l6dsp-tests/probe/README.md)
+performed a separate run without a debugger driving the callback: it observed
+marker `0x494e4954`, descriptor `0x2028b8dc`, and 586 callback invocations.
+Its probe ELF, diagnostic MAIN, recipe and result hashes were
+`fceda501bf4f422a85cca0b2e6daecbd9dbdbf3f78955e31ce5aa2f036cdd2a4`,
+`78cf75caf8a3a70a489bf3ee9e28d7a957b92707828091e303986cd79ef72c19`,
+`2bd9ec5f927f9a7d33988e88c2b45cdf15d7fff900bee7d1010cbfb8bceb077f`, and
+`89632015ea159c558a67bd4afbf82cfa6d5810f75e78fe170108e744130b0ffe`.
+The diagnostic uses QEMU-only scratch, overwrites stock effect storage, and
+processes an already-summed bus. It does not prove routing, controls,
+effect-switch ownership, real-time deadlines, or physical hardware safety.
+
 ## Task and memory observations
 
 In a separate disposable stock-emulator run after 45 guest seconds, debugger
