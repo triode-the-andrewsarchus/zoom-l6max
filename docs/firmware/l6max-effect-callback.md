@@ -384,6 +384,18 @@ source, ELF, MAIN, recipe and result hashes were
 `2951cc15684c7d53c4e8881cc01595081334bd8b2b21ffaed0eb69f86f13a905`, and
 `c7f1be6ee9b3b4cbc35c194ee18a722fa26a71b19179ae6c271e16edf20265b0`.
 
+Another counter-only variant saved the selected descriptor's original
+callback and wrote it back from each custom callback invocation. The custom
+callback count rose, but the active callback and telemetry descriptor still
+did not advance after later presses. This run did not independently capture
+the descriptor table after the write, so it does not by itself prove the
+table's final contents. The source, ELF, MAIN, recipe and result hashes were
+`3f41149d99076b549d74dec07c50f4804c3de7403c9538426ae9253f75fa4b89`,
+`27f697fa738b92941698ce3a437f1e92ad9fd2bc6fbcee4ae07ff6f3853079cd`,
+`e538468ef354ff04dc72175b10956980afeaacc53b59d5e53fb5dacac82d0375`,
+`881a4bb3ac40df6f6f629f9729623db0f197a31aef436e1aa979351646fa1474`, and
+`e70130ddae6cc53da6a5a51589b26716c413eb666fd0d6a4b47bbce805e0d461`.
+
 ## Task and memory observations
 
 In a separate disposable stock-emulator run after 45 guest seconds, debugger
