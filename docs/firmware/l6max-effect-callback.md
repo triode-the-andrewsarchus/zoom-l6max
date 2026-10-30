@@ -1689,6 +1689,23 @@ ELF, recipe and result hashes were
 `241cdc70e2a8fa2445584c5be5cb0805c6afef52ab1aa0b0f7a200524f0c43e0`, and
 `4a75ff3368a3e47198110eb3f2e201f72bb02fe351969f5e897dd71d0b78fb28`.
 
+A temporary diagnostic build used Rust `opt-level=3` instead of `z`; the
+same 15-second QEMU cadence sequence counted 1,135, 3,736, 6,280 and 8,825
+callbacks, approximately 513 per guest second. Its diagnostic text was
+26,073 bytes versus 21,188 for the size-optimized build. A 40,000-frame host
+render of the same source at both optimization levels matched byte for byte
+(SHA-256 `21287dcc5fa90bdb346225fa1060fb50d34b4d2ccd8a590f4ff6242172ee6337`).
+The faster setting improved this single emulator observation but remained
+below the approximately 750-call bypass; neither target timing nor the
+larger build's stack requirements are established. The experimental build
+setting was not adopted. Its temporary preparation script, MAIN, ELF, recipe
+and result hashes were
+`79270a02d05956202bea0744184feb44cdaaab3020bde4327e884090ee0a209d`,
+`556fd4ff32fdb12d00c1fc679c35c9ade7a604b8ec6b16c2422e4794b9684c36`,
+`37db7dfc8195131abc97433e114a6ad3a2ce7d563da114b6253690bff35fb0c5`,
+`f515584657849f83ad887970b859534f1ff7c090cd42f325417f79fedc4983c2`, and
+`7279bba25d70ea99efb0c41b60bfec58bfd42e57ad6207e210d477f9d6679aee`.
+
 The tap loop now checks the range first and uses an out-of-line modulo only
 for out-of-range delays. Cortex-M7 disassembly confirmed that valid delays
 branch around the divide; the first inline version had not done so. A host
