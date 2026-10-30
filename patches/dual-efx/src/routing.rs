@@ -31,6 +31,8 @@ impl RoutingMode {
 
 pub struct DualEfxProcessor {
     pub velvet: VelvetDecorrelator,
+    // A separate history keeps A-only sends out of the A-to-B cascade.
+    pub velvet_cascade: VelvetDecorrelator,
     pub plateau: PlateauReverb,
 
     // Per-channel routing modes (12 mixer channels)
@@ -52,6 +54,7 @@ impl DualEfxProcessor {
     pub const fn new() -> Self {
         Self {
             velvet: VelvetDecorrelator::new(),
+            velvet_cascade: VelvetDecorrelator::new(),
             plateau: PlateauReverb::new(),
             channel_routing: [RoutingMode::Neither; MAX_CHANNELS],
             channel_send: [0.0; MAX_CHANNELS],
@@ -70,6 +73,7 @@ impl DualEfxProcessor {
         self.return_gain_b = 1.0;
         self.pre_ainr_enabled = false;
         self.velvet.init(VelvetParameters::default());
+        self.velvet_cascade.init(VelvetParameters::default());
         self.plateau.init(PlateauParameters::default());
     }
 
@@ -105,6 +109,8 @@ impl DualEfxProcessor {
         let mut send_a_r = [0.0f32; BLOCK_SIZE];
         let mut send_b_l = [0.0f32; BLOCK_SIZE];
         let mut send_b_r = [0.0f32; BLOCK_SIZE];
+        let mut send_cascade_l = [0.0f32; BLOCK_SIZE];
+        let mut send_cascade_r = [0.0f32; BLOCK_SIZE];
 
         let num_channels = channels.len().min(MAX_CHANNELS);
 
@@ -136,11 +142,10 @@ impl DualEfxProcessor {
                     }
                 }
                 RoutingMode::SendAtoB => {
-                    // Send to A first; A will cascade into B below
                     for i in 0..n {
                         let sample = ch_data[i] * send_level;
-                        send_a_l[i] += sample;
-                        send_a_r[i] += sample;
+                        send_cascade_l[i] += sample;
+                        send_cascade_r[i] += sample;
                     }
                 }
             }
@@ -151,21 +156,19 @@ impl DualEfxProcessor {
         let mut wet_a_r = [0.0f32; BLOCK_SIZE];
 
         let n = frames.min(BLOCK_SIZE);
+        self.velvet_cascade.set_parameters(self.velvet.current);
         for i in 0..n {
             let (l, r) = self.velvet.process_sample(send_a_l[i], send_a_r[i]);
-            wet_a_l[i] = l;
-            wet_a_r[i] = r;
+            let (cascade_l, cascade_r) = self.velvet_cascade.process_sample(
+                send_cascade_l[i], send_cascade_r[i],
+            );
+            wet_a_l[i] = l + cascade_l;
+            wet_a_r[i] = r + cascade_r;
+            send_b_l[i] += cascade_l * self.cascade_gain;
+            send_b_r[i] += cascade_r * self.cascade_gain;
         }
 
-        // 3. Cascade Effect A into Effect B (for channels using SendAtoB)
-        if self.cascade_gain > 1e-4 {
-            for i in 0..n {
-                send_b_l[i] += wet_a_l[i] * self.cascade_gain;
-                send_b_r[i] += wet_a_r[i] * self.cascade_gain;
-            }
-        }
-
-        // 4. Process Effect B (Plateau Plate Reverb)
+        // 3. Process Effect B (Plateau Plate Reverb)
         let mut wet_b_l = [0.0f32; BLOCK_SIZE];
         let mut wet_b_r = [0.0f32; BLOCK_SIZE];
 
@@ -175,7 +178,7 @@ impl DualEfxProcessor {
             wet_b_r[i] = r;
         }
 
-        // 5. Sum to Master Return with soft clipping to protect downstream DAC
+        // 4. Sum to Master Return with soft clipping to protect downstream DAC
         for i in 0..n {
             out_l[i] = super::math::soft_clip(wet_a_l[i] * self.return_gain_a + wet_b_l[i] * self.return_gain_b);
             out_r[i] = super::math::soft_clip(wet_a_r[i] * self.return_gain_a + wet_b_r[i] * self.return_gain_b);
