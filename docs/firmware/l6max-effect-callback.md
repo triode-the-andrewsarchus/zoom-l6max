@@ -1050,6 +1050,18 @@ JSON SHA-256 values were
 It used the isolated QEMU `69b2a6775a4cab8d778d2d9b91e41cfedbbaf35788ac1417955f0be66a874afa`
 and stock MAIN and NOR identities given above.
 
+After correcting the one-pole low-pass cutoff coefficient, a separate
+active-sends diagnostic recorded 5,979 callback invocations and finite,
+nonzero final samples. Host sinusoidal-response tests cover selected cutoffs;
+this QEMU observation does not establish filter fidelity or execution-time
+margin on hardware. The new coefficient requires more work when parameters
+are updated. The diagnostic ELF, MAIN, recipe and result hashes were
+`47e2055ef31e21e70ffa4328c4d126cd543760a6f7ae1196c13d71c38224b351`,
+`5f86da2a5e4cd29a2f41f58b10b574f538418a86a2ad7b0e874a9df301f0ee24`,
+`ddf96cfaa159a94dc017ffa844d75a304115064c90dd89c5ee5ca3dcfdfaf66f`, and
+`6344c3a4d919d52854146b02df2849d54afd7bbfbe1e17368ee5889954f18b61`.
+It used the same stock MAIN, NOR and isolated QEMU as the preceding run.
+
 ## QEMU routing controls
 
 On the stock MAIN, a GDB stop at `0x80036f8a` observed the EFX button call

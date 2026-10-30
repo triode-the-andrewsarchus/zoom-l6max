@@ -146,11 +146,13 @@ impl OnePoleLP {
 
     pub fn set_cutoff(&mut self, cutoff_hz: f32) {
         let c = clamp(cutoff_hz, 20.0, SAMPLE_RATE * 0.49);
-        // b = exp(-2*pi*c/fs) ≈ 1 - 2*pi*c/fs
-        let w = TWO_PI * c / SAMPLE_RATE;
-        let b = 1.0 / (1.0 + w);
-        self.b = b;
-        self.a = 1.0 - b;
+        // For H(z) = a / (1 - b z^-1), a = 1 - b. Solve the
+        // digital -3 dB condition at c, using sin(w/2) to avoid
+        // cancellation near zero and a rationalized positive root.
+        let s = sin(PI * c / SAMPLE_RATE);
+        let a = (2.0 * s) / (sqrt(1.0 + s * s) + s);
+        self.a = a;
+        self.b = 1.0 - a;
     }
 
     #[inline(always)]
