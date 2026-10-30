@@ -99,6 +99,10 @@ it is not an effect implementation. Both options alter the diagnostic image.
 `--active-sends` replaces the three reconstructed buses with constant nonzero
 test signals and records the latest output samples at `0x83e00800`. It tests
 active DSP workload rather than the physical input or mixer routing path.
+`--irq-trace` additionally installs a guarded UART receive interrupt probe in
+the disposable guest and records matching key edges at `0x83e00900`. It uses
+an unowned low-memory veneer, changes interrupt execution, and is QEMU-only;
+it is not a safe target hook.
 
 For the prepared fixture identified in the investigation, the expected
 captured values are `26.0 ms` for Plateau and `84.0 %` for Velvet, followed

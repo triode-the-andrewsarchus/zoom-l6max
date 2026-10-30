@@ -1024,6 +1024,29 @@ The active-send MAIN, ELF, recipe and result SHA-256 were
 An independent rebuild reproduced the diagnostic MAIN and recipe byte for
 byte. The stock MAIN, prepared NOR and QEMU identities are recorded below.
 
+A stock debugger stop at the receive interrupt's `0x00003934` instruction
+observed port index 0 and bytes `91 04 06` for EFX SEL down, with the link
+register equal to the interrupted handler's stack pointer plus four. The
+displaced instructions mask that byte after the UART data register has been
+read. A separate guarded QEMU-only trace uses a low-memory veneer and
+re-executes those instructions; neither that veneer nor the modified interrupt
+is qualified for physical hardware.
+
+In the active-send stress sequence the interrupt trace recorded the last press
+and release at ticks 69,289 and 70,793 (1,504 ticks), while the later enqueue
+trace recorded 70,260 and 70,794 (534 ticks). The current inspector still
+classified the hold as short. This observation identifies an earlier timestamp
+in this emulator run; it does not establish interrupt latency, memory
+ownership, protocol completeness or real-device safety. The stock debugger
+recipe and log hashes were
+`a881ea6ddf7b9252fe3054070b70be6c84e699a143732828cf46d2d4693309e2` and
+`f51ff0489fd7e81f08cd87b7406abb65b324b1310f4b1a826bdc353d2f175aec`.
+The traced diagnostic MAIN, ELF, recipe and result hashes were
+`2323f5e773df87724b3a87dd81dca3e3e66dd964fec6872ac5bf989aa7de145a`,
+`c5b2e3de9897f729f520aa0ccf79d9c2c8a368ad3e36deb9b3537f43b169d4b5`,
+`a069c5e94354f3755fd48d3bb7c0151f6450ad5fd0eee87e0335563b82a6b738`, and
+`9d7178a68d6548c9f2121b8c42910a64af29843b2ffa350fe850b5f9a687058d`.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:
