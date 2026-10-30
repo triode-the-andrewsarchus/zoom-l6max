@@ -621,6 +621,7 @@ mod tests {
         let mut velvet = processor.velvet.current;
         velvet.length_ms = 999.0;
         velvet.decay_db = -0.5;
+        velvet.transition_ms = 17.5;
         velvet.dynamic = false;
         processor.velvet.set_parameters(velvet);
         let mut plateau = processor.plateau.params;
@@ -635,6 +636,7 @@ mod tests {
         for (id, expected) in [
             (Id::VndTimeSpread, "95.0 ms"),
             (Id::VndDecay, "-0.5 dB"),
+            (Id::VndTransition, "17.5 ms"),
             (Id::VndMode, "STATIC"),
             (Id::PlatPreDelay, "190.0 ms"),
             (Id::PlatSize, "120.0 %"),

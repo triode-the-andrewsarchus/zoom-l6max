@@ -23,6 +23,8 @@ pub enum EfxParamId {
 
     // Global / Routing
     GlobalCascade = 14,
+    // Keep the earlier discriminants stable.
+    VndTransition = 15,
 }
 
 pub struct FormattedParam {
@@ -114,6 +116,7 @@ pub fn format_parameter(id: EfxParamId, processor: &super::routing::DualEfxProce
         EfxParamId::VndDensity => ("VND DENSITY", velvet.density, b" pps"),
         EfxParamId::VndDecay => ("VND DECAY", velvet.decay_db, b" dB"),
         EfxParamId::VndRefresh => ("VND REFRESH", velvet.refresh_seconds, b" s"),
+        EfxParamId::VndTransition => ("VND TRANSITION", velvet.transition_ms, b" ms"),
         EfxParamId::VndMode => {
             let mut p = FormattedParam::new("VND MODE");
             p.value_len = append_str(&mut p.value_str, 0, if velvet.dynamic { b"DYNAMIC" } else { b"STATIC" });
