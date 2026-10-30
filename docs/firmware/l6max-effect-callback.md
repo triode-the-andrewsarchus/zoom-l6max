@@ -1062,6 +1062,17 @@ are updated. The diagnostic ELF, MAIN, recipe and result hashes were
 `6344c3a4d919d52854146b02df2849d54afd7bbfbe1e17368ee5889954f18b61`.
 It used the same stock MAIN, NOR and isolated QEMU as the preceding run.
 
+After replacing the complementary high-pass with a normalized high-pass
+recurrence, the active-sends diagnostic observed 5,978 callbacks and finite,
+nonzero final samples. Host tests cover cutoff and passband response. This
+does not qualify target timing or hardware audio. The diagnostic ELF, MAIN,
+recipe and result hashes were
+`9108b780f818570bf67187e2bb4e33af271d49846137f97e6bc435576464ceef`,
+`fa9f6756e50c58ff6a0f51792371c09f62affe1732bf0002b31ab1c5c2410cf0`,
+`a89bcbe8c32372180363402425c0e1c97bbca7393380c336940a850b8a3e91ee`, and
+`253e289c9d830bbc70469cbf67bf02431de54e966760cd9e2d1cf6843b90e443`.
+It used the same stock MAIN, NOR and isolated QEMU as the preceding run.
+
 ## QEMU routing controls
 
 On the stock MAIN, a GDB stop at `0x80036f8a` observed the EFX button call
