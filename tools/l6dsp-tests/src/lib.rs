@@ -8,10 +8,29 @@ pub mod plateau;
 pub mod routing;
 #[path = "../../../patches/dual-efx/src/parameters.rs"]
 pub mod parameters;
+#[path = "../../../patches/dual-efx/src/controls.rs"]
+pub mod controls;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn efx_select_defers_short_press_and_distinguishes_hold() {
+        use controls::EfxSelectAction as Action;
+        let mut gesture = controls::EfxSelectGesture::default();
+        assert_eq!(gesture.edge(true, 100, 750), Action::None);
+        assert_eq!(gesture.edge(true, 200, 750), Action::None);
+        assert_eq!(gesture.edge(false, 249, 750), Action::SelectNext);
+        assert_eq!(gesture.edge(false, 250, 750), Action::None);
+        assert_eq!(gesture.edge(true, 1000, 750), Action::None);
+        assert_eq!(gesture.edge(false, 1750, 750), Action::ToggleInspector);
+        assert_eq!(gesture.edge(true, u32::MAX - 99, 750), Action::None);
+        assert_eq!(gesture.edge(false, 650, 750), Action::ToggleInspector);
+        assert_eq!(gesture.edge(true, 2000, 750), Action::None);
+        gesture.cancel();
+        assert_eq!(gesture.edge(false, 2100, 750), Action::None);
+    }
 
     #[test]
     fn test_math_functions() {
