@@ -326,6 +326,18 @@ The diagnostic uses QEMU-only scratch, overwrites stock effect storage, and
 processes an already-summed bus. It does not prove routing, controls,
 effect-switch ownership, real-time deadlines, or physical hardware safety.
 
+A six-press selector diagnostic using that same QEMU-only image exposed a
+failure: after the first press selected the diagnostic callback, five further
+EFX SEL press/release events were delivered by the panel model, but each
+subsequent observation still showed callback `0x80108ad5` and descriptor
+`0x2028b8dc`, while the callback counter continued to rise. The test does not
+yet establish whether the cause is the replacement callback's execution cost,
+the descriptor/initialization changes, or another interaction. It must not be
+treated as evidence of functioning effect switching. The recipe and result
+hashes were
+`603d61abb437ce1cb57c46be6e6c6a19243dae868d944a43833e93763c44fea4` and
+`2803902a121079e5b3e593dadae2edc6624eb7abda72ca8f4aa548600561ee03`.
+
 ## Task and memory observations
 
 In a separate disposable stock-emulator run after 45 guest seconds, debugger
