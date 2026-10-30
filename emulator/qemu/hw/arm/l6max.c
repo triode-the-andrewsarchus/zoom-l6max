@@ -66,7 +66,6 @@
 #define L6_PANEL_PACE_MAX_LAG_NS 100000000
 #define L6_INPUT_QUEUE_LIMIT 64
 #define L6_INPUT_TX_LIMIT (64 * 1024)
-#define L6_AUDIO_TRACE_WINDOW_FRAMES 64000
 /* 200 ms of output reserve, as a divisor of the sample rate. */
 #define L6_AUDIO_PRIME_DIVISOR 5
 /* Bring-up debounce default, matching the verified minimum press duration. */
@@ -362,7 +361,7 @@ typedef struct L6ChipState {
     unsigned audio_trace_sai_log_count;
     unsigned audio_trace_edma_log_count;
     unsigned audio_trace_clock_log_count;
-    unsigned audio_trace_irq_elapsed_frames;
+    uint64_t audio_trace_irq_started_ns;
     uint64_t audio_trace_irq_count[4];
     uint64_t audio_trace_irq_ack_count[4];
     L6Sai sai[2];
@@ -370,8 +369,8 @@ typedef struct L6ChipState {
     uint64_t audio_service_deadline_ns;
     unsigned audio_service_rate_hz;
     bool audio_sample_trace;
-    unsigned audio_sample_trace_frames;
     bool audio_edma_irq_raised;
+    uint64_t audio_sample_trace_started_ns;
     uint64_t audio_tx_words[2];
     uint64_t audio_tx_nonzero_words[2];
     uint64_t audio_tx_underruns[2];
@@ -1958,25 +1957,22 @@ static void l6_audio_output_write(L6ChipState *s, const int32_t *samples,
     }
 }
 
-static void l6_audio_sample_trace_tick(L6ChipState *s, unsigned frames)
+static void l6_audio_sample_trace_tick(L6ChipState *s, uint64_t now)
 {
-    if (!s->audio_sample_trace) {
+    if (!s->audio_sample_trace || now - s->audio_sample_trace_started_ns < 1000000000ULL) {
         return;
     }
-    s->audio_sample_trace_frames += frames;
-    if (s->audio_sample_trace_frames < L6_AUDIO_TRACE_WINDOW_FRAMES) {
-        return;
-    }
-    s->audio_sample_trace_frames = 0;
+    uint64_t elapsed_ms = (now - s->audio_sample_trace_started_ns) / 1000000;
+    s->audio_sample_trace_started_ns = now;
     for (unsigned i = 0; i < s->profile->sai_count; i++) {
         qemu_log_mask(LOG_UNIMP,
                       "l6 audio TX samples sai=%08" HWADDR_PRIx " words=%" PRIu64
                       " nonzero=%" PRIu64 " underruns=%" PRIu64
-                      " first=%08x last=%08x at=%" PRId64 "ms\n",
+                      " first=%08x last=%08x window=%" PRIu64 "ms at=%" PRId64 "ms\n",
                       s->profile->sai_bases[i],
                       s->audio_tx_words[i], s->audio_tx_nonzero_words[i],
                       s->audio_tx_underruns[i],
-                      s->audio_tx_first_nonzero[i], s->audio_tx_last_nonzero[i],
+                      s->audio_tx_first_nonzero[i], s->audio_tx_last_nonzero[i], elapsed_ms,
                       qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL));
         s->audio_tx_words[i] = 0;
         s->audio_tx_nonzero_words[i] = 0;
@@ -1986,26 +1982,23 @@ static void l6_audio_sample_trace_tick(L6ChipState *s, unsigned frames)
     }
 }
 
-static void l6_audio_irq_trace_tick(L6ChipState *s, unsigned frames)
+static void l6_audio_irq_trace_tick(L6ChipState *s, uint64_t now)
 {
-    if (!s->audio_trace) {
+    if (!s->audio_trace || now - s->audio_trace_irq_started_ns < 1000000000ULL) {
         return;
     }
-    s->audio_trace_irq_elapsed_frames += frames;
-    if (s->audio_trace_irq_elapsed_frames < L6_AUDIO_TRACE_WINDOW_FRAMES) {
-        return;
-    }
-    s->audio_trace_irq_elapsed_frames = 0;
+    uint64_t elapsed_ms = (now - s->audio_trace_irq_started_ns) / 1000000;
+    s->audio_trace_irq_started_ns = now;
     for (unsigned i = 0; i < ARRAY_SIZE(s->audio_trace_irq_count); i++) {
         qemu_log_mask(LOG_UNIMP,
                       "l6 audio eDMA IRQ channel=%u assertions=%" PRIu64
-                      " clears=%" PRIu64 " pending=%u at=%" PRId64 "ms\n",
+                      " clears=%" PRIu64 " pending=%u window=%" PRIu64 "ms at=%" PRId64 "ms\n",
                       i + 12, s->audio_trace_irq_count[i],
                       s->audio_trace_irq_ack_count[i],
                       (GPOINTER_TO_UINT(g_hash_table_lookup(
                            s->registers,
                            GUINT_TO_POINTER((0x0e8024 >> 2) + 1))) >>
-                       (i + 12)) & 1,
+                       (i + 12)) & 1, elapsed_ms,
                       qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL));
         s->audio_trace_irq_count[i] = 0;
         s->audio_trace_irq_ack_count[i] = 0;
@@ -2044,8 +2037,8 @@ static void l6_main_audio_service_tick(void *opaque)
         s->audio_service_deadline_ns = now + 1000000;
         timer_mod(s->main_audio_service_timer, s->audio_service_deadline_ns);
     }
-    l6_audio_sample_trace_tick(s, frames);
-    l6_audio_irq_trace_tick(s, frames);
+    l6_audio_sample_trace_tick(s, now);
+    l6_audio_irq_trace_tick(s, now);
     if (s->service_audio_profile_ramp_ack) {
         uint8_t *ram = memory_region_get_ram_ptr(&s->external_ram);
         if (ldl_le_p(ram + 0xa3e8) == 1) {

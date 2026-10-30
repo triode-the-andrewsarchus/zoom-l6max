@@ -68,6 +68,13 @@ rate after the emulator exits. Output is held until 200 ms is queued, which adds
 that latency. The `*-sound-pad-coreaudio` cases record the device callback through
 `L6_AUDIO_COREAUDIO_CAPTURE`; compare that capture with the source WAV.
 
+With `L6_AUDIO_TRACE` or `L6_AUDIO_SAMPLE_TRACE` enabled, the periodic DMA
+and sample summaries include `window=...ms` and `at=...ms` in virtual time.
+Counts apply to the reported window, which can exceed one second if service
+is delayed. Earlier builds counted service callbacks as milliseconds; their
+summary windows varied with the audio service interval and must not be
+assumed to cover one second.
+
 The demo SD card includes generated tones and a stereo float snare sample.
 Its source and terms are recorded in [NOTICE.md](../../NOTICE.md). The card
 contains a copy of the locally supplied firmware and is generated locally.

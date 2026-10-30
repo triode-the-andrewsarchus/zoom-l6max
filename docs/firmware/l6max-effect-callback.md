@@ -1919,6 +1919,21 @@ profiler Cargo lock SHA-256 values were
 The stock MAIN, initial NOR and unattested QEMU executable matched the
 preceding active-load run.
 
+A separate stock-firmware diagnostic checked the corrected emulator trace
+windows through 47 guest seconds. Consecutive reported window lengths matched
+the timestamp differences within 1 ms. After the modeled 40.5-second receive
+switch, the channel-15 trace reported 750 assertions and 750 clears in each
+of the 43–47 second, 1,000 ms windows; TX summaries reported 384,000 words per
+window. These are modeled observations, not physical interrupt or audio-rate
+measurements. The rebuilt QEMU binary, stock MAIN, initial NOR, recipe, result
+and engine-trace SHA-256 values were
+`53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`,
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+`1088085a78c0ad0bbfe921ea2f672638c3fb10d0967c7979f7b802f760e41252`,
+`0fffffdd6a88f08f4f85d0d34cdd87a7f033b0ee5595635b287a337f73127f94`, and
+`7e0a14d0b12a4cdaac9793fcb23f865f29ee4c28fe516352fcc14e2945c1c88b`.
+
 An uncommitted experiment used 8,192-sample power-of-two Velvet histories,
 retaining the 4,802-sample logical delay and silence window. It increased the
 two Velvet instances' state by 54,240 bytes. Host output over 100,000 frames
