@@ -1109,6 +1109,37 @@ the resumed script and log hashed to
 `e2534bc34aa02c9fb9be5783da7f17b571b93d270d83fa262a63bc0f3742eb07` and
 `4b35576424c4edff2fa92109cf50a94452d577927616894bff4ed0651a46c619`.
 
+The preceding RAM scan omitted the low executable region. The stock startup
+table at MAIN offset `0xe8c08` specifies source `0x800ee688`, destination
+`0x00000000`, length `0x5b4c`, and copy routine `0x80093e60`; that routine
+copies words from source to destination. In a separate stock-QEMU run, two
+256-byte snapshots at low addresses `0` and `0x1fa0` matched the corresponding
+MAIN bytes at `0xee688` and `0xf0628` exactly. The selected callback was
+`0x20280021`; the learned word changed from 0 to 1 after TAP and back to 0
+after the next TAP. The snapshot recipe and diagnostic JSON SHA-256 values
+were `3cd03d26f8df57b86d6678a10f1136bc44a5f5788a8038f70f8d6cb419ce9e79`
+and `881f6589bb91d0167a40031eebb214d3ce6a17619dcd30c5ae88c644e4ec0489`.
+
+In a second stock run, a non-stopping TCG plugin watched the relocated
+candidate instructions `0x0000002a` and `0x00001fdc` (MAIN offsets `0xee6b2`
+and `0xf0664`), effect publication, and learning start `0x80055568`. After
+five effect selections and one observed learning start, it counted 14
+executions at `0x0000002a` and none at `0x00001fdc`. The selected callback
+and learned-word transitions matched the preceding run. This identifies a
+candidate learning-related execution path, not an audio ABI or proof that
+the routine processes useful noise-reduced audio. The plugin source, binary,
+recipe, trace and result hashes were
+`537f3974cc320f30e56954956742c982abcec9165ba8506385d6f10ff99a746f`,
+`e6da9fa3b98e09625b21e39e6f27e8f2e7961d90318c607f54d950a0fd952eb9`,
+`217f4023a90f19e21e88344ca8629846878ba799be13524e7b036e87cad85963`,
+`1220d3e11e3fad9b8b6be49fdba13ec52ea389e34d1b97b21e05e6cd024869b7`, and
+`1ebe40fab9b0f9c3a8feb7b4a93de92bb8e265f45b130a37740b1b70ec2d9151`.
+Both runs used the stock MAIN and initial NOR above. Their QEMU executable
+hashes were respectively
+`1e35161130eecdb148f2aaf6986e14f77fbd4714e2e7100cf89dc1680eb3b554` and
+`69b2a6775a4cab8d778d2d9b91e41cfedbbaf35788ac1417955f0be66a874afa`;
+external binary source provenance remains unattested.
+
 ## Plateau tank delay diagnostic
 
 After correcting the Plateau tank rings to return a sample after their full
