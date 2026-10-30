@@ -2501,6 +2501,19 @@ noise-reduction quality. The callback counter advanced 2,290 times in five
 guest seconds, below the nominal 750 callbacks per second. A separate forced
 allocation-failure build recorded failure, did not capture or invoke the AINR
 copies, and produced zero diagnostic output; this is not a qualified fallback.
+An alternative diagnostic kept synthetic sends active without AINR when the
+allocation was deliberately forced to fail. Its sampled effect output was
+finite and nonzero, but the five-press sequence remained on the diagnostic
+callback instead of selecting AINR, and the learned flag remained zero. This
+is a failed control sequence under the changed modeled workload, not a
+successful end-to-end fallback. The probe offers this workload as
+`--passthrough-unready`; without that option the earlier diagnostic image is
+unchanged. The forced-failure variant's MAIN, ELF, recipe and result hashes
+were respectively
+`2b183ede74203208c6af5c59d3ed30f5bf1eb9a2661a41406e3eb64492de84d4`,
+`bc0d85ba90570d326b6a9924acd4d9ac59a58aa7ec6bb5744a4b050edcf6637f`,
+`172c4fc7cf58fcfb745ab0a5871009fea0128268988ddf2db302f916ee33b9e5`, and
+`acdb2fdff8d7dd9c351331890c70098262a5779ea3c8e1965e2c8c3d8c4fb274`.
 In a further run, one reset gesture cleared both the stock learned flag and
 the capture status; a subsequent learn gesture produced a new capture which
 was installed before effect selection. This exercises one sequence, not all
