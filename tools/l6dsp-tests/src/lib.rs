@@ -649,4 +649,20 @@ mod tests {
             assert_eq!(value, expected, "{id:?}");
         }
     }
+
+    #[test]
+    fn plateau_reports_the_cutoffs_its_filters_apply() {
+        let mut processor = Box::new(routing::DualEfxProcessor::new());
+        processor.init();
+        let mut params = processor.plateau.params;
+        params.low_cut_hz = f32::NAN;
+        params.high_cut_hz = f32::INFINITY;
+        processor.plateau.set_parameters(params);
+        assert_eq!(processor.plateau.params.low_cut_hz, 20.0);
+        assert_eq!(processor.plateau.params.high_cut_hz, plateau::SAMPLE_RATE * 0.49);
+        let formatted = parameters::format_parameter(parameters::EfxParamId::PlatLowCut, &processor);
+        assert_eq!(std::str::from_utf8(&formatted.value_str[..formatted.value_len]).unwrap(), "20.0 Hz");
+        let formatted = parameters::format_parameter(parameters::EfxParamId::PlatHighCut, &processor);
+        assert_eq!(std::str::from_utf8(&formatted.value_str[..formatted.value_len]).unwrap(), "23520.0 Hz");
+    }
 }
