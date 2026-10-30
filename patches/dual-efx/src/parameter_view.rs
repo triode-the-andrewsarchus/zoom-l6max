@@ -1,0 +1,174 @@
+//! Copied parameter values and display formatting, independent of DSP state.
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[repr(u8)]
+pub enum EfxParamId {
+    // Velvet Noise Decorrelator (Effect A)
+    VndAmount = 0,
+    VndTimeSpread = 1,
+    VndDensity = 2,
+    VndDecay = 3,
+    VndRefresh = 4,
+    VndMode = 5,
+
+    // Plateau Plate Reverb (Effect B)
+    PlatPreDelay = 6,
+    PlatSize = 7,
+    PlatDecay = 8,
+    PlatLowCut = 9,
+    PlatHighCut = 10,
+    PlatDiffusion = 11,
+    PlatModDepth = 12,
+    PlatFreeze = 13,
+
+    // Global / Routing
+    GlobalCascade = 14,
+    // Keep the earlier discriminants stable.
+    VndTransition = 15,
+}
+
+impl EfxParamId {
+    /// Decodes a copied event without constructing an invalid enum value.
+    pub fn from_index(index: u32) -> Option<Self> {
+        use EfxParamId::*;
+        Some(match index {
+            0 => VndAmount, 1 => VndTimeSpread, 2 => VndDensity, 3 => VndDecay,
+            4 => VndRefresh, 5 => VndMode, 6 => PlatPreDelay, 7 => PlatSize,
+            8 => PlatDecay, 9 => PlatLowCut, 10 => PlatHighCut, 11 => PlatDiffusion,
+            12 => PlatModDepth, 13 => PlatFreeze, 14 => GlobalCascade, 15 => VndTransition,
+            _ => return None,
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct ParameterSnapshot {
+    pub id: EfxParamId,
+    /// Numeric value in displayed units; booleans are 0.0 or 1.0.
+    pub value: f32,
+}
+
+impl ParameterSnapshot {
+    /// Decodes the two words used to transfer a value to the display task.
+    pub fn from_words(index: u32, bits: u32) -> Option<Self> {
+        let id = EfxParamId::from_index(index)?;
+        let value = f32::from_bits(bits);
+        if !value.is_finite() || (matches!(id, EfxParamId::VndMode | EfxParamId::PlatFreeze)
+            && value != 0.0 && value != 1.0) {
+            return None;
+        }
+        Some(Self { id, value })
+    }
+}
+
+pub struct FormattedParam {
+    pub title: &'static str,
+    pub value_str: [u8; 16],
+    pub value_len: usize,
+}
+
+impl FormattedParam {
+    pub fn new(title: &'static str) -> Self {
+        Self {
+            title,
+            value_str: [0; 16],
+            value_len: 0,
+        }
+    }
+}
+
+/// Helper to write an integer into a byte buffer.
+fn format_int(buf: &mut [u8], mut val: i32) -> usize {
+    if val == 0 {
+        buf[0] = b'0';
+        return 1;
+    }
+    let negative = val < 0;
+    if negative {
+        val = -val;
+    }
+    let mut temp = [0u8; 10];
+    let mut i = 0;
+    while val > 0 {
+        temp[i] = b'0' + (val % 10) as u8;
+        val /= 10;
+        i += 1;
+    }
+    let mut out_len = 0;
+    if negative {
+        buf[out_len] = b'-';
+        out_len += 1;
+    }
+    while i > 0 {
+        i -= 1;
+        buf[out_len] = temp[i];
+        out_len += 1;
+    }
+    out_len
+}
+
+/// Helper to write a float with 1 decimal place.
+fn format_float_1dp(buf: &mut [u8], val: f32) -> usize {
+    let negative = val < 0.0;
+    let magnitude = if negative { -val } else { val };
+    let scaled = (magnitude * 10.0 + 0.5) as i32;
+    let mut len = 0;
+    if negative && scaled != 0 {
+        buf[0] = b'-';
+        len = 1;
+    }
+    len += format_int(&mut buf[len..], scaled / 10);
+    if len + 2 <= buf.len() {
+        buf[len] = b'.';
+        buf[len + 1] = b'0' + (scaled % 10) as u8;
+        len += 2;
+    }
+    len
+}
+
+fn append_str(buf: &mut [u8], start: usize, s: &[u8]) -> usize {
+    let mut idx = start;
+    for &b in s {
+        if idx >= buf.len() {
+            break;
+        }
+        buf[idx] = b;
+        idx += 1;
+    }
+    idx
+}
+
+/// Formats a previously copied value without accessing the live processor.
+pub fn format_snapshot(snapshot: ParameterSnapshot) -> FormattedParam {
+    use EfxParamId::*;
+    let (title, unit): (&str, &[u8]) = match snapshot.id {
+        VndAmount => ("VND AMOUNT", b" %"),
+        VndTimeSpread => ("VND TIME SPREAD", b" ms"),
+        VndDensity => ("VND DENSITY", b" pps"),
+        VndDecay => ("VND DECAY", b" dB"),
+        VndRefresh => ("VND REFRESH", b" s"),
+        VndTransition => ("VND TRANSITION", b" ms"),
+        VndMode => {
+            let mut p = FormattedParam::new("VND MODE");
+            p.value_len = append_str(&mut p.value_str, 0, if snapshot.value != 0.0 { b"DYNAMIC" } else { b"STATIC" });
+            return p;
+        }
+        PlatPreDelay => ("PLATEAU PREDELAY", b" ms"),
+        PlatSize => ("PLATEAU SIZE", b" %"),
+        PlatDecay => ("PLATEAU DECAY", b" %"),
+        PlatLowCut => ("PLATEAU LOW CUT", b" Hz"),
+        PlatHighCut => ("PLATEAU HIGH CUT", b" Hz"),
+        PlatDiffusion => ("PLATEAU DIFFUSION", b" %"),
+        PlatModDepth => ("PLATEAU MOD DEPTH", b" samples"),
+        PlatFreeze => {
+            let mut p = FormattedParam::new("PLATEAU FREEZE");
+            p.value_len = append_str(&mut p.value_str, 0, if snapshot.value != 0.0 { b"FROZEN" } else { b"OFF" });
+            return p;
+        }
+        GlobalCascade => ("A -> B CASCADE", b" %"),
+    };
+    let mut p = FormattedParam::new(title);
+    let len = format_float_1dp(&mut p.value_str, snapshot.value);
+    p.value_len = append_str(&mut p.value_str, len, unit);
+    p
+}

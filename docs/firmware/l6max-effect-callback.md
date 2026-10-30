@@ -739,6 +739,16 @@ recipe and result SHA-256 values were
 The stock MAIN, prepared NOR and QEMU executable matched the identities
 recorded elsewhere in this document.
 
+After separating copied parameter values from their formatter, a repeat of
+the same two-bank diagnostic produced the same captured values and mixer
+behavior. The diagnostic still formats on the audio task; this repeat does
+not test a display-task handoff or OLED rendering. Its ELF, MAIN, recipe and
+result SHA-256 values were
+`ba19164b020ef4b86748ec6b4161abbf1ced15f78f049964b42d6c3ab0abebda`,
+`732e39fb3541e7bfec5c49a3c1f7c4d1c4790934df87b9845d4883e15ceef846`,
+`0ea425a25aa674ddcc05121f8726bc9c9d16d6aae8475401f14b0ce20517bcf4`, and
+`6eb5a7d5b9fbbc1dd57865cd4a898285d279a6200bd7d62b2b0658317e5408db`.
+
 ## AI Noise Reduction investigation
 
 The historical plan calls `0x80002666` a pre-AINR audio hook. In MAIN 1.10

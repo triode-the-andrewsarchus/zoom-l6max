@@ -6,6 +6,7 @@ use core::ptr::{read_volatile as read, write_volatile as write};
 
 mod firmware;
 mod math;
+mod parameter_view;
 mod parameters;
 mod plateau;
 mod routing;

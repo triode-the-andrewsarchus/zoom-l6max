@@ -14,6 +14,9 @@ mod velvet;
 #[path = "../../../patches/dual-efx/src/controls.rs"]
 mod controls;
 #[cfg(inspector_probe)]
+#[path = "../../../patches/dual-efx/src/parameter_view.rs"]
+mod parameter_view;
+#[cfg(inspector_probe)]
 #[path = "../../../patches/dual-efx/src/parameters.rs"]
 mod parameters;
 #[cfg(inspector_probe)]

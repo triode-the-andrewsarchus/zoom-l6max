@@ -33,7 +33,8 @@ on the L6max. The `0x83e00000` state address is unverified on hardware.
 - `src/velvet.rs`: Velvet Noise Decorrelator core DSP engine.
 - `src/plateau.rs`: Valley Plateau Dattorro plate reverb core DSP engine.
 - `src/routing.rs`: Routing matrix and `DualEfxProcessor` audio engine.
-- `src/parameters.rs`: Parameter scaling and OLED text formatting.
+- `src/parameters.rs`: Parameter edits and copies of applied values.
+- `src/parameter_view.rs`: Validation and formatting of copied display values.
 - `src/firmware.rs`: Hardware and firmware bindings for L6max 1.10.
 - `src/trampolines.s`, `src/trampolines.rs`: Displaced instruction veneers.
 - `src/payload.rs`: Main payload entrypoints (`efx_dispatch_hook`, `knob_changed`).
