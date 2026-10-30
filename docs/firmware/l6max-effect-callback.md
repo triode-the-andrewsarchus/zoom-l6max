@@ -859,6 +859,23 @@ trace SHA-256 values were
 `f4d34cd1f829847a7d5b64d3b6ff586610a057268df8928e59aa976c2024b216`.
 The exact stock MAIN, NOR and QEMU executable are identified above and below.
 
+A follow-up sampled the eight bytes at `0x8020aa3c` 500 guest ms after the
+first TAP press and again 4 seconds later; both samples were all zero, as was
+`0x8046300c` after the wait. Static inspection shows a type-5 path at
+`0x80055568` setting the first byte at `0x8020aa3c` while starting a timer;
+the observations do not establish that this path was entered. The follow-up
+recipe and JSON hashes were
+`169572dfa4b7700cacc5e56ca3ea2bbf5f279afb01cb78e3d21a62a3e54eba42` and
+`74800365addaf5d6c85d891fefa0e261dc856f741d051a745c50fb558049ff4e`.
+A separate attempt to break at `0x800555d8` installed a breakpoint but the
+guest exited and disconnected the debugger before any stop was recorded.
+Without a positive breakpoint control, this does not prove that the button
+handler was absent. Its recipe, script, debugger log and JSON hashes were
+`5d129c2c74c6baffd20200ec2f0b8612dd357999305ece139aa507760fe28a92`,
+`d8034ae82262d7e434232f38cf0c68bb5653a836937689650923a502b37706b6`,
+`1f0fb5b1ece3fb885c330bc3eb503c20bd25015c47398dc64b49fd3c0f2e15f1`, and
+`221adb687767e68781f9c6e6555888fdce960e586aa4a12934e5a0cd02991db9`.
+
 ## QEMU routing controls
 
 On the stock MAIN, a GDB stop at `0x80036f8a` observed the EFX button call
