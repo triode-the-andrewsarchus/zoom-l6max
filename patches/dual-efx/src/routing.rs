@@ -245,6 +245,9 @@ impl DualEfxProcessor {
     pub fn process_bus_sample(&mut self, send_a: f32, send_b: f32, send_cascade: f32) -> (f32, f32) {
         let (a_l, a_r) = self.velvet.process_sample(send_a, send_a);
         let (cascade_l, cascade_r) = self.velvet_cascade.process_sample(send_cascade, send_cascade);
+        // Reject a corrupt direct send before it can contaminate the separate
+        // cascade contribution to the reverb.
+        let send_b = super::math::audio_input(send_b);
         let (wet_b_l, wet_b_r) = self.plateau.process_sample(
             send_b + cascade_l * self.cascade_gain,
             send_b + cascade_r * self.cascade_gain,
@@ -273,9 +276,11 @@ impl DualEfxProcessor {
         }
         self.prepare_bus_block();
         for i in 0..frames {
+            let in_l = super::math::audio_input(in_l[i]);
+            let in_r = super::math::audio_input(in_r[i]);
             let (a_l, a_r) = self.velvet.process_sample(
-                if enable_a { in_l[i] } else { 0.0 },
-                if enable_a { in_r[i] } else { 0.0 },
+                if enable_a { in_l } else { 0.0 },
+                if enable_a { in_r } else { 0.0 },
             );
             // This path does not route the separate cascade history, but it
             // must continue advancing so a later bus switch cannot replay it.
@@ -292,7 +297,7 @@ impl DualEfxProcessor {
             };
             let (b_l, b_r) = if enable_b {
                 self.plateau
-                    .process_sample(in_l[i] + cascade_l, in_r[i] + cascade_r)
+                    .process_sample(in_l + cascade_l, in_r + cascade_r)
             } else {
                 self.plateau.process_sample(0.0, 0.0)
             };
