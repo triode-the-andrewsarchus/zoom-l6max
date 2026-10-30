@@ -530,6 +530,36 @@ mod tests {
     }
 
     #[test]
+    fn routed_frame_processing_matches_block_processing() {
+        let mut block = Box::new(routing::DualEfxProcessor::new());
+        let mut frames = Box::new(routing::DualEfxProcessor::new());
+        block.init();
+        frames.init();
+        let mut peak = 0.0f32;
+        for n in 0..150 {
+            if n == 25 {
+                let mut p = block.velvet.current;
+                p.density = 2000.0;
+                block.velvet.set_parameters(p);
+                frames.velvet.set_parameters(p);
+            }
+            let a = [if n == 0 { 0.25 } else { 0.0 }; 64];
+            let b = [if n == 1 { 0.125 } else { 0.0 }; 64];
+            let c = [if n == 2 { -0.25 } else { 0.0 }; 64];
+            let mut left = [0.0; 64];
+            let mut right = [0.0; 64];
+            block.process_buses(&a, &b, &c, &mut left, &mut right);
+            frames.prepare_bus_block();
+            for i in 0..64 {
+                let actual = frames.process_bus_sample(a[i], b[i], c[i]);
+                assert_eq!(actual, (left[i], right[i]), "block {n}, frame {i}");
+                peak = peak.max(actual.0.abs()).max(actual.1.abs());
+            }
+        }
+        assert!(peak > 0.001);
+    }
+
+    #[test]
     fn weighted_channels_route_above_unity_and_per_frame_ramps() {
         let mut routed = Box::new(routing::DualEfxProcessor::new());
         let mut reference = Box::new(routing::DualEfxProcessor::new());

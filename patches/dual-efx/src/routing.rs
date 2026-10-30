@@ -211,20 +211,31 @@ impl DualEfxProcessor {
         if frames == 0 {
             return;
         }
-        self.velvet_cascade.set_parameters(self.velvet.current);
+        self.prepare_bus_block();
         for i in 0..frames {
-            let (a_l, a_r) = self.velvet.process_sample(send_a[i], send_a[i]);
-            let (cascade_l, cascade_r) = self.velvet_cascade.process_sample(send_cascade[i], send_cascade[i]);
-            let b_l = send_b[i] + cascade_l * self.cascade_gain;
-            let b_r = send_b[i] + cascade_r * self.cascade_gain;
-            let (wet_b_l, wet_b_r) = self.plateau.process_sample(b_l, b_r);
-            out_l[i] = super::math::soft_clip(
-                (a_l + cascade_l) * self.return_gain_a + wet_b_l * self.return_gain_b,
-            );
-            out_r[i] = super::math::soft_clip(
-                (a_r + cascade_r) * self.return_gain_a + wet_b_r * self.return_gain_b,
-            );
+            (out_l[i], out_r[i]) = self.process_bus_sample(send_a[i], send_b[i], send_cascade[i]);
         }
+    }
+
+    /// Synchronizes the independent A-to-B filter before processing a block.
+    pub fn prepare_bus_block(&mut self) {
+        self.velvet_cascade.set_parameters(self.velvet.current);
+    }
+
+    /// Processes one frame after `prepare_bus_block`, allowing firmware control
+    /// updates to remain interleaved with audio frames.
+    #[inline(always)]
+    pub fn process_bus_sample(&mut self, send_a: f32, send_b: f32, send_cascade: f32) -> (f32, f32) {
+        let (a_l, a_r) = self.velvet.process_sample(send_a, send_a);
+        let (cascade_l, cascade_r) = self.velvet_cascade.process_sample(send_cascade, send_cascade);
+        let (wet_b_l, wet_b_r) = self.plateau.process_sample(
+            send_b + cascade_l * self.cascade_gain,
+            send_b + cascade_r * self.cascade_gain,
+        );
+        (
+            super::math::soft_clip((a_l + cascade_l) * self.return_gain_a + wet_b_l * self.return_gain_b),
+            super::math::soft_clip((a_r + cascade_r) * self.return_gain_a + wet_b_r * self.return_gain_b),
+        )
     }
 
     /// Processes a stereo send block through the dual effect engine.
