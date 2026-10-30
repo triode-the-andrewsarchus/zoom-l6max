@@ -233,6 +233,19 @@ unqualified. The recipe and result hashes were
 `06df73d2655fca9ffc1d41678671b89181603f89e8e66c81bc84785bdfc5a5c1` and
 `adfd29927843223f3bf2a70db60b228e59ee79e10355656a12b57da4e4197c87`.
 
+In a stock setup-complete run, a 1,500 ms EFX SEL hold reached the selection
+routine at `0x20280580` in the priority-12 `Main` task before the panel model
+had delivered the release event. At that stop, the call stack included
+`0x800543a7`, `0x800542f3`, and `0x80036f2d`; static disassembly identifies
+the calls at `0x800543a2` and `0x80036f28`. A long-press inspector cannot
+simply react after the stock press handler without also changing the effect;
+it needs a validated way to defer or suppress that action. This observation
+does not establish the release-event ABI, a safe hook, or a gesture threshold.
+The recipe, debugger script and log hashes were
+`60d97b6ef492d7150862fef2f2bc597859c06b00c71e91784cd5522de163d376`,
+`ec66bcb88a8cc3dfcde365ec1f385a5870858ac9fd8048c01b0e8f24aba4bf34`, and
+`29fe6e3c5eaab4586e78fb941f83a71dff8909894c093fe40cbaa96a99b895a3`.
+
 In a fresh stock-emulator boot, the descriptor at `0x8020a3dc`, referenced
 by the observed effect context, contained `0x80d00000`, `0x80dbb800`, and
 `0x000bb800` as its first three words. Static inspection of the Room callback
@@ -543,6 +556,13 @@ and result hashes were
 `d02bbce4f5a00519b4f3e5a69673c2ee225d38682a853578c6b6267afa9571c2` and
 `4c6575bacbcbb610a6b19761b021f00afafebd1359aa16014b456ef7221e66cb`;
 the firmware and executable identities were the same as the preceding run.
+After the cutoff-state and display-format changes, another run produced the
+same six-selection sequence and counted 586 and 585 custom callbacks. Its
+probe ELF, modified MAIN, recipe and result hashes were
+`00a5dc45bfd9a8b42846bbf839883ed3e503514cd80eb6ec85b681027dc37104`,
+`6d8314a1c9165c2d255372bba711144cb4c6672dea6c0b6949a0ec05dcf5b685`,
+`47982e4644228f05e61b616a76a97ad83ed3572c586e58d96ec7b22fb88a8ad3`, and
+`d964a77169f510822c81892cf0610465c5886da11f5b97956d7a4985795a9f79`.
 
 ## Task and memory observations
 
