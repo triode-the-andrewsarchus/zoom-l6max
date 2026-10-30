@@ -96,6 +96,49 @@ mod tests {
         }
     }
 
+    fn idle_reverb_pair() -> (Box<routing::IdlePlateau>, Box<plateau::PlateauReverb>) {
+        let mut idle = Box::new(routing::IdlePlateau::new());
+        let mut reference = Box::new(plateau::PlateauReverb::new());
+        idle.init(plateau::PlateauParameters::default());
+        reference.init(plateau::PlateauParameters::default());
+        (idle, reference)
+    }
+
+    #[test]
+    fn idle_reverb_matches_full_processing_through_edits_and_resume() {
+        let (mut idle, mut reference) = idle_reverb_pair();
+        for frame in 0..90_000 {
+            if frame == 4_000 || frame == 17_000 || frame == 35_000 {
+                let mut params = reference.params;
+                params.size = if frame == 17_000 { 0.2 } else { 1.2 };
+                params.predelay_ms = if frame == 4_000 { 190.0 } else { 0.0 };
+                params.freeze = frame == 17_000;
+                idle.set_parameters(params);
+                reference.set_parameters(params);
+            }
+            let input = if frame == 50_000 { 0.5 } else { 0.0 };
+            let actual = idle.process_sample(input, input);
+            let expected = reference.process_sample(input, input);
+            assert_eq!((actual.0.to_bits(), actual.1.to_bits()),
+                (expected.0.to_bits(), expected.1.to_bits()), "frame {frame}");
+        }
+    }
+
+    #[test]
+    fn idle_reverb_mutable_access_preserves_seeded_history() {
+        let (mut idle, mut reference) = idle_reverb_pair();
+        idle.predelay.write(0.75);
+        reference.predelay.write(0.75);
+        let mut peak = 0.0f32;
+        for frame in 0..20_000 {
+            let actual = idle.process_sample(0.0, 0.0);
+            let expected = reference.process_sample(0.0, 0.0);
+            assert_eq!(actual, expected, "frame {frame}");
+            peak = peak.max(actual.0.abs()).max(actual.1.abs());
+        }
+        assert!(peak > 0.001, "test must observe the seeded history");
+    }
+
     #[test]
     fn efx_select_defers_short_press_and_distinguishes_hold() {
         use controls::EfxSelectAction as Action;

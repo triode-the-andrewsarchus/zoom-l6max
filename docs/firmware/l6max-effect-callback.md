@@ -1863,6 +1863,28 @@ values were
 It used the same stock MAIN, initial NOR and QEMU executable as the preceding
 matched control runs.
 
+The routed reverb now skips arithmetic while its freshly initialized audio
+state is known to be zero, but advances its delay positions and LFOs. A
+validated parameter update preserves that condition; nonzero or signed-zero
+input and unrestricted mutable reverb access return to full processing. Host
+tests compare the idle path and subsequent tails with full processing through
+size, predelay and freeze edits, and verify that direct history mutation is
+not skipped. This optimization does not skip a reverb tail or restore the
+idle path automatically after audio has entered it.
+
+In one fresh nominal-cadence QEMU run without synthetic sends, the integrated
+diagnostic opened the inspector, recorded all ten edits, closed it and selected
+Spring. The immediately preceding build had failed the same sequence. This is
+one modeled observation, not qualification of active-audio responsiveness,
+the reconstructed input path, target timing, or physical controls. The
+diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`d38b274851da46820cf59053c5acf12ba8b330935027b589023b31ee243580be`,
+`c971ee395071efaee2caf14325502a73a28bb683d49b5bbd86390a396bc5bdd0`,
+`c04abf61ed4ab18c89654da3e0eb284434efd3f46e21557c3d1b28f01d46b276`, and
+`e6c80ac6517ad3c8df01789bceb453890e2151c4e3905407f9241651c36dd4df`.
+The stock MAIN, initial NOR and unattested QEMU executable matched the
+preceding control runs.
+
 An uncommitted experiment used 8,192-sample power-of-two Velvet histories,
 retaining the 4,802-sample logical delay and silence window. It increased the
 two Velvet instances' state by 54,240 bytes. Host output over 100,000 frames

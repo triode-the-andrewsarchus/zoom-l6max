@@ -565,6 +565,36 @@ impl PlateauReverb {
         (out_l, out_r)
     }
 
+    // The caller must guarantee all histories and filter state are zero and
+    // revoke that guarantee on arbitrary mutable access. Advancing cursors and
+    // LFOs preserves the state needed when processing resumes.
+    pub(crate) fn advance_pristine(&mut self) {
+        macro_rules! advance {
+            ($d:expr) => {{
+                let d = &mut $d;
+                d.write_pos += 1;
+                if d.write_pos >= d.length {
+                    d.write_pos = 0;
+                }
+            }};
+        }
+        advance!(self.predelay);
+        advance!(self.in_apf1.delay);
+        advance!(self.in_apf2.delay);
+        advance!(self.in_apf3.delay);
+        advance!(self.in_apf4.delay);
+        advance!(self.l_apf1.delay);
+        advance!(self.l_del1);
+        advance!(self.l_apf2.delay);
+        advance!(self.l_del2);
+        advance!(self.r_apf1.delay);
+        advance!(self.r_del1);
+        advance!(self.r_apf2.delay);
+        advance!(self.r_del2);
+        self.lfo1.step();
+        self.lfo2.step();
+    }
+
     pub fn process_block(&mut self, left: &mut [f32], right: &mut [f32]) {
         let count = left.len().min(right.len());
         for i in 0..count {
