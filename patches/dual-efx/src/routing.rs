@@ -58,7 +58,7 @@ impl DualEfxProcessor {
             plateau: PlateauReverb::new(),
             channel_routing: [RoutingMode::Neither; MAX_CHANNELS],
             channel_send: [0.0; MAX_CHANNELS],
-            cascade_gain: 0.0,
+            cascade_gain: 1.0,
             return_gain_a: 1.0,
             return_gain_b: 1.0,
             pre_ainr_enabled: false,
@@ -86,7 +86,7 @@ impl DualEfxProcessor {
     pub fn init(&mut self) {
         self.channel_routing.fill(RoutingMode::Neither);
         self.channel_send.fill(0.0);
-        self.cascade_gain = 0.0;
+        self.cascade_gain = 1.0;
         self.return_gain_a = 1.0;
         self.return_gain_b = 1.0;
         self.pre_ainr_enabled = false;
