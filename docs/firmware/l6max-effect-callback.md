@@ -1166,6 +1166,33 @@ log and diagnostic JSON SHA-256 values were
 The stock MAIN, initial NOR and QEMU match the first run immediately above;
 the debugger stop may perturb scheduling.
 
+Two further debugger-controlled stock runs injected the same 64 `f32` values,
+a 0.25-amplitude sinusoidal pattern, into each candidate channel buffer before
+its call completed. During the first captured learning frame, both
+processor-state words were 4. The first call was stopped at `0x0000002a`
+before injection; the second was stopped at the call instruction
+`0x20228d94` with `r0 = r1 = 0x20011110` and `r2 = 1`. Both calls returned
+the 64 injected values bit-for-bit. In a separate run after the learned word
+became 1, both processor-state words were 1; injection at the two caller
+instructions yielded 64 zero samples from each call. One word immediately
+before the first buffer and one word immediately after the second were zero
+both before and after the captures. These are isolated, forced input blocks:
+they do not prove the complete memory extent or sample format, distinguish
+suppression from buffering or latency, establish steady-state denoising, or
+justify an extra call on the effect sends. Debugger stops alter timing.
+
+The learning-frame recipe, script, log and result SHA-256 values were
+`d27d3cfb5ff58eadb6d7dad52c6adaf2e037a0697bd085c0d328294f8aa0d61f`,
+`18df0ae1201e32bd7b347d59e5d779d890487c4a034d11d33992b38044d23cb9`,
+`59a2d4641a06edde5e1175c94ad189102a3498916b5d324a8ffe97a706827f1e`, and
+`93bb457e48a25d026f2d02e86b8404305c8c26661e166869f722adcf66d00494`.
+The post-learning recipe, script, log and result hashes were
+`45233d0c29dc9947da9353f8a78eb1e26788b80958fed6dd31f1cff11cbc51db`,
+`76175fada83156b4fe03ec1a3cbdc79fefcb17d7f64b7e16ab5645388e88e54b`,
+`4a0cd9483d67983687ed86f8b5a1fd4d827667412a83cc4c31d77dbaad4ed259`, and
+`7574f27ea3240ebcbe65782c597c938319ffd515780c9cc3d6fb387f04305287`.
+Both used the stock MAIN, initial NOR and QEMU identities immediately above.
+
 ## Plateau tank delay diagnostic
 
 After correcting the Plateau tank rings to return a sample after their full
