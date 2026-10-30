@@ -27,7 +27,7 @@ model-specific maps are listed in the [board reference](board.md#display-and-inp
 ## Main GPIO controls
 
 L6max routes Menu and Record through GPIO5 bits 2 and 0, and TAP through
-GPIO2 bit 31. Its sound pads use the following active-low inputs:
+GPIO2 bit 31 (the firmware key-reader table). Its sound pads use the following active-low inputs:
 
 | Sound pad | Input target | GPIO |
 | --- | ---: | --- |

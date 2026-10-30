@@ -971,10 +971,10 @@ static bool l6_main_key_gpio(L6ChipState *s, unsigned id,
                              hwaddr *port, unsigned *pin)
 {
     if (s->profile == &L6MAX_PROFILE && id >= 48 && id <= 52) {
-        /* L6max control readers 49–52 come from the recovered key table;
-         * control 48 is the EventPort TAP input. GPIO2.30 is a board strap. */
+        /* L6max's key table maps TAP and controls 49–52 to these readers.
+         * GPIO2.30 is a board strap. */
         static const struct { hwaddr port; unsigned pin; } l6max_pad_keys[] = {
-            { 0x1bc000, 31 }, /* TAP */
+            { 0x1bc000, 31 }, /* TAP: GPIO2 bit 31 */
             { 0x1b8000, 21 }, /* Control 49: GPIO1 bit 21 */
             { 0x1b8000, 25 }, /* Control 50: GPIO1 bit 25 */
             { 0x1b8000, 26 }, /* Control 51: GPIO1 bit 26 */

@@ -266,8 +266,8 @@ The MAIN-MCU GPIO inputs are model-specific. A matched QEMU probe held Menu,
 Play, and Record for five seconds each; L6max sampled all three. L6's normal
 `EventPort` scan selects GPIO2.31, GPIO2.30, GPIO1.21, GPIO1.20, and GPIO2.22.
 Controlled L6 playback probes map the first four to Sound Pads 1–4 (targets
-49–52), and GPIO2.22 to TAP (target 48). L6max's key-reader table
-maps targets 49–52 to GPIO1 bits 21, 25, 26, and 0. Four isolated QEMU runs
+49–52), and GPIO2.22 to TAP (target 48). L6max's key-reader table maps TAP
+to GPIO2.31 and targets 49–52 to GPIO1 bits 21, 25, 26, and 0. Four isolated QEMU runs
 selected those bits, produced SAI1 audio with the corresponding WAVs assigned,
 and changed matching pad LEDs 27–30; runtime pad records remained zero.
 GPIO2.30 stays at its startup board-ID level and is not used for L6max Pad 2.

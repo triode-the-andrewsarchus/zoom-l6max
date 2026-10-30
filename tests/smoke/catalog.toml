@@ -214,6 +214,15 @@ no_sd = true
 wall_timeout_s = 900
 
 [[case]]
+id = "l6max-ainr-tap"
+suites = []
+models = ["l6max"]
+scenario = "scenarios/l6max-ainr-tap.toml"
+fixture = "prepared"
+no_sd = true
+wall_timeout_s = 900
+
+[[case]]
 id = "l6-main-gpio-events"
 suites = []
 models = ["l6"]
