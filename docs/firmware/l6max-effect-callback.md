@@ -359,8 +359,7 @@ Two more counter-only experiments also remained on the first selection. One
 preserved the copied stock post-selection callback while still initializing
 the custom state; the other omitted custom-state initialization as well and
 changed only the selected descriptor callback after the redirected clear.
-These results narrow the investigation but do not yet distinguish the
-descriptor change from the redirect itself. The former experiment's source,
+The former experiment's source,
 ELF, MAIN, recipe and result SHA-256 values were
 `d51bfc2c869d34832bce573a426e26ca4d884afaf406830c64603e8b1bd2cfb5`,
 `3ae430b269a8a67759b2ebc1671a3ea14443c91fb025d9cf6b47929c662d6d0b`,
@@ -373,6 +372,17 @@ The latter experiment's corresponding values were
 `71cead3da298671d078168794ec62928ce58b550a9549b5d19796778b1165957`,
 `a30ceec6251cb0ea108d2880e5399da0f8ef7b437e6d23659b1a95888ab8a6f9`, and
 `82168428a466b9c56de15a52d00689df5551b0679ad7733bad52b3af36509ff6`.
+
+A pass-through payload using the same redirect but only calling the stock
+clear preserved the stock six-callback selection sequence. The redirect by
+itself therefore did not reproduce the failure in this run; the descriptor
+change or custom callback behavior remains implicated. The pass-through
+source, ELF, MAIN, recipe and result hashes were
+`5fb463bd3208ca22c037d83cc45d62716320f3c26e06f9c91af079a4dd67113f`,
+`1932865c93ad8d79b53786adad7a3d9ad90ed393b4cb7cb8a2e27aa4261c8cbe`,
+`fa1f07e15fd9f33b70ea6da3abde488258994abfa1d950995e112eeae5f97414`,
+`2951cc15684c7d53c4e8881cc01595081334bd8b2b21ffaed0eb69f86f13a905`, and
+`c7f1be6ee9b3b4cbc35c194ee18a722fa26a71b19179ae6c271e16edf20265b0`.
 
 ## Task and memory observations
 
