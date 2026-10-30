@@ -953,6 +953,35 @@ MAIN, ELF, recipe and result SHA-256 were respectively
 `9e1efae624ad8f79699d0ade180c268e689d5ec0e5a165575dd8a6a3240b69a0`, and
 `e36ab33478143547403cc9ed60852c54ad0142a6ce549c513ba3ec37caec7df6`.
 
+An exploratory `cpu-profile` run selected the diagnostic callback after 45
+guest seconds and sampled for 25 wall seconds. Of 349 main-CPU samples, 130
+fell inside `diagnostic_audio`; 46 fell in one Velvet tap loop. The compiled
+loop performed an integer division per tap even though generated delays fit
+the ring. The callback image, ELF, profiler executable, QEMU executable and
+sample TSV SHA-256 were
+`c8787fead6dca81878c0f50c0b077bb32a5957023ca0856f3fedb958af758e69`,
+`65f8d7b9a9729c60d554d1f7af3d04b64c69d79344fdba1cc971d3d4fb7eb399`,
+`a6e5f57e4ce4139321c1cad539f44a7c6274468a7b4f9418535fb59f657c6ab4`,
+`9724d60a31400becad8f1e98d6fd67bb9456c8dfbdeebe833e7636ed8e9cf536`, and
+`3235d20ba1e5ae2a1ecd04109d3fda814c1657a0a128c9d116c1ff96e8f6c416`.
+Sampling and emulator clock behavior limit this evidence; it is not a target
+cycle count or a complete instruction profile.
+
+The tap loop now checks the range first and uses an out-of-line modulo only
+for out-of-range delays. Cortex-M7 disassembly confirmed that valid delays
+branch around the divide; the first inline version had not done so. A host
+comparison across 40,000 frames with filter edits and crossfades produced
+identical before/after bytes, SHA-256
+`7f4eb17042484ab744a12f76d1892953a8517fe9bc988b7212bb964cfbacab80`.
+Separate tests exercise delays beyond the ring size. The QEMU stress case
+still measured the last hold at 560 ticks and did not select Spring, so this
+does not establish a fix for responsiveness. Its MAIN, ELF, recipe and
+result hashes were
+`089d191dc3c89fa01bd7c9c68535d52d9f7cfb33e14273f98177cd106acf68fa`,
+`000cbf1de47e22a702052e71b80fdbe2e6e5396c7db3d53b8d97237e342d7d09`,
+`754ecb1b4295a6c0092a76c75b1d8f0ae2762802a15c39e3d1b0f103035d32b3`, and
+`4a9683a81223b040675b73ebff7b5916b205da64579ded42c95cbcd98fe8b49f`.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:

@@ -12,6 +12,12 @@ pub const SAMPLE_RATE: f32 = 48000.0;
 pub const MAX_DELAY_SAMPLES: usize = 4802; // Up to 100 ms at 48 kHz
 pub const MAX_TAPS: usize = 64; // Plenty for 30–60 taps
 
+#[cold]
+#[inline(never)]
+fn wrap_out_of_range_delay(delay: usize) -> usize {
+    delay % MAX_DELAY_SAMPLES
+}
+
 #[derive(Clone, Copy)]
 pub struct Tap {
     pub delay: u32,
@@ -337,7 +343,10 @@ impl VelvetDecorrelator {
 
         for i in 0..bank.count {
             let tap = &bank.storage[i];
-            let d = tap.delay as usize % size;
+            let delay = tap.delay as usize;
+            // Generated taps fit the ring; retain the old wrap behavior for
+            // externally supplied or corrupted tap delays.
+            let d = if delay < size { delay } else { wrap_out_of_range_delay(delay) };
             let read = if wp >= d { wp - d } else { wp + size - d };
             result += tap.gain * channel.delay_line[read];
         }
