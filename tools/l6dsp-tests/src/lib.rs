@@ -443,6 +443,36 @@ mod tests {
     }
 
     #[test]
+    fn weighted_channels_route_above_unity_and_per_frame_ramps() {
+        let mut routed = Box::new(routing::DualEfxProcessor::new());
+        let mut reference = Box::new(routing::DualEfxProcessor::new());
+        routed.init();
+        reference.init();
+        routed.set_channel_routing(0, routing::RoutingMode::SendA);
+        routed.set_channel_routing(1, routing::RoutingMode::SendB);
+        routed.set_channel_routing(2, routing::RoutingMode::SendAtoB);
+        let a: Vec<_> = (0..145).map(|i| if i == 0 || i == 70 { 0.25 } else { 0.0 }).collect();
+        let b: Vec<_> = (0..145).map(|i| if i == 1 || i == 71 || i == 110 { 0.5 } else { 0.0 }).collect();
+        let c: Vec<_> = (0..145).map(|i| if i == 2 || i == 72 { -0.25 } else { 0.0 }).collect();
+        let ramp: Vec<_> = (0..100).map(|i| i as f32 / 100.0).collect();
+        let channels = [
+            routing::WeightedChannel { samples: &a, gain: 2.0, ramp: None },
+            routing::WeightedChannel { samples: &b, gain: 0.75, ramp: Some(&ramp) },
+            routing::WeightedChannel { samples: &c, gain: 1.0, ramp: None },
+        ];
+        let expected_a: Vec<_> = a.iter().map(|x| x * 2.0).collect();
+        let expected_b: Vec<_> = b.iter().enumerate().map(|(i, x)| x * ramp.get(i).copied().unwrap_or(0.0) * 0.75).collect();
+        let mut actual = [vec![0.0; 145], vec![0.0; 145]];
+        let mut expected = [vec![0.0; 145], vec![0.0; 145]];
+        let [ref mut left, ref mut right] = actual;
+        routed.process_weighted_block(&channels, left, right);
+        let [ref mut left, ref mut right] = expected;
+        reference.process_buses(&expected_a, &expected_b, &c, left, right);
+        assert_eq!(actual, expected);
+        assert!(actual.iter().flatten().any(|x| x.abs() > 0.001));
+    }
+
+    #[test]
     fn stereo_send_processes_long_buffers_like_successive_blocks() {
         let mut long = Box::new(routing::DualEfxProcessor::new());
         let mut split = Box::new(routing::DualEfxProcessor::new());

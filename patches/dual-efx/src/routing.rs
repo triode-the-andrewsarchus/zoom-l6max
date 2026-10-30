@@ -29,6 +29,15 @@ impl RoutingMode {
     }
 }
 
+/// One mono mixer contribution before routing to an effect bus.
+/// `gain` may exceed unity; `ramp`, when present, supplies a multiplier per frame.
+#[derive(Clone, Copy)]
+pub struct WeightedChannel<'a> {
+    pub samples: &'a [f32],
+    pub gain: f32,
+    pub ramp: Option<&'a [f32]>,
+}
+
 pub struct DualEfxProcessor {
     pub velvet: VelvetDecorrelator,
     // A separate history keeps A-only sends out of the A-to-B cascade.
@@ -118,6 +127,18 @@ impl DualEfxProcessor {
     /// - `channels`: slice of channel input buffers [ch][frame].
     /// - `out_l`, `out_r`: destination buffers for the wet effect return to master bus.
     pub fn process_block(&mut self, channels: &[&[f32]], out_l: &mut [f32], out_r: &mut [f32]) {
+        let mut weighted = [WeightedChannel { samples: &[], gain: 0.0, ramp: None }; MAX_CHANNELS];
+        let count = channels.len().min(MAX_CHANNELS);
+        for ch in 0..count {
+            weighted[ch] = WeightedChannel { samples: channels[ch], gain: self.channel_send[ch], ramp: None };
+        }
+        self.process_weighted_block(&weighted[..count], out_l, out_r);
+    }
+
+    /// Routes channels whose mixer gains have already been calculated.
+    /// Samples and optional ramps shorter than the output contribute silence
+    /// beyond their lengths; effects still run to preserve their tails.
+    pub fn process_weighted_block(&mut self, channels: &[WeightedChannel<'_>], out_l: &mut [f32], out_r: &mut [f32]) {
         let frames = out_l.len().min(out_r.len());
         let mut offset = 0;
         while offset < frames {
@@ -128,8 +149,8 @@ impl DualEfxProcessor {
             let n = (frames - offset).min(BLOCK_SIZE);
 
             for ch in 0..channels.len().min(MAX_CHANNELS) {
-                let send_level = self.channel_send[ch];
-                if send_level <= 0.0 {
+                let channel = channels[ch];
+                if !channel.gain.is_finite() || channel.gain <= 0.0 {
                     continue;
                 }
                 let bus = match self.channel_routing[ch] {
@@ -138,9 +159,16 @@ impl DualEfxProcessor {
                     RoutingMode::SendB => &mut send_b,
                     RoutingMode::SendAtoB => &mut send_cascade,
                 };
-                let input = channels[ch].get(offset..).unwrap_or(&[]);
-                for i in 0..n.min(input.len()) {
-                    bus[i] += input[i] * send_level;
+                let input = channel.samples.get(offset..).unwrap_or(&[]);
+                if let Some(ramp) = channel.ramp {
+                    let ramp = ramp.get(offset..).unwrap_or(&[]);
+                    for i in 0..n.min(input.len()).min(ramp.len()) {
+                        bus[i] += (input[i] * ramp[i]) * channel.gain;
+                    }
+                } else {
+                    for i in 0..n.min(input.len()) {
+                        bus[i] += input[i] * channel.gain;
+                    }
                 }
             }
 
