@@ -1413,6 +1413,37 @@ not establish complete isolation, denoising quality, initialization of an
 independent learned instance, concurrent execution, timing or hardware memory
 ownership.
 
+A QEMU-only integration experiment copied the learned stock AINR state and
+relocated code into three separate scratch regions, then called one copy on
+each synthetic A, B and A-to-B send before the routed effects callback. The
+observer checked the stock selection, enabled state and learned flag before
+copying, and verified each code and state readback before enabling the test.
+After returning to Room, one run observed the callback count rise from 2,417
+to 4,715 over 5,000 guest ms, approximately 460 blocks per guest second. The
+sampled send values and final effect output were finite and nonzero. At the
+second snapshot, the sampled before/after pairs were approximately
+`(-0.03125, -0.0312893)`, `(-0.015625, -0.0156380)` and
+`(-0.0703125, -0.0703125)`; final L/R samples were approximately `-0.1269`
+and `-0.2193`. These are forced periodic signals and single-sample snapshots;
+they do not establish noise-reduction quality or physical input routing.
+
+The count is below the modeled 750 blocks per second and is not a physical
+deadline measurement. The experiment also does not establish independent
+learning, complete state isolation, stock coexistence, target stack use, or
+ownership of its code and state regions. The diagnostic changes execution and
+must never be installed on hardware. The [probe instructions](../../tools/l6dsp-tests/probe/README.md#pre-ainr-send-experiment)
+describe how to reproduce it. Its callback, preparer, observer, ELF, recipe,
+result and QEMU executable SHA-256 values were
+`e887cf586db27e4b1004a957eb27be6959009b12de9be45b6c4c2443ee34748f`,
+`d0c188954fd3534d437e9b80465d29a1a1ca8e07eb56fffaf80c7c20dbd3b822`,
+`cc2a00cecccbf197b2fe3d464cb6ccff5b5501b6a006aafe6cee01743810dbe0`,
+`72fbfef648db39416d7f4920c1a590a821a2ef6c9406b8b6f65341a56ba1a987`,
+`aa38ff10c9506b56c4b09ebc9fbca1e430fa5067409ab6ab8528f4f0786a9b0f`,
+`ffff00afc4a6a6ef34bdf3c12855e02ad6b417ae629a253c8187ed74abd738ae`, and
+`53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`.
+The stock MAIN and initial NOR matched the preceding experiments; QEMU source
+provenance remains unattested.
+
 An instrumented stock-QEMU run on the newer board model traced CPU memory
 accesses between entry to `0x00001060` and the two stock caller returns. It
 armed at the learning-start handler and skipped 64 subsequent entries before

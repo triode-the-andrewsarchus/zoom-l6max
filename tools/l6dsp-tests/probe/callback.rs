@@ -60,6 +60,40 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
         }
     }
 }
+// QEMU-only helpers. The observer sets this marker only after copying all
+// three guarded code and state regions into disposable emulator scratch.
+#[cfg(pre_ainr_probe)]
+fn synthetic_pre_ainr_sends(sends: &mut [[f32; 64]; 3]) {
+    let active = unsafe { core::ptr::read_volatile(0x83e00144 as *const u32) } == 0x41494e52;
+    const WAVE: [f32; 16] = [0.0, 0.25, 0.5, 0.75, 1.0, 0.75, 0.5, 0.25,
+                              0.0, -0.25, -0.5, -0.75, -1.0, -0.75, -0.5, -0.25];
+    for i in 0..64 {
+        sends[0][i] = if active { 0.125 * WAVE[i % 16] } else { 0.0 };
+        sends[1][i] = if active { 0.0625 * WAVE[i % 16] } else { 0.0 };
+        sends[2][i] = if active { -0.09375 * WAVE[(i + 4) % 16] } else { 0.0 };
+    }
+}
+
+#[cfg(pre_ainr_probe)]
+fn process_pre_ainr_sends(sends: &mut [[f32; 64]; 3]) {
+    if unsafe { core::ptr::read_volatile(0x83e00144 as *const u32) } != 0x41494e52 { return; }
+    for bus in 0..3 {
+        let before = sends[bus][63];
+        let entry = 0x80f00781usize + bus * 0x10000;
+        let ainr: unsafe extern "C" fn(*mut f32, *mut f32, u32) = unsafe { core::mem::transmute(entry) };
+        let samples = sends[bus].as_mut_ptr();
+        unsafe {
+            ainr(samples, samples, 0);
+            core::ptr::write_volatile((0x83e03004usize + bus * 8) as *mut f32, before);
+            core::ptr::write_volatile((0x83e03008usize + bus * 8) as *mut f32, sends[bus][63]);
+        }
+    }
+    unsafe {
+        let count = 0x83e03000 as *mut u32;
+        core::ptr::write_volatile(count, core::ptr::read_volatile(count).wrapping_add(1));
+    }
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn diagnostic_audio(_context: u32, descriptor: u32) {
     let buffer = unsafe { core::ptr::read_volatile((descriptor + 4) as *const u32) } as *mut f32;
@@ -115,10 +149,17 @@ pub unsafe extern "C" fn diagnostic_audio(_context: u32, descriptor: u32) {
         // QEMU-only worst-case control: keep all three effect buses active.
         #[cfg(active_sends)]
         {
-            sends[0].fill(0.125);
-            sends[1].fill(0.0625);
-            sends[2].fill(-0.09375);
+            #[cfg(not(pre_ainr_probe))]
+            {
+                sends[0].fill(0.125);
+                sends[1].fill(0.0625);
+                sends[2].fill(-0.09375);
+            }
+            #[cfg(pre_ainr_probe)]
+            synthetic_pre_ainr_sends(&mut sends);
         }
+        #[cfg(pre_ainr_probe)]
+        process_pre_ainr_sends(&mut sends);
         if unsafe { core::ptr::read_volatile(0x83e00140 as *const u32) } != 0 {
             for bus in 0..3 {
                 for i in 0..64 {

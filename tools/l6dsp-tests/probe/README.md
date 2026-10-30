@@ -184,3 +184,38 @@ hardware is unknown. It does not establish complete relocation coverage,
 concurrent isolation, timing, pre-AINR integration, or physical safety, and
 must never be used with a real device. It does not enable the dual-effect
 patch builder.
+
+## Pre-AINR send experiment
+
+The `--pre-ainr` diagnostic calls three relocated AINR copies before the
+routed effects on synthetic sends. It is a QEMU-only experiment: it modifies
+emulated execution and uses scratch code and state with no established physical
+ownership. **Never install or run its output on hardware.** It does not enable
+the patch builder.
+
+Prepare the fixture, then run the printed `l6dbg` command in one terminal and
+the printed observer command in another. Supply the exact QEMU executable to
+`l6dbg` and record its SHA-256:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 tools/l6dsp-tests/probe/prepare.py \
+  UNPACKED_DIR STOCK_STATE_DIR /tmp/l6-pre-ainr --callback --inspector \
+  --active-sends --pre-ainr
+sha256sum QEMU_PATH
+```
+
+The recipe selects stock AINR and starts learning. After the learned snapshot,
+the observer verifies the prepared fixture and learned call, copies the guarded
+code and 128 KiB of state into each of three QEMU scratch regions, checks the
+readbacks and enables the synthetic signals. The recipe returns to Room and
+captures `selected`, `ainr_sends_1`, `ainr_sends_2` and `output` in
+`logs/diagnostic.json`. For each `ainr_sends` observation, the first word is a
+callback count; the following six words are three pairs of before/after `f32`
+samples. Confirm that Room was selected, the count increases, and the samples
+and output are finite. Recipe completion alone does not assert these results.
+
+This experiment copies a stock learned snapshot; it does not implement a way
+to learn an independent instance, prove denoising quality, validate physical
+inputs or routing, establish scratch ownership, or meet a real-time deadline.
+The observer must not connect to a real device. The results depend on the exact
+firmware, state, QEMU binary and emulator timing.
