@@ -34,6 +34,7 @@ pub unsafe fn initialize(entry: u32) {
         core::ptr::write_volatile(SUMMARY as *mut u32, u32::MAX);
         core::ptr::write_volatile((SUMMARY + 24) as *mut u32, 0);
         core::ptr::write_volatile((SUMMARY + 28) as *mut u32, 0);
+        #[cfg(gesture_trace)]
         core::ptr::write_volatile(0x83e00500 as *mut u32, 0);
         // A selection closes the previous inspector, but preserves gesture
         // state until the selector event returns to its caller.
@@ -63,13 +64,16 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
             core::ptr::write(ui, UiState { magic: MAGIC, gesture: controls::EfxSelectGesture::default(), arg0: 0, arg1: 0, active: false, routing_page: false, velvet_bank: core::ptr::read_volatile(0x83e00004 as *const u32) != 0x2028b8dc });
         }
         let s = &mut *ui;
-        let count = core::ptr::read_volatile(0x83e00500 as *const u32);
-        if count < 20 {
-            let record = (0x83e00504 as *mut u32).add(count as usize * 3);
-            core::ptr::write_volatile(record, event);
-            core::ptr::write_volatile(record.add(1), core::ptr::read_volatile(0x8020ab4c as *const u32));
-            core::ptr::write_volatile(record.add(2), s.active as u32);
-            core::ptr::write_volatile(0x83e00500 as *mut u32, count + 1);
+        #[cfg(gesture_trace)]
+        {
+            let count = core::ptr::read_volatile(0x83e00500 as *const u32);
+            if count < 20 {
+                let record = (0x83e00504 as *mut u32).add(count as usize * 3);
+                core::ptr::write_volatile(record, event);
+                core::ptr::write_volatile(record.add(1), core::ptr::read_volatile(0x8020ab4c as *const u32));
+                core::ptr::write_volatile(record.add(2), s.active as u32);
+                core::ptr::write_volatile(0x83e00500 as *mut u32, count + 1);
+            }
         }
         if event > 1 || !custom_active() || !recorder_active() {
             s.gesture.cancel();

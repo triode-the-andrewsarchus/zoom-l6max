@@ -86,9 +86,12 @@ real-time use. Summary
 memory at `0x83e00400` contains parameter ID, value length, 16 text bytes,
 consumed-event count and inspector-open flag. Queue head, tail and overflow
 count are captured at `0x83e00200`.
-For gesture investigation, `0x83e00500` stores a count followed by up to
+With `--gesture-trace`, `0x83e00500` stores a count followed by up to
 20 triples of event, tick, and inspector-active flag, recorded at the selector
 hook. The trace adds work to that hook and can change timing.
+Add `--bank-stress` to repeat bank switching and encoder edits ten times,
+capture the inspector state, then exercise close and stock selection. Inspect
+the captured values; completion alone does not assert the expected behavior.
 
 For the prepared fixture identified in the investigation, the expected
 captured values are `26.0 ms` for Plateau and `84.0 %` for Velvet, followed
