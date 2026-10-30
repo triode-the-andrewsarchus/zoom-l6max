@@ -666,6 +666,30 @@ mod tests {
     }
 
     #[test]
+    fn plateau_freeze_blocks_buffered_diffuser_signal_from_tank() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        reverb.init(params);
+        // Leave an impulse in the final diffuser while the tank is empty.
+        reverb.in_apf4.process(1.0);
+        params.freeze = true;
+        reverb.set_parameters(params);
+        for frame in 0..12_000 {
+            let (left, right) = reverb.process_sample(0.0, 0.0);
+            assert_eq!((left, right), (0.0, 0.0), "frame {frame}");
+        }
+        params.freeze = false;
+        reverb.set_parameters(params);
+        let mut peak = 0.0f32;
+        for frame in 0..12_000 {
+            let input = if frame == 0 { 1.0 } else { 0.0 };
+            let (left, right) = reverb.process_sample(input, input);
+            peak = peak.max(left.abs()).max(right.abs());
+        }
+        assert!(peak > 0.001, "input must reach the tank after unfreezing");
+    }
+
+    #[test]
     fn processor_initialization_restores_zeroed_and_dirty_state() {
         let mut reference = Box::new(routing::DualEfxProcessor::new());
         let mut storage = Box::<routing::DualEfxProcessor>::new_uninit();

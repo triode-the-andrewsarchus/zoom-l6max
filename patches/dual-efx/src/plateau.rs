@@ -478,7 +478,7 @@ impl PlateauReverb {
         };
         self.predelay.write(mono_in);
 
-        // If frozen, cut input to tank
+        // Stop feeding the input filters while frozen; let their history drain.
         let tank_in = if self.params.freeze { 0.0 } else { predelayed };
 
         // 2. Input Diffusers
@@ -486,7 +486,10 @@ impl PlateauReverb {
         let diff1 = self.in_apf1.process(filtered_in);
         let diff2 = self.in_apf2.process(diff1);
         let diff3 = self.in_apf3.process(diff2);
-        let diff_in = self.in_apf4.process(diff3);
+        let diffused = self.in_apf4.process(diff3);
+        // The diffusers may still contain pre-freeze audio. Do not inject it
+        // into the frozen feedback tank while that history drains.
+        let diff_in = if self.params.freeze { 0.0 } else { diffused };
 
         // 3. Modulations
         let lfo1_val = self.lfo1.step();
