@@ -171,11 +171,13 @@ complete successfully. Logs and generated state remain in the temporary output.
 QEMU executable provenance is recorded as unattested.
 
 Add `--independent` to create a second relocated code and state copy receiving
-a different waveform. The original and first copy must still match, both
-outputs must be finite and nonzero, and at the five checkpoints the second
-copy must leave the checked stock and first-copy state ranges unchanged. The
-second output is not compared with an independent reference processor; this
-experiment does not verify its denoising behavior or all memory accesses.
+a different waveform. A second stock reference is run with its own saved state;
+each copy must match its corresponding stock output. Both outputs must be
+finite and nonzero. At the five checkpoints each copy's sampled state must
+match its stock reference, and the second copy must leave the checked stock
+and first-copy ranges unchanged. The debugger swaps 128 KiB of stock state
+for every block, so this mode takes longer. It does not verify denoising
+quality, all memory accesses or execution without debugger stops.
 
 This diagnostic modifies emulated execution and uses memory whose ownership on
 hardware is unknown. It does not establish complete relocation coverage,

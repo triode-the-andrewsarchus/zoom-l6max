@@ -1392,6 +1392,27 @@ The probe, recipe, result, diagnostic JSON and QEMU executable hashes were
 The stock MAIN and initial NOR matched the preceding experiment; QEMU source
 provenance remains unattested.
 
+A later version of the paired diagnostic also ran the second waveform through
+the original stock routine. While stopped at each block, it saved the first
+stock state, restored a separately saved 128 KiB stock reference state, ran the
+second signal, captured the resulting state, then restored the first stock
+state before continuing. Over 96 blocks, both copies matched their respective
+stock output byte-for-byte; at blocks 0, 15, 31, 63 and 95, each copy's sampled
+channel state matched its stock reference. The checked 128 KiB stock and
+first-copy ranges were unchanged by the second copy at those checkpoints.
+The recipe completed and its learned and reset words were 1 and 0.
+
+The paired-reference probe, recipe, result and diagnostic JSON SHA-256 values
+were `4730c22a20bb3a100c3ec23a6ff51508e9da896e440e058c082827fda6e12691`,
+`45233d0c29dc9947da9353f8a78eb1e26788b80958fed6dd31f1cff11cbc51db`,
+`c22f059d37224c66b7c726467843529eff71c6d9e1a7202a181ea45738c5e98f`, and
+`54b44c0613baef81a6e614977313a490f491bfb545758e90b607a0f168eab906`.
+The stock MAIN, initial NOR, copied code and QEMU binary matched the preceding
+experiment. This is still a forced, serialized emulator comparison; it does
+not establish complete isolation, denoising quality, initialization of an
+independent learned instance, concurrent execution, timing or hardware memory
+ownership.
+
 An instrumented stock-QEMU run on the newer board model traced CPU memory
 accesses between entry to `0x00001060` and the two stock caller returns. It
 armed at the learning-start handler and skipped 64 subsequent entries before
