@@ -156,11 +156,6 @@ impl VelvetDecorrelator {
         // Do not crossfade against banks from a previous initialization.
         self.channels[0].banks[0].count = 0;
         self.set_parameters(params);
-        for c in 0..2 {
-            self.generate_bank(c, 0, 0);
-            self.generate_bank(c, 1, 1);
-        }
-        self.generation = 2;
         self.reset();
     }
 
@@ -210,7 +205,14 @@ impl VelvetDecorrelator {
         }
     }
 
+    /// Clears history and rebuilds both banks for the current parameters.
+    /// Bank generation is not suitable for a real-time audio callback.
     pub fn reset(&mut self) {
+        for c in 0..2 {
+            self.generate_bank(c, 0, 0);
+            self.generate_bank(c, 1, 1);
+        }
+        self.generation = 2;
         for ch in &mut self.channels {
             ch.delay_line.fill(0.0);
             ch.write_position = 0;
