@@ -12,7 +12,10 @@ The blocking findings for L6max MAIN 1.10
 - The firmware obtains a typed reference to `NOLOAD` state without first
   constructing valid Rust values. The DSP initializer now restores defaults on
   valid zeroed storage, but the firmware does not establish that precondition
-  or ensure the magic value is invalidated on every reset.
+  or ensure the magic value is invalidated on every reset. In one settled
+  emulator run the largest stock-heap free block was 160,008 bytes, less than
+  the then-current payload state of 319,216 bytes; see the
+  [callback investigation](firmware/l6max-effect-callback.md).
 - The hook at `0x8000277c` is in a routine containing file-output and card-error
   handling. The branch has not established an audio-buffer ABI or a live
   audio callback at that call site.
