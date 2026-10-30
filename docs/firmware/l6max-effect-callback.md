@@ -1706,6 +1706,25 @@ Both used stock MAIN `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8
 initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
 and the same unattested QEMU executable as the earlier cadence comparison.
 
+A separate temporary high-density build replaced the per-tap delay-ring bounds
+check with an unchecked read, guarded once per convolution by a check that the
+write position is in range. The delay is still reduced to the ring length;
+for an in-range write position, the wrapped subtraction is also in range.
+The diagnostic disassembly no longer contained the per-tap ring bounds branch.
+In the same cadence sequence, callback counts were 768, 2,628, 4,400 and
+6,261, or about 366 per guest second over 15 seconds; the final sample
+recorded 64 active taps in each instance. This single observation is only a
+small improvement over the instrumented 352-call high-density run above,
+and still far below the 750-call bypass. The unsafe experiment was discarded;
+it is not a real-time or hardware qualification. The diagnostic MAIN, ELF,
+recipe and result SHA-256 values were
+`646054c1828a891eb611f056d5df6fed75820264221f421a7bb270a0c5540fe0`,
+`15bc3f1fc272ee4362daf6b143d53deecd3711ed9609fae4b16c51ce0c9ebbf6`,
+`d5899896da37845a9c65c1302307ae8bd51f813c03adfa7571988cab67e07169`, and
+`fe8dcf26fce90582d0b777977045d26fe061bc44b5666f05bbee3cf49974dd42`.
+It used the same stock MAIN, initial NOR, QEMU executable, and two
+instrumentation writes as the preceding high-density run.
+
 An uncommitted experiment used 8,192-sample power-of-two Velvet histories,
 retaining the 4,802-sample logical delay and silence window. It increased the
 two Velvet instances' state by 54,240 bytes. Host output over 100,000 frames
