@@ -317,7 +317,10 @@ impl VelvetDecorrelator {
             new_weight = sin(phase);
         }
 
-        let inputs = [in_l, in_r];
+        let inputs = [
+            if in_l.is_finite() { in_l } else { 0.0 },
+            if in_r.is_finite() { in_r } else { 0.0 },
+        ];
         let mut outputs = [0.0f32; 2];
 
         for c in 0..2 {

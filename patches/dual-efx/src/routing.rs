@@ -85,7 +85,7 @@ impl DualEfxProcessor {
 
     pub fn set_channel_send(&mut self, channel: usize, level: f32) {
         if channel < MAX_CHANNELS {
-            self.channel_send[channel] = if level < 0.0 {
+            self.channel_send[channel] = if level.is_nan() || level < 0.0 {
                 0.0
             } else if level > 1.0 {
                 1.0
