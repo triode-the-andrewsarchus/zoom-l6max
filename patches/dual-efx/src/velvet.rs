@@ -346,8 +346,7 @@ impl VelvetDecorrelator {
         let size = MAX_DELAY_SAMPLES;
         let wp = channel.write_position;
 
-        for i in 0..bank.count {
-            let tap = &bank.storage[i];
+        for tap in &bank.storage[..bank.count] {
             let delay = tap.delay as usize;
             // Generated taps fit the ring; retain the old wrap behavior for
             // externally supplied or corrupted tap delays.

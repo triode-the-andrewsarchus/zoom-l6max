@@ -1537,6 +1537,20 @@ SHA-256 were
 Earlier profiling attempts accidentally used stock NOR and were discarded;
 the firmware directory alone does not override an installed MAIN in NOR.
 
+Iterating the validated tap slice instead of indexing every tap removes the
+per-tap bank bounds check in the diagnostic Cortex-M7 build; the delay-ring
+check and out-of-range delay handling remain. A host comparison against the
+immediately preceding source over 40,000 frames, including filter edits and
+crossfades, was byte-identical (SHA-256
+`21287dcc5fa90bdb346225fa1060fb50d34b4d2ccd8a590f4ff6242172ee6337`).
+The nominal active-load scenario still did not open the inspector or select
+Spring. Its diagnostic MAIN, ELF, recipe and result SHA-256 were
+`8d4c07ace83e9320089ba57a734b5a34a1c89f4b9eb03e09cde7ed4407cdc38a`,
+`7c049b50652862ca293a5c34411d44a5a229363c9ba2352a76ca833450f5af09`,
+`8d06f1f03d3e99dbb07e5d6626392511b01e9c2266e6e06041b44e4057107b43`, and
+`debc9e36bad36e7cca33fac085bf070b3edd09b619c6f30edd4e348747da61f1`.
+This change does not establish real-time readiness or control responsiveness.
+
 The tap loop now checks the range first and uses an out-of-line modulo only
 for out-of-range delays. Cortex-M7 disassembly confirmed that valid delays
 branch around the divide; the first inline version had not done so. A host
