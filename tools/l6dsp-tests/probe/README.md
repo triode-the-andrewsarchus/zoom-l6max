@@ -51,7 +51,17 @@ and the third word is the callback count, which should be nonzero. This
 diagnostic replaces the selected stock callback and uses its effect buffer;
 it processes only the already-summed stereo bus. It does not implement or
 validate channel routing, effect controls, UI, synchronization, real-time
-deadlines, or hardware safety. In a separate six-press test, this diagnostic
-remained on its first custom selection after later EFX SEL presses; see the
-[investigation](../../../docs/firmware/l6max-effect-callback.md). Never install
-the generated image.
+deadlines, or hardware safety. Never install the generated image.
+
+To observe selection changes, add `--switches` along with `--callback` when
+preparing a fresh output directory. The resulting recipe presses EFX SEL six
+times and records `active_1` through `active_6`, `callback_state`, and
+`callback_state_2` through `callback_state_6`. For the setup-complete fixture
+starting at Hall, the first two active pointers should be the same diagnostic
+callback, the first two recorded descriptors should be `0x2028b8dc` and
+`0x2028b8f8`, and the next four pointers should be `0x8002c041`, `0x20280781`,
+`0x20280021`, and `0x20281649`. The custom callback count should be nonzero
+for both custom selections. This is an observation recipe; check its captured
+values rather than treating a successful runner exit as a pass. See the
+[investigation](../../../docs/firmware/l6max-effect-callback.md) for evidence
+and limitations.

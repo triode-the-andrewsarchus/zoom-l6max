@@ -446,6 +446,25 @@ The last-element-copy source, ELF, MAIN, recipe and result hashes were
 `4cfe44e82e479dea70e17a413da207118c4a0a8066443fa2f60f6a7787ef681d`, and
 `d3add41f965a11df827a737775045bd21cd8087d476a76c39fe83263d388304b`.
 
+The full QEMU-only dual-DSP diagnostic was then changed to copy each stream
+element to the destination at its corresponding frame. In a six-press run,
+the two custom selections reported descriptors `0x2028b8dc` and `0x2028b8f8`
+with 585 and 586 callback invocations respectively; the following four active
+pointers matched the stock sequence. The stock MAIN and NOR matched the
+identities above. The diagnostic ELF, modified MAIN, recipe and result hashes
+were `e155959d3a96a597eba5564a238e5c604977c47d07650aacb262ba06d0ad103c`,
+`77be03307e4887a95957c140d8c958df8f2aec0494cefdf385e2a84e646c48e7`,
+`98a5ecbf78d8d946bbbf03aee3c23a568f795cd2c392fbf9aa2a9af42c6b7819`, and
+`330f77eb0299e4a981f05ae7a4bcc040e1e91c712fbc011fba00a096e5ff3573`.
+This establishes the observed selection progression, not stock-effect audio
+fidelity, per-channel routing, UI behavior, or safe physical timing.
+The reusable `--callback --switches` recipe independently produced the same
+selection sequence, with 586 and 583 custom callback invocations. Its recipe
+and result hashes were
+`d02bbce4f5a00519b4f3e5a69673c2ee225d38682a853578c6b6267afa9571c2` and
+`4c6575bacbcbb610a6b19761b021f00afafebd1359aa16014b456ef7221e66cb`;
+the firmware and executable identities were the same as the preceding run.
+
 ## Task and memory observations
 
 In a separate disposable stock-emulator run after 45 guest seconds, debugger

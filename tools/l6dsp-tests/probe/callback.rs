@@ -33,12 +33,23 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn diagnostic_audio(_context: u32, descriptor: u32) {
     let buffer = unsafe { core::ptr::read_volatile((descriptor + 4) as *const u32) } as *mut f32;
+    let control_link = unsafe { core::ptr::read_volatile((descriptor + 28) as *const u32) };
+    let control_target =
+        unsafe { core::ptr::read_volatile(control_link as *const u32) } as *mut u32;
+    let control_source =
+        unsafe { core::ptr::read_volatile((descriptor + 32) as *const u32) } as *const u32;
     let state = unsafe { &mut *(0x80d00000 as *mut routing::DualEfxProcessor) };
     let counter = 0x83e00008 as *mut u32;
     unsafe {
         core::ptr::write_volatile(counter, core::ptr::read_volatile(counter).wrapping_add(1));
     }
     for i in 0..64 {
+        unsafe {
+            core::ptr::write_volatile(
+                control_target,
+                core::ptr::read_volatile(control_source.add(i)),
+            );
+        }
         let l = unsafe { core::ptr::read_volatile(buffer.add(i)) };
         let r = unsafe { core::ptr::read_volatile(buffer.add(i + 64)) };
         let (vl, vr) = state.velvet.process_sample(l, r);
