@@ -106,6 +106,14 @@ SHA-256 values were
 `a5f0e3fe4c0c45087c5bfa6155eef46d585a239c3087d4d9e83a414ad8b8d187`,
 `b10a46032106be9a7eba9ca04d8c0d982682a71c244cac3f5e4eddcf9b3120d1`, and
 `98db8c0ec1a4e11e8e2aea17037a49919c488c718ad0ce565927430df136280b`.
+A repeat with the same forced inputs also captured the gain region
+`0x20016138..0x200161cf`: it was unchanged between the two stops, and both
+wrapper scratch channels exactly matched the summed output scaled by `2^-31`.
+The repeat script and log hashes were
+`ef02cfd4c556bcd53e497a2e8231d298cff5c4919379a174103000ad8598f96d` and
+`0a5d56950a29735621371c2cc149c41a0826fcc32d125037577e9721feb9379f`.
+This remains a forced-state observation, not proof of lifetime under real
+gain changes.
 
 A control-driven attempt set a breakpoint at the ramp branch, then selected
 EFX and LEVEL and turned encoder 1 in each mode. The debugger timed out without
