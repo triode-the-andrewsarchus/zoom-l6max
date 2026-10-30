@@ -1793,6 +1793,22 @@ Its diagnostic MAIN, ELF, recipe and result SHA-256 values were
 `d2600e173550e621b42a18fd478dca0cf53cb10302643243010bdc9b6a4002c3`.
 Stock MAIN, initial NOR and QEMU matched the preceding high-density runs.
 
+A later refactored shared-filter implementation added the one-sided silence
+paths and used a shared read index when the histories' cursors aligned. A
+high-density diagnostic using that DSP source counted 949, 3,214, 5,405 and
+7,623 callbacks at guest times 51.761, 56.761, 61.761 and 66.761 seconds,
+or about 445 per guest second over 15 seconds. Both channels' active banks
+contained 64 taps at the final sample. The diagnostic initialized the
+maximum Velvet settings and added two tap-count instrumentation writes; it
+is not an installable firmware image or a physical timing measurement.
+The MAIN, ELF, recipe and result hashes were
+`13e728bc082050536e7fd380db06b81252d30174fd384b7fae229c2388a046b4`,
+`433583d11824f2518b86e80226989422f99f5c37db2505d47a6354c376f25158`,
+`5f892659c640ba3948ac0d633e774b668ff7e605c67d6362c504904d8c0d6e79`, and
+`54839a29011bd4540b763c24d5938dc6ba112d1c661a96c72d151f1fc7b36cec`.
+The stock MAIN, initial NOR and unattested QEMU executable match the preceding
+high-density experiments.
+
 An uncommitted experiment used 8,192-sample power-of-two Velvet histories,
 retaining the 4,802-sample logical delay and silence window. It increased the
 two Velvet instances' state by 54,240 bytes. Host output over 100,000 frames

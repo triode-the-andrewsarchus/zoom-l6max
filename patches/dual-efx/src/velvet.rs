@@ -46,6 +46,47 @@ impl Bank {
     }
 }
 
+/// A separate mono send history using the decorrelator's filter banks.
+pub(crate) struct MonoHistory {
+    delay_line: [f32; MAX_DELAY_SAMPLES],
+    write_position: usize,
+    nonzero_samples: usize,
+}
+
+impl MonoHistory {
+    pub(crate) const fn new() -> Self {
+        Self { delay_line: [0.0; MAX_DELAY_SAMPLES], write_position: 0, nonzero_samples: 0 }
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.delay_line.fill(0.0);
+        self.write_position = 0;
+        self.nonzero_samples = 0;
+    }
+
+    fn write(&mut self, sample: f32) {
+        if self.delay_line[self.write_position] != 0.0 {
+            self.nonzero_samples -= 1;
+        }
+        if sample != 0.0 {
+            self.nonzero_samples += 1;
+        }
+        self.delay_line[self.write_position] = sample;
+    }
+
+    fn advance(&mut self) {
+        self.write_position += 1;
+        if self.write_position == MAX_DELAY_SAMPLES {
+            self.write_position = 0;
+        }
+    }
+
+    pub(crate) fn silence(&mut self) {
+        self.write(0.0);
+        self.advance();
+    }
+}
+
 pub struct Channel {
     // Only process_sample/reset may change history, so nonzero_samples stays exact.
     delay_line: [f32; MAX_DELAY_SAMPLES],
@@ -340,38 +381,67 @@ impl VelvetDecorrelator {
     }
 
     #[inline(always)]
-    fn convolve(&self, channel: &Channel, bank_index: usize) -> f32 {
-        let bank = &channel.banks[bank_index];
+    fn convolve(bank: &Bank, delay_line: &[f32; MAX_DELAY_SAMPLES], wp: usize) -> f32 {
         let mut result = 0.0f32;
         let size = MAX_DELAY_SAMPLES;
-        let wp = channel.write_position;
-
         for tap in &bank.storage[..bank.count] {
             let delay = tap.delay as usize;
-            // Generated taps fit the ring; retain the old wrap behavior for
-            // externally supplied or corrupted tap delays.
             let d = if delay < size { delay } else { wrap_out_of_range_delay(delay) };
             let read = if wp >= d { wp - d } else { wp + size - d };
-            result += tap.gain * channel.delay_line[read];
+            result += tap.gain * delay_line[read];
         }
         result
+    }
+
+    #[inline(always)]
+    fn transition_weights(&self) -> (f32, f32) {
+        if self.transitioning {
+            let phase = if self.active_transition_samples <= 1 {
+                PI_2
+            } else {
+                PI_2 * self.transition_position as f32 / (self.active_transition_samples - 1) as f32
+            };
+            (cos(phase), sin(phase))
+        } else {
+            (1.0, 0.0)
+        }
+    }
+
+    #[inline(always)]
+    fn convolve_pair(ca: &Channel, history: &MonoHistory, bank: usize) -> (f32, f32) {
+        let wp = ca.write_position;
+        let mut sum_a = 0.0f32;
+        let mut sum_b = 0.0f32;
+        let taps = &ca.banks[bank].storage[..ca.banks[bank].count];
+        if ca.nonzero_samples != 0 && history.nonzero_samples != 0 && wp == history.write_position {
+            for tap in taps {
+                let delay = tap.delay as usize;
+                let d = if delay < MAX_DELAY_SAMPLES { delay } else { wrap_out_of_range_delay(delay) };
+                let read = if wp >= d { wp - d } else { wp + MAX_DELAY_SAMPLES - d };
+                sum_a += tap.gain * ca.delay_line[read];
+                sum_b += tap.gain * history.delay_line[read];
+            }
+        } else if ca.nonzero_samples != 0 && history.nonzero_samples != 0 {
+            for tap in taps {
+                let delay = tap.delay as usize;
+                let d = if delay < MAX_DELAY_SAMPLES { delay } else { wrap_out_of_range_delay(delay) };
+                let ra = if wp >= d { wp - d } else { wp + MAX_DELAY_SAMPLES - d };
+                let rb = if history.write_position >= d { history.write_position - d } else { history.write_position + MAX_DELAY_SAMPLES - d };
+                sum_a += tap.gain * ca.delay_line[ra];
+                sum_b += tap.gain * history.delay_line[rb];
+            }
+        } else if ca.nonzero_samples != 0 {
+            sum_a = Self::convolve(&ca.banks[bank], &ca.delay_line, wp);
+        } else if history.nonzero_samples != 0 {
+            sum_b = Self::convolve(&ca.banks[bank], &history.delay_line, history.write_position);
+        }
+        (sum_a, sum_b)
     }
 
     /// Processes a single stereo frame (in_l, in_r) -> (out_l, out_r).
     #[inline(always)]
     pub fn process_sample(&mut self, in_l: f32, in_r: f32) -> (f32, f32) {
-        let mut old_weight = 1.0f32;
-        let mut new_weight = 0.0f32;
-
-        if self.transitioning {
-            let phase = if self.active_transition_samples <= 1 {
-                PI_2
-            } else {
-                PI_2 * (self.transition_position as f32) / ((self.active_transition_samples - 1) as f32)
-            };
-            old_weight = cos(phase);
-            new_weight = sin(phase);
-        }
+        let (old_weight, new_weight) = self.transition_weights();
 
         let inputs = [
             audio_input(in_l),
@@ -393,9 +463,9 @@ impl VelvetDecorrelator {
             let wet = if self.channels[c].nonzero_samples == 0 {
                 0.0
             } else {
-                let mut wet = self.convolve(&self.channels[c], self.active_bank);
+                let mut wet = Self::convolve(&self.channels[c].banks[self.active_bank], &self.channels[c].delay_line, self.channels[c].write_position);
                 if self.transitioning {
-                    wet = old_weight * wet + new_weight * self.convolve(&self.channels[c], self.pending_bank);
+                    wet = old_weight * wet + new_weight * Self::convolve(&self.channels[c].banks[self.pending_bank], &self.channels[c].delay_line, self.channels[c].write_position);
                 }
                 wet
             };
@@ -414,6 +484,44 @@ impl VelvetDecorrelator {
 
         self.advance_filter();
         (outputs[0], outputs[1])
+    }
+
+    /// Processes two independent mono histories using the same filter timeline.
+    pub(crate) fn process_shared_mono(
+        &mut self,
+        history: &mut MonoHistory,
+        in_a: f32,
+        in_b: f32,
+    ) -> ((f32, f32), (f32, f32)) {
+        let (old_weight, new_weight) = self.transition_weights();
+        let input_a = audio_input(in_a);
+        let input_b = audio_input(in_b);
+        history.write(input_b);
+        let mut out_a = [0.0; 2];
+        let mut out_b = [0.0; 2];
+        for c in 0..2 {
+            let ca = &mut self.channels[c];
+            let wp = ca.write_position;
+            if ca.delay_line[wp] != 0.0 {
+                ca.nonzero_samples -= 1;
+            }
+            if input_a != 0.0 {
+                ca.nonzero_samples += 1;
+            }
+            ca.delay_line[wp] = input_a;
+            let (mut wa, mut wb) = Self::convolve_pair(ca, history, self.active_bank);
+            if self.transitioning && (ca.nonzero_samples != 0 || history.nonzero_samples != 0) {
+                let (na, nb) = Self::convolve_pair(ca, history, self.pending_bank);
+                wa = old_weight * wa + new_weight * na;
+                wb = old_weight * wb + new_weight * nb;
+            }
+            out_a[c] = soft_clip(wa * self.current.amount);
+            out_b[c] = soft_clip(wb * self.current.amount);
+            ca.write_position = if wp + 1 >= MAX_DELAY_SAMPLES { 0 } else { wp + 1 };
+        }
+        history.advance();
+        self.advance_filter();
+        ((out_a[0], out_a[1]), (out_b[0], out_b[1]))
     }
 
     // Progress a fade and prepare future taps without exposing a partial bank.
