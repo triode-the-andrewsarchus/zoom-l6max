@@ -1845,6 +1845,24 @@ results were
 `1f3be9b9ee4859b5e7ac961f5babacc6d4bfb4bb4b0ef3ea2b1c2f253c0ab6ee`, and
 `1b2631fe66a4d3c8529b7b3dc893a49c94f13e80c8b70e5a7e06a621de061205`.
 
+A separate instrumented current-source run without synthetic sends captured
+all 64 samples of each reconstructed send at callback counts 2, 1,024,
+4,096 and 8,192. All 768 captured values were finite zero; the final count
+was 18,888. The inspector still did not open, and Room remained selected.
+The snapshots narrow the observed case to idle input at four points; they do
+not establish that all intervening blocks were silent or that the candidate
+mixer reconstruction is correct. The capture adds scratch writes and uses
+unowned QEMU-only memory, so its timing and addresses are not qualified for
+hardware. The diagnostic MAIN, ELF, recipe, result and capture-source SHA-256
+values were
+`f1e9d2f3f8a6596de11f2dc674e4951b1766a5dcfba559e1775119313b055c2b`,
+`bf889653cac9b7bfeeb935c07d91f15314b346a9af15ad67c6f83ea5d14df904`,
+`05b711c422bcfe038e3040cb8fc770cb07391b9c2b2badea4c855a3a5d659d7d`,
+`b9d0c25c9b5bec49f45889f21312806adac8fc7202bc7cecf64f17c61e50f93c`, and
+`ec063a76d542e36561a1b7c9e9863db19bf1b09e1f914313a857ed8d2c3dd43d`.
+It used the same stock MAIN, initial NOR and QEMU executable as the preceding
+matched control runs.
+
 An uncommitted experiment used 8,192-sample power-of-two Velvet histories,
 retaining the 4,802-sample logical delay and silence window. It increased the
 two Velvet instances' state by 54,240 bytes. Host output over 100,000 frames
