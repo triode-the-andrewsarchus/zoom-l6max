@@ -34,8 +34,9 @@ callback timing, UI behavior, or physical-device compatibility.
 
 ## Automatic callback diagnostic
 
-For a separate disposable run, pass `--callback` to the preparer. Its recipe
-presses EFX SEL once, then reads three 32-bit words from QEMU-only scratch:
+For a separate disposable run, start with Hall selected and pass `--callback`
+to the preparer. Its recipe presses EFX SEL once, then reads three 32-bit words
+from QEMU-only scratch:
 
 ```sh
 python3 tools/l6dsp-tests/probe/prepare.py UNPACKED_DIR STOCK_STATE_DIR /tmp/l6-callback-probe --callback
