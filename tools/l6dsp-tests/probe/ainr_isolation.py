@@ -128,11 +128,12 @@ def compare(g, code, independent=False):
     other_code = prepare_second_clone(g, source, code) if independent else None
     other_waveform = (struct.pack('<64f', *(0.125 * math.sin(2 * math.pi * i / 11) for i in range(64)))
                       if independent else None)
+    reference_state = source
     outputs = bytearray()
     other_outputs = bytearray()
     checkpoints = {0, 15, 31, 63, 95}
     for frame in range(96):
-        output, other = compare_block(g, frame, waveform, frame in checkpoints, other_waveform)
+        output, other, reference_state = compare_block(g, frame, waveform, frame in checkpoints, other_waveform, reference_state)
         outputs.extend(output)
         other_outputs.extend(other)
     result = summarize_outputs(outputs, other_outputs, checkpoints, other_code)
@@ -151,7 +152,7 @@ def summarize_outputs(outputs, other_outputs, checkpoints, other_code):
         other_values = struct.unpack(f'<{len(other_outputs) // 4}f', other_outputs)
         if not all(math.isfinite(x) for x in other_values) or not any(other_values) or outputs == other_outputs:
             raise RuntimeError('second output is silent, non-finite or identical')
-        result.update({'second_nonzero': sum(x != 0 for x in other_values),
+        result.update({'second_matches_stock': True, 'second_nonzero': sum(x != 0 for x in other_values),
                        'second_output_sha256': sha(other_outputs), 'second_clone_sha256': sha(other_code)})
     return result
 
@@ -172,7 +173,7 @@ def prepare_second_clone(g, source, code):
     return other_code
 
 
-def compare_block(g, frame, waveform, checkpoint, other_waveform):
+def compare_block(g, frame, waveform, checkpoint, other_waveform, reference_state):
     if frame:
         g.expect('Z0,20228d86,2')
         g.packet('c')
@@ -190,7 +191,7 @@ def compare_block(g, frame, waveform, checkpoint, other_waveform):
         raise RuntimeError(f'unexpected stock return at block {frame}')
     original = g.read(0x20011010, 256)
     post_regs = g.packet('g')
-    original_after = g.read(0x20280000, 0x20000) if checkpoint else None
+    original_after = g.read(0x20280000, 0x20000) if checkpoint or other_waveform is not None else None
     call_clone(g, initial_regs, 0x80e21000, 0x80f00780)
     if g.reg(15) != 0x20228d8a or g.read(0x80e21000, 256) != original:
         raise RuntimeError(f'clone return or output mismatch at block {frame}')
@@ -198,22 +199,37 @@ def compare_block(g, frame, waveform, checkpoint, other_waveform):
         check_state(g, frame, original_after)
     other = b''
     if other_waveform is not None:
-        other = compare_second_clone(g, frame, initial_regs, original_after, checkpoint)
+        other, reference_state = compare_second_clone(g, frame, initial_regs, original_after, checkpoint, reference_state, other_waveform, original)
     g.expect('G' + post_regs)
     g.expect('z0,20228d8a,2')
-    return original, other
+    return original, other, reference_state
 
 
-def compare_second_clone(g, frame, initial_regs, original_after, checkpoint):
+def compare_second_clone(g, frame, initial_regs, original_after, checkpoint, reference_state, waveform, original):
     clone_after = g.read(0x80e00000, 0x20000) if checkpoint else None
+    g.write(0x20280000, reference_state)
+    g.write(0x20011010, waveform)
+    call_clone(g, initial_regs, 0x20011010, 0x780)
+    if g.reg(15) != 0x20228d8a:
+        raise RuntimeError(f'second stock reference return mismatch at block {frame}')
+    reference = g.read(0x20011010, 256)
+    reference_state = g.read(0x20280000, 0x20000)
+    g.write(0x20280000, original_after)
+    g.write(0x20011010, original)
     call_clone(g, initial_regs, 0x80e51000, 0x80f10780)
     if g.reg(15) != 0x20228d8a:
         raise RuntimeError(f'second clone return mismatch at block {frame}')
     other = g.read(0x80e51000, 256)
-    if checkpoint and (g.read(0x20280000, 0x20000) != original_after
-                       or g.read(0x80e00000, 0x20000) != clone_after):
-        raise RuntimeError(f'second clone changed checked memory at block {frame}')
-    return other
+    if other != reference:
+        raise RuntimeError(f'second clone differs from stock at block {frame}')
+    if checkpoint:
+        if g.read(0x20280000, 0x20000) != original_after or g.read(0x80e00000, 0x20000) != clone_after:
+            raise RuntimeError(f'second clone changed checked memory at block {frame}')
+        for offset, length in ((0xb97c, 20), (0xb9a4, 20), (0xb9cc, 32), (0xba0c, 132), (0xbb14, 0xda00)):
+            if g.read(0x80e30000 + offset, length) != reference_state[offset:offset+length]:
+                raise RuntimeError(f'second clone state mismatch block {frame} offset {offset:#x}')
+        print(f'Second stock reference and state match at {frame}', flush=True)
+    return other, reference_state
 
 
 def call_clone(g, initial_regs, buffer, entry):
