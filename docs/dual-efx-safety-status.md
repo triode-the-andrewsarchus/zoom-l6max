@@ -20,7 +20,11 @@ The blocking findings for L6max MAIN 1.10
   handling. The branch has not established an audio-buffer ABI or a live
   audio callback at that call site.
 - The active firmware signal path ignores per-channel routing and has no
-  pre-AINR implementation. The standalone routing processor separates A-only
+  pre-AINR implementation. The planned pre-AINR address is an effect-type
+  getter call, not an established audio interface; the selected AINR callback
+  clears the normal wet buffers. Its actual processing path is still unknown;
+  see the [callback investigation](firmware/l6max-effect-callback.md#ai-noise-reduction-investigation).
+  The standalone routing processor separates A-only
   and cascaded sends, but is not connected to firmware. Its additional DSP
   state and execution time have not been qualified on the target. The extended
   UI and patch combinations are incomplete. An earlier experimental QEMU

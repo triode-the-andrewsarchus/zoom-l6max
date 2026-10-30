@@ -1,7 +1,7 @@
 //! Dual-Effect Routing and Signal Flow Matrix
 //!
 //! Handles per-channel send accumulation, cascading (A -> B),
-//! optional Pre-AINR (noise reduction), and summing to the master return bus.
+//! and summing to the master return bus. Pre-AINR is not implemented.
 
 use super::plateau::{PlateauParameters, PlateauReverb};
 use super::velvet::{Parameters as VelvetParameters, VelvetDecorrelator};
@@ -55,7 +55,7 @@ pub struct DualEfxProcessor {
     pub return_gain_a: f32,
     pub return_gain_b: f32,
 
-    // Optional Pre-AINR enable flag
+    // Reserved for future Pre-AINR integration; currently has no effect.
     pub pre_ainr_enabled: bool,
 }
 
