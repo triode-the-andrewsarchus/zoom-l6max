@@ -353,6 +353,43 @@ the diagnostic result and engine trace SHA-256 values were
 `a9906c69321de9584c3a6f05ca2a636d62d9cb47f225818d765b74fb0207ae3b` and
 `b8944774015657d234868bd06de2fcb0e97649f321a3cf44c5c58db30c31cbe5`.
 
+To probe the scheduling hypothesis, a disposable callback variant checked
+the task names and existing priorities before calling the stock priority
+setter for `SubMcuRX` and `Main`. The repeat read back priority 31 for both,
+above `AudioProcess` at 30. With the same PR-based emulator and delayed input,
+the route setup was unchanged, and the later active-audio encoder turn changed
+strip 1 from A to B; the inspector edit count advanced from five to six and
+the queue ended at `(6, 6, 0)`. A first run without priority readback observed
+the same control change. This is a diagnostic intervention, not a proposed
+hardware priority setting: the tasks and scratch locations are revision- and
+fixture-specific, and raising them may affect other real-time work.
+
+Over the same 3.2 guest-second interval, the matched default-priority control
+counted 1,753 diagnostic audio callbacks, while the two raised-priority runs
+counted 1,754 and 1,755, approximately 548 per guest second in each case. The
+default-priority control did not show the active encoder edit. These brief
+counts do not establish missed physical samples, worst-case timing, scheduler
+fairness, or the effect on recorder, MIDI, and other tasks. They remain below
+the nominal modeled 750 callbacks per second and do not qualify the firmware.
+
+The first intervention's callback, MAIN, ELF, recipe and result SHA-256 values
+were respectively
+`a939f91d898a4d403e13c0768ba691b17b1d64091f94e1c4f2f58ecd36f05017`,
+`1210a8d2668dce4cf481724d01aa02f61fc75dfc3dc8a6930822fa030d06fff4`,
+`fc70a5b7fb00c1ecb9d027c565f25439132ec3a4c85e4b0a45b0f75b85969799`,
+`a3d430814a52f1af8cb9bae813b40de3eed6f6880e5b3f8e05ab3b3a0e303e6a`, and
+`cef04b44e206287504cc1b4ac4fc304e937099217a3b737093ecabe665e6b63f`.
+The priority-readback repeat's corresponding hashes were
+`9dbe1e2aba5091e99fc85ba85567d59ce74faeb499e2ef8501ad61cb4aca6486`,
+`caec1e6a5aadac417b1787807a642fe36b24e2224c2a2f7af40805ae7e375fab`,
+`384acf67c9866b608698527f72a5e7739550d28735223eea3083c29b25470086`,
+`24f83621c63afc568aa650302fc5c3790029e87befeb4a47d1c9cdb3cfa7c776`, and
+`36873fdd0418afdfc596d489391fd66008c106bd38d4b6580d81cb9becb3ecde`.
+The matched control used the preceding PR comparison's callback, MAIN and
+ELF, with recipe and result hashes
+`d26f2c1a6f578316a9945603400a91f0f8a8a293d5bb19a868e9626a57712d52` and
+`b3437e2566f1eb66c0cd16611e1ac59b64fc6a3731949e1e1807d3d6eed57ce3`.
+
 ## EFX encoder and stock effect storage observations
 
 With EFX mode selected, turning physical encoders 1 through 8 changed the
