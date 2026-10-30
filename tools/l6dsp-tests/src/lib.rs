@@ -199,6 +199,33 @@ mod tests {
     }
 
     #[test]
+    fn plateau_tank_delays_match_their_configured_ring_lengths() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        reverb.init(plateau::PlateauParameters::default());
+        reverb.params.freeze = true;
+        reverb.l_del1.length = 10;
+        reverb.l_del2.length = 10;
+        reverb.r_del1.length = 10;
+        reverb.r_del2.length = 10;
+        reverb.l_sum = 1.0;
+        reverb.r_sum = 1.0;
+
+        // With empty allpasses the first tank allpass produces an immediate
+        // 0.7 impulse, then remains silent past these short test rings.
+        for frame in 0..=20 {
+            reverb.process_sample(0.0, 0.0);
+            let l = reverb.l_apf2.delay.buffer[frame];
+            let r = reverb.r_apf2.delay.buffer[frame];
+            let expected = if frame == 10 { 0.7 } else { 0.0 };
+            assert!((l - expected).abs() < 1e-6, "left first tank delay frame {frame}: {l}");
+            assert!((r - expected).abs() < 1e-6, "right first tank delay frame {frame}: {r}");
+            let feedback = if frame == 20 { -0.35 } else { 0.0 };
+            assert!((reverb.l_sum - feedback).abs() < 1e-6, "left cross-feedback frame {frame}: {}", reverb.l_sum);
+            assert!((reverb.r_sum - feedback).abs() < 1e-6, "right cross-feedback frame {frame}: {}", reverb.r_sum);
+        }
+    }
+
+    #[test]
     fn extreme_finite_input_does_not_poison_effect_state() {
         let mut actual_v = velvet::VelvetDecorrelator::new();
         let mut expected_v = velvet::VelvetDecorrelator::new();

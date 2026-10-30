@@ -1034,6 +1034,22 @@ the resumed script and log hashed to
 `e2534bc34aa02c9fb9be5783da7f17b571b93d270d83fa262a63bc0f3742eb07` and
 `4b35576424c4edff2fa92109cf50a94452d577927616894bff4ed0651a46c619`.
 
+## Plateau tank delay diagnostic
+
+After correcting the Plateau tank rings to return a sample after their full
+configured length, the Cortex-M7 diagnostic payload built successfully. A
+separate active-sends QEMU observation recorded 5,980 callback invocations
+and finite, nonzero final output samples. The experiment uses synthetic input
+and unowned diagnostic memory; it does not establish target timing, audio
+fidelity or safe firmware integration. Its ELF, MAIN, recipe and diagnostic
+JSON SHA-256 values were
+`5aab67156c6bc9e9409f4b90b06da34bcb8c804b90f267edd0e80fc4d3ec8feb`,
+`523624b03ab0133ce0940011bc81b4287380d6f28e4c449e968c0a9a18707fb0`,
+`fc954098837fedebfdec5e76499b359cdb2eff442942f6fbaf9a81d88c72710d`, and
+`e534301e645c6e7e1cfed1777b22694968128347f28176e196d10f67b1ac23b2`.
+It used the isolated QEMU `69b2a6775a4cab8d778d2d9b91e41cfedbbaf35788ac1417955f0be66a874afa`
+and stock MAIN and NOR identities given above.
+
 ## QEMU routing controls
 
 On the stock MAIN, a GDB stop at `0x80036f8a` observed the EFX button call
