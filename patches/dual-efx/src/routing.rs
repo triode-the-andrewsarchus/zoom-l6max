@@ -257,6 +257,7 @@ impl DualEfxProcessor {
 
     /// Processes a stereo send block through the dual effect engine.
     /// Used when the stock mixer has already summed channel sends into a stereo bus.
+    /// Disabled effects receive silence and remain muted while their state advances.
     pub fn process_stereo_send(
         &mut self,
         in_l: &[f32],
@@ -268,11 +269,10 @@ impl DualEfxProcessor {
     ) {
         let frames = in_l.len().min(in_r.len()).min(out_l.len()).min(out_r.len());
         for i in 0..frames {
-            let (a_l, a_r) = if enable_a {
-                self.velvet.process_sample(in_l[i], in_r[i])
-            } else {
-                (0.0, 0.0)
-            };
+            let (a_l, a_r) = self.velvet.process_sample(
+                if enable_a { in_l[i] } else { 0.0 },
+                if enable_a { in_r[i] } else { 0.0 },
+            );
             let cascade_l = if enable_a && self.cascade_gain > 1e-4 {
                 a_l * self.cascade_gain
             } else {
@@ -287,7 +287,7 @@ impl DualEfxProcessor {
                 self.plateau
                     .process_sample(in_l[i] + cascade_l, in_r[i] + cascade_r)
             } else {
-                (0.0, 0.0)
+                self.plateau.process_sample(0.0, 0.0)
             };
             let val_a_l = if enable_a {
                 a_l * self.return_gain_a
