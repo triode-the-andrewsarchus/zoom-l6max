@@ -16,8 +16,11 @@ The blocking findings for L6max MAIN 1.10
 - The hook at `0x8000277c` is in a routine containing file-output and card-error
   handling. The branch has not established an audio-buffer ABI or a live
   audio callback at that call site.
-- The active signal path ignores per-channel routing and has no pre-AINR
-  implementation. The extended UI and patch combinations are incomplete.
+- The active firmware signal path ignores per-channel routing and has no
+  pre-AINR implementation. The standalone routing processor separates A-only
+  and cascaded sends, but is not connected to firmware. Its additional DSP
+  state and execution time have not been qualified on the target. The extended
+  UI and patch combinations are incomplete.
 - Shared mutable state and interrupt masking have not been proven safe. There
   are no measured target deadline, stack, memory-ownership, or output bounds.
 

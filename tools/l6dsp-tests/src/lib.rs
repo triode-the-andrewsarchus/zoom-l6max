@@ -270,6 +270,44 @@ mod tests {
     }
 
     #[test]
+    fn cascade_receives_only_channels_routed_through_it() {
+        let mut isolated = Box::new(routing::DualEfxProcessor::new());
+        let mut mixed = Box::new(routing::DualEfxProcessor::new());
+        isolated.init();
+        mixed.init();
+        for processor in [&mut isolated, &mut mixed] {
+            processor.cascade_gain = 1.0;
+            processor.return_gain_a = 0.0;
+            processor.set_channel_routing(0, routing::RoutingMode::SendAtoB);
+            processor.set_channel_send(0, 1.0);
+        }
+        mixed.set_channel_routing(1, routing::RoutingMode::SendA);
+        mixed.set_channel_send(1, 1.0);
+
+        let mut peak = 0.0f32;
+        for block in 0..300 {
+            let mut cascade = [0.0f32; 64];
+            let mut a_only = [0.0f32; 64];
+            if block == 0 {
+                cascade[0] = 1.0;
+                a_only[0] = -1.0;
+            }
+            let mut expected_l = [0.0; 64];
+            let mut expected_r = [0.0; 64];
+            let mut actual_l = [0.0; 64];
+            let mut actual_r = [0.0; 64];
+            isolated.process_block(&[&cascade], &mut expected_l, &mut expected_r);
+            mixed.process_block(&[&cascade, &a_only], &mut actual_l, &mut actual_r);
+            for i in 0..64 {
+                assert!((actual_l[i] - expected_l[i]).abs() < 1e-6);
+                assert!((actual_r[i] - expected_r[i]).abs() < 1e-6);
+                peak = peak.max(expected_l[i].abs()).max(expected_r[i].abs());
+            }
+        }
+        assert!(peak > 0.001, "cascade must produce a reverb response");
+    }
+
+    #[test]
     fn test_dual_routing_matrix() {
         let mut dual = routing::DualEfxProcessor::new();
         dual.init();
