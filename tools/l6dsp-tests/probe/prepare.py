@@ -6,12 +6,11 @@ from pathlib import Path
 import shutil
 import shlex
 import subprocess
-import tempfile
+from thumb_branch import branch
+from fixture import MAIN_SHA, checked_inputs
 
 ROOT = Path(__file__).resolve().parents[3]
 PROBE = Path(__file__).resolve().parent
-MAIN_SHA = "980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461"
-VENEER_SHA = "c366ef222fb2b2b87302d6eae469b721f11ba6b41dd79d4b7fe16a582e332c13"
 # Thumb MOVW/MOVT/BX redirect to diagnostic payload 0x80108001.
 REDIRECT = bytes.fromhex("48f2010cc8f2100c6047")
 # Pass the stock selector's descriptor pointer in r0, then branch to payload.
@@ -31,24 +30,7 @@ if args.inspector and not args.callback:
     parser.error("--inspector requires --callback")
 if args.inspector and args.switches:
     parser.error("--inspector has its own gesture and bank sequence; omit --switches")
-out = args.output.resolve()
-if not out.is_relative_to(Path(tempfile.gettempdir()).resolve()):
-    parser.error("output must be under the system temporary directory")
-if out.exists():
-    parser.error("output must not already exist")
-for source in (args.firmware.resolve(), args.state.resolve()):
-    if out.is_relative_to(source) or source.is_relative_to(out):
-        parser.error("output must be separate from input directories")
-main = (args.firmware / "main_firmware.bin").read_bytes()
-nor = (args.state / "main-nor.bin").read_bytes()
-if hashlib.sha256(main).hexdigest() != MAIN_SHA:
-    parser.error("stock MAIN SHA-256 does not match L6max 1.10")
-if nor[0x50000:0x50000 + len(main)] != main:
-    parser.error("state NOR does not contain the selected stock MAIN")
-if hashlib.sha256(main[0x107de6:0x107df0]).hexdigest() != VENEER_SHA:
-    parser.error("stock clear veneer does not match")
-if len(main) > 0x108000:
-    parser.error("stock MAIN overlaps probe payload")
+out, main, nor = checked_inputs(parser, args.firmware, args.state, args.output)
 
 out.mkdir(parents=True)
 firmware = out / "firmware"
@@ -88,14 +70,7 @@ if args.inspector:
     ):
         if image[offset:offset + 4] != expected or symbol not in symbols:
             raise ValueError(f"inspector call site or symbol mismatch: {symbol}")
-        displacement = symbols[symbol] - (0x80000000 + offset + 4)
-        if displacement & 1 or not -16777216 <= displacement < 16777216:
-            raise ValueError(f"inspector target out of Thumb BL range: {symbol}")
-        d = displacement & 0x01ff_ffff
-        sign = (d >> 24) & 1
-        first = 0xf000 | (sign << 10) | ((d >> 12) & 0x3ff)
-        second = 0xd000 | (((~(d >> 23) ^ sign) & 1) << 13) | (((~(d >> 22) ^ sign) & 1) << 11) | ((d >> 1) & 0x7ff)
-        image[offset:offset + 4] = first.to_bytes(2, "little") + second.to_bytes(2, "little")
+        image[offset:offset + 4] = branch(0x80000000 + offset, symbols[symbol])
 image.extend(b"\xff" * (0x108000 - len(image)))
 image.extend(payload)
 (firmware / "main_firmware.bin").write_bytes(image)

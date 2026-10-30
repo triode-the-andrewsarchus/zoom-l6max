@@ -1,6 +1,8 @@
 //! QEMU-only inspector experiment. Scratch addresses and hooks are unqualified.
 use core::sync::atomic::{AtomicU32, Ordering};
 use crate::{controls, parameters, routing};
+#[cfg(knob_inspector)]
+unsafe extern "C" { fn inspector_notify_hook(id: u32, bits: u32); }
 
 const QUEUE: usize = 0x83e00200;
 const INSPECTOR: usize = 0x83e00340;
@@ -83,7 +85,10 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".text.inspector_knob")]
 pub unsafe extern "C" fn inspector_knob(channel: u32, mode: u32, absolute: u32, delta: i32, value: u32) {
+    #[cfg(not(knob_inspector))]
     let stock: unsafe extern "C" fn(u32, u32, u32, i32, u32) = unsafe { core::mem::transmute(0x80053b29usize) };
+    #[cfg(knob_inspector)]
+    let stock: unsafe extern "C" fn(u32, u32, u32, i32, u32) = unsafe { core::mem::transmute(0x80108001usize) };
     unsafe {
         let ui = INSPECTOR as *const UiState;
         if channel >= 8 || mode != 6 || delta == 0 || !recorder_active() || !custom_active()
@@ -119,10 +124,18 @@ pub unsafe fn consume(processor: &mut routing::DualEfxProcessor) {
             let item = core::ptr::read_volatile((QUEUE + 16 + ((tail % CAPACITY) as usize) * 4) as *const u32);
             let delta = (item as i32) >> 8;
             if let Some(id) = parameters::edit_encoder(processor, bank, (item & 0xff) as usize, delta) {
+                #[cfg(knob_inspector)]
+                {
+                    let value = parameters::snapshot_parameter(id, processor);
+                    inspector_notify_hook(id as u32, value.value.to_bits());
+                }
+                #[cfg(not(knob_inspector))]
+                {
                 let value = parameters::format_parameter(id, processor);
                 core::ptr::write_volatile(SUMMARY as *mut u32, id as u32);
                 core::ptr::write_volatile((SUMMARY + 4) as *mut u32, value.value_len as u32);
                 for i in 0..16 { core::ptr::write_volatile((SUMMARY + 8 + i) as *mut u8, value.value_str[i]); }
+                }
                 let count = (SUMMARY + 24) as *mut u32;
                 core::ptr::write_volatile(count, core::ptr::read_volatile(count).wrapping_add(1));
             }
