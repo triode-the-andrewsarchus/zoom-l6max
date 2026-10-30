@@ -62,11 +62,12 @@ if args.inspector:
     symbols = {}
     for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines():
         parts = line.split()
-        if len(parts) == 3 and parts[2] in ("inspector_select", "inspector_knob"):
+        if len(parts) == 3 and parts[2] in ("inspector_select", "inspector_knob", "inspector_mode"):
             symbols[parts[2]] = int(parts[0], 16) & ~1
     for offset, expected, symbol in (
         (0x36f28, bytes.fromhex("1df0bef9"), "inspector_select"),
         (0x36c74, bytes.fromhex("1cf058ff"), "inspector_knob"),
+        (0x36f8a, bytes.fromhex("1cf011fe"), "inspector_mode"),
     ):
         if image[offset:offset + 4] != expected or symbol not in symbols:
             raise ValueError(f"inspector call site or symbol mismatch: {symbol}")

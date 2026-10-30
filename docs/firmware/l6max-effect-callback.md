@@ -811,6 +811,25 @@ The follow-up recipe and result hashes were
 `c5c3b6771953a77caeae3fe0a569c24fdb63f970eed86cbbd174052a70bf1328`.
 The stock MAIN, prepared NOR and QEMU identities are those below and above.
 
+## QEMU routing controls
+
+On the stock MAIN, a GDB stop at `0x80036f8a` observed the EFX button call
+with `r0 = 6` and `r1 = 1` on press, then `r1 = 0` on release. A separate
+QEMU-only combined inspector experiment uses this guarded call to switch
+between parameter and routing pages. In the Room fixture, the recorded route
+slots started at B (2); encoder 1 changed slot 0 to A-to-B (3), encoder 5
+changed slots 4 and 5 to 3, and reversing encoder 1 restored slot 0 to 2.
+The mixer send remained at 44 while the inspector was open. The test captured
+popup frames, but did not independently verify the routing popup widget text.
+
+The MAIN, ELF, recipe and diagnostic JSON SHA-256 values were respectively
+`681f245d14833c74b9120810177cea10785567a1998450634760b3ecb5adb05b`,
+`6609b1d3efcc6c9edf77e44ff14733034d9d3267a6993b21dc567aae2118edcd`,
+`1e3525aa2b884ed03143827fe25a85518b9f9fce91ad317523741db517ff8eb0`, and
+`cfa8b026acbf65d3d4121415564fbcf839aa0d229670951dac6a4adad30bd336`.
+The stock MAIN, NOR and QEMU identities are recorded below. Strip mapping,
+notification behavior, synchronization and target timing remain unqualified.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:
