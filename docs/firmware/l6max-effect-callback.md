@@ -187,6 +187,12 @@ and QEMU executable SHA-256
 were `d64c6ae7bf7f90d46e064bd56300cb942687173a9658ec17fca91866d1cbb0e8`,
 `24de107f2450c262d0768555eecf6a8a4b5403b229b52b00abccfca95b6cd4a4`, and
 `65b455afaea0483b8b171793ef428f201783391fb6f7490de5bc92e0081d0778`.
+In a second run with the same recipe and input state, an additional breakpoint
+at `0x202806ce` guarded the control task's following instruction. The audio
+callback breakpoint fired first, confirming that the control task had not
+passed that instruction. The second debugger script and log hashed to
+`94de01afd3d6ffa3eb2a3c3ae0eaa81a4085a19940c032990e234d99f68ebeda` and
+`b46ac798bb7717dad6a8d8524befcb188a17028bd1ee12337c80b0dbe9552ea1`.
 
 ## Experimental relocated-veneer redirect
 
@@ -234,6 +240,16 @@ the probe ELF, diagnostic MAIN and result JSON SHA-256 values were
 `c07ba358807f20f33f1ffbb848dbf6e3ac9535ad1a2d951e36daf066e6938cf6`.
 This checks target-code initialization and DSP arithmetic in QEMU; it does
 not test live audio routing, effect-switch synchronization or hardware timing.
+
+After the corrupt-input and delay-ring fixes, the same diagnostic again
+reported peaks `0.3096633553504944` and `0.018613358959555626` and marker
+`0x46585031`. This check used input NOR SHA-256
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+probe ELF `84eff0b48d906384d5e14d985841eccb50fef21e988989576f003105932c9654`,
+diagnostic MAIN `ecf1e3300efcbefe0893b1afc3385c7ddb08513b78a484b43470373fb4733191`,
+recipe `063f62f688a72eda5d689e6a4f4b32d77505bef68703b808de48cf02b25a3f94`,
+and result `5afce2d0f89f5471d8d6fff9a638084d00bb5c6b67cdaebb63257ac40abdaf76`.
+The QEMU executable was the one identified in the publication probe above.
 
 ## Experimental audio-callback round trip
 
