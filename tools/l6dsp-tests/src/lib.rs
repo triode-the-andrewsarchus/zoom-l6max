@@ -232,6 +232,34 @@ mod tests {
     }
 
     #[test]
+    fn plateau_cutoff_updates_preserve_independent_filter_histories() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        let mut lp = [plateau::OnePoleLP::new(), plateau::OnePoleLP::new(), plateau::OnePoleLP::new()];
+        let mut hp = [plateau::OnePoleHP::new(), plateau::OnePoleHP::new(), plateau::OnePoleHP::new()];
+        for (low, high) in [(80.0, 6500.0), (900.0, 16000.0), (100.0, 1000.0)] {
+            let mut params = reverb.params;
+            params.low_cut_hz = low;
+            params.high_cut_hz = high;
+            reverb.set_parameters(params);
+            for filter in &mut lp { filter.set_cutoff(high); }
+            for filter in &mut hp { filter.set_cutoff(low); }
+            for frame in 0..512 {
+                let inputs = [if frame % 37 == 0 { 0.5 } else { 0.0 },
+                    if frame % 53 == 0 { -0.75 } else { 0.0 },
+                    if frame % 71 == 0 { 1.0 } else { 0.0 }];
+                let actual_lp = [&mut reverb.in_lp, &mut reverb.l_lp, &mut reverb.r_lp];
+                for (i, filter) in actual_lp.into_iter().enumerate() {
+                    assert_eq!(filter.process(inputs[i]), lp[i].process(inputs[i]));
+                }
+                let actual_hp = [&mut reverb.in_hp, &mut reverb.l_hp, &mut reverb.r_hp];
+                for (i, filter) in actual_hp.into_iter().enumerate() {
+                    assert_eq!(filter.process(inputs[i]), hp[i].process(inputs[i]));
+                }
+            }
+        }
+    }
+
+    #[test]
     fn nonfinite_input_does_not_poison_effect_state() {
         let mut actual_v = velvet::VelvetDecorrelator::new();
         let mut expected_v = velvet::VelvetDecorrelator::new();

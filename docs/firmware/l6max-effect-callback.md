@@ -1073,6 +1073,17 @@ recipe and result hashes were
 `253e289c9d830bbc70469cbf67bf02431de54e966760cd9e2d1cf6843b90e443`.
 It used the same stock MAIN, NOR and isolated QEMU as the preceding run.
 
+After reusing the shared cutoff coefficients across the three independent
+filters, the active-sends diagnostic observed 5,978 callbacks and finite,
+nonzero final samples. Host tests verify that cutoff updates preserve each
+filter's history. Target execution time remains unmeasured. The diagnostic
+ELF, MAIN, recipe and result hashes were
+`638e6ddb5b9ec8a65de4ae21b3bc1b96c03a0b9713cf2c720faae22c04614abb`,
+`2e9341771ae9e90729a596c617a9495d763c922c5f23d54cde264268235bbdbc`,
+`ea5cae1350cad31705b876aeb0faf500350afabf1b63ce50437046bb593c68ba`, and
+`b1343727c122dc93b0830d487ecfd5729de2a76958b4939c0f11d8e655446c15`.
+It used the same stock MAIN, NOR and isolated QEMU as the preceding run.
+
 ## QEMU routing controls
 
 On the stock MAIN, a GDB stop at `0x80036f8a` observed the EFX button call
