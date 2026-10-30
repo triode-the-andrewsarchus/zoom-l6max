@@ -10,9 +10,9 @@ The blocking findings for L6max MAIN 1.10
 - The supposed effect input and output audio addresses identify stock control
   structures. The output loop overwrites a structure containing code pointers.
 - The firmware obtains a typed reference to `NOLOAD` state without first
-  constructing valid Rust values. The DSP initializer now restores defaults on
-  valid zeroed storage, but the firmware does not establish that precondition
-  or ensure the magic value is invalidated on every reset. In one settled
+  constructing valid Rust values. The DSP now provides a tested in-place
+  initializer for caller-owned storage, but the firmware does not use it,
+  establish ownership or ensure the magic value is invalidated on every reset. In one settled
   emulator run the largest stock-heap free block was 160,008 bytes, less than
   the then-current payload state of 319,216 bytes; see the
   [callback investigation](firmware/l6max-effect-callback.md).
