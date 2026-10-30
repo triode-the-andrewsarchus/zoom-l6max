@@ -85,7 +85,7 @@ fn pre_ainr_ready() -> bool {
 
 #[cfg(pre_ainr_probe)]
 fn synthetic_pre_ainr_sends(sends: &mut [[f32; 64]; 3]) {
-    let active = pre_ainr_ready();
+    let active = cfg!(unready_passthrough_probe) || pre_ainr_ready();
     const WAVE: [f32; 16] = [0.0, 0.25, 0.5, 0.75, 1.0, 0.75, 0.5, 0.25,
                               0.0, -0.25, -0.5, -0.75, -1.0, -0.75, -0.5, -0.25];
     for i in 0..64 {

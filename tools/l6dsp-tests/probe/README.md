@@ -241,6 +241,11 @@ records `heap_before`, `handoff_learned`, `heap_learned`, `handoff_selected`,
 handoff words are allocation pointer, status (0 waiting, 1 captured, 2 failed),
 capture start/end ticks, source and first-copy state words, and learning-start
 tick. Inspect these observations; recipe completion alone is not a pass.
+Add `--passthrough-unready` to keep synthetic sends active without AINR while
+the snapshot is unavailable, including after a diagnostic allocation failure.
+The resulting extra work can prevent the selection sequence from reaching
+AINR in QEMU; inspect the selected callback and learned flag. This tests
+passthrough in the probe; it does not implement a firmware fallback.
 
 This prototype retains a large heap allocation, copies 128 KiB on the audio
 task, uses unowned control words, and assumes an experimental settling delay.

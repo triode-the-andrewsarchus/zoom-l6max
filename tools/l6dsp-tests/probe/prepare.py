@@ -33,6 +33,7 @@ parser.add_argument("--active-sends", action="store_true", help="inject nonzero 
 parser.add_argument("--pre-ainr", action="store_true", help="run a debugger-installed AINR copy on each test send")
 parser.add_argument("--effect-buffer", action="store_true", help="place test states in the observed stock effect buffer")
 parser.add_argument("--auto-handoff", action="store_true", help="capture and restore AINR state inside the QEMU guest")
+parser.add_argument("--passthrough-unready", action="store_true", help="keep synthetic sends active when AINR is unavailable")
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
 parser.add_argument("--bank-stress-count", type=int, default=10, help="number of bank changes (1..64)")
 args = parser.parse_args()
@@ -63,6 +64,8 @@ if args.effect_buffer and not args.pre_ainr:
     parser.error("--effect-buffer requires --pre-ainr")
 if args.auto_handoff and not args.effect_buffer:
     parser.error("--auto-handoff requires --effect-buffer")
+if args.passthrough_unready and not args.pre_ainr:
+    parser.error("--passthrough-unready requires --pre-ainr")
 if args.bank_stress and not args.inspector:
     parser.error("--bank-stress requires --inspector")
 if not 1 <= args.bank_stress_count <= 64 or (args.bank_stress_count != 10 and not args.bank_stress):
@@ -104,6 +107,8 @@ if args.effect_buffer:
     rustc += ["--cfg", "effect_buffer_probe"]
 if args.auto_handoff:
     rustc += ["--cfg", "auto_handoff_probe"]
+if args.passthrough_unready:
+    rustc += ["--cfg", "unready_passthrough_probe"]
 subprocess.run(rustc, cwd=ROOT, check=True)
 subprocess.run(["llvm-objcopy", "-O", "binary", str(elf), str(blob)], check=True)
 payload = blob.read_bytes()
@@ -350,7 +355,8 @@ if args.pre_ainr:
     metadata = {"stock_main_sha256": MAIN_SHA, "diagnostic_main_sha256": image_sha,
                 "recipe_sha256": hashlib.sha256(recipe.encode()).hexdigest(),
                 "layout": "effect-buffer" if args.effect_buffer else "scratch",
-                "auto_handoff": args.auto_handoff}
+                "auto_handoff": args.auto_handoff,
+                "passthrough_unready": args.passthrough_unready}
     if args.effect_buffer:
         matches = [line.split() for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines()
                    if line.endswith(" diagnostic_audio")]
