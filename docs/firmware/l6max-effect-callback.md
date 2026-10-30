@@ -954,6 +954,24 @@ failure trace and result hashes were
 `a6357901f4fc1d41184b69981a6e9aa309029ff5d1daf7b6ac57b4364e3c8110` and
 `df95f8297c26fd7d8456c913155c46b1c3b3c49d1e3414eb5bd4685cc6da413d`.
 
+Two separate stock-QEMU debugger runs stopped at the EventPort queue calls
+for TAP. The down call at `0x800852c8` used event words `(0, 0, 0x23, 0)`;
+the up call at `0x80085258` used `(0, 1, 0x23, 0)`. Both calls returned 0
+in each run, matching the success return path of the queue wrapper at
+`0x8005f5d8`. Both runs subsequently observed the learning-progress byte
+set. These debugger runs used 150 ms presses and did not reproduce the
+intermittent driver failure; debugger stops can change scheduling, so they
+do not establish queue acceptance in the failing case. The recipe hash was
+`8819efd0cf3694ee57fe560a1ba0fe5eb887b43dcb05d54bda3cd437511bd259`;
+the two debugger scripts hashed to
+`02a94423be32ea1f984835e7168f5522b0b1004cf2345daf4d5a002b7acb6ced` and
+`12619625ba985b7994b5ba8135c7f8673b77c65b88f45c4c27369c215f2053d9`.
+Both debugger logs hashed to
+`183bffc4053099e515f2d5a97b0f88fcd51443ade681c8bc385287c1fda8928f`;
+the result hashes were
+`db341c0772352e2dae86e976ddb9c7f7a5a3e617ea831771d4623852341385c6` and
+`73d87cef8f52d89c30c0b7314e21985c77f5b9040336ffea298172aceb3a8c88`.
+
 ## QEMU routing controls
 
 On the stock MAIN, a GDB stop at `0x80036f8a` observed the EFX button call
