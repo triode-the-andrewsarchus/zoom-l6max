@@ -38,6 +38,17 @@ pub struct WeightedChannel<'a> {
     pub ramp: Option<&'a [f32]>,
 }
 
+fn strip_slots(strip: usize) -> Option<core::ops::Range<usize>> {
+    match strip {
+        0..=3 => Some(strip..strip + 1),
+        4..=7 => {
+            let first = 4 + (strip - 4) * 2;
+            Some(first..first + 2)
+        }
+        _ => None,
+    }
+}
+
 pub struct DualEfxProcessor {
     pub velvet: VelvetDecorrelator,
     // A separate history keeps A-only sends out of the A-to-B cascade.
@@ -114,15 +125,19 @@ impl DualEfxProcessor {
     /// mapping observed in the setup-complete fixture. Other link states have
     /// not been qualified. The first four strips use one slot; the rest use pairs.
     pub fn set_strip_routing(&mut self, strip: usize, mode: RoutingMode) {
-        match strip {
-            0..=3 => self.channel_routing[strip] = mode,
-            4..=7 => {
-                let first = 4 + (strip - 4) * 2;
-                self.channel_routing[first] = mode;
-                self.channel_routing[first + 1] = mode;
-            }
-            _ => {}
+        if let Some(slots) = strip_slots(strip) {
+            self.channel_routing[slots].fill(mode);
         }
+    }
+
+    /// Cycles a strip's route by signed encoder steps, updating paired slots
+    /// together. This mapping is specific to the observed L6max fixture.
+    pub fn cycle_strip_routing(&mut self, strip: usize, steps: i32) -> Option<RoutingMode> {
+        let slots = strip_slots(strip)?;
+        let current = self.channel_routing[slots.start] as i32;
+        let next = RoutingMode::from_u8(((current + steps % 4 + 4) % 4) as u8);
+        self.channel_routing[slots].fill(next);
+        Some(next)
     }
 
     pub fn set_channel_send(&mut self, channel: usize, level: f32) {
