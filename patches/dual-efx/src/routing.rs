@@ -144,23 +144,43 @@ impl DualEfxProcessor {
                 }
             }
 
-            self.velvet_cascade.set_parameters(self.velvet.current);
-            for i in 0..n {
-                let (a_l, a_r) = self.velvet.process_sample(send_a[i], send_a[i]);
-                let (cascade_l, cascade_r) = self
-                    .velvet_cascade
-                    .process_sample(send_cascade[i], send_cascade[i]);
-                let b_l = send_b[i] + cascade_l * self.cascade_gain;
-                let b_r = send_b[i] + cascade_r * self.cascade_gain;
-                let (wet_b_l, wet_b_r) = self.plateau.process_sample(b_l, b_r);
-                out_l[offset + i] = super::math::soft_clip(
-                    (a_l + cascade_l) * self.return_gain_a + wet_b_l * self.return_gain_b,
-                );
-                out_r[offset + i] = super::math::soft_clip(
-                    (a_r + cascade_r) * self.return_gain_a + wet_b_r * self.return_gain_b,
-                );
-            }
+            self.process_buses(
+                &send_a[..n], &send_b[..n], &send_cascade[..n],
+                &mut out_l[offset..offset + n], &mut out_r[offset..offset + n],
+            );
             offset += n;
+        }
+    }
+
+    /// Processes mono sends that have already been weighted and accumulated
+    /// separately for A, B, and A-to-B. All effects continue through silence
+    /// so that closing a send does not cut their tails.
+    pub fn process_buses(
+        &mut self,
+        send_a: &[f32],
+        send_b: &[f32],
+        send_cascade: &[f32],
+        out_l: &mut [f32],
+        out_r: &mut [f32],
+    ) {
+        let frames = send_a.len().min(send_b.len()).min(send_cascade.len())
+            .min(out_l.len()).min(out_r.len());
+        if frames == 0 {
+            return;
+        }
+        self.velvet_cascade.set_parameters(self.velvet.current);
+        for i in 0..frames {
+            let (a_l, a_r) = self.velvet.process_sample(send_a[i], send_a[i]);
+            let (cascade_l, cascade_r) = self.velvet_cascade.process_sample(send_cascade[i], send_cascade[i]);
+            let b_l = send_b[i] + cascade_l * self.cascade_gain;
+            let b_r = send_b[i] + cascade_r * self.cascade_gain;
+            let (wet_b_l, wet_b_r) = self.plateau.process_sample(b_l, b_r);
+            out_l[i] = super::math::soft_clip(
+                (a_l + cascade_l) * self.return_gain_a + wet_b_l * self.return_gain_b,
+            );
+            out_r[i] = super::math::soft_clip(
+                (a_r + cascade_r) * self.return_gain_a + wet_b_r * self.return_gain_b,
+            );
         }
     }
 

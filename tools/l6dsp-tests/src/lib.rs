@@ -409,6 +409,40 @@ mod tests {
     }
 
     #[test]
+    fn preweighted_buses_match_channel_routing_and_preserve_tails() {
+        let mut channels = Box::new(routing::DualEfxProcessor::new());
+        let mut buses = Box::new(routing::DualEfxProcessor::new());
+        channels.init();
+        buses.init();
+        channels.set_channel_routing(0, routing::RoutingMode::SendA);
+        channels.set_channel_routing(1, routing::RoutingMode::SendB);
+        channels.set_channel_routing(2, routing::RoutingMode::SendAtoB);
+        for ch in 0..3 {
+            channels.set_channel_send(ch, 0.5);
+        }
+        let mut inputs = [[0.0; 64]; 3];
+        inputs[0][0] = 0.25;
+        inputs[1][1] = 0.5;
+        inputs[2][2] = -0.75;
+        let mut peak = 0.0f32;
+        for _ in 0..200 {
+            let weighted = inputs.map(|channel| channel.map(|sample| sample * 0.5));
+            let mut expected = [[0.0; 64]; 2];
+            let mut actual = [[0.0; 64]; 2];
+            let [ref mut expected_l, ref mut expected_r] = expected;
+            channels.process_block(&[&inputs[0], &inputs[1], &inputs[2]], expected_l, expected_r);
+            let [ref mut actual_l, ref mut actual_r] = actual;
+            buses.process_buses(&weighted[0], &weighted[1], &weighted[2], actual_l, actual_r);
+            assert_eq!(actual, expected);
+            for (&l, &r) in actual[0].iter().zip(&actual[1]) {
+                peak = peak.max(l.abs()).max(r.abs());
+            }
+            inputs.fill([0.0; 64]);
+        }
+        assert!(peak > 0.001, "the test must observe an effect response");
+    }
+
+    #[test]
     fn stereo_send_processes_long_buffers_like_successive_blocks() {
         let mut long = Box::new(routing::DualEfxProcessor::new());
         let mut split = Box::new(routing::DualEfxProcessor::new());
