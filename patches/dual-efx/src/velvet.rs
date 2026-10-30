@@ -118,6 +118,9 @@ pub struct VelvetDecorrelator {
     pub active_bank: usize,
     pub pending_bank: usize,
     pub transitioning: bool,
+    // A filter edit during a crossfade is applied after that crossfade ends.
+    pub filter_update_pending: bool,
+    pub active_transition_samples: usize,
 }
 
 impl VelvetDecorrelator {
@@ -143,12 +146,21 @@ impl VelvetDecorrelator {
             active_bank: 0,
             pending_bank: 1,
             transitioning: false,
+            filter_update_pending: false,
+            active_transition_samples: 12000,
         }
     }
 
     /// Initializes and computes the first set of sparse taps for both channels.
     pub fn init(&mut self, params: Parameters) {
+        // Do not crossfade against banks from a previous initialization.
+        self.channels[0].banks[0].count = 0;
         self.set_parameters(params);
+        for c in 0..2 {
+            self.generate_bank(c, 0, 0);
+            self.generate_bank(c, 1, 1);
+        }
+        self.generation = 2;
         self.reset();
     }
 
@@ -160,6 +172,11 @@ impl VelvetDecorrelator {
         params.transition_ms = clamp(params.transition_ms, 1.0, params.refresh_seconds * 900.0);
         params.decay_db = clamp(params.decay_db, -120.0, 0.0);
 
+        let filter_changed = params.length_ms != self.current.length_ms
+            || params.density != self.current.density
+            || params.decay_db != self.current.decay_db
+            || params.seed != self.current.seed;
+        let initialized = self.channels[0].banks[0].count != 0;
         self.current = params;
         self.current_tail_samples = clamp_usize(
             (SAMPLE_RATE * params.length_ms / 1000.0) as usize,
@@ -177,16 +194,19 @@ impl VelvetDecorrelator {
             self.transition_samples = 1;
         }
 
-        self.active_bank = 0;
-        self.pending_bank = 1;
-        self.transitioning = false;
-        self.transition_position = 0;
-        self.samples_until_transition = self.refresh_samples;
-        self.generation = 2;
-
-        for c in 0..2 {
-            self.generate_bank(c, 0, 0);
-            self.generate_bank(c, 1, 1);
+        self.samples_until_transition = self.samples_until_transition.min(self.refresh_samples);
+        if initialized && filter_changed {
+            if self.transitioning {
+                self.filter_update_pending = true;
+            } else {
+                for c in 0..2 {
+                    self.generate_bank(c, self.pending_bank, self.generation);
+                }
+                self.generation = self.generation.wrapping_add(1);
+                self.transitioning = true;
+                self.transition_position = 0;
+                self.active_transition_samples = self.transition_samples;
+            }
         }
     }
 
@@ -200,6 +220,8 @@ impl VelvetDecorrelator {
         self.samples_until_transition = self.refresh_samples;
         self.active_bank = 0;
         self.pending_bank = 1;
+        self.filter_update_pending = false;
+        self.active_transition_samples = self.transition_samples;
     }
 
     /// Generates a sparse impulse train into `channel.banks[bank_index]`.
@@ -286,10 +308,10 @@ impl VelvetDecorrelator {
         let mut new_weight = 0.0f32;
 
         if self.transitioning {
-            let phase = if self.transition_samples <= 1 {
+            let phase = if self.active_transition_samples <= 1 {
                 PI_2
             } else {
-                PI_2 * (self.transition_position as f32) / ((self.transition_samples - 1) as f32)
+                PI_2 * (self.transition_position as f32) / ((self.active_transition_samples - 1) as f32)
             };
             old_weight = cos(phase);
             new_weight = sin(phase);
@@ -320,17 +342,18 @@ impl VelvetDecorrelator {
             self.channels[c].write_position = wp;
         }
 
-        if self.current.dynamic {
-            if self.transitioning {
-                self.transition_position += 1;
-                if self.transition_position >= self.transition_samples {
-                    self.finish_transition();
-                }
-            } else if self.samples_until_transition > 0 {
+        if self.transitioning {
+            self.transition_position += 1;
+            if self.transition_position >= self.active_transition_samples {
+                self.finish_transition();
+            }
+        } else if self.current.dynamic {
+            if self.samples_until_transition > 0 {
                 self.samples_until_transition -= 1;
                 if self.samples_until_transition == 0 {
                     self.transitioning = true;
                     self.transition_position = 0;
+                    self.active_transition_samples = self.transition_samples;
                 }
             }
         }
@@ -353,6 +376,11 @@ impl VelvetDecorrelator {
             self.generate_bank(c, self.pending_bank, self.generation);
         }
         self.generation = self.generation.wrapping_add(1);
+        if self.filter_update_pending {
+            self.filter_update_pending = false;
+            self.transitioning = true;
+            self.active_transition_samples = self.transition_samples;
+        }
     }
 
     /// Process a block of stereo frames in-place or from buffer.
