@@ -218,10 +218,9 @@ pub fn apply_patch_with_map(
     }
     for hook in &edits.hooks {
         let off = (hook.address - firmware_base) as usize;
-        let hw1 = u16::from_le_bytes([firmware[off], firmware[off + 1]]);
-        let hw2 = u16::from_le_bytes([firmware[off + 2], firmware[off + 3]]);
-        let is_bl = (hw1 & 0xf800) == 0xf000 && (hw2 & 0xd000) == 0xd000;
-        firmware[off..off + 4].copy_from_slice(&branch(hook.address, hook.target, is_bl));
+        // HookEdit replaces a function entry. Preserve its caller's link
+        // register even when the displaced instruction happens to be BL.
+        firmware[off..off + 4].copy_from_slice(&branch(hook.address, hook.target, false));
         for chunk in firmware[off + 4..off + hook.length].chunks_exact_mut(2) {
             chunk.copy_from_slice(&[0, 0xbf]);
         }
@@ -336,6 +335,19 @@ mod tests {
         );
         assert_eq!(&firmware[0x104..0x106], &[0, 0xbf]);
         assert_eq!(&firmware[0x108000..], &payload[..]);
+    }
+
+    #[test]
+    fn entry_hook_preserves_link_when_original_instruction_is_a_call() {
+        let mut firmware = vec![0u8; 0x107ff0];
+        let original_length = firmware.len();
+        let entry = 0x80000100;
+        let target = 0x80108010;
+        firmware[0x100..0x104].copy_from_slice(&branch(entry, 0x80000200, true));
+        let edits = PatchEdits::new(vec![HookEdit { address: entry, target, length: 4 }]);
+        apply_patch(&mut firmware, original_length, FIRST_PAYLOAD, &[0xaa; 16],
+            &edits, &vec![0xff; 0x10000]).unwrap();
+        assert_eq!(&firmware[0x100..0x104], &branch(entry, target, false));
     }
 
     #[test]
