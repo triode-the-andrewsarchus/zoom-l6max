@@ -1316,6 +1316,31 @@ executable SHA-256 values were
 `53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`.
 Stock MAIN and initial NOR matched the preceding investigation.
 
+A debugger-controlled QEMU-only experiment copied the stock low executable
+region to `0x80f00000` and a 128 KiB stock state range
+`0x20280000..0x2029ffff` to `0x80e00000..0x80e1ffff`. In the copied code,
+63 decoded `movt` instructions that formed `0x2028xxxx` addresses were changed
+to form `0x80e0xxxx`; no data words were rewritten. At the learned-state
+channel-0 call, the experiment copied state while the guest was stopped,
+injected the same 64-float sinusoid into separate buffers, and ran the stock
+and copied dispatchers from the same saved register state. Both returned an
+all-zero block. The copied 128 KiB state matched the stock state after their
+respective calls, and the checked stock range did not change during the copied
+call. This is a single forced block, not evidence of sustained denoising,
+complete memory isolation, valid initialization, audio quality, timing, or
+ownership of the scratch regions. Debugger stops and unowned emulator memory
+make the experiment unsuitable for physical hardware.
+
+The copied-code, debugger script, debugger log, recipe, diagnostic result and
+QEMU executable SHA-256 values were
+`d0ebab6792ca14ddd20b7f27fa9cb27e384e7aa0baeb37cbc6c2427895f0e04d`,
+`420d6e19339676db24c53da5837f54658df120d82782ce9806d74210b4f4045e`,
+`6f79dbe91bdd31ecb1946d65206297a5d9a30b59831997030fc2f45ad2d41484`,
+`45233d0c29dc9947da9353f8a78eb1e26788b80958fed6dd31f1cff11cbc51db`,
+`1e777d2b23af0cd256f77c84db57b9421f4e1a04e9604ff227f67990edc69e41`, and
+`53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`.
+The stock MAIN and initial NOR matched the preceding investigation.
+
 An instrumented stock-QEMU run on the newer board model traced CPU memory
 accesses between entry to `0x00001060` and the two stock caller returns. It
 armed at the learning-start handler and skipped 64 subsequent entries before
