@@ -476,7 +476,9 @@ impl PlateauReverb {
         } else {
             self.predelay.read(self.predelay_samples)
         };
-        self.predelay.write(mono_in);
+        // Advance the ring during freeze without retaining audio received
+        // while input to the tank is disabled.
+        self.predelay.write(if self.params.freeze { 0.0 } else { mono_in });
 
         // Stop feeding the input filters while frozen; let their history drain.
         let tank_in = if self.params.freeze { 0.0 } else { predelayed };
