@@ -37,7 +37,11 @@ pub unsafe fn initialize(entry: u32) {
         #[cfg(gesture_trace)]
         core::ptr::write_volatile(0x83e00500 as *mut u32, 0);
         #[cfg(enqueue_trace)]
-        core::ptr::write_volatile(0x83e00600 as *mut u32, 0);
+        {
+            core::ptr::write_volatile(0x83e00600 as *mut u32, 0);
+            core::ptr::write_volatile(0x83e02000 as *mut u32, 0);
+            core::ptr::write_volatile(0x83e02200 as *mut u32, 0);
+        }
         // A selection closes the previous inspector, but preserves gesture
         // state until the selector event returns to its caller.
         let ui = INSPECTOR as *mut UiState;
@@ -66,6 +70,35 @@ pub unsafe extern "C" fn inspector_enqueue(a: u32, edge: u32, key: u32, d: u32, 
             }
         }
         stock(a, edge, key, d, e)
+    }
+}
+
+/// QEMU-only timestamps for the stock encoder enqueue and later UI dispatch.
+/// Each site has its own bounded diagnostic array, reset at selection. These
+/// unowned records are for disposable experiments and are not synchronized
+/// with selection or suitable for a hardware build.
+#[cfg(enqueue_trace)]
+unsafe fn trace_encoder(base: usize, channel: u32, value: u32) {
+    unsafe {
+        let count = core::ptr::read_volatile(base as *const u32);
+        if count < 32 {
+            let entry = (base as *mut u32).add(1 + count as usize * 3);
+            core::ptr::write_volatile(entry, channel);
+            core::ptr::write_volatile(entry.add(1), value);
+            core::ptr::write_volatile(entry.add(2), core::ptr::read_volatile(0x8020ab4c as *const u32));
+            core::ptr::write_volatile(base as *mut u32, count + 1);
+        }
+    }
+}
+
+#[cfg(enqueue_trace)]
+#[unsafe(no_mangle)]
+#[unsafe(link_section = ".text.inspector_encoder_enqueue")]
+pub unsafe extern "C" fn inspector_encoder_enqueue(a: u32, b: u32, c: u32, d: u32, e: u32) -> u32 {
+    let stock: unsafe extern "C" fn(u32, u32, u32, u32, u32) -> u32 = unsafe { core::mem::transmute(0x80028089usize) };
+    unsafe {
+        trace_encoder(0x83e02000, a, e);
+        stock(a, b, c, d, e)
     }
 }
 
@@ -165,6 +198,8 @@ pub unsafe extern "C" fn inspector_knob(channel: u32, mode: u32, absolute: u32, 
     #[cfg(knob_inspector)]
     let stock: unsafe extern "C" fn(u32, u32, u32, i32, u32) = unsafe { core::mem::transmute(0x80108001usize) };
     unsafe {
+        #[cfg(enqueue_trace)]
+        trace_encoder(0x83e02200, channel, delta as u32);
         let ui = INSPECTOR as *const UiState;
         if channel >= 8 || mode != 6 || delta == 0 || !recorder_active() || !custom_active()
             || core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) != MAGIC || !(*ui).active {
