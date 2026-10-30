@@ -1007,6 +1007,23 @@ the untraced hashes were
 These observations do not qualify responsiveness with nonzero audio, the
 worst-case processing time, or physical hardware.
 
+The following QEMU-only stress run replaced the three reconstructed sends
+with constant values `0.125`, `0.0625` and `-0.09375`, keeping both Velvet
+histories and Plateau active. The diagnostic reported 4,433 callbacks and
+finite nonzero last output samples near `-0.000369` and `0.021812`. All ten
+bank edits were observed, but the final hold measured 534 ticks, the
+inspector remained open, and Spring was not selected. This reproduces the
+responsiveness problem with nonzero synthetic buses; it does not validate
+physical inputs, mixer routing, audio fidelity or target timing.
+
+The active-send MAIN, ELF, recipe and result SHA-256 were
+`cfd1a5e8de06c6b900a3d03abda6e2b5fa04eb0086cbd26c7b23b0c57267305b`,
+`c520801e67d45842b59f8a8e295b15c1a5e5a45c5bd459c3b157118ff8b6dcf8`,
+`96a63cc090a42989c09261c0b6aeb5f86ad507421f68a7e3e3b9248cd200f216`, and
+`7f149c907192309d6d00157e8be0aa10b5298a7c7ae83f55229b80afaa70df58`.
+An independent rebuild reproduced the diagnostic MAIN and recipe byte for
+byte. The stock MAIN, prepared NOR and QEMU identities are recorded below.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:

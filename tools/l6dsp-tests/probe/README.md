@@ -96,6 +96,9 @@ the captured values; completion alone does not assert the expected behavior.
 the stock panel parser enqueues it, at `0x83e00600`. `--timing-control` bypasses
 effect processing and writes silence for a QEMU-only scheduling comparison;
 it is not an effect implementation. Both options alter the diagnostic image.
+`--active-sends` replaces the three reconstructed buses with constant nonzero
+test signals and records the latest output samples at `0x83e00800`. It tests
+active DSP workload rather than the physical input or mixer routing path.
 
 For the prepared fixture identified in the investigation, the expected
 captured values are `26.0 ms` for Plateau and `84.0 %` for Velvet, followed
