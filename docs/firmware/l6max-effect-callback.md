@@ -355,6 +355,25 @@ The counter-only source, ELF, diagnostic MAIN, recipe and result hashes were
 `081761346653cb3b660b43e205cc54b5d7bbf106cb9b0725108d8929a13da37c`, and
 `273be1c643da9e5679dde34c6718afddc0b9850f749979e2f6e22fc3c58f7258`.
 
+Two more counter-only experiments also remained on the first selection. One
+preserved the copied stock post-selection callback while still initializing
+the custom state; the other omitted custom-state initialization as well and
+changed only the selected descriptor callback after the redirected clear.
+These results narrow the investigation but do not yet distinguish the
+descriptor change from the redirect itself. The former experiment's source,
+ELF, MAIN, recipe and result SHA-256 values were
+`d51bfc2c869d34832bce573a426e26ca4d884afaf406830c64603e8b1bd2cfb5`,
+`3ae430b269a8a67759b2ebc1671a3ea14443c91fb025d9cf6b47929c662d6d0b`,
+`371bdb1b74acb52f6fe05da1d6c700fd0f519b7200f44100fa96a073afad7ef1`,
+`1eae0051abf8f3b693e85ba698de279d36dce25a9b9cca9ff15fee37b2bb1a8b`, and
+`ba8cdab146da40226771579cb0bbdfe9d56da4247485b26dbb38527433965ae6`.
+The latter experiment's corresponding values were
+`b7fe2c5abb585317655fe1dd261fd6853a6ce071d6b1675770526b619930ace8`,
+`cafe945aa2abf2a91bdf0e58e727d7c88a8842055e106ab7ccadea558c0843cf`,
+`71cead3da298671d078168794ec62928ce58b550a9549b5d19796778b1165957`,
+`a30ceec6251cb0ea108d2880e5399da0f8ef7b437e6d23659b1a95888ab8a6f9`, and
+`82168428a466b9c56de15a52d00689df5551b0679ad7733bad52b3af36509ff6`.
+
 ## Task and memory observations
 
 In a separate disposable stock-emulator run after 45 guest seconds, debugger
