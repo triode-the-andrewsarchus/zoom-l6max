@@ -26,8 +26,8 @@ The blocking findings for L6max MAIN 1.10
   getter call, not an established audio interface; the selected AINR callback
   clears the normal wet buffers. A candidate in-place audio-task interface
   observed during learning remains unqualified. Its stock indices 0 and 1
-  use the master processor state; extending them to index 2 overlaps both
-  existing AINR storage and the active effect callback pointer;
+  use the master processor state; extending them to index 2 overlaps existing
+  AINR storage, control words and the active effect callback pointer;
   see the [callback investigation](firmware/l6max-effect-callback.md#ai-noise-reduction-investigation).
   The standalone routing processor separates A-only
   and cascaded sends, but is not connected to firmware. Its additional DSP
