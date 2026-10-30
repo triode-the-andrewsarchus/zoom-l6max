@@ -338,6 +338,23 @@ hashes were
 `603d61abb437ce1cb57c46be6e6c6a19243dae868d944a43833e93763c44fea4` and
 `2803902a121079e5b3e593dadae2edc6624eb7abda72ca8f4aa548600561ee03`.
 
+Two controls used the same six-press timing and input NOR. Stock MAIN advanced
+through callbacks `0x20280ab9`, `0x20282221`, `0x8002c041`, `0x20280781`,
+`0x20280021`, and `0x20281649`. A separate experimental image kept the same
+initialization and descriptor changes but replaced DSP processing with a
+counter-only callback. It too remained on the first custom descriptor after
+all six presses. Thus the DSP workload is not necessary to reproduce the
+failure in this emulator experiment; the exact cause remains unresolved.
+The stock control recipe and result SHA-256 values were
+`35f1f08e30d4f8c2715cc51cc1d91b6df02d8147a8335db67826e6733ac971fb` and
+`6a26aa15c6e45932e3ce9675db1187789e80a4426c68591ef000a3520f0f9f22`.
+The counter-only source, ELF, diagnostic MAIN, recipe and result hashes were
+`ee0b33813f68f0c28849e8bce9e39a43e6278633495e30902542a7ebcb0bd52d`,
+`9c944a5903bf1c5f8b06895361c1a9de19122194273093a59a14737518029190`,
+`27cd480af24bae69bbfddedabde4d0feb6d9e8000319cbb54d4cd419b4164148`,
+`081761346653cb3b660b43e205cc54b5d7bbf106cb9b0725108d8929a13da37c`, and
+`273be1c643da9e5679dde34c6718afddc0b9850f749979e2f6e22fc3c58f7258`.
+
 ## Task and memory observations
 
 In a separate disposable stock-emulator run after 45 guest seconds, debugger
