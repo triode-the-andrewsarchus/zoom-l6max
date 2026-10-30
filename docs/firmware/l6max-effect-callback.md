@@ -115,6 +115,23 @@ The repeat script and log hashes were
 This remains a forced-state observation, not proof of lifetime under real
 gain changes.
 
+In a stock run with LEVEL and EFX encoder adjustments, a breakpoint on the
+gain setter observed channel 1 with smoothing requested. The following mixer
+block had a live ramp descriptor for slot 0. At the mixer end and subsequent
+callback, the gain region, all descriptors, source buffers, summed send and
+that ramp's preceding 64 floats were unchanged. In the repeat observation the
+advanced ramp pointer was `0x80507118`, the ramp ranged from
+`9.0857572555542` to `9.122406959533691`, the slot's scalar gain was
+`9.531618118286133`, and its smoothed multiplier was `0.9999998211860657`.
+These are observations from two runs of one control sequence, not a guarantee of
+buffer lifetime across all updates or target hardware. The shared recipe,
+first script and log, and repeat script and log SHA-256 values were
+`24d61576bb37144269bdf040077b3bef5a2873b9a1e68b56e799c440b7c83fb8`,
+`576e55db439995dd1d3ceada48d4fdce26592c77ea052b207059e8b54e6309dd`,
+`1a40adfdfe0dbee8bb81e95c87d4a60b3040a24c0cc303e720a903e1bb419d9b`,
+`7656f72184d9b07323285c8fd8c1f78df6a469e2336f7b7f57b77ed0895b60ae`, and
+`073bbeb202aa7d13d343c349a6303877ccd02159e3f3eeececc46833635718c1`.
+
 A QEMU-only callback prototype then read those candidate inputs and gains at
 the callback and accumulated three separate sends with fixed test routes
 `entry % 4`: A, B, A-to-B, and off. The debugger injected nonzero inputs for
