@@ -8,7 +8,7 @@ index f2f8c09..268828b 100644
 +#[unsafe(no_mangle)]
 +#[unsafe(link_section = ".text.inspector_notify_hook")]
 +pub unsafe extern "C" fn inspector_notify_hook(id: u32, bits: u32) {
-+    if crate::parameter_view::ParameterSnapshot::from_words(id, bits).is_some() {
++    if crate::parameter_view::DisplaySnapshot::from_words(id, bits).is_some() {
 +        unsafe { sync::publish(16 + id, bits) };
 +    }
 +}
@@ -23,8 +23,8 @@ index 9c8438c..af40878 100644
 @@ -164,0 +168,11 @@ unsafe fn present(mode: u32, raw: u32) {
 +        #[cfg(dual_efx)]
 +        let inspector = if mode >= 16 {
-+            let Some(snapshot) = parameter_view::ParameterSnapshot::from_words(mode - 16, raw) else { return; };
-+            Some(parameter_view::format_snapshot(snapshot))
++            let Some(snapshot) = parameter_view::DisplaySnapshot::from_words(mode - 16, raw) else { return; };
++            Some(parameter_view::format_display(snapshot))
 +        } else {
 +            None
 +        };

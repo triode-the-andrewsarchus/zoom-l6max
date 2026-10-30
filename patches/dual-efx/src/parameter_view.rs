@@ -61,6 +61,27 @@ impl ParameterSnapshot {
     }
 }
 
+/// A copied inspector value; routing IDs 16 through 23 name the eight strips.
+#[derive(Clone, Copy, Debug)]
+pub enum DisplaySnapshot {
+    Parameter(ParameterSnapshot),
+    Route { strip: u8, mode: u8 },
+}
+
+impl DisplaySnapshot {
+    pub fn from_words(index: u32, bits: u32) -> Option<Self> {
+        if index < 16 {
+            return ParameterSnapshot::from_words(index, bits).map(Self::Parameter);
+        }
+        let strip = index.checked_sub(16)?;
+        let value = f32::from_bits(bits);
+        if strip >= 8 || ![0.0, 1.0, 2.0, 3.0].contains(&value) {
+            return None;
+        }
+        Some(Self::Route { strip: strip as u8, mode: value as u8 })
+    }
+}
+
 pub struct FormattedParam {
     pub title: &'static str,
     pub value_str: [u8; 16],
@@ -136,6 +157,21 @@ fn append_str(buf: &mut [u8], start: usize, s: &[u8]) -> usize {
         idx += 1;
     }
     idx
+}
+
+/// Formats a copied parameter or strip routing value on the display task.
+pub fn format_display(snapshot: DisplaySnapshot) -> FormattedParam {
+    match snapshot {
+        DisplaySnapshot::Parameter(parameter) => format_snapshot(parameter),
+        DisplaySnapshot::Route { strip, mode } => {
+            let titles = ["CH 1 ROUTE", "CH 2 ROUTE", "CH 3 ROUTE", "CH 4 ROUTE",
+                          "CH 5 ROUTE", "CH 6 ROUTE", "CH 7 ROUTE", "CH 8 ROUTE"];
+            let values: [&[u8]; 4] = [b"OFF", b"A", b"B", b"A -> B"];
+            let mut formatted = FormattedParam::new(titles.get(strip as usize).copied().unwrap_or("ROUTE"));
+            formatted.value_len = append_str(&mut formatted.value_str, 0, values.get(mode as usize).copied().unwrap_or(b"?"));
+            formatted
+        }
+    }
 }
 
 /// Formats a previously copied value without accessing the live processor.
