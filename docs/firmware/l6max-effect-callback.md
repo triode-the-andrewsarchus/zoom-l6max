@@ -839,6 +839,26 @@ The follow-up recipe and result hashes were
 `c5c3b6771953a77caeae3fe0a569c24fdb63f970eed86cbbd174052a70bf1328`.
 The stock MAIN, prepared NOR and QEMU identities are those below and above.
 
+Static inspection gives another candidate path. When changing to effect type
+5, the selector at `0x80054340` calls through `0x80003f98` to `0x80014830`
+with argument 1. That routine writes 1 to both `0x2028ba4c` and `0x2028bad0`;
+the same selector writes 0 there when leaving type 5. It also calls through
+`0x80003bb0` to `0x80010b50`, which changes several stock audio structures.
+This is evidence of selection-dependent processing state, not yet an audio
+ABI or proof that either word enables the denoiser itself.
+
+In a separate stock-QEMU run, five SEL presses selected callback `0x20280021`
+and both candidate words read 1. Two target-48 TAP inputs were acknowledged,
+separated by 4.5 guest seconds; the stock word at `0x8046300c` read 0 before
+and after each input. The snapshots therefore did not establish successful
+learning or a usable denoised output. A guessed relocated code address also
+read zero and must not be used as a hook. The recipe, result JSON, and engine
+trace SHA-256 values were
+`72d59d4a065e9e1537e56198c8c7473fb77cc0333639f9b9c7470d45530a83b9`,
+`2ed7c00ec344c3a753a0ace3d62d39fffc993411a380062c51a8939b16ca272c`, and
+`f4d34cd1f829847a7d5b64d3b6ff586610a057268df8928e59aa976c2024b216`.
+The exact stock MAIN, NOR and QEMU executable are identified above and below.
+
 ## QEMU routing controls
 
 On the stock MAIN, a GDB stop at `0x80036f8a` observed the EFX button call
