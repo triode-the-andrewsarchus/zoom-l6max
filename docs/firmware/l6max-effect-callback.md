@@ -304,6 +304,21 @@ passed that instruction. The second debugger script and log hashed to
 `94de01afd3d6ffa3eb2a3c3ae0eaa81a4085a19940c032990e234d99f68ebeda` and
 `b46ac798bb7717dad6a8d8524befcb188a17028bd1ee12337c80b0dbe9552ea1`.
 
+The converse interval was tested separately. At the clear call at
+`0x20280672`, the priority-12 `Main` task had set the active callback to zero.
+The debugger replaced that call's first halfword with a temporary self-branch,
+then continued execution. The priority-30 `AudioProcess` task reached the
+wrapper's comparison at `0x20280108` with both the loaded callback and active
+callback word zero, and next reached the no-callback branch at `0x20280330`
+before the indirect call at `0x20280248`. The original call bytes were
+restored before detaching. This demonstrates the disabled-callback path for
+one forced interleaving; it does not establish all buffer users, reset paths,
+other task priorities, memory ordering on physical hardware, or deadline safety.
+The input MAIN, NOR, QEMU and recipe identities were those in the previous
+probe. This debugger script and log hashed to
+`f751358971c7ab6ffa6d59ac0d7ea26535655abe6ffeb3c721880ff8ad2dbd43` and
+`6a56b4ea2e9f05b606cc9d57a869ecb9e34c54b6b931a554b44cebc9a235c5c9`.
+
 ## Experimental relocated-veneer redirect
 
 The selection code calls the stock clear through a ten-byte veneer at MAIN
