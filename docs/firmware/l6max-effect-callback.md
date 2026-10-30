@@ -329,6 +329,30 @@ The repeat's corresponding hashes were
 `1fca5a832992ccf851b50fd3dae13ded5be6a5d432a0a9bdda4c66eb31f6923b`, and
 `430c53a8bf96577ddc65e314b381b7299fd4a08879a0589b24c7a66efdfba9d8`.
 
+[Panel-model PR #7](https://github.com/derekstavis/zoom-l6max/pull/7), head
+`c8acff7d08cf57d8f70c3ba2f4fbc3071b384d16`, identifies the panel MCU as
+STM32G031C4T6 and changes its modeled memory, GPIO and timer behavior. To check
+whether those changes explain the active-audio control observation, a
+disposable QEMU build used that revision's panel/board source files and the
+same delayed patterned RX input. It ran the same diagnostic MAIN, NOR and
+recipe as the preceding repeat. The pre-input and captured routes were the
+same, all 192 reconstructed bus samples matched the independent calculation,
+and the captured output was finite and nonzero. After the active-audio encoder
+turn, the route and edit count again remained unchanged and the event queue
+was `(5, 5, 0)` at the three-second observation. This single matched comparison
+does not locate the missing event, qualify the PR's complete emulator build,
+or predict physical timing; its capture and input modifications remain
+diagnostic only. The PR is not merged into this branch.
+
+The modified QEMU board source and executable SHA-256 values were
+`2adf53d149f109714f1c90d70578d0aff87c448e64312776de55b948f38f4a1e` and
+`71bab061900eb23bc8dfb75b9c27c1ede40e873731c1e55c254c25b1cdb1adf8`;
+the executable's source provenance is unattested. The recipe hash remained
+`1fca5a832992ccf851b50fd3dae13ded5be6a5d432a0a9bdda4c66eb31f6923b`;
+the diagnostic result and engine trace SHA-256 values were
+`a9906c69321de9584c3a6f05ca2a636d62d9cb47f225818d765b74fb0207ae3b` and
+`b8944774015657d234868bd06de2fcb0e97649f321a3cf44c5c58db30c31cbe5`.
+
 ## EFX encoder and stock effect storage observations
 
 With EFX mode selected, turning physical encoders 1 through 8 changed the
