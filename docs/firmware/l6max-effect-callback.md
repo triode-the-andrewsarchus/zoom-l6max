@@ -1263,6 +1263,40 @@ callback pointer. Index 3 is likewise outside the two observed descriptors.
 This is an address calculation for the supported 1.10 MAIN, not a tested
 hardware modification or a claim about the full region size.
 
+A further stock-QEMU trace recorded instruction and data addresses within
+`0x2028b900..0x2028bb13` for two learned-state calls after the learning handler
+and 64 subsequent entries. It completed both captures without record overflow;
+the later processor snapshot showed state 1 for both channels. The calls wrote
+the descriptor cursor at `0x2028ba2c` and `0x2028bab0`, and also wrote distinct
+control words including `0x2028b9cc` and `0x2028b9ec`. Both calls read the same
+small helper-context fields around `0x2028b964`; the observed accesses there
+were reads, not proof that all paths leave the context unchanged.
+
+Static disassembly of the output-control path at `0x000034f8..0x000035bc`
+shows another indexed area with a 20-byte stride. In the exercised branch,
+the word written at `0x0000356a` is `0x2028b98c + 20 * index`; for index 2
+that is `0x2028b9b4`, a word the trace observed channel 0 writing at
+`0x000035bc`. The indexed read at `0x0000351a` likewise computes
+`0x2028b9a4 + 20 * index`, which for index 2 is `0x2028b9cc`, a control word
+the trace observed channel 0 modifying at `0x000012ec`. Thus relocating only
+the descriptor and large working buffer would not isolate an extra index.
+These are static address calculations plus two observed calls. They do not
+establish a complete footprint, whether every branch occurs for a third index,
+or the safety of a modified routine.
+
+The relocated code snapshot, plugin source, plugin binary, recipe, plugin log,
+result and plugin-enabled QEMU executable SHA-256 values were
+`0a4bdaf6e401a90c17d1b49e6907b375cb6cd7b4c0f02ee414b963f8610f457f`,
+`e54ab97d97536b5611180e70474fc20de8f05c770f4f318a8b9c5266797a84cb`,
+`987f6199c6bfae5d735b37444c5e299caaa1ef34c8e06d9d0fcab1886d3cb974`,
+`169572dfa4b7700cacc5e56ca3ea2bbf5f279afb01cb78e3d21a62a3e54eba42`,
+`66ce32544f16e7aa1f00134d1e1d8802801f8d0dc6c49a6b4b0673658ac723fe`,
+`80579394330fe3bd237969ea4ae98f3a575e4c4918d3c0c493307c7b39d6ca26`, and
+`249a29abb9e52e50d46472250475f2903a7b74e840ac0296545f3dad6ba41fee`.
+The trace spans calls and may include intervening interrupt activity; it does
+not cover DMA or unexecuted branches. The stock MAIN and initial NOR match the
+preceding investigation; the QEMU binary's source provenance is unattested.
+
 An instrumented stock-QEMU run on the newer board model traced CPU memory
 accesses between entry to `0x00001060` and the two stock caller returns. It
 armed at the learning-start handler and skipped 64 subsequent entries before
