@@ -3973,8 +3973,10 @@ static uint64_t l6_main_gpio_read(void *opaque, hwaddr offset, unsigned size)
              * the bit first, to diagnose debounce and scan cadence. */
             bool scanner = s->profile == &L6MAX_PROFILE && env &&
                            env->regs[14] == 0x80045315;
+            bool eventport = s->profile == &L6MAX_PROFILE && env &&
+                             env->regs[14] == 0x80085211 && id == 48;
             uint32_t *tested = &s->main_button_tested_bits[id][adapter->bank];
-            if (!scanner && (*tested & tested_mask)) {
+            if (!scanner && !eventport && (*tested & tested_mask)) {
                 continue;
             }
             *tested |= tested_mask;
@@ -3985,6 +3987,30 @@ static uint64_t l6_main_gpio_read(void *opaque, hwaddr offset, unsigned size)
                           (uint64_t)pc, env ? env->regs[14] : 0,
                           tested_port, tested_bit, tested_bit == pin,
                           qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL));
+            if (scanner && id == 48 && reader_index == 19) {
+                uint8_t state[0xcc];
+                AddressSpace *as = CPU(s->armv7m.cpu)->as;
+                if (address_space_read(as, 0x80666d38, MEMTXATTRS_UNSPECIFIED,
+                                       state, sizeof(state)) == MEMTX_OK) {
+                    qemu_log_mask(LOG_UNIMP,
+                                  "l6 MAIN TAP scanner state previous=%u count=%u edge=%u long=%u at %" PRId64 " ms\n",
+                                  ldl_le_p(state + 0x50), ldl_le_p(state + 0xa0),
+                                  state[0xb7], state[0xcb],
+                                  qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL));
+                }
+            }
+            if (eventport) {
+                uint8_t state[0xf0];
+                AddressSpace *as = CPU(s->armv7m.cpu)->as;
+                if (address_space_read(as, 0x80666d38, MEMTXATTRS_UNSPECIFIED,
+                                       state, sizeof(state)) == MEMTX_OK) {
+                    qemu_log_mask(LOG_UNIMP,
+                                  "l6 MAIN TAP EventPort state raw=%08x filtered=%08x submitted=%08x changed=%u at %" PRId64 " ms\n",
+                                  ldl_le_p(state + 0xcc), ldl_le_p(state + 0xd0),
+                                  ldl_le_p(state + 0xd8), ldl_le_p(state + 0xec),
+                                  qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL));
+                }
+            }
         }
     }
     return result_value;

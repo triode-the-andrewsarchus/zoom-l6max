@@ -936,6 +936,24 @@ the failure trace and result hashes were
 `0e10f0c880634b75ae6cd246bab980352e10e6dea76ae16de061f41319664e46` and
 `2ed7e31847daec6eacc8930f24421a8f9933135ce37a1bbf0b69c028a517f9a6`.
 
+Further static inspection shows that the slow scanner's TAP table entry has
+zero debounce thresholds; the separate EventPort loop at `0x800851b0` reads
+the same pin and submits the key events. QEMU's optional 1.10 diagnostic now
+also records that loop's candidate raw, filtered, event-latch and timestamp
+words while TAP is held. In one passing and one failing driver run, its TAP
+event latch changed from 0 to `0x10` during the low input in both runs. The
+store follows the stock queue-send call, but the latch alone does not show
+whether the queue accepted the event or whether MAIN dispatched it. These are
+observations of one pair of instrumented runs, not timing guarantees. The
+QEMU executable SHA-256 was
+`d157c698a5a1eaae83301ed26e2c85ec54e6355f3d537fc7262313c3fde6fd75`.
+Pass trace and result hashes were
+`0665f386548900e7ac6b321bb3e939eac2fd942fd6c5ad6a64eb13be9b187378` and
+`6bd5d4581cf5017df48cb44b9d20d48d192d2d3d68e731a762556a3952fbac30`;
+failure trace and result hashes were
+`a6357901f4fc1d41184b69981a6e9aa309029ff5d1daf7b6ac57b4364e3c8110` and
+`df95f8297c26fd7d8456c913155c46b1c3b3c49d1e3414eb5bd4685cc6da413d`.
+
 ## QEMU routing controls
 
 On the stock MAIN, a GDB stop at `0x80036f8a` observed the EFX button call
