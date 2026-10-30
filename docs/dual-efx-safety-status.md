@@ -51,6 +51,9 @@ The blocking findings for L6max MAIN 1.10
 
 Some standalone DSP defects have been fixed and tested on the host. Those
 tests do not exercise the firmware bindings or establish hardware safety.
+The stereo adapter now advances disabled effects on silence to avoid resuming
+stale audio, increasing its work while effects are disabled; target timing for
+that behavior has not been measured.
 Generic emulator boot, panel, and audio-callback checks do not qualify effects
 audio, controls, or behavior on a physical device.
 

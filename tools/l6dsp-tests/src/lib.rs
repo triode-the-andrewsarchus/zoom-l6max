@@ -1062,6 +1062,43 @@ mod tests {
     }
 
     #[test]
+    fn stereo_disabled_effects_advance_without_accepting_input() {
+        for (enable_a, enable_b) in [(true, false), (false, true), (true, true)] {
+            let mut disabled = Box::new(routing::DualEfxProcessor::new());
+            let mut reference = Box::new(routing::DualEfxProcessor::new());
+            disabled.init();
+            reference.init();
+            disabled.cascade_gain = 0.0;
+            reference.cascade_gain = 0.0;
+            let silence = [0.0; 64];
+            let mut impulse = silence;
+            impulse[0] = 1.0;
+            let mut left = silence;
+            let mut right = silence;
+            let mut expected_left = silence;
+            let mut expected_right = silence;
+            disabled.process_stereo_send(&impulse, &impulse, &mut left, &mut right, enable_a, enable_b);
+            reference.process_stereo_send(&impulse, &impulse, &mut expected_left, &mut expected_right, enable_a, enable_b);
+            // The disabled effects must receive silence even when the bus carries
+            // signal, and their output must remain muted while their history ages.
+            for _ in 0..4 {
+                disabled.process_stereo_send(&impulse, &impulse, &mut left, &mut right, false, false);
+                reference.process_stereo_send(&silence, &silence, &mut expected_left, &mut expected_right, enable_a, enable_b);
+                assert!(left.iter().chain(&right).all(|&sample| sample == 0.0));
+            }
+            let mut peak = 0.0f32;
+            for _ in 0..200 {
+                disabled.process_stereo_send(&silence, &silence, &mut left, &mut right, enable_a, enable_b);
+                reference.process_stereo_send(&silence, &silence, &mut expected_left, &mut expected_right, enable_a, enable_b);
+                assert_eq!(left, expected_left);
+                assert_eq!(right, expected_right);
+                for &sample in left.iter().chain(&right) { peak = peak.max(sample.abs()); }
+            }
+            assert!(peak > 0.0001, "comparison must include a reverb tail");
+        }
+    }
+
+    #[test]
     fn test_parameter_formatting() {
         use parameters::EfxParamId as Id;
         let mut processor = Box::new(routing::DualEfxProcessor::new());
