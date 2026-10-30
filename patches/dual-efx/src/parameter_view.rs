@@ -66,7 +66,7 @@ impl ParameterSnapshot {
 pub enum DisplaySnapshot {
     Parameter(ParameterSnapshot),
     Route { strip: u8, mode: u8 },
-    Page { routing: bool },
+    Page { routing: bool, velvet: bool },
 }
 
 impl DisplaySnapshot {
@@ -76,8 +76,9 @@ impl DisplaySnapshot {
         }
         if index == 24 {
             return match f32::from_bits(bits) {
-                0.0 => Some(Self::Page { routing: false }),
-                1.0 => Some(Self::Page { routing: true }),
+                0.0 => Some(Self::Page { routing: false, velvet: false }),
+                1.0 => Some(Self::Page { routing: true, velvet: false }),
+                2.0 => Some(Self::Page { routing: false, velvet: true }),
                 _ => None,
             };
         }
@@ -171,9 +172,9 @@ fn append_str(buf: &mut [u8], start: usize, s: &[u8]) -> usize {
 pub fn format_display(snapshot: DisplaySnapshot) -> FormattedParam {
     match snapshot {
         DisplaySnapshot::Parameter(parameter) => format_snapshot(parameter),
-        DisplaySnapshot::Page { routing } => {
+        DisplaySnapshot::Page { routing, velvet } => {
             let mut formatted = FormattedParam::new("EFX CONTROLS");
-            let value: &[u8] = if routing { b"ROUTING" } else { b"PARAMETERS" };
+            let value: &[u8] = if routing { b"ROUTING" } else if velvet { b"VELVET PARAM" } else { b"PLATEAU PARAM" };
             formatted.value_len = append_str(&mut formatted.value_str, 0, value);
             formatted
         }

@@ -846,6 +846,43 @@ above. Its MAIN, effect ELF, recipe, diagnostic JSON and GDB log SHA-256 were
 `5ef520ea4a820b77fd3fcdd7b0196541d77dc7dc1201544d985cd30758d617e2`, and
 `3e34ad0c4918a591c9f2e7f3cec8d17ebe622bc53b8c3e71a8cd20d130ad4ebe`.
 
+The next QEMU-only experiment separates the editing bank from the selected
+stock effect. While the inspector is open a short EFX SEL press switches banks;
+each queued turn carries its bank. GDB observed Plateau pre-delay at 26.0 ms,
+Velvet amount at 84.0%, then 28.0 ms and 86.0% after revisiting each bank and
+turning once. The callback pointer and the edited route slots were unchanged
+across bank changes; the mixer value remained 44 until the inspector closed.
+This demonstrates preserved edits in this fixture, not an audible tail or
+target synchronization guarantee. Stock effect selection still reinitializes
+the diagnostic processor and can discard its settings and tails.
+
+The combined MAIN, effect ELF, recipe, diagnostic JSON and GDB log hashes were
+`293df555fdf0668b3599c1ab8d71553d15774a1e65da61677e0a266c6775d08d`,
+`c9b68f5288336b5a792089d5e1a1a6640ed1888a96f50ea5b65b035b545d9641`,
+`8e23aef1dd70b6a7d119c23e75883ef1fec4e1c22e196bd96ac317b221d2bb1f`,
+`1ce930ce483a503e249575de9088fff7e53c5912ca2fa45026c95bec5ce9fa5e`, and
+`a12c99331a2dfeb39c44d1210e3578c4a6d3d218aecf1ce8e1feac815112e3fc`.
+
+An uninstrumented, non-popup follow-up did **not** reliably complete this
+sequence: at the second return to Velvet the inspector was already closed;
+the next long hold reopened it and the final short press did not select
+Spring. The panel trace recorded both edges of every requested press, but that
+does not prove delivery to the selector hook. This failure remains unresolved.
+Two repeats with a scratch event/tick trace added to the selector hook did
+complete and selected Spring; their observed short intervals were 144–160
+ticks. The tracing changes timing, so these repeats do not erase the failure.
+
+The uninstrumented MAIN, recipe and diagnostic JSON hashes were
+`fdc9409a951bb7915803252037991bdd3e833fda03675262c96badec18043b8a`,
+`440fdfbbb723b3e2a10ceb9918ddf6a48422c59e67603a6d48bb79e52978e74e`, and
+`5d118d3954bbb72e895f6db9318d390020588f58f8f8045dec7679355c586750`.
+The traced MAIN and recipe hashes were
+`acd16610bafae96afc669f6b303d0a28bb52e8ea1751b744cc69e6547f50ab1a` and
+`7171062de0e600ef378da04e44967dcb1f2bf0235fc768a3afcd40cf3399c34e`;
+the two diagnostic JSON hashes were
+`6cc2b97644f12eb0d60af189d97070f408b2124170aad29f0bcf649b95792403` and
+`f7f0dd91d8f1c9ba01b27b91b1a6599190c9b548055be6614b397307b4af45c2`.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:
