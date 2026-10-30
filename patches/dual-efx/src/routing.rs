@@ -268,11 +268,18 @@ impl DualEfxProcessor {
         enable_b: bool,
     ) {
         let frames = in_l.len().min(in_r.len()).min(out_l.len()).min(out_r.len());
+        if frames == 0 {
+            return;
+        }
+        self.prepare_bus_block();
         for i in 0..frames {
             let (a_l, a_r) = self.velvet.process_sample(
                 if enable_a { in_l[i] } else { 0.0 },
                 if enable_a { in_r[i] } else { 0.0 },
             );
+            // This path does not route the separate cascade history, but it
+            // must continue advancing so a later bus switch cannot replay it.
+            self.velvet_cascade.process_sample(0.0, 0.0);
             let cascade_l = if enable_a {
                 a_l * self.cascade_gain
             } else {

@@ -990,6 +990,39 @@ mod tests {
     }
 
     #[test]
+    fn stereo_send_advances_inactive_cascade_history() {
+        let mut switched = Box::new(routing::DualEfxProcessor::new());
+        let mut reference = Box::new(routing::DualEfxProcessor::new());
+        switched.init();
+        reference.init();
+        let silence = [0.0; 64];
+        let mut impulse = silence;
+        impulse[0] = 1.0;
+        let mut left = [0.0; 64];
+        let mut right = [0.0; 64];
+        for p in [&mut switched, &mut reference] {
+            p.return_gain_a = 0.0;
+            p.process_buses(&silence, &silence, &impulse, &mut left, &mut right);
+            p.cascade_gain = 0.0;
+        }
+        // Silence the cascade while advancing the same elapsed audio time.
+        for _ in 0..80 {
+            switched.process_stereo_send(&silence, &silence, &mut left, &mut right, false, false);
+            reference.process_buses(&silence, &silence, &silence, &mut left, &mut right);
+        }
+        switched.cascade_gain = 1.0;
+        reference.cascade_gain = 1.0;
+        for block in 0..100 {
+            let mut expected_l = [0.0; 64];
+            let mut expected_r = [0.0; 64];
+            switched.process_buses(&silence, &silence, &silence, &mut left, &mut right);
+            reference.process_buses(&silence, &silence, &silence, &mut expected_l, &mut expected_r);
+            assert_eq!(left, expected_l, "left block {block}");
+            assert_eq!(right, expected_r, "right block {block}");
+        }
+    }
+
+    #[test]
     fn reverb_tail_continues_after_send_is_closed() {
         let mut processor = Box::new(routing::DualEfxProcessor::new());
         processor.init();
