@@ -1003,6 +1003,37 @@ its trace and result hashed to
 `59518a30b7a78efb9d87ac0dd19da71342ea19388c9d3442c61bae53f3e3faa0` and
 `5fc04bb9e6a507fe2a88f6b0052431e4a61582086d1cc8f0c3d79edbc2c00252`.
 
+Two subsequent plugin-assisted runs of the revised case observed the learning
+poll take `0x80088dac`, the branch reached when both candidate processors
+no longer report state 3, then enter `0x80051080` with argument 1. Neither
+observed the timeout branch at `0x80088d9c`. This explains how a successful
+run can clear the progress byte before the old 500 ms assertion, but does not
+prove the cause of every earlier failure or establish useful denoising of the
+emulator's silent input. One trace additionally watched flash addresses
+`0x800ee6b2` and `0x800f0664`, whose code references the candidate processor
+state; neither address was observed in that run. The latter plugin source,
+binary, trace and result hashes were
+`35a1bc4c774ba765d54a07c003c89f76a66ecebd67bb9bcea44debe7e9797806`,
+`2708a43002a6ba79a969c7a830a93f44f21c99d4a013e9b671b1505b72f402e4`,
+`b4bdb76633f71cc946c101525da1a39730a28f1bc759aacb9cc7fa60df67ba00`, and
+`f43a46829cc17355bc0273f806b1212b15df3eadb2aff3a16da54b84b1f9a705`.
+The isolated QEMU and fixture identities were those immediately above.
+
+A debugger scan of stock guest RAM found the previously established code
+patterns at `0x20228a80` and `0x20280500`, but not the patterns from MAIN
+offsets `0xee6b2` and `0xf0664` in readable pages of the scanned ranges
+`0x20000000..0x20080000` and `0x20200000..0x20400000`. The latter range
+included 256 unreadable pages, and the first scan stopped on one of them; the
+resumed scan skipped unreadable pages. This is not an exhaustive search or
+evidence that those routines cannot be used. The recipe hash was
+`a23dd43d67d045af4d2bf8492c9bb9d80f5cf4be880d31a10a0b7136cdfcae48`;
+the first scan script and log hashed to
+`fcbfe69c57b739e3c9fb598969809df96e722bb6a854f9a46fbd8018cbbb40e8` and
+`d1453f73d005b8de02d3cd4b2c4e447380ac77fa102d6ad34e1320366343ba34`;
+the resumed script and log hashed to
+`e2534bc34aa02c9fb9be5783da7f17b571b93d270d83fa262a63bc0f3742eb07` and
+`4b35576424c4edff2fa92109cf50a94452d577927616894bff4ed0651a46c619`.
+
 ## QEMU routing controls
 
 On the stock MAIN, a GDB stop at `0x80036f8a` observed the EFX button call
