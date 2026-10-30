@@ -132,6 +132,19 @@ first script and log, and repeat script and log SHA-256 values were
 `7656f72184d9b07323285c8fd8c1f78df6a469e2336f7b7f57b77ed0895b60ae`, and
 `073bbeb202aa7d13d343c349a6303877ccd02159e3f3eeececc46833635718c1`.
 
+In a third run of the same control sequence, the debugger injected a constant
+nonzero slot-0 source immediately before a block with the stock-generated
+ramp and silenced the other 11 source slots. The 64 accumulated values exactly
+matched the injected source multiplied by the observed per-frame ramp and
+smoothed multiplier. The gain region, descriptors, source buffers, summed
+send and ramp were unchanged at the subsequent effect callback. The ramp
+began at `0x80507018`; this was a real firmware-generated gain ramp in the
+emulator, while the source signal was injected by the debugger. This single
+observation does not establish all update races or hardware timing. The
+debugger script and log hashes were
+`ab5925c45ce73f3b716c2c588f9514e72d7356fb1bf1c0ca5c0eab7a28e0b521` and
+`b00cb2dc5c17e73c178dd6dcf07d86a24206c72bac2f78c07f4a9e2895d13a71`.
+
 A QEMU-only callback prototype then read those candidate inputs and gains at
 the callback and accumulated three separate sends with fixed test routes
 `entry % 4`: A, B, A-to-B, and off. The debugger injected nonzero inputs for
