@@ -1551,6 +1551,21 @@ Spring. Its diagnostic MAIN, ELF, recipe and result SHA-256 were
 `debc9e36bad36e7cca33fac085bf070b3edd09b619c6f30edd4e348747da61f1`.
 This change does not establish real-time readiness or control responsiveness.
 
+With the nominal-cadence QEMU and active sends, an additional instrumented run
+recorded 25 EFX SEL edges at the UART interrupt, but no EFX SEL records at the
+stock enqueue hook and no selector-hook events. The interrupt timestamp queue
+ended at `(head, tail, overflow) = (25, 0, 0)`. The inspector did not open,
+and the second custom descriptor was not selected. This narrows the observed
+failure to the path after the traced UART bytes and before stock enqueue; the
+interrupt timestamp prototype alone cannot fix this run. The IRQ hook itself
+perturbs execution and uses unowned memory, so this does not locate a physical
+hardware failure or establish a safe interrupt hook. The diagnostic MAIN, ELF,
+recipe and result SHA-256 were
+`4a94d3dec0490d264f99c04906a6cf21d96e2992f6fd398a11e9bf1f5b7ae1b3`,
+`82425824cb2ce58f5805e31ce770107ee139990e6221a23072435106f6d69463`,
+`2523305fa4950bf5b0e3c4c519e40abad15830d7694c5bc07e934784a1f9f8bc`, and
+`f3acef9127d0408d9e72c90a4825759cb19b4306f1a43f7552d4abe3e2a6534b`.
+
 The tap loop now checks the range first and uses an out-of-line modulo only
 for out-of-range delays. Cortex-M7 disassembly confirmed that valid delays
 branch around the divide; the first inline version had not done so. A host
