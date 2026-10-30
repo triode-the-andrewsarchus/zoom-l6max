@@ -33,6 +33,38 @@ mod tests {
     }
 
     #[test]
+    fn inspector_encoders_edit_and_display_actual_parameters() {
+        use parameters::{edit_encoder, format_parameter, EfxParamId as Id, ParameterBank as Bank};
+        let mut processor = Box::new(routing::DualEfxProcessor::new());
+        processor.init();
+        let banks = [
+            (Bank::Velvet, [Id::VndAmount, Id::VndTimeSpread, Id::VndDensity,
+                Id::VndDecay, Id::VndRefresh, Id::VndMode, Id::VndTransition, Id::GlobalCascade]),
+            (Bank::Plateau, [Id::PlatPreDelay, Id::PlatSize, Id::PlatDecay,
+                Id::PlatLowCut, Id::PlatHighCut, Id::PlatDiffusion, Id::PlatModDepth, Id::PlatFreeze]),
+        ];
+        for (bank, ids) in banks {
+            for (encoder, id) in ids.into_iter().enumerate() {
+                let before = format_parameter(id, &processor);
+                let delta = if id == Id::PlatFreeze { 1 } else { -1 };
+                assert_eq!(edit_encoder(&mut processor, bank, encoder, delta), Some(id));
+                let after = format_parameter(id, &processor);
+                assert_ne!(&before.value_str[..before.value_len], &after.value_str[..after.value_len], "{id:?}");
+            }
+            assert_eq!(edit_encoder(&mut processor, bank, 8, 1), None);
+            assert_eq!(edit_encoder(&mut processor, bank, 0, 0), None);
+        }
+        assert!(!processor.velvet.current.dynamic);
+        assert!(processor.plateau.params.freeze);
+        edit_encoder(&mut processor, Bank::Plateau, 7, -1);
+        assert!(!processor.plateau.params.freeze);
+        edit_encoder(&mut processor, Bank::Velvet, 2, i32::MAX);
+        assert_eq!(processor.velvet.current.density, 3000.0);
+        edit_encoder(&mut processor, Bank::Plateau, 0, i32::MIN);
+        assert_eq!(processor.plateau.params.predelay_ms, 0.0);
+    }
+
+    #[test]
     fn test_math_functions() {
         assert!((math::sin(0.0)).abs() < 1e-4);
         assert!((math::sin(math::PI_2) - 1.0).abs() < 1e-3);
