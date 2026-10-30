@@ -49,9 +49,16 @@ python3 -c 'import json,struct; j=json.load(open("/tmp/l6-callback-probe/logs/di
 The observed marker is `0x494e4954`, the selected descriptor is `0x2028b8dc`,
 and the third word is the callback count, which should be nonzero. This
 diagnostic replaces the selected stock callback and uses its effect buffer;
-it processes only the already-summed stereo bus. It does not implement or
-validate channel routing, effect controls, UI, synchronization, real-time
-deadlines, or hardware safety. Never install the generated image.
+it reconstructs three sends from candidate mixer slots and gains. A QEMU-only
+mailbox at `0x83e00100` contains 12 32-bit route values: 0 off, 1 A, 2 B,
+3 A-to-B. Each selection initializes the mailbox to B for Room or A for
+Spring. A debugger can change these values for controlled tests; this is not
+a device UI or persistent configuration. Writing a nonzero word to
+`0x83e00140` captures the three 64-float sends at `0x83e01000` for inspection.
+Those addresses and the reconstructed gain/ramp lifetimes are not qualified
+on hardware. The diagnostic does not establish source-channel mapping,
+effect controls, UI, synchronization, real-time deadlines, or hardware
+safety. Never install the generated image.
 
 To observe selection changes, add `--switches` along with `--callback` when
 preparing a fresh output directory. The resulting recipe presses EFX SEL six
