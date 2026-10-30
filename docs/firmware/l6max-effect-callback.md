@@ -1519,6 +1519,24 @@ sample TSV SHA-256 were
 Sampling and emulator clock behavior limit this evidence; it is not a target
 cycle count or a complete instruction profile.
 
+A later exploratory profile used the nominal-cadence QEMU build and the
+active-sends diagnostic. The diagnostic MAIN matched the MAIN installed in the
+initial NOR. After selecting Room, 80 of 185 sampled main-CPU PCs fell within
+`diagnostic_audio`; 26 and 24 respectively fell within two Velvet convolution
+loops. The 30-second wall-time sample covered guest time 79.460 through 94.127
+seconds. These samples identify an emulator hotspot, not a physical cycle
+budget or proof that a particular optimization will restore responsiveness.
+The MAIN, ELF, initial NOR, profiler executable, QEMU executable and sample TSV
+SHA-256 were
+`f8d6ee6c3d3b3fc7e95c5f6cd0e75333cd0898475d23e88c691f396fd851d80e`,
+`53ef6a8a851ff2b21581fe42bf38b777a78c3662b691a50df32cf440670b685c`,
+`41391b61a0eb4eed073ebaddd78e355edaed8bea15fd23097dd5e8780192e235`,
+`920ede276b33c094db4cf4a5fda0578befb1e471e751ac9b6e124fabb56b891a`,
+`0fd44a21586cad3a3ce32bd1394278c05045852c52bf729e70a2b5ffd7e86acb`, and
+`0949e9318b8cb12b12c7d4f6071282d7d3062b0e655b61769ca3ba7af8630aef`.
+Earlier profiling attempts accidentally used stock NOR and were discarded;
+the firmware directory alone does not override an installed MAIN in NOR.
+
 The tap loop now checks the range first and uses an out-of-line modulo only
 for out-of-range delays. Cortex-M7 disassembly confirmed that valid delays
 branch around the divide; the first inline version had not done so. A host
