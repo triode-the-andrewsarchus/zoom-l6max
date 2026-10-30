@@ -478,8 +478,9 @@ impl PlateauReverb {
         // 4. Left Tank Loop
         self.l_sum += diff_in;
         let l_ap1_out = self.l_apf1.process_modulated(self.l_sum, l_mod);
+        // Read the slot about to be overwritten: it is exactly one ring old.
+        let l_del1_out = self.l_del1.read(0);
         self.l_del1.write(l_ap1_out);
-        let l_del1_out = self.l_del1.read(self.l_del1.length - 1);
 
         let l_filtered = if self.params.freeze {
             l_del1_out
@@ -488,14 +489,14 @@ impl PlateauReverb {
         };
 
         let l_ap2_out = self.l_apf2.process(l_filtered * decay);
+        let l_del2_out = self.l_del2.read(0);
         self.l_del2.write(l_ap2_out);
-        let l_del2_out = self.l_del2.read(self.l_del2.length - 1);
 
         // 5. Right Tank Loop
         self.r_sum += diff_in;
         let r_ap1_out = self.r_apf1.process_modulated(self.r_sum, r_mod);
+        let r_del1_out = self.r_del1.read(0);
         self.r_del1.write(r_ap1_out);
-        let r_del1_out = self.r_del1.read(self.r_del1.length - 1);
 
         let r_filtered = if self.params.freeze {
             r_del1_out
@@ -504,8 +505,8 @@ impl PlateauReverb {
         };
 
         let r_ap2_out = self.r_apf2.process(r_filtered * decay);
+        let r_del2_out = self.r_del2.read(0);
         self.r_del2.write(r_ap2_out);
-        let r_del2_out = self.r_del2.read(self.r_del2.length - 1);
 
         // Cross feedback
         self.l_sum = r_del2_out * decay;
