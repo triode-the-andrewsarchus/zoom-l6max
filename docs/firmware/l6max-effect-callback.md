@@ -1675,6 +1675,20 @@ experimental MAIN, ELF, recipe and result hashes were
 `c22e0bcb154349fecc930b7efdd6cfeb7a0efcdbf7885d64a88befe97beda5b1`, and
 `17ecffe99a9cca86d5fcf13defda984b8b0070a905e41db5f4988260d2e496f7`.
 
+Another uncommitted experiment cached Plateau's 14 output tap offsets until
+the size value changed, including when that public value was changed directly.
+A 120,000-frame host render with setter and direct size edits, silence, and a
+non-finite direct value matched the preceding source byte for byte (SHA-256
+`15848c826e41186dbfb1f75b0aa3a352a019e082f19efad7f0350ba8fa93ca56`).
+The matched QEMU cadence counts were 1,053, 3,475, 5,835 and 8,196, essentially
+unchanged from the approximately 476 callbacks per guest second before the
+experiment. The cache and its invalidation logic were discarded. The MAIN,
+ELF, recipe and result hashes were
+`7fb8c78e2523815bd255076d4d4e2f6731d7610a5ed05d616db83fb76c9e22d5`,
+`52045313b2c6ed0687d9fd14de5f2197429ad58b1d43fc214e4abf10c7a2b3da`,
+`241cdc70e2a8fa2445584c5be5cb0805c6afef52ab1aa0b0f7a200524f0c43e0`, and
+`4a75ff3368a3e47198110eb3f2e201f72bb02fe351969f5e897dd71d0b78fb28`.
+
 The tap loop now checks the range first and uses an out-of-line modulo only
 for out-of-range delays. Cortex-M7 disassembly confirmed that valid delays
 branch around the divide; the first inline version had not done so. A host
