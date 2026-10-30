@@ -30,6 +30,17 @@ mod tests {
     }
 
     #[test]
+    fn sine_range_reduction_terminates_for_extreme_inputs() {
+        for x in [f32::MAX, f32::MIN, f32::INFINITY, f32::NEG_INFINITY, f32::NAN] {
+            let result = math::sin(x);
+            assert!(result.is_finite() && result.abs() <= 1.001, "sin({x}) = {result}");
+        }
+        for x in [-10.0f32, -3.0, 0.0, 3.0, 10.0] {
+            assert!((math::sin(x) - x.sin()).abs() < 0.002);
+        }
+    }
+
+    #[test]
     fn test_velvet_noise_decorrelator() {
         let mut vnd = velvet::VelvetDecorrelator::new();
         vnd.init(velvet::Parameters::default());

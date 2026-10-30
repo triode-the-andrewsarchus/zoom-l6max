@@ -64,12 +64,18 @@ pub fn sqrt(x: f32) -> f32 {
 /// Accurate to within 0.001 across all angles.
 #[inline(always)]
 pub fn sin(mut x: f32) -> f32 {
-    // Normalize to [-PI, PI]
-    while x > PI {
-        x -= TWO_PI;
+    // Reducing with repeated subtraction can run indefinitely for infinity or
+    // for large floats where subtracting TWO_PI no longer changes the value.
+    if !x.is_finite() {
+        return 0.0;
     }
-    while x < -PI {
-        x += TWO_PI;
+    if x > PI || x < -PI {
+        x %= TWO_PI;
+        if x > PI {
+            x -= TWO_PI;
+        } else if x < -PI {
+            x += TWO_PI;
+        }
     }
 
     // Minimax polynomial for sin(x) on [-PI, PI]
