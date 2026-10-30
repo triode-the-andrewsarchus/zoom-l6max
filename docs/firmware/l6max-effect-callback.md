@@ -1341,6 +1341,31 @@ QEMU executable SHA-256 values were
 `53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`.
 The stock MAIN and initial NOR matched the preceding investigation.
 
+A second debugger-controlled run used the same copied code and separate
+state region for 96 consecutive channel-0 calls, injecting the same
+64-sample sinusoid before each stock and copied call. All 96 output blocks
+matched byte for byte; 5,932 of 6,144 output samples were nonzero, all were
+finite, and the peak magnitude was approximately 0.2496. At blocks 0, 15, 31,
+63 and 95, the channel-0 control, descriptor and 55,808-byte working ranges
+matched after the respective calls, and the checked 128 KiB stock range was
+unchanged by the copied call. The debugger restored the stock post-call
+registers before continuing; the later learned and reset words were 1 and 0.
+
+This supports the copied routine as an investigation candidate, but only for
+one forced waveform and the exercised branches. The checks do not cover every
+call's stock state, other memory ranges, learning the copied instance, sound
+quality, simultaneous effect routing, target timing, or ownership of the
+scratch regions. Stops alter scheduling and the image remains unsuitable for
+hardware. The copied code, debugger script, debugger log, recipe, diagnostic
+result and QEMU executable SHA-256 values were
+`d0ebab6792ca14ddd20b7f27fa9cb27e384e7aa0baeb37cbc6c2427895f0e04d`,
+`cc5e5710c37ab16f056f85d647849b86b73aa6cab5efd28789e8fb37a45cf1e2`,
+`201fc55714716f8c80ddfa2343533df1988dae80b8425f04910c69713e512415`,
+`45233d0c29dc9947da9353f8a78eb1e26788b80958fed6dd31f1cff11cbc51db`,
+`72a653d58ca1ab678a02c32bc31bdd98d9a0b440d36a703939ca9d8374157c39`, and
+`53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`.
+The stock MAIN and initial NOR matched the preceding experiment.
+
 An instrumented stock-QEMU run on the newer board model traced CPU memory
 accesses between entry to `0x00001060` and the two stock caller returns. It
 armed at the learning-start handler and skipped 64 subsequent entries before
