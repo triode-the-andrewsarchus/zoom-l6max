@@ -73,13 +73,18 @@ fn format_int(buf: &mut [u8], mut val: i32) -> usize {
 
 /// Helper to write a float with 1 decimal place.
 fn format_float_1dp(buf: &mut [u8], val: f32) -> usize {
-    let scaled = (val * 10.0 + 0.5) as i32;
-    let whole = scaled / 10;
-    let frac = (scaled % 10).abs();
-    let mut len = format_int(buf, whole);
-    if len < buf.len() - 2 {
+    let negative = val < 0.0;
+    let magnitude = if negative { -val } else { val };
+    let scaled = (magnitude * 10.0 + 0.5) as i32;
+    let mut len = 0;
+    if negative && scaled != 0 {
+        buf[0] = b'-';
+        len = 1;
+    }
+    len += format_int(&mut buf[len..], scaled / 10);
+    if len + 2 <= buf.len() {
         buf[len] = b'.';
-        buf[len + 1] = b'0' + frac as u8;
+        buf[len + 1] = b'0' + (scaled % 10) as u8;
         len += 2;
     }
     len
@@ -97,122 +102,39 @@ fn append_str(buf: &mut [u8], start: usize, s: &[u8]) -> usize {
     idx
 }
 
-/// Formats a parameter for the L6max OLED notification popup.
-pub fn format_parameter(id: EfxParamId, raw: u8) -> FormattedParam {
-    match id {
-        EfxParamId::VndAmount => {
-            let mut p = FormattedParam::new("VND AMOUNT");
-            let pct = (raw as u32 * 100 / 127) as i32;
-            let len = format_int(&mut p.value_str, pct);
-            p.value_len = append_str(&mut p.value_str, len, b" %");
-            p
-        }
-        EfxParamId::VndTimeSpread => {
-            let mut p = FormattedParam::new("VND TIME SPREAD");
-            // raw 0-127 -> 5.0 ms to 80.0 ms
-            let ms = 5.0 + (raw as f32 / 127.0) * 75.0;
-            let len = format_float_1dp(&mut p.value_str, ms);
-            p.value_len = append_str(&mut p.value_str, len, b" ms");
-            p
-        }
-        EfxParamId::VndDensity => {
-            let mut p = FormattedParam::new("VND DENSITY");
-            // raw 0-127 -> 200 to 2500 pulses/sec
-            let density = 200 + (raw as i32 * 2300 / 127);
-            let len = format_int(&mut p.value_str, density);
-            p.value_len = append_str(&mut p.value_str, len, b" pps");
-            p
-        }
-        EfxParamId::VndDecay => {
-            let mut p = FormattedParam::new("VND DECAY");
-            // raw 0-127 -> -80 dB to -10 dB
-            let db = -80 + (raw as i32 * 70 / 127);
-            let len = format_int(&mut p.value_str, db);
-            p.value_len = append_str(&mut p.value_str, len, b" dB");
-            p
-        }
-        EfxParamId::VndRefresh => {
-            let mut p = FormattedParam::new("VND REFRESH");
-            // raw 0-127 -> 0.5 s to 10.0 s
-            let sec = 0.5 + (raw as f32 / 127.0) * 9.5;
-            let len = format_float_1dp(&mut p.value_str, sec);
-            p.value_len = append_str(&mut p.value_str, len, b" s");
-            p
-        }
+/// Formats the current DSP value for the L6max OLED notification popup.
+/// Values come from the effect state, so the display follows the applied
+/// parameters rather than a separate control-range approximation.
+pub fn format_parameter(id: EfxParamId, processor: &super::routing::DualEfxProcessor) -> FormattedParam {
+    let velvet = processor.velvet.current;
+    let plateau = processor.plateau.params;
+    let (title, value, unit): (&str, f32, &[u8]) = match id {
+        EfxParamId::VndAmount => ("VND AMOUNT", velvet.amount * 100.0, b" %"),
+        EfxParamId::VndTimeSpread => ("VND TIME SPREAD", velvet.length_ms, b" ms"),
+        EfxParamId::VndDensity => ("VND DENSITY", velvet.density, b" pps"),
+        EfxParamId::VndDecay => ("VND DECAY", velvet.decay_db, b" dB"),
+        EfxParamId::VndRefresh => ("VND REFRESH", velvet.refresh_seconds, b" s"),
         EfxParamId::VndMode => {
             let mut p = FormattedParam::new("VND MODE");
-            if raw < 64 {
-                p.value_len = append_str(&mut p.value_str, 0, b"DYNAMIC");
-            } else {
-                p.value_len = append_str(&mut p.value_str, 0, b"STATIC");
-            }
-            p
+            p.value_len = append_str(&mut p.value_str, 0, if velvet.dynamic { b"DYNAMIC" } else { b"STATIC" });
+            return p;
         }
-        EfxParamId::PlatPreDelay => {
-            let mut p = FormattedParam::new("PLATEAU PREDELAY");
-            // raw 0-127 -> 0 to 150 ms
-            let ms = raw as i32 * 150 / 127;
-            let len = format_int(&mut p.value_str, ms);
-            p.value_len = append_str(&mut p.value_str, len, b" ms");
-            p
-        }
-        EfxParamId::PlatSize => {
-            let mut p = FormattedParam::new("PLATEAU SIZE");
-            let pct = (raw as u32 * 100 / 127) as i32;
-            let len = format_int(&mut p.value_str, pct);
-            p.value_len = append_str(&mut p.value_str, len, b" %");
-            p
-        }
-        EfxParamId::PlatDecay => {
-            let mut p = FormattedParam::new("PLATEAU DECAY");
-            let pct = (raw as u32 * 100 / 127) as i32;
-            let len = format_int(&mut p.value_str, pct);
-            p.value_len = append_str(&mut p.value_str, len, b" %");
-            p
-        }
-        EfxParamId::PlatLowCut => {
-            let mut p = FormattedParam::new("PLATEAU LOW CUT");
-            let hz = 20 + (raw as i32 * 480 / 127);
-            let len = format_int(&mut p.value_str, hz);
-            p.value_len = append_str(&mut p.value_str, len, b" Hz");
-            p
-        }
-        EfxParamId::PlatHighCut => {
-            let mut p = FormattedParam::new("PLATEAU HIGH CUT");
-            let khz = 1.0 + (raw as f32 / 127.0) * 15.0;
-            let len = format_float_1dp(&mut p.value_str, khz);
-            p.value_len = append_str(&mut p.value_str, len, b" kHz");
-            p
-        }
-        EfxParamId::PlatDiffusion => {
-            let mut p = FormattedParam::new("PLATEAU DIFFUSION");
-            let pct = (raw as u32 * 100 / 127) as i32;
-            let len = format_int(&mut p.value_str, pct);
-            p.value_len = append_str(&mut p.value_str, len, b" %");
-            p
-        }
-        EfxParamId::PlatModDepth => {
-            let mut p = FormattedParam::new("PLATEAU MOD DEPTH");
-            let pct = (raw as u32 * 100 / 127) as i32;
-            let len = format_int(&mut p.value_str, pct);
-            p.value_len = append_str(&mut p.value_str, len, b" %");
-            p
-        }
+        EfxParamId::PlatPreDelay => ("PLATEAU PREDELAY", plateau.predelay_ms, b" ms"),
+        EfxParamId::PlatSize => ("PLATEAU SIZE", plateau.size * 100.0, b" %"),
+        EfxParamId::PlatDecay => ("PLATEAU DECAY", plateau.decay * 100.0, b" %"),
+        EfxParamId::PlatLowCut => ("PLATEAU LOW CUT", plateau.low_cut_hz, b" Hz"),
+        EfxParamId::PlatHighCut => ("PLATEAU HIGH CUT", plateau.high_cut_hz, b" Hz"),
+        EfxParamId::PlatDiffusion => ("PLATEAU DIFFUSION", plateau.diffusion * 100.0, b" %"),
+        EfxParamId::PlatModDepth => ("PLATEAU MOD DEPTH", plateau.mod_depth, b" samples"),
         EfxParamId::PlatFreeze => {
             let mut p = FormattedParam::new("PLATEAU FREEZE");
-            if raw < 64 {
-                p.value_len = append_str(&mut p.value_str, 0, b"OFF");
-            } else {
-                p.value_len = append_str(&mut p.value_str, 0, b"FROZEN");
-            }
-            p
+            p.value_len = append_str(&mut p.value_str, 0, if plateau.freeze { b"FROZEN" } else { b"OFF" });
+            return p;
         }
-        EfxParamId::GlobalCascade => {
-            let mut p = FormattedParam::new("A -> B CASCADE");
-            let pct = (raw as u32 * 100 / 127) as i32;
-            let len = format_int(&mut p.value_str, pct);
-            p.value_len = append_str(&mut p.value_str, len, b" %");
-            p
-        }
-    }
+        EfxParamId::GlobalCascade => ("A -> B CASCADE", processor.cascade_gain * 100.0, b" %"),
+    };
+    let mut p = FormattedParam::new(title);
+    let len = format_float_1dp(&mut p.value_str, value);
+    p.value_len = append_str(&mut p.value_str, len, unit);
+    p
 }

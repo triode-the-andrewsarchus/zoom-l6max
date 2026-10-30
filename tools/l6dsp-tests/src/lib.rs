@@ -615,14 +615,38 @@ mod tests {
 
     #[test]
     fn test_parameter_formatting() {
-        let p_spread = parameters::format_parameter(parameters::EfxParamId::VndTimeSpread, 64);
-        assert_eq!(p_spread.title, "VND TIME SPREAD");
-        let val_str = std::str::from_utf8(&p_spread.value_str[..p_spread.value_len]).unwrap();
-        assert!(val_str.ends_with("ms"), "Got string {val_str}");
-
-        let p_freeze = parameters::format_parameter(parameters::EfxParamId::PlatFreeze, 127);
-        assert_eq!(p_freeze.title, "PLATEAU FREEZE");
-        let val_str = std::str::from_utf8(&p_freeze.value_str[..p_freeze.value_len]).unwrap();
-        assert_eq!(val_str, "FROZEN");
+        use parameters::EfxParamId as Id;
+        let mut processor = Box::new(routing::DualEfxProcessor::new());
+        processor.init();
+        let mut velvet = processor.velvet.current;
+        velvet.length_ms = 999.0;
+        velvet.decay_db = -0.5;
+        velvet.dynamic = false;
+        processor.velvet.set_parameters(velvet);
+        let mut plateau = processor.plateau.params;
+        plateau.predelay_ms = 999.0;
+        plateau.size = 1.2;
+        plateau.decay = 0.91;
+        plateau.low_cut_hz = 920.0;
+        plateau.high_cut_hz = 12450.0;
+        plateau.mod_depth = 11.5;
+        plateau.freeze = true;
+        processor.plateau.set_parameters(plateau);
+        for (id, expected) in [
+            (Id::VndTimeSpread, "95.0 ms"),
+            (Id::VndDecay, "-0.5 dB"),
+            (Id::VndMode, "STATIC"),
+            (Id::PlatPreDelay, "190.0 ms"),
+            (Id::PlatSize, "120.0 %"),
+            (Id::PlatDecay, "91.0 %"),
+            (Id::PlatLowCut, "920.0 Hz"),
+            (Id::PlatHighCut, "12450.0 Hz"),
+            (Id::PlatModDepth, "11.5 samples"),
+            (Id::PlatFreeze, "FROZEN"),
+        ] {
+            let formatted = parameters::format_parameter(id, &processor);
+            let value = std::str::from_utf8(&formatted.value_str[..formatted.value_len]).unwrap();
+            assert_eq!(value, expected, "{id:?}");
+        }
     }
 }
