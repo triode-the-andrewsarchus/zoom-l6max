@@ -634,8 +634,11 @@ mod tests {
         plateau.freeze = true;
         processor.plateau.set_parameters(plateau);
         for (id, expected) in [
+            (Id::VndAmount, "100.0 %"),
             (Id::VndTimeSpread, "95.0 ms"),
+            (Id::VndDensity, "1088.4 pps"),
             (Id::VndDecay, "-0.5 dB"),
+            (Id::VndRefresh, "5.0 s"),
             (Id::VndTransition, "17.5 ms"),
             (Id::VndMode, "STATIC"),
             (Id::PlatPreDelay, "190.0 ms"),
@@ -643,8 +646,10 @@ mod tests {
             (Id::PlatDecay, "91.0 %"),
             (Id::PlatLowCut, "920.0 Hz"),
             (Id::PlatHighCut, "12450.0 Hz"),
+            (Id::PlatDiffusion, "75.0 %"),
             (Id::PlatModDepth, "11.5 samples"),
             (Id::PlatFreeze, "FROZEN"),
+            (Id::GlobalCascade, "100.0 %"),
         ] {
             let formatted = parameters::format_parameter(id, &processor);
             let value = std::str::from_utf8(&formatted.value_str[..formatted.value_len]).unwrap();
