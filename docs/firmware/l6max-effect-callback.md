@@ -79,6 +79,32 @@ log SHA-256 values were, respectively,
 `d3d61b4c37e572066b2e726f66db7c4e6238fded62f8da409080338e04aec387`.
 The forced state was confined to a disposable emulator run.
 
+## EFX encoder and stock effect storage observations
+
+With EFX mode selected, turning physical encoders 1 through 8 changed the
+stock EFX control bytes accessed by `0x8000b0f0`. Their observed primary
+indices were `0, 1, 2, 3, 4, 6, 8, 10` respectively; the paired byte two
+positions later also changed. This agrees with the stock physical-channel
+mapping at `0x800564b0`. Some values were still changing when the next
+encoder was turned, so the captured values are not settled gain measurements.
+A separate capture of `0x20016138..0x20016337` showed no changes during the
+same style of turns. The relationship from those control bytes to the
+candidate accumulation-loop gains remains unresolved; do not use these
+observations to substitute the control index for a proven audio-slot mapping.
+The control-capture recipe and diagnostic SHA-256 values were
+`fa5d64c9194c049c2a4acccd58720d95d6a92755b2220f30036371d80dccc41d` and
+`14979d87a6e758e572c48a11dcc23aa38fc6e0cc101f5f77d124b28c339e8c61`.
+
+In a fresh stock-emulator boot, the descriptor at `0x8020a3dc`, referenced
+by the observed effect context, contained `0x80d00000`, `0x80dbb800`, and
+`0x000bb800` as its first three words. Static inspection of the Room callback
+uses these as a start, end and circular span of 768,000 bytes. This is a
+candidate stock-owned effect buffer, not free patch memory: ownership across
+stock effect switches, reset, DMA, and other users must be traced before any
+reuse. The memory recipe and diagnostic SHA-256 values were
+`4963ea843249cdc15ea055d11877d41f7025c7a7837dc06166ce71fb4e48bfd8` and
+`a9dba569c1999acc77d0de45699bf01722ff52784d8e293ee2bb649ebc76c3c6`.
+
 ## Task and memory observations
 
 In a separate disposable stock-emulator run after 45 guest seconds, debugger
