@@ -31,3 +31,23 @@ the first two numbers are Velvet and Plateau peak magnitudes and the last is
 the `0x46585031` completion marker. A successful recipe only collects this
 observation. It does not prove live signal routing, effect-switch safety,
 callback timing, UI behavior, or physical-device compatibility.
+
+## Automatic callback diagnostic
+
+For a separate disposable run, pass `--callback` to the preparer. Its recipe
+presses EFX SEL once, then reads three 32-bit words from QEMU-only scratch:
+
+```sh
+python3 tools/l6dsp-tests/probe/prepare.py UNPACKED_DIR STOCK_STATE_DIR /tmp/l6-callback-probe --callback
+cargo run --offline --locked -p l6dbg -- /tmp/l6-callback-probe/recipe.toml \
+  --firmware-dir /tmp/l6-callback-probe/firmware --state-dir /tmp/l6-callback-probe/state \
+  --logs /tmp/l6-callback-probe/logs --qemu QEMU_PATH
+python3 -c 'import json,struct; j=json.load(open("/tmp/l6-callback-probe/logs/diagnostic.json")); b=next(e["observation"]["bytes"] for e in j["events"] if e["observation"].get("name")=="callback_state"); print(struct.unpack("<III",bytes(b)))'
+```
+
+The observed marker is `0x494e4954`, the selected descriptor is `0x2028b8dc`,
+and the third word is the callback count, which should be nonzero. This
+diagnostic replaces the selected stock callback and uses its effect buffer;
+it processes only the already-summed stereo bus. It does not implement or
+validate channel routing, effect controls, UI, synchronization, real-time
+deadlines, or hardware safety. Never install the generated image.

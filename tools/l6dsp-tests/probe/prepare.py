@@ -14,11 +14,14 @@ MAIN_SHA = "980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461"
 VENEER_SHA = "c366ef222fb2b2b87302d6eae469b721f11ba6b41dd79d4b7fe16a582e332c13"
 # Thumb MOVW/MOVT/BX redirect to diagnostic payload 0x80108001.
 REDIRECT = bytes.fromhex("48f2010cc8f2100c6047")
+# Pass the stock selector's descriptor pointer in r0, then branch to payload.
+CALLBACK_REDIRECT = bytes.fromhex("2046dff800f001801080")
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("firmware", type=Path, help="unpacked stock firmware directory")
 parser.add_argument("state", type=Path, help="disposable stock emulator state directory")
 parser.add_argument("output", type=Path, help="new directory under the system temporary directory")
+parser.add_argument("--callback", action="store_true", help="observe automatic effect callback installation")
 args = parser.parse_args()
 out = args.output.resolve()
 if not out.is_relative_to(Path(tempfile.gettempdir()).resolve()):
@@ -49,7 +52,8 @@ for name in ("main_trailer.bin", "secondary_firmware.bin", "secondary_trailer.bi
 elf = out / "probe.elf"
 blob = out / "probe.bin"
 subprocess.run([
-    "rustc", str(PROBE / "payload.rs"), "--edition=2024", "--target=thumbv7em-none-eabihf",
+    "rustc", str(PROBE / ("callback.rs" if args.callback else "payload.rs")),
+    "--edition=2024", "--target=thumbv7em-none-eabihf",
     "-C", "opt-level=z", "-C", "panic=abort", "-C", "relocation-model=static",
     "-C", f"link-arg=-T{PROBE / 'link.ld'}", "-o", str(elf),
 ], cwd=ROOT, check=True)
@@ -58,7 +62,7 @@ payload = blob.read_bytes()
 if not payload or 0x108000 + len(payload) > 0x1a2ff8:
     raise ValueError("diagnostic payload exceeds the application slot")
 image = bytearray(main)
-image[0x107de6:0x107df0] = REDIRECT
+image[0x107de6:0x107df0] = CALLBACK_REDIRECT if args.callback else REDIRECT
 image.extend(b"\xff" * (0x108000 - len(image)))
 image.extend(payload)
 (firmware / "main_firmware.bin").write_bytes(image)
@@ -70,6 +74,22 @@ image_sha = hashlib.sha256(image).hexdigest()
 model = "l6max"
 main_sha256 = "{image_sha}"
 wall_timeout_s = 180
+''' + ('''[[step]]
+action = "wait"
+guest_ms = 45000
+[[step]]
+action = "press"
+target = 40
+hold_ms = 150
+[[step]]
+action = "wait"
+guest_ms = 3000
+[[step]]
+action = "memory"
+name = "callback_state"
+address = 0x83e00000
+length = 12
+''' if args.callback else '''
 [[step]]
 action = "wait"
 guest_ms = 15000
@@ -78,7 +98,7 @@ action = "memory"
 name = "impulse_peaks"
 address = 0x83e00000
 length = 12
-''')
+'''))
 print(f"Input MAIN SHA-256: {MAIN_SHA}")
 print(f"Input NOR SHA-256: {hashlib.sha256((args.state / 'main-nor.bin').read_bytes()).hexdigest()}")
 print(f"Diagnostic ELF SHA-256: {hashlib.sha256(elf.read_bytes()).hexdigest()}")
