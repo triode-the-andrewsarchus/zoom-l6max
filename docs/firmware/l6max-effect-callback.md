@@ -1115,6 +1115,21 @@ were `158c129ad811369392891f73d84e3296a8f1a2f1dd3ccbdf7664118b3f5cfe33`,
 `582dfc0d9caf0262445d93739a593a7031e977a92c48a6e1c6b9a34a72195fb3`, and
 `c0c81e3e47fe435ef84cc88cc704839dbc1f55641fde1585012c70567216dd6d`.
 
+The same run's panel trace narrows that interval. The emulator accepted the
+encoder input at 70051 guest ms; before the next 70100 ms panel heartbeat,
+the panel sent `a1 00 00 01` and the MAIN LPUART log recorded all four bytes
+as accepted and read. At the 70750 ms screen snapshot the edit still had not
+entered the audio-event queue; by the 71750 ms snapshot it had been consumed.
+Thus this instance was not simply waiting for the emulator to generate the
+quadrature turn. It still does not identify whether the stock receive task,
+the main UI event path, or debugger/emulator scheduling caused the delay.
+In particular, capturing a timestamp in the receive interrupt alone would not
+make the encoder edit reach the audio task sooner. Any early-delivery design
+must also preserve ordering with bank/page changes and prevent duplicate stock
+events. The recorded observations do not establish target responsiveness.
+The engine trace SHA-256 was
+`e155e260fab6fc335fe8b6f0ba82ee53e60e2ed4913e7d6544477577b55f5651`.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:
