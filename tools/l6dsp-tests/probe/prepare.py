@@ -26,9 +26,11 @@ parser.add_argument("--inspector", action="store_true", help="enable QEMU-only i
 parser.add_argument("--gesture-trace", action="store_true", help="record selector events (perturbs timing)")
 parser.add_argument("--enqueue-trace", action="store_true", help="record panel events before enqueue (perturbs timing)")
 parser.add_argument("--irq-trace", action="store_true", help="trace panel bytes in a QEMU-only IRQ hook")
+parser.add_argument("--irq-timing", action="store_true", help="use QEMU-only IRQ timestamps for selector gestures")
 parser.add_argument("--timing-control", action="store_true", help="bypass effects in a QEMU timing comparison")
 parser.add_argument("--active-sends", action="store_true", help="inject nonzero QEMU-only effect buses")
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
+parser.add_argument("--bank-stress-count", type=int, default=10, help="number of bank changes (1..64)")
 args = parser.parse_args()
 if args.switches and not args.callback:
     parser.error("--switches requires --callback")
@@ -42,6 +44,8 @@ if args.enqueue_trace and not args.inspector:
     parser.error("--enqueue-trace requires --inspector")
 if args.irq_trace and not args.inspector:
     parser.error("--irq-trace requires --inspector")
+if args.irq_timing and not args.inspector:
+    parser.error("--irq-timing requires --inspector")
 if args.timing_control and not args.inspector:
     parser.error("--timing-control requires --inspector")
 if args.active_sends and not args.inspector:
@@ -50,6 +54,8 @@ if args.active_sends and args.timing_control:
     parser.error("--active-sends cannot be combined with --timing-control")
 if args.bank_stress and not args.inspector:
     parser.error("--bank-stress requires --inspector")
+if not 1 <= args.bank_stress_count <= 64 or (args.bank_stress_count != 10 and not args.bank_stress):
+    parser.error("--bank-stress-count requires --bank-stress and a value in 1..64")
 out, main, nor = checked_inputs(parser, args.firmware, args.state, args.output)
 
 out.mkdir(parents=True)
@@ -73,8 +79,10 @@ if args.gesture_trace:
     rustc += ["--cfg", "gesture_trace"]
 if args.enqueue_trace:
     rustc += ["--cfg", "enqueue_trace"]
-if args.irq_trace:
+if args.irq_trace or args.irq_timing:
     rustc += ["--cfg", "irq_trace"]
+if args.irq_timing:
+    rustc += ["--cfg", "irq_timing"]
 if args.timing_control:
     rustc += ["--cfg", "timing_control"]
 if args.active_sends:
@@ -231,7 +239,7 @@ wall_timeout_s = 300
     memory("after_close", 0x83e00400, 32)
     if args.bank_stress:
         recipe = stress_prefix
-        for i in range(10):
+        for i in range(args.bank_stress_count):
             add("press", target=40, hold_ms=150)
             wait(500)
             memory(f"ui_{i}", 0x83e00340, 32)
@@ -245,8 +253,10 @@ wall_timeout_s = 300
         memory("gesture_trace", 0x83e00500, 244)
     if args.enqueue_trace:
         memory("enqueue_trace", 0x83e00600, 260)
-    if args.irq_trace:
+    if args.irq_trace or args.irq_timing:
         memory("irq_trace", 0x83e00900, 276)
+    if args.irq_timing:
+        memory("irq_queue", 0x83e00b00, 12)
     if args.active_sends:
         memory("active_audio", 0x83e00800, 16)
     press(40)  # Outside the inspector, EFX SEL still selects Spring.

@@ -98,6 +98,8 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
             }
         }
         if event > 1 || !custom_active() || !recorder_active() {
+            #[cfg(irq_timing)]
+            if event <= 1 { let _ = crate::irq::take(event == 1); }
             s.gesture.cancel();
             s.active = false;
             s.routing_page = false;
@@ -105,7 +107,13 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
             return stock(arg0, arg1, event);
         }
         if event == 1 { s.arg0 = arg0; s.arg1 = arg1; }
+        #[cfg(not(irq_timing))]
         let tick = core::ptr::read_volatile(0x8020ab4c as *const u32);
+        #[cfg(irq_timing)]
+        let Some(tick) = crate::irq::take(event == 1) else {
+            s.gesture.cancel();
+            return 0;
+        };
         match s.gesture.edge(event == 1, tick, 750) {
             controls::EfxSelectAction::None => 0,
             controls::EfxSelectAction::SelectNext => {

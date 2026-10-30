@@ -39,7 +39,9 @@ The blocking findings for L6max MAIN 1.10
 - In QEMU, the inspector's long-hold gesture was misclassified during a
   stress run with nonzero synthetic sends on all three effect buses. Silent
   input runs passed after a DSP optimization; the active-audio control path
-  and physical deadline remain unqualified.
+  and physical deadline remain unqualified. An optional QEMU-only interrupt
+  timestamp prototype handles that observed sequence but uses unowned memory
+  and has not qualified lost events, target synchronization or timing.
 
 Some standalone DSP defects have been fixed and tested on the host. Those
 tests do not exercise the firmware bindings or establish hardware safety.
