@@ -102,6 +102,42 @@ mod tests {
     }
 
     #[test]
+    fn display_snapshot_rejects_values_outside_applied_parameter_ranges() {
+        use parameter_view::{EfxParamId as Id, ParameterSnapshot};
+        let ranges: [(Id, f32, f32); 14] = [
+            (Id::VndAmount, 0.0, 100.0), (Id::VndTimeSpread, 1.0, 95.0),
+            (Id::VndDensity, 10.0, 3000.0), (Id::VndDecay, -120.0, 0.0),
+            (Id::VndRefresh, 0.1, 60.0), (Id::VndTransition, 1.0, 54000.0),
+            (Id::PlatPreDelay, 0.0, 190.0), (Id::PlatSize, 0.2 * 100.0, 1.2 * 100.0),
+            (Id::PlatDecay, 0.1 * 100.0, 0.999 * 100.0),
+            (Id::PlatLowCut, 20.0, 48000.0 * 0.49),
+            (Id::PlatHighCut, 20.0, 48000.0 * 0.49),
+            (Id::PlatDiffusion, 0.0, 100.0), (Id::PlatModDepth, 0.0, 16.0),
+            (Id::GlobalCascade, 0.0, 100.0),
+        ];
+        for (id, min, max) in ranges {
+            for value in [min, max] {
+                assert!(ParameterSnapshot::from_words(id as u32, value.to_bits()).is_some(), "{id:?}: {value}");
+            }
+            for value in [min - 1.0, max + 1.0, f32::MAX, f32::NAN] {
+                assert!(ParameterSnapshot::from_words(id as u32, value.to_bits()).is_none(), "{id:?}: {value}");
+            }
+        }
+        let mut processor = Box::new(routing::DualEfxProcessor::new());
+        processor.init();
+        for bank in [parameters::ParameterBank::Velvet, parameters::ParameterBank::Plateau] {
+            for encoder in 0..8 {
+                for delta in [i32::MIN, i32::MAX] {
+                    let id = parameters::edit_encoder(&mut processor, bank, encoder, delta).unwrap();
+                    let snapshot = parameters::snapshot_parameter(id, &processor);
+                    assert!(ParameterSnapshot::from_words(id as u32, snapshot.value.to_bits()).is_some(),
+                        "applied {id:?}: {}", snapshot.value);
+                }
+            }
+        }
+    }
+
+    #[test]
     fn routing_display_decodes_only_valid_strips_and_routes() {
         use parameter_view::{DisplaySnapshot, format_display};
         for strip in 0..8 {
