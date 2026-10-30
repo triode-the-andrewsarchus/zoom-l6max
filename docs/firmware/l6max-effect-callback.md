@@ -79,6 +79,39 @@ log SHA-256 values were, respectively,
 `d3d61b4c37e572066b2e726f66db7c4e6238fded62f8da409080338e04aec387`.
 The forced state was confined to a disposable emulator run.
 
+## Task and memory observations
+
+In a separate disposable stock-emulator run after 45 guest seconds, debugger
+stops at both `0x20228b08` (the candidate accumulation loop) and
+`0x20280248` (the effect callback) reported the same current task,
+`AudioProcess`, priority 30, with TCB `0x808d50d0`. The observed stack bounds
+were `0x808d40c0` to `0x808d50b8`; stack pointers were `0x808d5008` and
+`0x808d5058` respectively. The interrupt controller's active-exception field
+was zero at both stops. These are two observations of one run, not proof that
+all calls use that context or that available stack meets the replacement's
+worst case.
+
+The stock allocator at `0x80085478` maintains a free-list head and free-byte
+count at `0x8020ab2c` and `0x8020ab1c`. A debugger traversal in the same
+settled run observed a single free block of 160,008 bytes; the summed blocks
+matched the allocator's reported free count. The then-current payload ELF had
+319,216 bytes in its `.state` section. Thus this observed heap could not hold
+that state as one allocation, even before allowing for other runtime needs.
+This is a snapshot, not a guaranteed heap bound or evidence that another RAM
+region is owned by the patch. It rules out assuming that a simple allocation
+from this observed heap is sufficient.
+
+The heap recipe, traversal script and log SHA-256 values were
+`a23dd43d67d045af4d2bf8492c9bb9d80f5cf4be880d31a10a0b7136cdfcae48`,
+`4eec680ad84db584bf74a4a01513780a0f6b0c8a9c772f0ec9bdbb3f918af601`, and
+`3c932a961a13c206cf2a2d056ebe7de5001bbdff2e5d205f4492dc792a899596`.
+The task probe and log hashed to
+`666bbb53107c421c2426f408f948b30335653753802b6d42b34109c1b6f6de65` and
+`0f7d518d11d289d55d2fc224da8b88e7cd16681c9b207b4a38022d821047ed1f`.
+The compiled payload ELF SHA-256 was
+`be1fd26b5212d2731a5c3a8169ad2b7998f0d9779836722723e415a953def6c6`;
+this was a build check, not an installed or tested image.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:
