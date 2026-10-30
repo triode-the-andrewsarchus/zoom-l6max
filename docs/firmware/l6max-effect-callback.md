@@ -1279,6 +1279,22 @@ MAIN, ELF, recipe and result SHA-256 were respectively
 `9e1efae624ad8f79699d0ade180c268e689d5ec0e5a165575dd8a6a3240b69a0`, and
 `e36ab33478143547403cc9ed60852c54ad0142a6ce549c513ba3ec37caec7df6`.
 
+After the upstream timing change in `393ce52`, one active-send, ten-edit
+sequence with the current DSP and enqueue-timestamp inspector observed the
+final hold as 1,297 ticks at the enqueue hook, closed the inspector, and
+selected Spring on the next short press. The callback recorded 4,472 calls
+and finite, nonzero output. This is one instrumented emulator run with
+synthetic inputs and unowned diagnostic memory; it does not qualify repeated
+gestures, physical input timing, or the target audio deadline. The diagnostic
+MAIN, ELF, recipe and result hashes were
+`44ea11f7490b88e94e17c97f3434419fe92c5c650de3e1a8f49658af2531e32e`,
+`97780c1fccad3b5fbc1bff3c84edd9fb280d78dd8fe4e2e120a429813981ae44`,
+`1c913c056e01fd328cd1ecc76fcd4d369ea0c436538d74507c4febf00ca1c650`, and
+`e44f75d4738ef53ee2fa923732ee3de736d8f86a83fbed54c4e1661944211039`.
+It used stock MAIN and NOR identities as above and QEMU SHA-256
+`1e35161130eecdb148f2aaf6986e14f77fbd4714e2e7100cf89dc1680eb3b554`,
+whose source provenance the driver records as unattested.
+
 An exploratory `cpu-profile` run selected the diagnostic callback after 45
 guest seconds and sampled for 25 wall seconds. Of 349 main-CPU samples, 130
 fell inside `diagnostic_audio`; 46 fell in one Velvet tap loop. The compiled
