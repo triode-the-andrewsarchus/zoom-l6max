@@ -300,6 +300,23 @@ The clear recipe, debugger script and log hashes were
 `1bd3b52f27acadc0759517c5ba8b0cd76cad8b3399e1bd3bd63105835203edcc`, and
 `452d160086fe099db2b9d3a8f6e037cdcd83179d9fe01fa0dd428e937b1bd826`.
 
+A later stock-QEMU run sent six EFX SEL presses. A debugger observed five
+distinct entries to `0x80024678`, removing the breakpoint and single-stepping
+the first instruction between entries. All five had return address
+`0x20280677`, current task `Main`, and a zero active callback. The diagnostic
+finished and closed the debugger connection while it was waiting for a sixth
+entry; that disconnect does not prove whether another clear occurred. These
+stops can perturb scheduling and do not establish which individual press caused
+each clear, or that no other actor accesses the buffer. They do establish that
+the earlier repeated-stop ambiguity does not explain all observed clear calls.
+The recipe, debugger script, debugger log, and diagnostic JSON SHA-256 values
+were `0d782d4fea7c3d18371375b35a3d6cb88b1a23f6237fa2ac823a664578cb7003`,
+`ba997f62a937970b1eaf9145a936510b624f789de2010b1557a281c0409e882a`,
+`e8106f0cfe1829acd93267583ceddfc5636fc47f4512f722146cc4084dfba3dd`, and
+`a6e33f47cde3f332dc964c2f9fffb7d7241dfbadaa94d18e570d66250b9e087e`.
+The stock MAIN, initial NOR, and isolated QEMU identities are those recorded
+above and below; QEMU source provenance remains unattested.
+
 Static inspection of this MAIN image also identifies the initializer at
 `0x80056588` writing `0x80d00000`, `0x80dbb800`, and `0x000bb800` into
 the descriptor at `0x8020a3dc`. The clear at `0x80024678` independently
