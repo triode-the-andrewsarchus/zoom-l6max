@@ -98,7 +98,7 @@ subprocess.run([
 probe_blob = out / "probe.bin"
 subprocess.run(["llvm-objcopy", "-O", "binary", str(probe_elf), str(probe_blob)], check=True)
 probe_symbols = symbols(probe_elf)
-if probe_symbols.get("probe") != probe_base or not {"inspector_select", "inspector_knob"} <= probe_symbols.keys():
+if probe_symbols.get("probe") != probe_base or not {"inspector_select", "inspector_knob", "inspector_mode"} <= probe_symbols.keys():
     raise ValueError("unexpected diagnostic effect symbols")
 if probe_base + probe_blob.stat().st_size > 0x801a2ff8:
     raise ValueError("diagnostic payload exceeds application slot")
@@ -107,6 +107,7 @@ image.extend(probe_blob.read_bytes())
 for address, expected, target in (
     (0x80036c74, branch(0x80036c74, report["knob_changed"]), probe_symbols["inspector_knob"]),
     (0x80036f28, bytes.fromhex("1df0bef9"), probe_symbols["inspector_select"]),
+    (0x80036f8a, bytes.fromhex("1cf011fe"), probe_symbols["inspector_mode"]),
 ):
     offset = address - 0x80000000
     if image[offset:offset + 4] != expected:
@@ -141,6 +142,66 @@ for name in ("room_edit", "spring_edit"):
     if recipe.count(marker) != 1:
         raise ValueError(f"recipe marker mismatch: {name}")
     recipe = recipe.replace(marker, snapshot + marker)
+# Exercise routing while Room's inspector is open.
+marker = '[[step]]\naction = "memory"\nname = "queue_room"'
+if recipe.count(marker) != 1:
+    raise ValueError("recipe marker mismatch: queue_room")
+routing_steps = """[[step]]
+action = "press"
+target = 20
+hold_ms = 150
+[[step]]
+action = "wait"
+guest_ms = 500
+[[step]]
+action = "memory"
+name = "route_before"
+address = 2212495616
+length = 48
+[[step]]
+action = "encoder"
+channel = 1
+steps = 1
+[[step]]
+action = "wait"
+guest_ms = 500
+[[step]]
+action = "snapshot"
+name = "route_1_screen"
+[[step]]
+action = "memory"
+name = "route_1"
+address = 2212495616
+length = 48
+[[step]]
+action = "encoder"
+channel = 5
+steps = 1
+[[step]]
+action = "wait"
+guest_ms = 500
+[[step]]
+action = "snapshot"
+name = "route_5_screen"
+[[step]]
+action = "memory"
+name = "route_5"
+address = 2212495616
+length = 48
+[[step]]
+action = "encoder"
+channel = 1
+steps = -1
+[[step]]
+action = "wait"
+guest_ms = 500
+[[step]]
+action = "memory"
+name = "route_reverse"
+address = 2212495616
+length = 48
+"""
+recipe = recipe.replace(marker, routing_steps + marker)
 (out / "recipe.toml").write_text(recipe)
 print("QEMU-only MAIN SHA-256:", image_hash)
 print("Popup ELF SHA-256:", hashlib.sha256(knob_elf.read_bytes()).hexdigest())

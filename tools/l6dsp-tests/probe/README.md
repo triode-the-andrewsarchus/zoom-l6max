@@ -78,7 +78,7 @@ and limitations.
 Pass `--callback --inspector` to prepare a separate QEMU-only image. Its
 generated recipe selects EFX mode and Room, opens the inspector with a long
 EFX SEL hold, turns encoder 1, selects Spring, repeats the hold and turn,
-then closes the inspector and turns the normal mixer control. The two
+then closes the inspector and turns the normal mixer control. The three
 revision-specific call sites are byte-guarded. The input hook queues edits;
 the diagnostic audio callback applies up to eight events per block and formats
 their captured text itself. That formatting placement is not qualified for
@@ -93,7 +93,9 @@ consumed events and no queue overflow in each bank. The mixer send changes
 before and after the inspector but stays fixed during both edits. Check the
 captured observations; a completed recipe alone does not assert them.
 
-This experiment does not draw an OLED popup or implement routing controls.
+While the inspector is open, pressing EFX changes between parameter and
+routing pages. Turning a strip encoder on the routing page cycles that strip
+through off, A, B and A-to-B. This experiment does not draw an OLED popup.
 Effect changes reinitialize the DSP and queue, so edits and tails can be lost.
 The queue can overflow, and synchronization, context changes, stock patch
 combinations, memory ownership and timing are not qualified. The scratch
@@ -115,7 +117,7 @@ cargo run --offline --locked -p l6dbg -- /tmp/l6-ui-probe/recipe.toml \
   --logs /tmp/l6-ui-probe/logs --qemu QEMU_PATH
 ```
 
-The recipe captures Room and Spring popup frames. Verify the captured widget
+The recipe captures Room and Spring popup frames and routing-page edits. Verify the captured widget
 text and mixer behavior; a completed recipe alone is not an assertion. The
 combined image uses emulator-only state, and does not qualify notification
 contention, queue overflow, effect switching, timing or physical hardware.

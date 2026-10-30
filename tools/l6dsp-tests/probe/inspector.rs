@@ -17,6 +17,7 @@ struct UiState {
     arg0: u32,
     arg1: u32,
     active: bool,
+    routing_page: bool,
 }
 
 unsafe fn atomic(address: usize) -> &'static AtomicU32 {
@@ -37,6 +38,7 @@ pub unsafe fn initialize() {
         let ui = INSPECTOR as *mut UiState;
         if core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) == MAGIC {
             (*ui).active = false;
+            (*ui).routing_page = false;
         }
     }
 }
@@ -55,12 +57,13 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
     unsafe {
         let ui = INSPECTOR as *mut UiState;
         if core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) != MAGIC {
-            core::ptr::write(ui, UiState { magic: MAGIC, gesture: controls::EfxSelectGesture::default(), arg0: 0, arg1: 0, active: false });
+            core::ptr::write(ui, UiState { magic: MAGIC, gesture: controls::EfxSelectGesture::default(), arg0: 0, arg1: 0, active: false, routing_page: false });
         }
         let s = &mut *ui;
         if event > 1 || !custom_active() || !recorder_active() {
             s.gesture.cancel();
             s.active = false;
+            s.routing_page = false;
             core::ptr::write_volatile((SUMMARY + 28) as *mut u32, 0);
             return stock(arg0, arg1, event);
         }
@@ -70,14 +73,30 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
             controls::EfxSelectAction::None => 0,
             controls::EfxSelectAction::SelectNext => {
                 s.active = false;
+                s.routing_page = false;
                 core::ptr::write_volatile((SUMMARY + 28) as *mut u32, 0);
                 stock(s.arg0, s.arg1, 1)
             }
             controls::EfxSelectAction::ToggleInspector => {
                 s.active = !s.active;
+                s.routing_page = false;
                 core::ptr::write_volatile((SUMMARY + 28) as *mut u32, s.active as u32);
                 0
             }
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+#[unsafe(link_section = ".text.inspector_mode")]
+pub unsafe extern "C" fn inspector_mode(mode: u32, event: u32) {
+    let stock: unsafe extern "C" fn(u32, u32) = unsafe { core::mem::transmute(0x80053bb1usize) };
+    unsafe {
+        stock(mode, event);
+        let ui = INSPECTOR as *mut UiState;
+        if mode == 6 && event == 1 && recorder_active() && custom_active()
+            && core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) == MAGIC && (*ui).active {
+            (*ui).routing_page = !(*ui).routing_page;
         }
     }
 }
@@ -104,7 +123,8 @@ pub unsafe extern "C" fn inspector_knob(channel: u32, mode: u32, absolute: u32, 
             return;
         }
         let signed = delta.clamp(-8_388_608, 8_388_607) as u32 & 0x00ff_ffff;
-        core::ptr::write_volatile((QUEUE + 16 + ((head % CAPACITY) as usize) * 4) as *mut u32, (signed << 8) | channel);
+        let encoded_channel = channel | if (*ui).routing_page { 0x80 } else { 0 };
+        core::ptr::write_volatile((QUEUE + 16 + ((head % CAPACITY) as usize) * 4) as *mut u32, (signed << 8) | encoded_channel);
         atomic(QUEUE).store(head.wrapping_add(1), Ordering::Release);
     }
 }
@@ -123,7 +143,29 @@ pub unsafe fn consume(processor: &mut routing::DualEfxProcessor) {
             if tail == head { break; }
             let item = core::ptr::read_volatile((QUEUE + 16 + ((tail % CAPACITY) as usize) * 4) as *const u32);
             let delta = (item as i32) >> 8;
-            if let Some(id) = parameters::edit_encoder(processor, bank, (item & 0xff) as usize, delta) {
+            if item & 0x80 != 0 {
+                let strip = (item & 0x7f) as usize;
+                for slot in 0..12 {
+                    let route = core::ptr::read_volatile((0x83e00100 as *const u32).add(slot));
+                    processor.channel_routing[slot] = routing::RoutingMode::from_u8(if route <= 3 { route as u8 } else { 0 });
+                }
+                if let Some(mode) = processor.cycle_strip_routing(strip, delta) {
+                    for slot in 0..12 {
+                        core::ptr::write_volatile((0x83e00100 as *mut u32).add(slot), processor.channel_routing[slot] as u32);
+                    }
+                    #[cfg(knob_inspector)]
+                    inspector_notify_hook(16 + strip as u32, (mode as u8 as f32).to_bits());
+                    #[cfg(not(knob_inspector))]
+                    {
+                        let value = crate::parameter_view::format_display(crate::parameter_view::DisplaySnapshot::from_words(16 + strip as u32, (mode as u8 as f32).to_bits()).unwrap());
+                        core::ptr::write_volatile(SUMMARY as *mut u32, 16 + strip as u32);
+                        core::ptr::write_volatile((SUMMARY + 4) as *mut u32, value.value_len as u32);
+                        for i in 0..16 { core::ptr::write_volatile((SUMMARY + 8 + i) as *mut u8, value.value_str[i]); }
+                    }
+                    let count = (SUMMARY + 24) as *mut u32;
+                    core::ptr::write_volatile(count, core::ptr::read_volatile(count).wrapping_add(1));
+                }
+            } else if let Some(id) = parameters::edit_encoder(processor, bank, (item & 0xff) as usize, delta) {
                 #[cfg(knob_inspector)]
                 {
                     let value = parameters::snapshot_parameter(id, processor);
