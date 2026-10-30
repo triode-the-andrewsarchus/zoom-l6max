@@ -417,6 +417,27 @@ mod tests {
     }
 
     #[test]
+    fn quiet_positive_send_is_not_silenced() {
+        let mut processor = Box::new(routing::DualEfxProcessor::new());
+        processor.init();
+        processor.set_channel_routing(0, routing::RoutingMode::SendB);
+        processor.set_channel_send(0, 0.0001);
+        let mut input = [0.0f32; 64];
+        input[0] = 1.0;
+        let mut left = [0.0; 64];
+        let mut right = [0.0; 64];
+        let mut peak = 0.0f32;
+        for _ in 0..200 {
+            processor.process_block(&[&input], &mut left, &mut right);
+            for (&l, &r) in left.iter().zip(&right) {
+                peak = peak.max(l.abs()).max(r.abs());
+            }
+            input[0] = 0.0;
+        }
+        assert!(peak > 0.0000001 && peak < 0.001, "quiet send peak was {peak}");
+    }
+
+    #[test]
     fn test_dual_routing_matrix() {
         let mut dual = routing::DualEfxProcessor::new();
         dual.init();
