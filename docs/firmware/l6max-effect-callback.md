@@ -1566,6 +1566,19 @@ recipe and result SHA-256 were
 `2523305fa4950bf5b0e3c4c519e40abad15830d7694c5bc07e934784a1f9f8bc`, and
 `f3acef9127d0408d9e72c90a4825759cb19b4306f1a43f7552d4abe3e2a6534b`.
 
+A repeat captured the port-0 receive structure after the gesture sequence.
+The observed ring fields were buffer `0x808814a4`, write index `0x488`, read
+index `0x3f5`, and capacity `0x2000`: 147 bytes separated the indices at that
+instant. The UART receive callback slot at `0x20018d8c` was zero, and the
+interrupt queue again held 25 unconsumed edges with no traced EFX enqueue.
+One snapshot cannot show whether the ring was stalled, overflowing, or simply
+transiently occupied; a time series and matched control are still needed.
+The MAIN, ELF, recipe and result SHA-256 were
+`d1660198e0bc1f9e06b7c4cc05420215d94a28b95dc99713c074a24612cc40a2`,
+`6b441d121c3234a6f0666464d7918ca95419ccad6d8eed0a7c17ac02dbffe6b6`,
+`8bcc97922ae216b71c954932d0044fcd0b1bed9bcecc54fdfff035472e25c479`, and
+`2f5cf8740767673375e9b5e8e12695243bed10e0ad93386df661800654b7b7d1`.
+
 The tap loop now checks the range first and uses an out-of-line modulo only
 for out-of-range delays. Cortex-M7 disassembly confirmed that valid delays
 branch around the divide; the first inline version had not done so. A host
