@@ -146,6 +146,29 @@ The recipe, debugger script and log hashes were
 The modified MAIN and disposable NOR are local diagnostic artifacts only;
 they are not qualified or supported firmware.
 
+## Cortex-M7 DSP initialization probe
+
+A separate QEMU-only diagnostic redirected the same stock clear veneer to a
+compiled Cortex-M7 probe. After calling the original clear, the probe used the
+in-place initializer at `0x80d00000` and processed a 2,048-frame impulse
+through Velvet and Plateau. It wrote peak values and a completion marker to
+QEMU-only scratch at `0x83e00000`; this scratch address is not validated for
+physical hardware. The hash-guarded diagnostic recipe observed peaks
+`0.3096633553504944` and `0.018613358959555626`, with marker `0x46585031`.
+The equivalent host computation produced the same float bit patterns. The
+probe overwrites the stock effect buffer and is not an installable patch.
+
+The reproducible diagnostic source is in
+[`tools/l6dsp-tests/probe`](../../tools/l6dsp-tests/probe/README.md). For this
+run the input NOR SHA-256 was
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`;
+the probe ELF, diagnostic MAIN and result JSON SHA-256 values were
+`8274f2df94fd00f51ec3149fa3f58c067689c4d19fbef4c1cb8f469a1b35e3c2`,
+`ae8e65af952bcc9f78e196c10d29f300778f3d25f935346eb421247795be5365`, and
+`c07ba358807f20f33f1ffbb848dbf6e3ac9535ad1a2d951e36daf066e6938cf6`.
+This checks target-code initialization and DSP arithmetic in QEMU; it does
+not test live audio routing, effect-switch synchronization or hardware timing.
+
 ## Task and memory observations
 
 In a separate disposable stock-emulator run after 45 guest seconds, debugger
