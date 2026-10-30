@@ -1477,6 +1477,34 @@ It used stock MAIN and NOR identities as above and QEMU SHA-256
 `1e35161130eecdb148f2aaf6986e14f77fbd4714e2e7100cf89dc1680eb3b554`,
 whose source provenance the driver records as unattested.
 
+After rebasing on `258acf6`, which switches L6max RX from the startup
+compatibility mode to regular behavior at 40.5 guest seconds, the same
+ten-edit diagnostic ran with active synthetic sends on all three buses.
+The diagnostic callback was selected and reported 10,793 calls with finite,
+nonzero sampled output, but the inspector-open flag remained zero, the ten
+expected bank edits were not observed, and the next short press did not select
+the second custom descriptor. The recipe completed; that does not make the
+interaction a pass. A separate run with the diagnostic callback copying the
+control stream and outputting silence instead of running DSP opened the
+inspector, showed ten alternating bank states, closed it, and selected the
+second descriptor. These single runs show emulator workload dependence, not
+physical timing or proof of its precise cause. Both use QEMU-only diagnostic
+memory and synthetic or silent inputs, and neither qualifies installation.
+
+The active-DSP ELF, MAIN, recipe and result SHA-256 values were
+`53ef6a8a851ff2b21581fe42bf38b777a78c3662b691a50df32cf440670b685c`,
+`f8d6ee6c3d3b3fc7e95c5f6cd0e75333cd0898475d23e88c691f396fd851d80e`,
+`a62ec4f31b7ce34cfede28d3efdf1279a5d0b95ba7d81dadf826c4f21121c9c7`, and
+`1446edaf88c3d87966aa72ae6beaee3f10a18236b26c82ec9e3809bcc12757c3`.
+The bypass-control ELF, MAIN, recipe and result hashes were
+`1c640421f7624b9c562f9b752a299d3a3abb0e1a1d4156fea28fb7cd2b2efe7a`,
+`59ff85231768b3329d2a73d238a883a9a3e1bacd7da2235838d9a31c214de548`,
+`31e6954e4d68e30dde5157fad08dbc8e98cf9b40363d1682d2858e58a2bb23c0`, and
+`d969fcb85102f81f040f99fc89ce1344c3c5bca8bc51311606779ad11c2c3c80`.
+Both used stock MAIN and initial NOR as above, and isolated QEMU
+`0fd44a21586cad3a3ce32bd1394278c05045852c52bf729e70a2b5ffd7e86acb`;
+its source provenance is recorded as unattested.
+
 An exploratory `cpu-profile` run selected the diagnostic callback after 45
 guest seconds and sampled for 25 wall seconds. Of 349 main-CPU samples, 130
 fell inside `diagnostic_audio`; 46 fell in one Velvet tap loop. The compiled
