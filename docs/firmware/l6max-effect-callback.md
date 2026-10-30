@@ -899,6 +899,27 @@ including one with a longer TAP hold. Their timing sensitivity remains
 unresolved; the passing run does not establish a general readiness deadline or
 physical wiring.
 
+In another stock diagnostic using the corrected TAP mapping, the two words at
+`0x2028ba4c` and `0x2028bad0` changed from 1 to 3 during learning. After a
+further 10 guest seconds the progress byte and timer had cleared and
+`0x8046300c` was 1; a subsequent TAP returned that word to 0 and the two
+processor words to 1. Static inspection of the polling routine at
+`0x80088d70` shows a fallback after its counter reaches 9,900 while either
+processor reports state 3. This silent-input observation does not establish
+that real noise was learned or that audio was denoised. The recipe, result and
+engine-trace hashes were
+`5efbd59d9dc6a3df732c6fde085bb40f1c899051730cf1ab9a1e4362fe00fd5b`,
+`d41a50d7305fb15f60ebfcd9c9a566fbfa42ba1cdf77afc2b7ce1e91a06a9e24`, and
+`9bccbbf20a132d62574d91d5da3c3bdce9b5808584860078eeb917bdf6df7d61`.
+
+The driver case is intermittent even with the longer waits above: a repeat
+failed at the learning-progress assertion. A further repeat with a 150 ms
+TAP hold also failed there, despite the trace showing the requested 150 ms
+input. Its result hash was
+`b8b03bc56bf9a7387f1a24574049b694372c05a86568783727c657799ee6513d`.
+The driver scenario is therefore unqualified until the missing event or
+readiness condition is explained; increasing delays does not establish a fix.
+
 ## QEMU routing controls
 
 On the stock MAIN, a GDB stop at `0x80036f8a` observed the EFX button call

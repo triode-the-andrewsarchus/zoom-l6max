@@ -20,6 +20,11 @@ analog audio behavior, and physical jack routing remain unverified.
 
 ## Known limits
 
+- The L6max `l6max-ainr-tap` case is intermittent: a corrected TAP GPIO
+  diagnostic reached learning, but repeated driver runs missed the learning
+  progress assertion. The missing event or readiness condition is unresolved;
+  see the [investigation](../firmware/l6max-effect-callback.md#ai-noise-reduction-investigation).
+
 - The full L6 panel scenario and exact encoder reversal need further
   qualification on both headless and GPUI backends.
 - L6 DIN input, DIN-to-USB forwarding, and the event-dispatch scenario need
