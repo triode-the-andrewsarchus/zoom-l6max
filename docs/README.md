@@ -23,11 +23,12 @@ task at hand.
 - [Patch conventions](../patches/README.md): layout, hook guards, and adding patches.
 - [MIDI sync implementation](../patches/midi-sync/README.md): hook, getters, combining, validation.
 - [Knob patch implementation](../patches/knob-dialog/README.md): payload design, synchronization, placement, and validation.
-- [Dual-EFX implementation](../patches/dual-efx/README.md): Velvet Noise Decorrelator, Plateau reverb, routing matrix, and validation.
+- [Dual-EFX safety status](dual-efx-safety-status.md): confirmed blockers and qualification requirements.
+- [Dual-EFX implementation](../patches/dual-efx/README.md): experimental DSP and firmware integration, currently disabled.
 - [Dual-EFX feasibility analysis](codebase-review-and-velvet-noise-feasibility.md): algorithm feasibility, architecture review, and CPU/memory budget.
 - [Dual-EFX implementation plan](dual-efx-implementation-plan.md): engineering plan and parameter architecture.
-- [Dual-EFX technical walkthrough](dual-efx-implementation-walkthrough.md): complete implementation walkthrough and test evidence.
-- [Dual-EFX technical review](dual-efx-technical-review.md): functionality, embedded safety, and UI interaction review.
+- [Dual-EFX technical walkthrough](dual-efx-implementation-walkthrough.md): historical implementation notes.
+- [Dual-EFX technical review](dual-efx-technical-review.md): superseded review with incorrect conclusions.
 
 ## Emulator and firmware references
 

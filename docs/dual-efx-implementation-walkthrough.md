@@ -1,5 +1,9 @@
 # Dual-EFX Implementation Walkthrough (Zoom LiveTrak L6max)
 
+> **Historical and superseded:** This walkthrough describes intended behavior
+> and test results that do not qualify the current patch. Firmware generation
+> is disabled. See [current safety status](dual-efx-safety-status.md).
+
 This document provides a complete technical walkthrough of the **Dual-EFX** firmware patch for the **Zoom LiveTrak L6max** (firmware 1.10).
 
 ---
@@ -188,4 +192,3 @@ Preflight passed. QEMU is pinned by binary hash; source provenance is explicitly
 | `controls` | `cargo run -p l6test -- run --case controls --model l6max` | **PASS** | Exercises level faders and controls across channels |
 | `mute` | `cargo run -p l6test -- run --case mute --model l6max` | **PASS** | Verifies mute buttons, indicator transitions, and MIDI output |
 | `buttons` | `cargo run -p l6test -- run --case buttons --model l6max` | **PASS** | Verifies panel button state machine and channel switching |
-
