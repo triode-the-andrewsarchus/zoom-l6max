@@ -394,6 +394,10 @@ impl PlateauReverb {
         params.mod_depth = clamp(params.mod_depth, 0.0, 16.0);
         params.predelay_ms = clamp(params.predelay_ms, 0.0, 190.0);
         params.wet = clamp(params.wet, 0.0, 1.0);
+        // Keep the published parameter values consistent with the cutoffs
+        // actually applied by the one-pole filters.
+        params.low_cut_hz = clamp(params.low_cut_hz, 20.0, SAMPLE_RATE * 0.49);
+        params.high_cut_hz = clamp(params.high_cut_hz, 20.0, SAMPLE_RATE * 0.49);
 
         self.params = params;
         self.predelay_samples = ((params.predelay_ms / 1000.0) * SAMPLE_RATE) as usize;
