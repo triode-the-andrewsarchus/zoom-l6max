@@ -35,6 +35,15 @@ mod tests {
     }
 
     #[test]
+    fn panel_efx_decoder_requires_complete_matching_frames() {
+        let mut decoder = controls::PanelEfxDecoder::default();
+        let bytes = [0x91, 4, 6, 0x90, 4, 6, 0x91, 3, 6, 0x91, 4, 0xe1,
+                     6, 0x91, 4, 0x90, 4, 6, 4, 6];
+        let events: Vec<_> = bytes.into_iter().filter_map(|byte| decoder.feed(byte)).collect();
+        assert_eq!(events, [true, false, false]);
+    }
+
+    #[test]
     fn inspector_encoders_edit_and_display_actual_parameters() {
         use parameters::{edit_encoder, format_parameter, EfxParamId as Id, ParameterBank as Bank};
         let mut processor = Box::new(routing::DualEfxProcessor::new());

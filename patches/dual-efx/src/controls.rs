@@ -8,6 +8,30 @@ pub enum EfxSelectAction {
     ToggleInspector,
 }
 
+/// Recognizes the observed L6max panel EFX SEL frames in a byte stream.
+/// The caller must reset this on transport loss or protocol reinitialization.
+#[derive(Default)]
+pub struct PanelEfxDecoder {
+    phase: u8,
+    pressed: bool,
+    column: u8,
+}
+
+impl PanelEfxDecoder {
+    pub fn feed(&mut self, byte: u8) -> Option<bool> {
+        if byte & 0x80 != 0 {
+            self.phase = if byte == 0x90 || byte == 0x91 { 1 } else { 0 };
+            self.pressed = byte == 0x91;
+            return None;
+        }
+        match self.phase {
+            1 => { self.column = byte; self.phase = 2; None }
+            2 => { self.phase = 0; (self.column == 4 && byte == 6).then_some(self.pressed) }
+            _ => None,
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct EfxSelectGesture {
     started_at: Option<u32>,

@@ -92,6 +92,7 @@ hook. The trace adds work to that hook and can change timing.
 Add `--bank-stress` to repeat bank switching and encoder edits ten times,
 capture the inspector state, then exercise close and stock selection. Inspect
 the captured values; completion alone does not assert the expected behavior.
+`--bank-stress-count N` changes the count within 1 through 64.
 `--enqueue-trace` separately records the EFX SEL edge and tick just before
 the stock panel parser enqueues it, at `0x83e00600`. `--timing-control` bypasses
 effect processing and writes silence for a QEMU-only scheduling comparison;
@@ -103,6 +104,10 @@ active DSP workload rather than the physical input or mixer routing path.
 the disposable guest and records matching key edges at `0x83e00900`. It uses
 an unowned low-memory veneer, changes interrupt execution, and is QEMU-only;
 it is not a safe target hook.
+`--irq-timing` uses that same experimental hook and a bounded single-producer
+queue to time selector gestures from the interrupt. A missing, mismatched or
+overflowed event cancels the gesture. The queue counters are captured at
+`0x83e00b00`; neither this experiment nor its scratch memory is target-safe.
 
 For the prepared fixture identified in the investigation, the expected
 captured values are `26.0 ms` for Plateau and `84.0 %` for Velvet, followed

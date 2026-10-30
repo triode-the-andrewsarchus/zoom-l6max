@@ -1047,6 +1047,29 @@ The traced diagnostic MAIN, ELF, recipe and result hashes were
 `a069c5e94354f3755fd48d3bb7c0151f6450ad5fd0eee87e0335563b82a6b738`, and
 `9d7178a68d6548c9f2121b8c42910a64af29843b2ffa350fe850b5f9a687058d`.
 
+An optional QEMU-only gesture prototype now decodes the observed panel key
+frames in that interrupt and queues their ticks for the selector. A missing,
+mismatched or overflowed edge cancels the gesture rather than guessing its
+duration. With active synthetic sends, one ten-edit run measured the hold at
+1,504 interrupt ticks versus 550 ticks at the later enqueue, closed the
+inspector and selected Spring; the queue reported `(head, tail, overflow) =
+(25, 25, 0)`. A separate 40-edit run crossed the 64-entry queue boundary,
+observed all 40 expected bank IDs, reported `(85, 85, 0)`, closed the
+inspector and selected Spring. Its sampled output was finite and nonzero.
+These are diagnostic observations with a modified interrupt, not tests of
+physical input timing, lost frames, queue overflow recovery, or hardware.
+
+The ten-edit MAIN, ELF, recipe and result hashes were
+`77813ae76b328e71ac9bfa7c025f041c0eb75b06caf14a879ed3a36abb76fec0`,
+`c3dbc2cca4e6c96db7a4f54ef63eceb2fbe559cebea882b66a127e01e2ba0070`,
+`d1d44b44fa9105cbac7d7871f9811f15473ba70684eb9fd4d7ebf0dc71ddc649`, and
+`f2823ea3ee14a17559cd751975fed6bd07af4cd16be82477dbfbd9210199a54a`.
+The 40-edit hashes were
+`64fd35b1c0d8f8367e26806ef6980b14c22b4c277a58d558f5c16cd1839d6cc5`,
+`d39e9bb50cfb0211b78a2061df4445a2a74484f7b8a9aa892111a8e269d3fe57`,
+`05fcedbd312ac7a37daae8d12b04ed8176e2e0794b992be4d7b644dd3e5ee832`, and
+`e1947641ab17bbf2aae0be28e24925eb0f9d22b2b932a82828f00e188aa2fe3f`.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:
