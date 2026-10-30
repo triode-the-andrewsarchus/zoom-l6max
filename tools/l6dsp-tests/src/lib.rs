@@ -61,6 +61,24 @@ mod tests {
     }
 
     #[test]
+    fn extreme_finite_input_does_not_poison_effect_state() {
+        let mut actual_v = velvet::VelvetDecorrelator::new();
+        let mut expected_v = velvet::VelvetDecorrelator::new();
+        actual_v.init(velvet::Parameters::default());
+        expected_v.init(velvet::Parameters::default());
+        let mut actual_p = Box::new(plateau::PlateauReverb::new());
+        let mut expected_p = Box::new(plateau::PlateauReverb::new());
+        actual_p.init(plateau::PlateauParameters::default());
+        expected_p.init(plateau::PlateauParameters::default());
+        for i in 0..12000 {
+            let signal = if i == 10 { 0.5 } else { 0.0 };
+            let corrupt = if i == 0 { f32::MAX } else if i == 1 { f32::MIN } else { signal };
+            assert_eq!(actual_v.process_sample(corrupt, corrupt), expected_v.process_sample(signal, signal), "velvet frame {i}");
+            assert_eq!(actual_p.process_sample(corrupt, corrupt), expected_p.process_sample(signal, signal), "plateau frame {i}");
+        }
+    }
+
+    #[test]
     fn test_velvet_noise_decorrelator() {
         let mut vnd = velvet::VelvetDecorrelator::new();
         vnd.init(velvet::Parameters::default());
