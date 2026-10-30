@@ -17,6 +17,16 @@ pub mod controls;
 mod tests {
     use super::*;
 
+    fn paired_reverb_return() -> (Box<routing::DualEfxProcessor>, Box<routing::DualEfxProcessor>) {
+        let mut actual = Box::new(routing::DualEfxProcessor::new());
+        let mut expected = Box::new(routing::DualEfxProcessor::new());
+        for processor in [&mut actual, &mut expected] {
+            processor.init();
+            processor.return_gain_a = 0.0;
+        }
+        (actual, expected)
+    }
+
     #[test]
     fn efx_select_defers_short_press_and_distinguishes_hold() {
         use controls::EfxSelectAction as Action;
@@ -858,6 +868,31 @@ mod tests {
     }
 
     #[test]
+    fn corrupt_direct_bus_does_not_silence_valid_cascade() {
+        for corrupt in [f32::NAN, f32::INFINITY, f32::MAX] {
+            let (mut actual, mut expected) = paired_reverb_return();
+            let silence = [0.0; 64];
+            let bad_bus = [corrupt; 64];
+            let mut impulse = silence;
+            impulse[0] = 1.0;
+            let mut peak = 0.0f32;
+            for block in 0..200 {
+                let mut actual_l = [0.0; 64];
+                let mut actual_r = [0.0; 64];
+                let mut expected_l = [0.0; 64];
+                let mut expected_r = [0.0; 64];
+                actual.process_buses(&silence, &bad_bus, &impulse, &mut actual_l, &mut actual_r);
+                expected.process_buses(&silence, &silence, &impulse, &mut expected_l, &mut expected_r);
+                assert_eq!(actual_l, expected_l, "left block {block}, corrupt {corrupt}");
+                assert_eq!(actual_r, expected_r, "right block {block}, corrupt {corrupt}");
+                for (&l, &r) in expected_l.iter().zip(&expected_r) { peak = peak.max(l.abs()).max(r.abs()); }
+                impulse[0] = 0.0;
+            }
+            assert!(peak > 0.001, "test must observe the cascade");
+        }
+    }
+
+    #[test]
     fn routing_processes_long_buffers_like_successive_blocks() {
         let mut long = Box::new(routing::DualEfxProcessor::new());
         let mut split = Box::new(routing::DualEfxProcessor::new());
@@ -1096,6 +1131,32 @@ mod tests {
             input[0] = 0.0;
         }
         assert!(peak_difference > 1e-9, "quiet cascade was lost: {peak_difference}");
+    }
+
+    #[test]
+    fn corrupt_stereo_input_does_not_silence_cascade_tail() {
+        for corrupt in [f32::NAN, f32::INFINITY, f32::MAX] {
+            let (mut actual, mut expected) = paired_reverb_return();
+            let silence = [0.0; 64];
+            let mut impulse = silence;
+            impulse[0] = 1.0;
+            let mut actual_l = [0.0; 64];
+            let mut actual_r = [0.0; 64];
+            let mut expected_l = [0.0; 64];
+            let mut expected_r = [0.0; 64];
+            actual.process_stereo_send(&impulse, &silence, &mut actual_l, &mut actual_r, true, true);
+            expected.process_stereo_send(&impulse, &silence, &mut expected_l, &mut expected_r, true, true);
+            let bad = [corrupt; 64];
+            let mut peak = 0.0f32;
+            for block in 0..200 {
+                actual.process_stereo_send(&bad, &silence, &mut actual_l, &mut actual_r, true, true);
+                expected.process_stereo_send(&silence, &silence, &mut expected_l, &mut expected_r, true, true);
+                assert_eq!(actual_l, expected_l, "left block {block}, corrupt {corrupt}");
+                assert_eq!(actual_r, expected_r, "right block {block}, corrupt {corrupt}");
+                for (&l, &r) in expected_l.iter().zip(&expected_r) { peak = peak.max(l.abs()).max(r.abs()); }
+            }
+            assert!(peak > 0.001, "test must observe the cascade tail");
+        }
     }
 
     #[test]
