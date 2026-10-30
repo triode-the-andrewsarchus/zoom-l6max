@@ -1770,6 +1770,29 @@ were `8c58d38951f01a6c4e011338cc1918ec8d72ce26e395cccc653d675ddb3d6c89`,
 `cf70439043503d86d22fe66a6a34f6ebb5bbf118832591ed8b89f1fc00560320`.
 Stock MAIN, initial NOR and QEMU matched the preceding high-density runs.
 
+A subsequent disposable prototype replaced the second Velvet engine with one
+mono cascade history and used the first engine's filter banks and transition
+timeline for both sends. It kept the two audio histories independent and
+skipped convolution when both histories were empty. Against the preceding
+production source, host output matched bit for bit for 153,600 frames with
+parameter edits, fades, silence and ring wraps, both without and with repeated
+switches between routed and stereo processing; the existing 51 DSP tests
+also passed. A host `size_of` comparison decreased from 319,704 to 298,192
+bytes. These are host layouts, not target allocation or ownership evidence.
+
+The matched high-density QEMU run counted 859, 2,924, 4,907 and 6,971
+callbacks, about 407 per guest second over 15 seconds. Both channels of the
+shared active bank contained 64 taps at the final sample. This is below the
+earlier paired prototype's 443 and the 750-call bypass. The prototype remains
+outside production: it still needs a one-sided silence fast path, complete
+behavioral and performance validation, and target memory and timing proof.
+Its diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`977c94f3dfe337a8f429279dc77d4c37650583cd83ecd271ebbb0efc810a36f8`,
+`09a992063857d8cd2e06d8935c3b48945a042cf5e0c8689dbad69e8d5f591603`,
+`57dc8669d7e93518961aa65c9db6bf2934edd6ae93919cbcaa540ed1f7bbdc8c`, and
+`d2600e173550e621b42a18fd478dca0cf53cb10302643243010bdc9b6a4002c3`.
+Stock MAIN, initial NOR and QEMU matched the preceding high-density runs.
+
 An uncommitted experiment used 8,192-sample power-of-two Velvet histories,
 retaining the 4,802-sample logical delay and silence window. It increased the
 two Velvet instances' state by 54,240 bytes. Host output over 100,000 frames
