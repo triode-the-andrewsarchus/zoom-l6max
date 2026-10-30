@@ -339,6 +339,31 @@ The stock MAIN and initial NOR were those above. The plugin-enabled QEMU
 executable was `69b2a6775a4cab8d778d2d9b91e41cfedbbaf35788ac1417955f0be66a874afa`,
 with source provenance unattested.
 
+The same address-range plugin was then used with a disposable diagnostic
+image that initialized the replacement in the stock effect buffer, injected
+active synthetic sends, and exercised ten inspector bank edits. Between the
+first and second custom callback publications, the plugin recorded accesses
+from the diagnostic ELF's code range `0x80108000..0x8010d3a8` and from stock
+write instruction `0x80000714`; it recorded no other CPU instruction accessing
+the range in that interval. The publication interval includes the next stock
+selection and its clear, so those clear writes cannot be attributed solely
+to time spent in the active callback. The run observed ten alternating bank
+states, a closed inspector, and selection of the second custom descriptor;
+the diagnostic callback counted 4,472 calls with finite, nonzero sampled
+output. This is evidence for investigating effect-lifetime reuse, not a
+reservation: the trace is limited to CPU accesses and the exercised sequence,
+does not cover DMA or other firmware activity, and cannot establish physical
+memory ordering or safe coexistence. Instrumentation can change scheduling.
+
+The plugin source and binary identities are those in the preceding trace. The
+diagnostic ELF, MAIN, recipe, trace and result SHA-256 values were
+`638e6ddb5b9ec8a65de4ae21b3bc1b96c03a0b9713cf2c720faae22c04614abb`,
+`2e9341771ae9e90729a596c617a9495d763c922c5f23d54cde264268235bbdbc`,
+`390614f08bd6f074c9f7dfe476576c81570c0ff9557f2dc90a20a119c66ec721`,
+`d6d242a7f4cb80de2944e79a97dd61057e99680eb01377cf1fe2620d8e7cab03`, and
+`362ef5bb49460dd68360da39e7d37df7f37084d752cbe44b7845687bfb2597e0`.
+The stock MAIN, initial NOR and isolated QEMU match the preceding trace.
+
 Static inspection of this MAIN image also identifies the initializer at
 `0x80056588` writing `0x80d00000`, `0x80dbb800`, and `0x000bb800` into
 the descriptor at `0x8020a3dc`. The clear at `0x80024678` independently
