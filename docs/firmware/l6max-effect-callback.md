@@ -1130,6 +1130,21 @@ events. The recorded observations do not establish target responsiveness.
 The engine trace SHA-256 was
 `e155e260fab6fc335fe8b6f0ba82ee53e60e2ed4913e7d6544477577b55f5651`.
 
+An independent run added bounded QEMU-only records at the stock encoder
+enqueue call and at the inspector's knob hook, with no repeated debugger
+stops. Under active synthetic sends, both arrays contained 29 records before
+the next selection reset them. Pairing the records by order, the knob-hook
+timestamps were 0 or 32 firmware ticks after the enqueue timestamps. The
+recorded UI channels and deltas matched the input sequence. The arrays have no
+event IDs, are capped at 32 records, and reset on effect selection; they do
+not prove that this run reproduced the earlier delayed event or locate any
+delay before stock enqueue. The instrumentation uses unowned scratch memory
+and remains unsuitable for hardware. The diagnostic MAIN SHA-256 was
+`0b7391d156070be992da99b30f99bae28ce06de62e37ec2adeb2b681fb5deaa7`,
+recipe `7424a9cc7007b87ddee181c5e15108b08f5a6ed730220ba1147c116f825e91b3`,
+diagnostic JSON `fcf314368dfd497ade08f8b07b95d286a84bb57e866fbf828ff9bd16de00792b`,
+and engine trace `604fdbeeb0f30243c9719ce3196b7e90836d52390cb2e4d23e586b41aba81435`.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:

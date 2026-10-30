@@ -120,9 +120,10 @@ hooks = [
     (0x80036f8a, bytes.fromhex("1cf011fe"), probe_symbols["inspector_mode"]),
 ]
 if args.enqueue_trace:
-    if "inspector_enqueue" not in probe_symbols:
-        raise ValueError("missing diagnostic enqueue symbol")
+    if not {"inspector_enqueue", "inspector_encoder_enqueue"} <= probe_symbols.keys():
+        raise ValueError("missing diagnostic enqueue symbols")
     hooks.append((0x8004c606, bytes.fromhex("dbf73ffd"), probe_symbols["inspector_enqueue"]))
+    hooks.append((0x8004c55c, bytes.fromhex("dbf794fd"), probe_symbols["inspector_encoder_enqueue"]))
 for address, expected, target in hooks:
     offset = address - 0x80000000
     if image[offset:offset + 4] != expected:
@@ -222,6 +223,24 @@ address = 2212495616
 length = 48
 """
 recipe = recipe.replace(marker, routing_steps + marker)
+if args.enqueue_trace:
+    # Capture separately owned receive-task and UI-task records without a
+    # debugger stop at every event. Their counts are reset on effect selection.
+    marker = '[[step]]\naction = "memory"\nname = "enqueue_trace"'
+    if recipe.count(marker) != 1:
+        raise ValueError("recipe marker mismatch: enqueue_trace")
+    trace_steps = f'''[[step]]
+action = "memory"
+name = "encoder_enqueue_trace"
+address = {0x83e02000}
+length = 388
+[[step]]
+action = "memory"
+name = "encoder_ui_trace"
+address = {0x83e02200}
+length = 388
+'''
+    recipe = recipe.replace(marker, trace_steps + marker)
 (out / "recipe.toml").write_text(recipe)
 print("QEMU-only MAIN SHA-256:", image_hash)
 print("Popup ELF SHA-256:", hashlib.sha256(knob_elf.read_bytes()).hexdigest())
