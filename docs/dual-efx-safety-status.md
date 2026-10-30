@@ -51,6 +51,10 @@ The blocking findings for L6max MAIN 1.10
   at a 500 ms snapshot under active synthetic audio; a second run with a later
   snapshot showed the value. A further observed delay occurred before the
   audio-event queue; responsiveness remains unqualified.
+- With the later QEMU receive model switching to regular RX after startup,
+  a nonzero-sends diagnostic failed to open the inspector or select the next
+  effect; a DSP-bypassed control completed the same sequence. This emulator
+  workload dependence does not measure physical execution time.
 
 Some standalone DSP defects have been fixed and tested on the host. Those
 tests do not exercise the firmware bindings or establish hardware safety.
