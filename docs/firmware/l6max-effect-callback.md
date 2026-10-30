@@ -1744,6 +1744,32 @@ The diagnostic MAIN, ELF, recipe and result SHA-256 values were
 The stock MAIN, initial NOR and QEMU executable matched the prior high-density
 experiments.
 
+A different disposable prototype convolved both mono send histories in one
+loop, sharing each tap's delay and gain while keeping the histories and
+accumulators separate. It assumed both engines' filter banks, transition
+state and positions were synchronized; that assumption is not enforced by
+the public processor API. It also omitted the existing empty-history fast
+path. An optimized host comparison against the current source matched
+153,600 output frames bit for bit with edits, transitions, silence and ring
+wraps; all 51 existing host DSP tests also passed with the prototype. These
+checks do not establish equivalence for independently modified states or
+physical execution.
+
+The high-density QEMU sequence counted 942, 3,187, 5,362 and 7,581 callbacks,
+or about 443 per guest second over 15 seconds; both active banks had 64 taps
+at the final sample. This is an improvement over the instrumented 352-call
+baseline, but remains below the 750-call bypass. The prototype is not in the
+production source. Before adopting this approach, a design would need to
+enforce shared filter ownership, handle stereo/routed path changes and
+silence efficiently, and verify real-time behavior and audio equivalence.
+Its diagnostic MAIN, ELF, recipe, result and comparison-source SHA-256 values
+were `8c58d38951f01a6c4e011338cc1918ec8d72ce26e395cccc653d675ddb3d6c89`,
+`ae5414a52f202d0e3ac8a3d429c64b08c136fcf4e3f9531468c845137d28ab42`,
+`90b1350dccf2acb6029f3efe4d3d92ced6e7e9c0c5e116c10932823258768005`,
+`86eecc95ccfb65001cfb0633cd05f5814426cf8f56f45e3418f3778622ab6332`, and
+`cf70439043503d86d22fe66a6a34f6ebb5bbf118832591ed8b89f1fc00560320`.
+Stock MAIN, initial NOR and QEMU matched the preceding high-density runs.
+
 An uncommitted experiment used 8,192-sample power-of-two Velvet histories,
 retaining the 4,802-sample logical delay and silence window. It increased the
 two Velvet instances' state by 54,240 bytes. Host output over 100,000 frames
