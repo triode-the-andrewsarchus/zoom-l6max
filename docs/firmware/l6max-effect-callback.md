@@ -257,6 +257,41 @@ the second were
 `d0e221141677d8e53b8aa9f123a9729cf64e328ecd5f11b338d20d91e762a324`.
 Firmware, state and runtime captures remain local.
 
+A further pair of disposable runs supplied different amplitudes and phases
+across modeled SAI receive words. The diagnostic assigned slots 0 through 11
+cyclically to off, A, B and A-to-B, and captured all source blocks, gain and
+ramp descriptors, and three reconstructed buses together. In the first run,
+the 12 captured source blocks were distinct, all gains were nonzero and no
+ramp descriptors were active. Each of the 192 bus samples exactly matched an
+independent calculation from the captured inputs and gains.
+
+A second run captured the buses and output after at least 150 callbacks. The
+192 bus samples again matched the independent calculation; all 128 output
+samples were finite and nonzero. The output peaks were 1.0 and approximately
+0.9992, so this intentionally high-level fixture reached the limiter and does
+not establish fidelity. These routes were fixed in the diagnostic, not set by
+the user interface. The observations do not establish physical input mapping,
+ramp behavior, hardware ownership, responsiveness or timing.
+
+Both runs used the stock MAIN and initial NOR identities above. The modified
+QEMU source and executable SHA-256 values were
+`495b2e5ff206f215afcbf35354532532a315ef8616df34ee724947b400bd9383` and
+`a8c802944f9203a489b600c2fcac65945a004fdd0ee7abc7a904936d096fa954`;
+its source provenance remains unattested. For the first run the diagnostic
+callback, MAIN, ELF, recipe and result hashes were respectively
+`f65e7ff4fb8d89ad813c9279fbc58e84e831edbc4471ed8437b0ab752d9bc0ca`,
+`d042deb0d87869aa2537710c809290ad4478a2c1f05c9086f05e6fcb6f790575`,
+`ce807cc24ad7c96c455eb610481d2e778e01531eab84f13ce107d3f368e86ade`,
+`3496f5c4d9e445b69f0cea54f4f5bf058c6a54515e4b3786bb224302ebc13134`, and
+`19e11eb90a19404246efd29fea718216309beef413e1dfa3ba1a026b6edbc5cf`.
+For the output-capture run they were
+`280b86337d0b486b83123d337d8566aa61f2fb625c93016157548cd5f8e1c66f`,
+`90626bb9535aa9bc134bd01b14a1a068377056fc93a040c16725bac4837e3707`,
+`116b80719a0923874632a9c2e359368be6a4605f05c353035257c33c04887fb9`,
+`18870d8a7991f8c426783aad1494740657601a2b74075efb36cdc0a3c23f59dc`, and
+`79cab44c2e0c940d3fbb254bed5b6ea10429c36566758f8dfa6dfca4a082bdf1`.
+The modified source, firmware and captures are local diagnostic artifacts.
+
 ## EFX encoder and stock effect storage observations
 
 With EFX mode selected, turning physical encoders 1 through 8 changed the
