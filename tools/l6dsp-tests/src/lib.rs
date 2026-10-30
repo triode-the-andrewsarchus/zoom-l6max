@@ -201,6 +201,37 @@ mod tests {
     }
 
     #[test]
+    fn plateau_highpass_has_unity_passband_and_minus_three_db_cutoff() {
+        for cutoff in [20.0_f64, 1000.0, 6500.0, 16000.0, 23520.0] {
+            let mut filter = plateau::OnePoleHP::new();
+            filter.set_cutoff(cutoff as f32);
+            let mut input_energy = 0.0;
+            let mut output_energy = 0.0;
+            for frame in 0..(48_000 + 16_384) {
+                let phase = std::f64::consts::TAU * cutoff * frame as f64 / 48_000.0;
+                let input = phase.sin() as f32;
+                let output = filter.process(input);
+                if frame >= 16_384 {
+                    input_energy += (input as f64).powi(2);
+                    output_energy += (output as f64).powi(2);
+                }
+            }
+            let gain = (output_energy / input_energy).sqrt();
+            assert!((gain - std::f64::consts::FRAC_1_SQRT_2).abs() < 0.015,
+                    "cutoff {cutoff} Hz has gain {gain}");
+            filter.clear();
+            for frame in 0..10_000 {
+                let input = if frame % 2 == 0 { 1.0 } else { -1.0 };
+                let output = filter.process(input);
+                if frame == 9_999 {
+                    assert!((output.abs() - 1.0).abs() < 0.001,
+                            "Nyquist passband at {cutoff} Hz has gain {}", output.abs());
+                }
+            }
+        }
+    }
+
+    #[test]
     fn nonfinite_input_does_not_poison_effect_state() {
         let mut actual_v = velvet::VelvetDecorrelator::new();
         let mut expected_v = velvet::VelvetDecorrelator::new();

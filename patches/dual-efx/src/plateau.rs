@@ -167,25 +167,39 @@ impl OnePoleLP {
 }
 
 pub struct OnePoleHP {
-    pub lp: OnePoleLP,
+    previous_input: f32,
+    previous_output: f32,
+    pole: f32,
+    gain: f32,
 }
 
 impl OnePoleHP {
     pub const fn new() -> Self {
-        Self { lp: OnePoleLP::new() }
+        Self { previous_input: 0.0, previous_output: 0.0, pole: 0.0, gain: 1.0 }
     }
 
     pub fn set_cutoff(&mut self, cutoff_hz: f32) {
-        self.lp.set_cutoff(cutoff_hz);
+        let c = clamp(cutoff_hz, 20.0, SAMPLE_RATE * 0.49);
+        // Bilinear one-pole high-pass with a prewarped cutoff. This keeps
+        // the Nyquist passband at unity and the cutoff at -3 dB.
+        let angle = PI * c / SAMPLE_RATE;
+        let s = sin(angle);
+        let c = cos(angle);
+        self.pole = (c - s) / (c + s);
+        self.gain = (1.0 + self.pole) * 0.5;
     }
 
     #[inline(always)]
     pub fn process(&mut self, x: f32) -> f32 {
-        x - self.lp.process(x)
+        let output = self.gain * (x - self.previous_input) + self.pole * self.previous_output;
+        self.previous_input = x;
+        self.previous_output = output;
+        output
     }
 
     pub fn clear(&mut self) {
-        self.lp.clear();
+        self.previous_input = 0.0;
+        self.previous_output = 0.0;
     }
 }
 
