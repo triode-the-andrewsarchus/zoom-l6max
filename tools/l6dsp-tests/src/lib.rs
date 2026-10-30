@@ -28,6 +28,75 @@ mod tests {
     }
 
     #[test]
+    fn shared_velvet_matches_independent_engines_across_path_switches() {
+        let mut shared = Box::new(velvet::VelvetDecorrelator::new());
+        let mut history = Box::new(velvet::MonoHistory::new());
+        let mut direct = Box::new(velvet::VelvetDecorrelator::new());
+        let mut cascade = Box::new(velvet::VelvetDecorrelator::new());
+        for engine in [&mut shared, &mut direct, &mut cascade] {
+            engine.init(velvet::Parameters::default());
+        }
+        let mut random = 7u32;
+        for block in 0..2400 {
+            if [10, 500, 1200].contains(&block) {
+                let (length, density) = match block {
+                    10 => (95.0, 3000.0),
+                    500 => (8.0, 500.0),
+                    _ => (35.0, 1700.0),
+                };
+                let mut params = direct.current;
+                params.length_ms = length;
+                params.density = density;
+                params.transition_ms = 15.0;
+                params.refresh_seconds = 0.1;
+                direct.set_parameters(params);
+                shared.set_parameters(params);
+            }
+            cascade.set_parameters(direct.current);
+            for frame in 0..64 {
+                random = random.wrapping_mul(1664525).wrapping_add(1013904223);
+                let a = if block % 300 < 200 { ((random >> 8) as f32 / 16777216.0 - 0.5) * 0.5 } else { 0.0 };
+                random = random.wrapping_mul(1664525).wrapping_add(1013904223);
+                let c = if block % 500 < 400 { ((random >> 8) as f32 / 16777216.0 - 0.5) * 0.3 } else { 0.0 };
+                if (260..320).contains(&(block % 400)) {
+                    let expected = direct.process_sample(a, c);
+                    cascade.process_sample(0.0, 0.0);
+                    let actual = shared.process_sample(a, c);
+                    history.silence();
+                    assert_eq!(actual, expected, "stereo block {block}, frame {frame}");
+                } else {
+                    let expected = (direct.process_sample(a, a), cascade.process_sample(c, c));
+                    let actual = shared.process_shared_mono(&mut history, a, c);
+                    assert_eq!(actual, expected, "routed block {block}, frame {frame}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn shared_velvet_handles_different_history_positions() {
+        let mut shared = Box::new(velvet::VelvetDecorrelator::new());
+        let mut history = Box::new(velvet::MonoHistory::new());
+        let mut direct = Box::new(velvet::VelvetDecorrelator::new());
+        let mut cascade = Box::new(velvet::VelvetDecorrelator::new());
+        let mut params = velvet::Parameters::default();
+        params.dynamic = false;
+        for engine in [&mut shared, &mut direct, &mut cascade] {
+            engine.init(params);
+        }
+        // An independent stereo frame moves only the direct history cursor.
+        shared.process_sample(0.0, 0.0);
+        direct.process_sample(0.0, 0.0);
+        for frame in 0..10_000 {
+            let a = if frame == 0 { 0.5 } else { 0.0 };
+            let c = if frame == 1 { -0.25 } else { 0.0 };
+            let expected = (direct.process_sample(a, a), cascade.process_sample(c, c));
+            let actual = shared.process_shared_mono(&mut history, a, c);
+            assert_eq!(actual, expected, "frame {frame}");
+        }
+    }
+
+    #[test]
     fn efx_select_defers_short_press_and_distinguishes_hold() {
         use controls::EfxSelectAction as Action;
         let mut gesture = controls::EfxSelectGesture::default();
@@ -976,7 +1045,6 @@ mod tests {
             let mut left = [0.0; 64];
             let mut right = [0.0; 64];
             block.process_buses(&a, &b, &c, &mut left, &mut right);
-            frames.prepare_bus_block();
             for i in 0..64 {
                 let actual = frames.process_bus_sample(a[i], b[i], c[i]);
                 assert_eq!(actual, (left[i], right[i]), "block {n}, frame {i}");

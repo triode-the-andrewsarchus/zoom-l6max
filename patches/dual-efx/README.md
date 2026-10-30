@@ -22,9 +22,9 @@ Targeted exclusively for **LiveTrak L6max** firmware revision 1.10 (`980d92272c1
 ## CPU & Memory Budget
 
 The original CPU estimates and 160 KiB memory figure were not measured and
-must not be used for target qualification. The processor now includes a
-separate Velvet instance for cascaded sends, increasing its state and work.
-Its memory ownership, stack use and worst-case execution time remain unproven
+must not be used for target qualification. Cascaded sends retain a separate
+audio history while sharing Velvet's filter state. The processor's memory
+ownership, stack use and worst-case execution time remain unproven
 on the L6max. The `0x83e00000` state address is unverified on hardware.
 
 ## Source Layout

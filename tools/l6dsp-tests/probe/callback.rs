@@ -126,7 +126,6 @@ pub unsafe extern "C" fn diagnostic_audio(_context: u32, descriptor: u32) {
                 }
             }
         }
-        state.prepare_bus_block();
         for i in 0..64 {
             unsafe {
                 core::ptr::write_volatile(

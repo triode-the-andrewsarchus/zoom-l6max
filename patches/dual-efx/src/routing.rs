@@ -4,7 +4,7 @@
 //! and summing to the master return bus. Pre-AINR is not implemented.
 
 use super::plateau::{PlateauParameters, PlateauReverb};
-use super::velvet::{Parameters as VelvetParameters, VelvetDecorrelator};
+use super::velvet::{MonoHistory, Parameters as VelvetParameters, VelvetDecorrelator};
 
 pub const MAX_CHANNELS: usize = 12; // Four mono strips and four paired strips.
 pub const BLOCK_SIZE: usize = 64; // Max block size processed per callback
@@ -53,7 +53,8 @@ fn strip_slots(strip: usize) -> Option<core::ops::Range<usize>> {
 pub struct DualEfxProcessor {
     pub velvet: VelvetDecorrelator,
     // A separate history keeps A-only sends out of the A-to-B cascade.
-    pub velvet_cascade: VelvetDecorrelator,
+    // Both histories use the same Velvet filter timeline.
+    cascade_history: MonoHistory,
     pub plateau: PlateauReverb,
 
     // Per-channel routing modes (12 mixer channels)
@@ -75,7 +76,7 @@ impl DualEfxProcessor {
     pub const fn new() -> Self {
         Self {
             velvet: VelvetDecorrelator::new(),
-            velvet_cascade: VelvetDecorrelator::new(),
+            cascade_history: MonoHistory::new(),
             plateau: PlateauReverb::new(),
             channel_routing: [RoutingMode::Neither; MAX_CHANNELS],
             channel_send: [0.0; MAX_CHANNELS],
@@ -112,7 +113,7 @@ impl DualEfxProcessor {
         self.return_gain_b = 1.0;
         self.pre_ainr_enabled = false;
         self.velvet.init(VelvetParameters::default());
-        self.velvet_cascade.init(VelvetParameters::default());
+        self.cascade_history.clear();
         self.plateau.init(PlateauParameters::default());
     }
 
@@ -228,23 +229,17 @@ impl DualEfxProcessor {
         if frames == 0 {
             return;
         }
-        self.prepare_bus_block();
         for i in 0..frames {
             (out_l[i], out_r[i]) = self.process_bus_sample(send_a[i], send_b[i], send_cascade[i]);
         }
     }
 
-    /// Synchronizes the independent A-to-B filter before processing a block.
-    pub fn prepare_bus_block(&mut self) {
-        self.velvet_cascade.set_parameters(self.velvet.current);
-    }
-
-    /// Processes one frame after `prepare_bus_block`, allowing firmware control
-    /// updates to remain interleaved with audio frames.
+    /// Processes one frame, allowing firmware control updates to remain
+    /// interleaved with audio frames.
     #[inline(always)]
     pub fn process_bus_sample(&mut self, send_a: f32, send_b: f32, send_cascade: f32) -> (f32, f32) {
-        let (a_l, a_r) = self.velvet.process_sample(send_a, send_a);
-        let (cascade_l, cascade_r) = self.velvet_cascade.process_sample(send_cascade, send_cascade);
+        let ((a_l, a_r), (cascade_l, cascade_r)) = self.velvet
+            .process_shared_mono(&mut self.cascade_history, send_a, send_cascade);
         // Reject a corrupt direct send before it can contaminate the separate
         // cascade contribution to the reverb.
         let send_b = super::math::audio_input(send_b);
@@ -274,7 +269,6 @@ impl DualEfxProcessor {
         if frames == 0 {
             return;
         }
-        self.prepare_bus_block();
         for i in 0..frames {
             let in_l = super::math::audio_input(in_l[i]);
             let in_r = super::math::audio_input(in_r[i]);
@@ -284,7 +278,7 @@ impl DualEfxProcessor {
             );
             // This path does not route the separate cascade history, but it
             // must continue advancing so a later bus switch cannot replay it.
-            self.velvet_cascade.process_sample(0.0, 0.0);
+            self.cascade_history.silence();
             let cascade_l = if enable_a {
                 a_l * self.cascade_gain
             } else {
