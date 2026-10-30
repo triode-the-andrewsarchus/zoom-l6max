@@ -66,8 +66,23 @@ action = "press"
 control = "tap-button"
 [[step]]
 action = "delay"
-guest_ms = 500
+guest_ms = 14000
+guest_timeout_ms = 20000
 [[step]]
 action = "expect-memory"
 address = 0x8020aa3c
-bytes = [1]
+bytes = [0]
+[[step]]
+action = "expect-memory"
+address = 0x8046300c
+bytes = [1, 0, 0, 0]
+[[step]]
+action = "press"
+control = "tap-button"
+[[step]]
+action = "delay"
+guest_ms = 1000
+[[step]]
+action = "expect-memory"
+address = 0x8046300c
+bytes = [0, 0, 0, 0]

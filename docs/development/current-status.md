@@ -20,9 +20,10 @@ analog audio behavior, and physical jack routing remain unverified.
 
 ## Known limits
 
-- The L6max `l6max-ainr-tap` case is intermittent: a corrected TAP GPIO
-  diagnostic reached learning, but repeated driver runs missed the learning
-  progress assertion. The missing event or readiness condition is unresolved;
+- The earlier L6max `l6max-ainr-tap` progress-flag assertion was intermittent;
+  a trace showed a failing run entering the learning handler. The revised
+  case checks the eventual learned state and reset, and needs repeat
+  qualification. Its fixed wait does not establish noise-reduction audio;
   see the [investigation](../firmware/l6max-effect-callback.md#ai-noise-reduction-investigation).
 
 - The full L6 panel scenario and exact encoder reversal need further
