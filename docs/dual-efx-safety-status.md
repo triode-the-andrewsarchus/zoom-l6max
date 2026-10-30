@@ -26,6 +26,9 @@ The blocking findings for L6max MAIN 1.10
   UI and patch combinations are incomplete.
 - Shared mutable state and interrupt masking have not been proven safe. There
   are no measured target deadline, stack, memory-ownership, or output bounds.
+  A forced emulator interleaving has shown that audio can reach a newly
+  published callback before the selecting task continues, so callback state
+  must be ready before that publication.
 
 Some standalone DSP defects have been fixed and tested on the host. Those
 tests do not exercise the firmware bindings or establish hardware safety.
