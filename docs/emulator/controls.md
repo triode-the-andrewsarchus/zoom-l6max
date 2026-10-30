@@ -26,6 +26,10 @@ model-specific maps are listed in the [board reference](board.md#display-and-inp
 
 ## Main GPIO controls
 
+With `L6_MAIN_GPIO_TRACE=1`, the L6max diagnostic records each button-scanner
+read while a candidate input is held; a port read alone does not prove the
+firmware tested that pin.
+
 L6max routes Menu and Record through GPIO5 bits 2 and 0, and TAP through
 GPIO2 bit 31 (the firmware key-reader table). Its sound pads use the following active-low inputs:
 

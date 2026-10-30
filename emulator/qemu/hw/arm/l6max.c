@@ -3969,10 +3969,15 @@ static uint64_t l6_main_gpio_read(void *opaque, hwaddr offset, unsigned size)
                 continue;
             }
             uint32_t tested_mask = 1u << tested_bit;
-            if (s->main_button_tested_bits[id][adapter->bank] & tested_mask) {
+            /* Record every L6max scanner read, even if another reader tested
+             * the bit first, to diagnose debounce and scan cadence. */
+            bool scanner = s->profile == &L6MAX_PROFILE && env &&
+                           env->regs[14] == 0x80045315;
+            uint32_t *tested = &s->main_button_tested_bits[id][adapter->bank];
+            if (!scanner && (*tested & tested_mask)) {
                 continue;
             }
-            s->main_button_tested_bits[id][adapter->bank] |= tested_mask;
+            *tested |= tested_mask;
             qemu_log_mask(LOG_UNIMP,
                           "l6 MAIN GPIO port-read candidate=%u reader=%u port=%08x reg=%s value=%08x pin=%u pc=%08" PRIx64 " lr=%08x tested_port=%08x tested_bit=%u matches_candidate=%u at %" PRId64 " ms\n",
                           id, reader_index, (unsigned)l6_main_gpio_ports[adapter->bank],
