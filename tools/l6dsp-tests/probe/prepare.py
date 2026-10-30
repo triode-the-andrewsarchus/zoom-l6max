@@ -2,6 +2,7 @@
 """Create an isolated QEMU-only DSP probe from a supported stock fixture."""
 import argparse
 import hashlib
+import json
 from pathlib import Path
 import shutil
 import shlex
@@ -29,6 +30,7 @@ parser.add_argument("--irq-trace", action="store_true", help="trace panel bytes 
 parser.add_argument("--irq-timing", action="store_true", help="use QEMU-only IRQ timestamps for selector gestures")
 parser.add_argument("--timing-control", action="store_true", help="bypass effects in a QEMU timing comparison")
 parser.add_argument("--active-sends", action="store_true", help="inject nonzero QEMU-only effect buses")
+parser.add_argument("--pre-ainr", action="store_true", help="run a debugger-installed AINR copy on each test send")
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
 parser.add_argument("--bank-stress-count", type=int, default=10, help="number of bank changes (1..64)")
 args = parser.parse_args()
@@ -52,6 +54,9 @@ if args.active_sends and not args.inspector:
     parser.error("--active-sends requires --inspector")
 if args.active_sends and args.timing_control:
     parser.error("--active-sends cannot be combined with --timing-control")
+if args.pre_ainr and (not args.active_sends or not args.inspector or args.bank_stress or args.irq_trace
+                      or args.irq_timing or args.gesture_trace or args.enqueue_trace):
+    parser.error("--pre-ainr requires --inspector --active-sends and no other trace or stress options")
 if args.bank_stress and not args.inspector:
     parser.error("--bank-stress requires --inspector")
 if not 1 <= args.bank_stress_count <= 64 or (args.bank_stress_count != 10 and not args.bank_stress):
@@ -87,6 +92,8 @@ if args.timing_control:
     rustc += ["--cfg", "timing_control"]
 if args.active_sends:
     rustc += ["--cfg", "active_sends"]
+if args.pre_ainr:
+    rustc += ["--cfg", "pre_ainr_probe"]
 subprocess.run(rustc, cwd=ROOT, check=True)
 subprocess.run(["llvm-objcopy", "-O", "binary", str(elf), str(blob)], check=True)
 payload = blob.read_bytes()
@@ -265,13 +272,49 @@ wall_timeout_s = 300
     else:
         memory("active_spring", 0x202a6f20, 4)
     memory("selected_after_close", 0x83e00004, 4)
+if args.pre_ainr:
+    # The observer installs learned AINR copies while this recipe is stopped
+    # at the stock AINR call after the snapshot.
+    recipe = f'''version = 1
+model = "l6max"
+main_sha256 = "{image_sha}"
+wall_timeout_s = 420
+'''
+    wait(45000)
+    for _ in range(5):
+        add("press", target=40, hold_ms=150)
+        wait(3000)
+    memory("ainr_selected", 0x202a6f20, 4)
+    add("press", target=48, hold_ms=150)
+    wait(14000)
+    memory("learned", 0x8046300c, 4)
+    add("snapshot", name="learned_ready")
+    wait(3000)
+    for _ in range(2):
+        add("press", target=40, hold_ms=150)
+        wait(3000)
+    wait(2000)
+    memory("selected", 0x83e00000, 12)
+    memory("ainr_sends_1", 0x83e03000, 28)
+    wait(5000)
+    memory("ainr_sends_2", 0x83e03000, 28)
+    memory("output", 0x83e00800, 16)
 (out / "recipe.toml").write_text(recipe)
+if args.pre_ainr:
+    metadata = {"stock_main_sha256": MAIN_SHA, "diagnostic_main_sha256": image_sha,
+                "recipe_sha256": hashlib.sha256(recipe.encode()).hexdigest()}
+    (out / "pre-ainr.json").write_text(json.dumps(metadata, indent=2) + "\n")
 print(f"Input MAIN SHA-256: {MAIN_SHA}")
 print(f"Input NOR SHA-256: {hashlib.sha256((args.state / 'main-nor.bin').read_bytes()).hexdigest()}")
 print(f"Diagnostic ELF SHA-256: {hashlib.sha256(elf.read_bytes()).hexdigest()}")
 print(f"QEMU-only diagnostic MAIN SHA-256: {image_sha}")
-print("Run: " + shlex.join([
+command = [
     "cargo", "run", "--offline", "--locked", "-p", "l6dbg", "--", str(out / "recipe.toml"),
     "--firmware-dir", str(firmware), "--state-dir", str(state), "--logs", str(out / "logs"),
     "--qemu", "QEMU_PATH",
-]))
+]
+if args.pre_ainr:
+    command += ["--gdb-socket", str(out / "gdb.sock")]
+print("Run: " + shlex.join(command))
+if args.pre_ainr:
+    print("Observer: " + shlex.join(["python3", str(PROBE / "pre_ainr_observer.py"), str(args.firmware), str(out)]))
