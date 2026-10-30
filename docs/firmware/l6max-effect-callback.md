@@ -1809,6 +1809,42 @@ The MAIN, ELF, recipe and result hashes were
 The stock MAIN, initial NOR and unattested QEMU executable match the preceding
 high-density experiments.
 
+After integrating shared Velvet filter state, fresh ten-edit inspector
+diagnostics using the nominal-cadence QEMU failed to open the inspector and
+remained on Room, both without synthetic sends and with all three synthetic
+sends active. The active-send callback reported finite nonzero output. A
+separate traced run without synthetic sends recorded no post-selection
+selector or enqueue events before the final long-hold snapshot. These traces
+are reset at effect selection and tracing changes timing; this observation
+does not establish the cause or physical behavior.
+
+For comparison, a fresh untraced build from the immediately preceding DSP
+commit, using the same stock MAIN, initial NOR, QEMU executable and
+ten-edit recipe, also failed to open the inspector and remained on Room
+without synthetic sends. These individual runs do not prove equivalence or
+rule out a regression, but the failure is not unique to the shared-filter
+build under this fixture. The current silent, active, traced silent and
+previous-source silent diagnostic MAIN SHA-256 values were
+`836e13c62d738a0269e4e7e5c32609b91cbf13a9027c1d6a5ae98a4a80fdafcd`,
+`2186087bdfb47542a26102391acd0b786950f47740c578e8b60110fe035dc8c0`,
+`c5e42c9b0dcf5c83f32313cc08e5aede9a2ceaa2c09170f4a4bb38de52fbfd35`, and
+`ace4877ae226ddc617fcbf10f41dd0447e2ba787d9d60fea4353cfc5b9322162`;
+their ELF hashes were
+`fa313bcf4c646b125c50602f7a7792d89eb0022e695d9965813372655d490b4e`,
+`04f32146fede565368d4d288aa681d95e21e393dfbc0106ff19629e592b4e554`,
+`dc347ee9feb67bda9c19ff4be18a1a6cf961b539109e4833fb14066d08619b31`, and
+`125bf1d5939ec7a72533dd0794619917d75a22277c83d7ee6511cdf98b11471f`;
+recipes were
+`253ee9901c467632f6750f935d0178e905434fb9c2755558605f6d1ab6d7d5e8`,
+`f699249608c5048af8dbf76c8079165c86f46bfa29126464af0e469a941c2406`,
+`c2d21c9279be231271a5456416f51ebcff2f1724034b96a152f64424ae39766c`, and
+`9fa93a45ee7814f50b7befdc67f1f20802adf692c18a0dd7088ec64e8e2633b7`;
+results were
+`d0052f2c9a0d002aac19cd503b3200c1d53311d492d46f783fbd9f96e1316375`,
+`95b88102bca9f07897c0647a8116478df4978589bf113f3896d5e411c8e6faab`,
+`1f3be9b9ee4859b5e7ac961f5babacc6d4bfb4bb4b0ef3ea2b1c2f253c0ab6ee`, and
+`1b2631fe66a4d3c8529b7b3dc893a49c94f13e80c8b70e5a7e06a621de061205`.
+
 An uncommitted experiment used 8,192-sample power-of-two Velvet histories,
 retaining the 4,802-sample logical delay and silence window. It increased the
 two Velvet instances' state by 54,240 bytes. Host output over 100,000 frames
