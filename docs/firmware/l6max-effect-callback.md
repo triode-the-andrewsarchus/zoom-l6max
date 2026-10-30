@@ -1297,6 +1297,25 @@ The trace spans calls and may include intervening interrupt activity; it does
 not cover DMA or unexecuted branches. The stock MAIN and initial NOR match the
 preceding investigation; the QEMU binary's source provenance is unattested.
 
+A fresh stock-QEMU snapshot taken after the learned word became 1 captured
+the 192-byte helper/control area at `0x2028b94c` and the first 4 KiB of
+channel 0 working storage. The observed helper words at `0x2028b968`,
+`0x2028b96c` and `0x2028b978` were `0x800cf7e4`, `0x800bc7e0` and
+`0x800e0964`, respectively, consistent with the firmware-table reads above.
+The captured working prefix contained 897 zero words and 127 words equal to
+`0x80000000`, with no other values. That bit pattern is also floating-point
+negative zero, so this snapshot does not identify those words as pointers.
+A blanket rewrite of address-looking words would therefore be unsafe.
+These non-stopping snapshots are not atomic and cover only part of the state;
+they do not prove its complete layout or that the table references are safe
+to share in another instance. The recipe, result, engine trace and QEMU
+executable SHA-256 values were
+`abe6b1802670cac59cc7f39493dbe2066386152e8142462db348516c666a7fac`,
+`fa75007234d1ac983563bfd782910ec325db0ebea3717e9f0c99c4eb0a628abf`,
+`056aa8a8a3a197a6dcdb511a77ba8f189f73425c788bdca725438afafa2a780d`, and
+`53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`.
+Stock MAIN and initial NOR matched the preceding investigation.
+
 An instrumented stock-QEMU run on the newer board model traced CPU memory
 accesses between entry to `0x00001060` and the two stock caller returns. It
 armed at the learning-start handler and skipped 64 subsequent entries before
