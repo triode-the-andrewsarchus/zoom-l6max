@@ -1659,6 +1659,22 @@ the bypass hashes in the same order were
 `78b13a723d77b30096e2dea33c782f29fa519d89c5375d2f1824ca20a9905af4`, and
 `020abd08d2973df1618338d105b5cdfe282685617df0fdfd4e0da5c1825a24ee`.
 
+An uncommitted experiment used 8,192-sample power-of-two Velvet histories,
+retaining the 4,802-sample logical delay and silence window. It increased the
+two Velvet instances' state by 54,240 bytes. Host output over 100,000 frames
+with silence, filter edits and repeated wraps matched the preceding source
+byte for byte (SHA-256
+`ba2cac6174cc65de04009747a9e4a3951b0669a9a7b814104a5142247245378a`).
+In the same 15-second QEMU cadence sequence the experimental counts were
+1,070, 3,529, 5,935 and 8,343, or approximately 485 callbacks per guest
+second. This single-run improvement over approximately 476 did not justify
+the additional unqualified memory, and the experiment was discarded. The
+experimental MAIN, ELF, recipe and result hashes were
+`4cdb52e6817f16dd6c2a51d11f9d368bdf0e3c96c61c045a9665de6d2d962a07`,
+`c65b24392ebcff54b7b3cb50242f56a6b2e63d282742fb0f45b6e301a2b3929f`,
+`c22e0bcb154349fecc930b7efdd6cfeb7a0efcdbf7885d64a88befe97beda5b1`, and
+`17ecffe99a9cca86d5fcf13defda984b8b0070a905e41db5f4988260d2e496f7`.
+
 The tap loop now checks the range first and uses an out-of-line modulo only
 for out-of-range delays. Cortex-M7 disassembly confirmed that valid delays
 branch around the divide; the first inline version had not done so. A host
