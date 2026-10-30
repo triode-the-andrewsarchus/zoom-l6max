@@ -1,5 +1,9 @@
 # LiveTrak L6max Dual-EFX Deep Audit: Critical Review & Flaw Analysis
 
+> **Historical and superseded:** The fixes described here did not establish
+> correct firmware memory initialization, audio buffers, or interrupt safety.
+> See [current safety status](dual-efx-safety-status.md).
+
 This document provides a line-by-line critical audit of the `dual-efx` branch implementation for the Zoom LiveTrak L6max (Firmware 1.10). Every component has been evaluated under the assumption of zero trust.
 
 ---

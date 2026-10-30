@@ -1,5 +1,8 @@
 # Implementation Plan: Dual Custom Effects (Velvet Noise + Plateau) on Zoom LiveTrak L6max
 
+> **Historical proposal:** The planned firmware hooks and audio addresses were
+> not validated. See [current safety status](dual-efx-safety-status.md).
+
 This plan details the architecture and implementation steps to replace the stock Room and Spring reverbs on the **Zoom LiveTrak L6max** with high-end, custom DSP engines:
 1. **Velvet Noise Decorrelator (VND)** (replacing Spring Reverb, `efx_type = 2`), based on [115dkk/Velvet-Noise-Decorrelator-VST3](https://github.com/115dkk/Velvet-Noise-Decorrelator-VST3).
 2. **Plateau Reverb** (replacing Room Reverb, `efx_type = 1`), based on Dale Johnson's Dattorro plate reverb from [PlateauNEVersio](https://github.com/digitalartifactmusic/PlateauNEVersio).

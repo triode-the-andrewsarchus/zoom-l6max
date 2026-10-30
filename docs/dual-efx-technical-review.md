@@ -1,5 +1,10 @@
 # Technical Review: Dual-EFX Firmware Patch (Zoom LiveTrak L6max)
 
+> **Historical and superseded:** This document contains incorrect claims of
+> hardware safety, working routing, UI integration, algorithm fidelity, and
+> measured execution time. Do not rely on its PASS ratings. See
+> [current safety status](dual-efx-safety-status.md).
+
 This review pass evaluates the **Dual-EFX** firmware implementation on the `fx-replacement` branch across three critical domains:
 1. **DSP Functionality & Algorithm Fidelity** (matching 115dkk VND and Valley Plateau/Dattorro)
 2. **Embedded Safety & Hardware Viability** (running on physical hardware without risk of damage or crashing)

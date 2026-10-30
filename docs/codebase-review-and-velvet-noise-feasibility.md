@@ -1,5 +1,8 @@
 # Zoom L6 / L6max Codebase Review & Velvet Noise Decorrelator Feasibility Analysis
 
+> **Historical proposal:** The feasibility and timing estimates do not qualify
+> the implementation. See [current safety status](dual-efx-safety-status.md).
+
 This report evaluates the **zoom-l6max** repository architecture and examines the technical feasibility of porting the core algorithm from [115dkk/Velvet-Noise-Decorrelator-VST3](https://github.com/115dkk/Velvet-Noise-Decorrelator-VST3) to run on the Zoom LiveTrak L6 and L6max digital mixer hardware as an onboard effect replacing the built-in **Spring Reverb**.
 
 ---
