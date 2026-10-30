@@ -59,6 +59,12 @@ stale audio, increasing its work while effects are disabled; target timing for
 that behavior has not been measured.
 Generic emulator boot, panel, and audio-callback checks do not qualify effects
 audio, controls, or behavior on a physical device.
+Earlier diagnostics using the always-on L6max SAI receive compatibility mode
+observed roughly 188 callbacks per second. The nominal 48 kHz, 64-frame audio
+path requires 750 callbacks per second; those earlier runs therefore do not
+qualify the replacement's workload at nominal cadence. The newer emulator
+switches to regular RX behavior after startup, but that behavior remains an
+emulation model and physical timing is unverified.
 
 Before re-enabling the builder, trace the relevant firmware interfaces against
 the exact supported MAIN image; reserve and initialize state with a documented
