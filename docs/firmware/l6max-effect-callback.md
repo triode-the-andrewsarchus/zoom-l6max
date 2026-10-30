@@ -1934,6 +1934,21 @@ and engine-trace SHA-256 values were
 `0fffffdd6a88f08f4f85d0d34cdd87a7f033b0ee5595635b287a337f73127f94`, and
 `7e0a14d0b12a4cdaac9793fcb23f865f29ee4c28fe516352fcc14e2945c1c88b`.
 
+A subsequent active-sends ten-edit diagnostic used the same rebuilt QEMU with
+the corrected DMA trace enabled. In each of the 22 one-second windows ending
+at guest times 52 through 73 seconds, channel 15 recorded 750 assertions and
+750 clears, with the pending bit set at each snapshot. The inspector did not
+open, Room remained selected, and the callback reported finite nonzero output.
+This run does not show an excess modeled assertion count; the pending snapshot,
+interrupt latency, trace overhead and physical behavior remain unqualified.
+Its diagnostic MAIN, ELF, recipe, result and engine trace SHA-256 values were
+`29b4622ca63d167c0ffadbc8acaa1a6549e1ac4266a75ec7bd2133099429cf20`,
+`ce91af2f1da9701eee69206583b02fe24255978286cbe91f8e7a8f4e3d646c81`,
+`ca95bc00981d603002de5cc25f2a7a860cc860b1f1c740859831eb05f636f1e9`,
+`f4ff90266f0b3c0fdc2f2526ee2baceb2e72fb3d7d2fe08b94e518f37af33ae2`, and
+`bbc83c3a2cd1f1eaeec60f0c649ffed2617ed711f8cc5aaf92499f90a4fbed49`.
+The stock MAIN, initial NOR and QEMU identities match the preceding trace run.
+
 An uncommitted experiment used 8,192-sample power-of-two Velvet histories,
 retaining the 4,802-sample logical delay and silence window. It increased the
 two Velvet instances' state by 54,240 bytes. Host output over 100,000 frames
