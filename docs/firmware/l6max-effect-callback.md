@@ -1579,6 +1579,26 @@ The MAIN, ELF, recipe and result SHA-256 were
 `8bcc97922ae216b71c954932d0044fcd0b1bed9bcecc54fdfff035472e25c479`, and
 `2f5cf8740767673375e9b5e8e12695243bed10e0ad93386df661800654b7b7d1`.
 
+Matched diagnostic time series then sampled this receive ring at 14 points in
+the same button sequence. With active synthetic sends, its read index stayed
+at 1,013 from guest time 51.760 to 75.894 seconds while pending bytes rose
+from 5 to 147; the inspector did not open. With the effect DSP bypassed, the
+read index advanced from 1,068 to 1,680, pending bytes were zero at every
+sample, the ten bank edits were observed, and the next selection reached
+Spring. Both had the IRQ timestamp hook and additional QMP memory reads; these
+single instrumented emulator runs show a workload-dependent receive-consumer
+stall, not its precise cause or physical-device timing. The active MAIN, ELF,
+recipe and result hashes were
+`d1660198e0bc1f9e06b7c4cc05420215d94a28b95dc99713c074a24612cc40a2`,
+`6b441d121c3234a6f0666464d7918ca95419ccad6d8eed0a7c17ac02dbffe6b6`,
+`252c7508880a016491a29ccae5cec801fbaec4323c57ba97c268568ec86aa7fb`, and
+`f7f8d23486442001442148da000318a57d33a955829e46efaa930dccc17bfc88`.
+The bypass-control hashes in the same order were
+`71f3642359bee6ef9e8eebb1d2ae3f99283d15ef3cc0fe8b30016a36ab2c39db`,
+`97c806ccb546c7f63ca4db6a66bd7697147b5161727f6ab6d955d9fe28688187`,
+`290b741d543dc9f3b5d84260ff5ad4cc3b3f39c226dbd272d986e11e3e57da5a`, and
+`2e0583319b9001816e8a51bfe9e4df2af87183a1cd5aa246af98135de3f566f4`.
+
 The tap loop now checks the range first and uses an out-of-line modulo only
 for out-of-range delays. Cortex-M7 disassembly confirmed that valid delays
 branch around the divide; the first inline version had not done so. A host
