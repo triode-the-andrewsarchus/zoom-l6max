@@ -428,6 +428,24 @@ and log hashes were
 `cae714e747a8385585ddf1d7b96bc1b7a1601fb1b7e537520a3fabfce4d2c4e3`, and
 `d6d2f8f99b7b515d757a34675652c51a5284b819e01c516bdaf01874d1bbee39`.
 
+With the address-preserving counter stub active, a separate two-press capture
+found destination `0x805c5960` stuck at `0.8528857827186584`; the control
+stream ranged from `0.0018903589807450771` to `0.12098302692174911` and
+was identical at both observations. A further address-preserving stub copied
+the stream's last element to the destination once per callback. With that
+change, all six EFX SEL presses advanced through the same callback sequence
+as stock in this QEMU fixture. This demonstrates a necessary callback side
+effect for that test, but does not establish click-free audio or hardware
+timing. The stuck-stream recipe and result hashes were
+`ed343ef00a995143cc3f8d0dd7676a77ea775a682b284ffc4f352d3d3642c6d7` and
+`0913e5c6de1951534caff14ad86895ac2ca5bfa7e7ccc80b43a339dbab531c59`.
+The last-element-copy source, ELF, MAIN, recipe and result hashes were
+`1640606456edb80662c1bffe0125bc632f3c153680809a07d33eea8692b89e1e`,
+`dade384975992ce728d64f14690c60ae4da0dc294dc1b1d538f63d15d105bc61`,
+`b0a0a1b0dc1c66892e7a2e9f86f32759c001fc6b8c989f450ec97d6841448860`,
+`4cfe44e82e479dea70e17a413da207118c4a0a8066443fa2f60f6a7787ef681d`, and
+`d3add41f965a11df827a737775045bd21cd8087d476a76c39fe83263d388304b`.
+
 ## Task and memory observations
 
 In a separate disposable stock-emulator run after 45 guest seconds, debugger
