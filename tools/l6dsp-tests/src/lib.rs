@@ -961,6 +961,35 @@ mod tests {
     }
 
     #[test]
+    fn stereo_send_preserves_quiet_cascade() {
+        let mut off = Box::new(routing::DualEfxProcessor::new());
+        let mut quiet = Box::new(routing::DualEfxProcessor::new());
+        off.init();
+        quiet.init();
+        off.cascade_gain = 0.0;
+        quiet.cascade_gain = 0.0001;
+        off.return_gain_a = 0.0;
+        quiet.return_gain_a = 0.0;
+        let mut input = [0.0; 64];
+        input[0] = 1.0;
+        let mut peak_difference = 0.0f32;
+        for _ in 0..400 {
+            let mut off_l = [0.0; 64];
+            let mut off_r = [0.0; 64];
+            let mut quiet_l = [0.0; 64];
+            let mut quiet_r = [0.0; 64];
+            off.process_stereo_send(&input, &input, &mut off_l, &mut off_r, true, true);
+            quiet.process_stereo_send(&input, &input, &mut quiet_l, &mut quiet_r, true, true);
+            for i in 0..64 {
+                peak_difference = peak_difference.max((quiet_l[i] - off_l[i]).abs())
+                    .max((quiet_r[i] - off_r[i]).abs());
+            }
+            input[0] = 0.0;
+        }
+        assert!(peak_difference > 1e-9, "quiet cascade was lost: {peak_difference}");
+    }
+
+    #[test]
     fn reverb_tail_continues_after_send_is_closed() {
         let mut processor = Box::new(routing::DualEfxProcessor::new());
         processor.init();
