@@ -215,6 +215,34 @@ mod tests {
     }
 
     #[test]
+    fn velvet_reset_applies_latest_filter_after_edits() {
+        for settle in [false, true] {
+            let mut edited = velvet::VelvetDecorrelator::new();
+            let mut reference = velvet::VelvetDecorrelator::new();
+            let mut params = velvet::Parameters::default();
+            params.dynamic = false;
+            params.transition_ms = 1.0;
+            edited.init(params);
+            params.density = 500.0;
+            edited.set_parameters(params);
+            if settle {
+                for _ in 0..100 { edited.process_sample(0.0, 0.0); }
+            }
+            edited.reset();
+            reference.init(params);
+            let mut peak = 0.0f32;
+            for i in 0..2000 {
+                let input = if i == 0 { 0.5 } else { 0.0 };
+                let actual = edited.process_sample(input, input);
+                let expected = reference.process_sample(input, input);
+                peak = peak.max(expected.0.abs()).max(expected.1.abs());
+                assert_eq!(actual, expected, "settled={settle}, frame={i}");
+            }
+            assert!(peak > 0.001);
+        }
+    }
+
+    #[test]
     fn plateau_predelay_delays_impulse_by_requested_samples() {
         let mut immediate = plateau::PlateauReverb::new();
         let mut delayed = plateau::PlateauReverb::new();
