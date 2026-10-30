@@ -2483,6 +2483,53 @@ recipe `7424a9cc7007b87ddee181c5e15108b08f5a6ed730220ba1147c116f825e91b3`,
 diagnostic JSON `fcf314368dfd497ade08f8b07b95d286a84bb57e866fbf828ff9bd16de00792b`,
 and engine trace `604fdbeeb0f30243c9719ce3196b7e90836d52390cb2e4d23e586b41aba81435`.
 
+### Automatic AINR handoff experiment
+
+The diagnostic probe can now capture the selected stock AINR state without a
+debugger and install three copies before publishing the replacement callback.
+This is an experiment, not a firmware implementation: it hooks a revision-specific
+veneer, uses unowned scratch locations and erased flash, retains 128 KiB from
+the stock heap, and copies that state in an audio callback. Its 10,000-tick
+delay after observing the learned flag is empirical, not an established
+learning deadline. An earlier immediate capture produced unchanged synthetic
+samples in the observed blocks; the reason is not established.
+
+In one delayed-capture QEMU run, the free-heap observation fell from 160,008
+to 28,920 bytes. Three recorded 64-sample blocks differed from their synthetic
+inputs in 64, 64 and 62 samples respectively, but this does not establish
+noise-reduction quality. The callback counter advanced 2,290 times in five
+guest seconds, below the nominal 750 callbacks per second. A separate forced
+allocation-failure build recorded failure, did not capture or invoke the AINR
+copies, and produced zero diagnostic output; this is not a qualified fallback.
+In a further run, one reset gesture cleared both the stock learned flag and
+the capture status; a subsequent learn gesture produced a new capture which
+was installed before effect selection. This exercises one sequence, not all
+reset, interruption, or concurrency cases. Its modified recipe and result
+hashes were
+`dff474839f8572b953b150a185acd3bf51a85a1d22a0382d097e5a2f53b2b81c` and
+`b87bbf08e5128aa64615f916ae88e2fe0ee8ff3db2fbcf58ede7903fc4b284a6`.
+Target timing, memory ownership, callback lifetime and physical output remain
+unverified. The production builder remains disabled.
+
+Both runs used stock MAIN SHA-256
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+initial NOR SHA-256
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+and QEMU executable SHA-256
+`53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`
+with unattested source provenance. The successful run's diagnostic MAIN,
+ELF, recipe and result hashes were respectively
+`2ba4b923ce869ae0b1509a8275e108ac9199f5083fce050b039324bd453464b0`,
+`cd417bcce60f049470a7b5d607213d61a65fda45144021d0f5b5464d8fe53f3a`,
+`db04bc8d7e486a05158f859c2fef371c84b0367a12cd1e8265eb1f5357c3cb7c`, and
+`10088d151d065c11b447b149467a5be3b9ead8c586081aba0ed2d7478669dd9e`.
+The forced-failure build's corresponding hashes were
+`12082c8502348272e959d3aabe4391075b27670d2679cf5f0e292c3cb062802e`,
+`410d24c08b63955def4eb9cdd0e319895b154711b727e37a223cac3184e9f379`,
+`dc2e8f1f69c4e99f20d4179e35b46c6726f9f5034b66725df5360b1669dbde47`, and
+`2e54ed34b9c458431cccac2cfe1bb6f17025b5e3b18f32865b98dad366f10ba0`.
+All firmware and runtime artifacts remain local.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:

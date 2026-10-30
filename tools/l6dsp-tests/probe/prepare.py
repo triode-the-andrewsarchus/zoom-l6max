@@ -32,6 +32,7 @@ parser.add_argument("--timing-control", action="store_true", help="bypass effect
 parser.add_argument("--active-sends", action="store_true", help="inject nonzero QEMU-only effect buses")
 parser.add_argument("--pre-ainr", action="store_true", help="run a debugger-installed AINR copy on each test send")
 parser.add_argument("--effect-buffer", action="store_true", help="place test states in the observed stock effect buffer")
+parser.add_argument("--auto-handoff", action="store_true", help="capture and restore AINR state inside the QEMU guest")
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
 parser.add_argument("--bank-stress-count", type=int, default=10, help="number of bank changes (1..64)")
 args = parser.parse_args()
@@ -60,6 +61,8 @@ if args.pre_ainr and (not args.active_sends or not args.inspector or args.bank_s
     parser.error("--pre-ainr requires --inspector --active-sends and no other trace or stress options")
 if args.effect_buffer and not args.pre_ainr:
     parser.error("--effect-buffer requires --pre-ainr")
+if args.auto_handoff and not args.effect_buffer:
+    parser.error("--auto-handoff requires --effect-buffer")
 if args.bank_stress and not args.inspector:
     parser.error("--bank-stress requires --inspector")
 if not 1 <= args.bank_stress_count <= 64 or (args.bank_stress_count != 10 and not args.bank_stress):
@@ -99,6 +102,8 @@ if args.pre_ainr:
     rustc += ["--cfg", "pre_ainr_probe"]
 if args.effect_buffer:
     rustc += ["--cfg", "effect_buffer_probe"]
+if args.auto_handoff:
+    rustc += ["--cfg", "auto_handoff_probe"]
 subprocess.run(rustc, cwd=ROOT, check=True)
 subprocess.run(["llvm-objcopy", "-O", "binary", str(elf), str(blob)], check=True)
 payload = blob.read_bytes()
@@ -127,6 +132,16 @@ if args.inspector:
         if image[offset:offset + 4] != bytes.fromhex("dbf73ffd") or "inspector_enqueue" not in symbols:
             raise ValueError("panel enqueue call site or symbol mismatch")
         image[offset:offset + 4] = branch(0x80000000 + offset, symbols["inspector_enqueue"])
+if args.auto_handoff:
+    import struct
+    matches = [line.split() for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines()
+               if line.endswith(" ainr_capture")]
+    if len(matches) != 1 or image[0x104de4:0x104dee] != bytes.fromhex("40f2817cc0f2000c6047"):
+        raise ValueError("stock AINR veneer or capture symbol mismatch")
+    target = int(matches[0][0], 16) | 1
+    if not 0x80108001 <= target < 0x80130000:
+        raise ValueError("AINR capture target is outside diagnostic payload")
+    image[0x104de4:0x104dee] = bytes.fromhex("dff800f0") + struct.pack('<I', target) + bytes.fromhex("00bf")
 image.extend(b"\xff" * (0x108000 - len(image)))
 image.extend(payload)
 if args.effect_buffer:
@@ -293,21 +308,25 @@ wall_timeout_s = 300
         memory("active_spring", 0x202a6f20, 4)
     memory("selected_after_close", 0x83e00004, 4)
 if args.pre_ainr:
-    # The observer installs learned AINR copies while this recipe is stopped
-    # at the stock AINR call after the snapshot.
+    # The observer or auto-handoff prototype installs learned AINR copies.
     recipe = f'''version = 1
 model = "l6max"
 main_sha256 = "{image_sha}"
 wall_timeout_s = 420
 '''
     wait(45000)
+    if args.auto_handoff:
+        memory("heap_before", 0x8020ab1c, 4)
     for _ in range(5):
         add("press", target=40, hold_ms=150)
         wait(3000)
     memory("ainr_selected", 0x202a6f20, 4)
     add("press", target=48, hold_ms=150)
-    wait(14000)
+    wait(16000 if args.auto_handoff else 14000)
     memory("learned", 0x8046300c, 4)
+    if args.auto_handoff:
+        memory("handoff_learned", 0x83e03100, 28)
+        memory("heap_learned", 0x8020ab1c, 4)
     add("snapshot", name="learned_ready")
     wait(3000)
     for _ in range(2):
@@ -315,15 +334,23 @@ wall_timeout_s = 420
         wait(3000)
     wait(2000)
     memory("selected", 0x83e00000, 12)
+    if args.auto_handoff:
+        memory("handoff_selected", 0x83e03100, 28)
+        memory("heap_selected", 0x8020ab1c, 4)
     memory("ainr_sends_1", 0x83e03000, 28)
     wait(5000)
     memory("ainr_sends_2", 0x83e03000, 28)
+    if args.auto_handoff:
+        memory("ainr_all_sends", 0x83e01000, 768)
+        for index in range(3):
+            memory(f"clone_{index}_descriptor", 0x80d5ba0c + index * 0x20000, 132)
     memory("output", 0x83e00800, 16)
 (out / "recipe.toml").write_text(recipe)
 if args.pre_ainr:
     metadata = {"stock_main_sha256": MAIN_SHA, "diagnostic_main_sha256": image_sha,
                 "recipe_sha256": hashlib.sha256(recipe.encode()).hexdigest(),
-                "layout": "effect-buffer" if args.effect_buffer else "scratch"}
+                "layout": "effect-buffer" if args.effect_buffer else "scratch",
+                "auto_handoff": args.auto_handoff}
     if args.effect_buffer:
         matches = [line.split() for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines()
                    if line.endswith(" diagnostic_audio")]
@@ -341,8 +368,8 @@ command = [
     "--firmware-dir", str(firmware), "--state-dir", str(state), "--logs", str(out / "logs"),
     "--qemu", "QEMU_PATH",
 ]
-if args.pre_ainr:
+if args.pre_ainr and not args.auto_handoff:
     command += ["--gdb-socket", str(out / "gdb.sock")]
 print("Run: " + shlex.join(command))
-if args.pre_ainr:
+if args.pre_ainr and not args.auto_handoff:
     print("Observer: " + shlex.join(["python3", str(PROBE / "pre_ainr_observer.py"), str(args.firmware), str(out)]))

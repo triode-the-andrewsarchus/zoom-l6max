@@ -23,14 +23,20 @@ mod parameters;
 mod inspector;
 #[cfg(irq_trace)]
 mod irq;
+#[cfg(auto_handoff_probe)]
+mod auto_handoff;
 #[cfg(effect_buffer_probe)]
 const _: () = assert!(core::mem::size_of::<routing::DualEfxProcessor>() <= 0x50000);
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".text.probe")]
 pub unsafe extern "C" fn probe(entry: *mut u32) {
+    #[cfg(auto_handoff_probe)]
+    unsafe { auto_handoff::disable(); }
     let clear: unsafe extern "C" fn() = unsafe { core::mem::transmute(0x80024679usize) };
     unsafe { clear() };
     if entry as usize == 0x2028b8dc || entry as usize == 0x2028b8f8 {
+        #[cfg(auto_handoff_probe)]
+        unsafe { auto_handoff::allocate(); }
         let storage =
             unsafe { &mut *(0x80d00000 as *mut core::mem::MaybeUninit<routing::DualEfxProcessor>) };
         routing::DualEfxProcessor::initialize_in_place(storage);
@@ -57,6 +63,8 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
                 core::ptr::write_volatile(0x83e00808 as *mut u32, 0);
                 core::ptr::write_volatile(0x83e0080c as *mut u32, 0);
             }
+            #[cfg(auto_handoff_probe)]
+            auto_handoff::install();
             // Prevent the copied stock effect-specific post-callback routine from
             // touching the diagnostic state after callback publication.
             core::ptr::write_volatile(0x202a6f28 as *mut u32, 0);
@@ -67,8 +75,17 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
 // QEMU-only helpers. The observer sets this marker only after copying all
 // three guarded code and state regions into disposable emulator scratch.
 #[cfg(pre_ainr_probe)]
+#[inline(always)]
+fn pre_ainr_ready() -> bool {
+    #[cfg(auto_handoff_probe)]
+    { auto_handoff::ready() }
+    #[cfg(not(auto_handoff_probe))]
+    { unsafe { core::ptr::read_volatile(0x83e00144 as *const u32) == 0x41494e52 } }
+}
+
+#[cfg(pre_ainr_probe)]
 fn synthetic_pre_ainr_sends(sends: &mut [[f32; 64]; 3]) {
-    let active = unsafe { core::ptr::read_volatile(0x83e00144 as *const u32) } == 0x41494e52;
+    let active = pre_ainr_ready();
     const WAVE: [f32; 16] = [0.0, 0.25, 0.5, 0.75, 1.0, 0.75, 0.5, 0.25,
                               0.0, -0.25, -0.5, -0.75, -1.0, -0.75, -0.5, -0.25];
     for i in 0..64 {
@@ -80,7 +97,7 @@ fn synthetic_pre_ainr_sends(sends: &mut [[f32; 64]; 3]) {
 
 #[cfg(pre_ainr_probe)]
 fn process_pre_ainr_sends(sends: &mut [[f32; 64]; 3]) {
-    if unsafe { core::ptr::read_volatile(0x83e00144 as *const u32) } != 0x41494e52 { return; }
+    if !pre_ainr_ready() { return; }
     for bus in 0..3 {
         let before = sends[bus][63];
         #[cfg(not(effect_buffer_probe))]
