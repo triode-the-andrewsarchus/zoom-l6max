@@ -1,7 +1,8 @@
 //! Velvet Noise Decorrelator (VND) DSP Engine
 //!
 //! Ported and adapted from 115dkk/Velvet-Noise-Decorrelator-VST3 for bare-metal
-//! ARM Cortex-M7 (NXP i.MX RT1040/RT1041 on Zoom LiveTrak L6max).
+//! ARM Cortex-M7 target for Zoom LiveTrak L6max. The physical processor
+//! model has not been identified.
 //!
 //! Generates a sparse, unit-energy FIR sequence of pseudo-random impulses
 //! to decorrelate stereo audio channels without comb filtering or transient smearing.
