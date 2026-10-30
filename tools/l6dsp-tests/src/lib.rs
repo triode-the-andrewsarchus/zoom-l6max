@@ -663,6 +663,18 @@ mod tests {
         let before = processor.channel_routing;
         processor.set_strip_routing(8, routing::RoutingMode::SendA);
         assert_eq!(processor.channel_routing, before);
+        assert_eq!(processor.cycle_strip_routing(8, 1), None);
+        for (strip, slots) in expected.iter().enumerate() {
+            processor.set_strip_routing(strip, routing::RoutingMode::Neither);
+            for mode in [routing::RoutingMode::SendA, routing::RoutingMode::SendB,
+                         routing::RoutingMode::SendAtoB, routing::RoutingMode::Neither] {
+                assert_eq!(processor.cycle_strip_routing(strip, 1), Some(mode));
+                for &slot in *slots { assert_eq!(processor.channel_routing[slot], mode); }
+            }
+            assert_eq!(processor.cycle_strip_routing(strip, -1), Some(routing::RoutingMode::SendAtoB));
+            assert_eq!(processor.cycle_strip_routing(strip, i32::MIN), Some(routing::RoutingMode::SendAtoB));
+            assert_eq!(processor.cycle_strip_routing(strip, i32::MAX), Some(routing::RoutingMode::SendB));
+        }
     }
 
     #[test]
