@@ -50,4 +50,7 @@ and the third word is the callback count, which should be nonzero. This
 diagnostic replaces the selected stock callback and uses its effect buffer;
 it processes only the already-summed stereo bus. It does not implement or
 validate channel routing, effect controls, UI, synchronization, real-time
-deadlines, or hardware safety. Never install the generated image.
+deadlines, or hardware safety. In a separate six-press test, this diagnostic
+remained on its first custom selection after later EFX SEL presses; see the
+[investigation](../../../docs/firmware/l6max-effect-callback.md). Never install
+the generated image.
