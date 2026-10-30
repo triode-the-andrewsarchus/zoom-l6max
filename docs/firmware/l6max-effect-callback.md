@@ -583,6 +583,31 @@ probe ELF, modified MAIN, recipe and result hashes were
 
 ## Task and memory observations
 
+The Velvet bank builder now spreads generation and normalization across audio
+frames rather than generating a whole bank at transition completion. An edited
+bank remains inactive until both channels are complete; the maximum 64-tap
+bank takes 128 frames to prepare. This adds state to the DSP to bound the
+construction work per frame. On the host, a 30,000-frame dynamic sequence
+without parameter edits matched the preceding implementation bit-for-bit;
+both output byte streams hashed to
+`7c23a4d8d3e598a7c3034c13b5c9944746a32375e77136185b74dfea0e959584`.
+Host tests also cover a replacement edit while a bank is being prepared and
+check that no more than one tap per channel changes in each preparation step.
+These checks do not establish the maximum execution time of a frame or the
+combined effects on the physical processor.
+
+The QEMU-only callback diagnostic rebuilt with this change retained the
+expected six-selection progression: the first two selections called the
+diagnostic callback 585 and 586 times, followed by stock callback pointers
+`0x8002c041`, `0x20280781`, `0x20280021`, and `0x20281649`. The input MAIN,
+NOR and QEMU identities are those recorded below. The diagnostic ELF, MAIN,
+recipe and result hashes were
+`8171c0c1c2a52427c94e8bfc7b4dbe45fbf482938752baa609edc0dc9cbaff3c`,
+`9fbfd787eca4ae599cf068982200b94728e64ffe49d19eb3ae53bb7e6ad0fef4`,
+`23848ff05a147e23a328be23cd0abdc3bba1c991a7251f35af7000cb7060e15c`, and
+`4bc3f1dac05f1cba215a3c5bf046ed4959ee077c17e1e37d4ff46fdc011fda8f`.
+This run did not test live parameter edits or qualify hardware timing.
+
 In a separate disposable stock-emulator run after 45 guest seconds, debugger
 stops at both `0x20228b08` (the candidate accumulation loop) and
 `0x20280248` (the effect callback) reported the same current task,

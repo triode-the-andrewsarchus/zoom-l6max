@@ -243,6 +243,46 @@ mod tests {
     }
 
     #[test]
+    fn velvet_builds_pending_filter_without_exposing_partial_taps() {
+        let mut edited = velvet::VelvetDecorrelator::new();
+        let mut reference = velvet::VelvetDecorrelator::new();
+        let mut params = velvet::Parameters::default();
+        params.dynamic = false;
+        params.transition_ms = 1.0;
+        edited.init(params);
+        reference.init(params);
+        params.length_ms = 95.0;
+        params.density = 3000.0;
+        edited.set_parameters(params);
+
+        // A maximum-size bank needs time to prepare. Until it is ready the
+        // old filter must produce the same output as an unedited instance.
+        for i in 0..100 {
+            let before = [edited.channels[0].banks[edited.pending_bank],
+                          edited.channels[1].banks[edited.pending_bank]];
+            let input = (i as f32 * 0.13).sin() * 0.1;
+            assert_eq!(edited.process_sample(input, input), reference.process_sample(input, input));
+            assert!(!edited.transitioning);
+            for c in 0..2 {
+                let after = &edited.channels[c].banks[edited.pending_bank];
+                let changed = before[c].storage.iter().zip(after.storage.iter())
+                    .filter(|(a, b)| a.delay != b.delay || a.gain.to_bits() != b.gain.to_bits())
+                    .count();
+                assert!(changed <= 1, "frame {i}, channel {c}: {changed} taps changed");
+            }
+        }
+
+        // A newer edit replaces a bank still being built.
+        params.density = 200.0;
+        edited.set_parameters(params);
+        for _ in 0..500 { edited.process_sample(0.0, 0.0); }
+        assert!(!edited.transitioning);
+        assert!(!edited.filter_update_pending);
+        assert_eq!(edited.channels[0].banks[edited.active_bank].count, 19);
+        assert_eq!(edited.channels[1].banks[edited.active_bank].count, 19);
+    }
+
+    #[test]
     fn plateau_predelay_delays_impulse_by_requested_samples() {
         let mut immediate = plateau::PlateauReverb::new();
         let mut delayed = plateau::PlateauReverb::new();

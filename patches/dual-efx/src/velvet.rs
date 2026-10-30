@@ -45,6 +45,32 @@ pub struct Channel {
     pub banks: [Bank; 2],
 }
 
+// One step writes or normalizes one tap per channel. The pending bank is never
+// exposed to convolution until both channels have been completely built.
+struct BankBuild {
+    bank: usize,
+    count: usize,
+    index: usize,
+    tail: usize,
+    phase: u8, // 0 = ready, 1 = generate, 2 = normalize
+    random: [u64; 2],
+    previous: [u32; 2],
+    energy: [f32; 2],
+    scale: [f32; 2],
+    grid: f32,
+    decay_db: f32,
+}
+
+impl BankBuild {
+    const fn new() -> Self {
+        Self {
+            bank: 0, count: 0, index: 0, tail: 0, phase: 0,
+            random: [0; 2], previous: [0; 2], energy: [0.0; 2],
+            scale: [0.0; 2], grid: 0.0, decay_db: 0.0,
+        }
+    }
+}
+
 impl Channel {
     pub const fn new() -> Self {
         Self {
@@ -121,6 +147,7 @@ pub struct VelvetDecorrelator {
     // A filter edit during a crossfade is applied after that crossfade ends.
     pub filter_update_pending: bool,
     pub active_transition_samples: usize,
+    build: BankBuild,
 }
 
 impl VelvetDecorrelator {
@@ -148,6 +175,7 @@ impl VelvetDecorrelator {
             transitioning: false,
             filter_update_pending: false,
             active_transition_samples: 12000,
+            build: BankBuild::new(),
         }
     }
 
@@ -194,13 +222,9 @@ impl VelvetDecorrelator {
             if self.transitioning {
                 self.filter_update_pending = true;
             } else {
-                for c in 0..2 {
-                    self.generate_bank(c, self.pending_bank, self.generation);
-                }
+                self.start_build(self.pending_bank, self.generation);
                 self.generation = self.generation.wrapping_add(1);
-                self.transitioning = true;
-                self.transition_position = 0;
-                self.active_transition_samples = self.transition_samples;
+                self.filter_update_pending = true;
             }
         }
     }
@@ -208,9 +232,13 @@ impl VelvetDecorrelator {
     /// Clears history and rebuilds both banks for the current parameters.
     /// Bank generation is not suitable for a real-time audio callback.
     pub fn reset(&mut self) {
-        for c in 0..2 {
-            self.generate_bank(c, 0, 0);
-            self.generate_bank(c, 1, 1);
+        self.start_build(0, 0);
+        while self.build.phase != 0 {
+            self.build_step();
+        }
+        self.start_build(1, 1);
+        while self.build.phase != 0 {
+            self.build_step();
         }
         self.generation = 2;
         for ch in &mut self.channels {
@@ -226,64 +254,75 @@ impl VelvetDecorrelator {
         self.active_transition_samples = self.transition_samples;
     }
 
-    /// Generates a sparse impulse train into `channel.banks[bank_index]`.
-    fn generate_bank(&mut self, channel_index: usize, bank_index: usize, bank_gen: u64) {
-        let seconds = self.current.length_ms / 1000.0;
-        let mut count = (seconds * self.current.density + 0.5) as usize;
-        if count < 2 {
-            count = 2;
-        }
-        if count > MAX_TAPS {
-            count = MAX_TAPS;
-        }
-        if count > self.current_tail_samples + 1 {
-            count = self.current_tail_samples + 1;
-        }
-
-        let mut random = mixed_seed(self.current.seed, channel_index as u64, bank_gen);
-        let mut previous: u32 = 0;
-        let mut energy = 0.0f32;
-        let grid = self.current_tail_samples as f32 / (count - 1) as f32;
-
-        let bank = &mut self.channels[channel_index].banks[bank_index];
-        bank.count = count;
-
-        for i in 0..count {
-            let centre = grid * (i as f32 + 0.5);
-            let jitter = uniform_signed(&mut random) * grid * 0.45;
-            let lower = previous + if i == 0 { 0 } else { 1 };
-            let upper = (self.current_tail_samples - (count - 1 - i)) as u32;
-            let proposed = (centre + jitter + 0.5) as i32;
-            let delay = if proposed < lower as i32 {
-                lower
-            } else if proposed > upper as i32 {
-                upper
-            } else {
-                proposed as u32
-            };
-            previous = delay;
-
-            let progress = delay as f32 / self.current_tail_samples as f32;
-            let envelope = pow10(self.current.decay_db * progress / 20.0);
-            let sign = if (splitmix64(&mut random) & 1) != 0 {
-                1.0
-            } else {
-                -1.0
-            };
-            let gain = sign * envelope;
-
-            bank.storage[i] = Tap { delay, gain };
-            energy += gain * gain;
-        }
-
-        let scale = if energy > 1e-12 {
-            1.0 / sqrt(energy)
-        } else {
-            1.0
+    fn start_build(&mut self, bank: usize, generation: u64) {
+        let count = clamp_usize(
+            (self.current.length_ms / 1000.0 * self.current.density + 0.5) as usize,
+            2,
+            MAX_TAPS.min(self.current_tail_samples + 1),
+        );
+        self.build = BankBuild {
+            bank, count, index: 0, tail: self.current_tail_samples, phase: 1,
+            random: [mixed_seed(self.current.seed, 0, generation),
+                     mixed_seed(self.current.seed, 1, generation)],
+            previous: [0; 2], energy: [0.0; 2], scale: [0.0; 2],
+            grid: self.current_tail_samples as f32 / (count - 1) as f32,
+            decay_db: self.current.decay_db,
         };
+        for channel in &mut self.channels {
+            channel.banks[bank].count = count;
+        }
+    }
 
-        for i in 0..count {
-            bank.storage[i].gain *= scale;
+    // Bounded work: at most one tap per channel, including normalization.
+    fn build_step(&mut self) {
+        let build = &mut self.build;
+        let i = build.index;
+        if build.phase == 1 {
+            for c in 0..2 {
+                let centre = build.grid * (i as f32 + 0.5);
+                let jitter = uniform_signed(&mut build.random[c]) * build.grid * 0.45;
+                let lower = build.previous[c] + if i == 0 { 0 } else { 1 };
+                let upper = (build.tail - (build.count - 1 - i)) as u32;
+                let proposed = (centre + jitter + 0.5) as i32;
+                let delay = if proposed < lower as i32 {
+                    lower
+                } else if proposed > upper as i32 {
+                    upper
+                } else {
+                    proposed as u32
+                };
+                build.previous[c] = delay;
+                let progress = delay as f32 / build.tail as f32;
+                let envelope = pow10(build.decay_db * progress / 20.0);
+                let sign = if splitmix64(&mut build.random[c]) & 1 != 0 {
+                    1.0
+                } else {
+                    -1.0
+                };
+                let gain = sign * envelope;
+                self.channels[c].banks[build.bank].storage[i] = Tap { delay, gain };
+                build.energy[c] += gain * gain;
+            }
+            build.index += 1;
+            if build.index == build.count {
+                for c in 0..2 {
+                    build.scale[c] = if build.energy[c] > 1e-12 {
+                        1.0 / sqrt(build.energy[c])
+                    } else {
+                        1.0
+                    };
+                }
+                build.index = 0;
+                build.phase = 2;
+            }
+        } else if build.phase == 2 {
+            for c in 0..2 {
+                self.channels[c].banks[build.bank].storage[i].gain *= build.scale[c];
+            }
+            build.index += 1;
+            if build.index == build.count {
+                build.phase = 0;
+            }
         }
     }
 
@@ -347,23 +386,33 @@ impl VelvetDecorrelator {
             self.channels[c].write_position = wp;
         }
 
+        self.advance_filter();
+        (outputs[0], outputs[1])
+    }
+
+    // Progress a fade and prepare future taps without exposing a partial bank.
+    fn advance_filter(&mut self) {
         if self.transitioning {
             self.transition_position += 1;
             if self.transition_position >= self.active_transition_samples {
                 self.finish_transition();
             }
-        } else if self.current.dynamic {
-            if self.samples_until_transition > 0 {
+        } else {
+            if self.current.dynamic && self.samples_until_transition > 0 {
                 self.samples_until_transition -= 1;
-                if self.samples_until_transition == 0 {
-                    self.transitioning = true;
-                    self.transition_position = 0;
-                    self.active_transition_samples = self.transition_samples;
-                }
+            }
+            if self.build.phase == 0 && (self.filter_update_pending
+                || (self.current.dynamic && self.samples_until_transition == 0)) {
+                self.filter_update_pending = false;
+                self.transitioning = true;
+                self.transition_position = 0;
+                self.active_transition_samples = self.transition_samples;
             }
         }
 
-        (outputs[0], outputs[1])
+        if self.build.phase != 0 {
+            self.build_step();
+        }
     }
 
     fn finish_transition(&mut self) {
@@ -377,15 +426,8 @@ impl VelvetDecorrelator {
             1
         };
 
-        for c in 0..2 {
-            self.generate_bank(c, self.pending_bank, self.generation);
-        }
+        self.start_build(self.pending_bank, self.generation);
         self.generation = self.generation.wrapping_add(1);
-        if self.filter_update_pending {
-            self.filter_update_pending = false;
-            self.transitioning = true;
-            self.active_transition_samples = self.transition_samples;
-        }
     }
 
     /// Process a block of stereo frames in-place or from buffer.
