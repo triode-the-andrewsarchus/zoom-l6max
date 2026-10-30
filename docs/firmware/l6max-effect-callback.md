@@ -982,6 +982,31 @@ result hashes were
 `754ecb1b4295a6c0092a76c75b1d8f0ae2762802a15c39e3d1b0f103035d32b3`, and
 `4a9683a81223b040675b73ebff7b5916b205da64579ded42c95cbcd98fe8b49f`.
 
+Velvet now tracks the number of nonzero samples in each private delay history
+and skips convolution only while that history is empty. History writes,
+crossfade progress and bank generation continue during silence. Host tests
+exercise the last possible delayed sample and filter advancement through
+silence. Before/after host renders with sustained and intermittent inputs,
+including filter edits and crossfades, matched byte for byte; their output
+hashes were `7f4eb17042484ab744a12f76d1892953a8517fe9bc988b7212bb964cfbacab80`
+and `f9e18d0d3dfe6cfcaf85164bd983d23dc751c0d941b9c77ffa429ea4af3799ac`.
+
+In the silent-input QEMU stress fixture, the enqueue-traced run measured the
+final hold at 1,504 ticks, closed the inspector and selected Spring. An
+untraced repeat also completed the ten bank edits, closed the inspector and
+selected Spring. The traced MAIN, ELF, recipe and result hashes were
+`2d445d9d355d4c70ca078091f302ce6bd47f682035cb84795af27d30c8c9742d`,
+`b9b602347f57bc24ff70326a564e4a6fdae495baede369cbe243780594c532fe`,
+`71fddae4f2e530c7c68cc8162ef19e54f4e34d6f45cac1c4f26ff3762fff4529`, and
+`4bb1dd01e4b1849f9fd87f5ec1e3eaaaa0bd62cf7201f9d8d174cb193f0dd50b`;
+the untraced hashes were
+`b95d650f1697cbfc0efa795ec2f52a4d05950d1438fe4f070b953c24aa3bc906`,
+`f207a47f6223cf82b90b709caa0ff4409b664623beb62092ecd98178f67dab33`,
+`8a5ab776e174a6f2241aa44e6c09623abbace814f3db9216f4175445b908ba39`, and
+`f6fba63bd1eb9248d6c2e00b606490808187481a14d7d8ea00ef46d8ed0c297c`.
+These observations do not qualify responsiveness with nonzero audio, the
+worst-case processing time, or physical hardware.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:

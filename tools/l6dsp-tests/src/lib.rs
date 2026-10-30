@@ -214,17 +214,53 @@ mod tests {
         engine.current.dynamic = false;
         for delay in [1, velvet::MAX_DELAY_SAMPLES as u32 + 1,
             2 * velvet::MAX_DELAY_SAMPLES as u32 + 1, u32::MAX] {
-            engine.channels[0].delay_line.fill(0.0);
-            engine.channels[0].write_position = 5;
+            engine.reset();
             let d = delay as usize % velvet::MAX_DELAY_SAMPLES;
-            let read = (5 + velvet::MAX_DELAY_SAMPLES - d) % velvet::MAX_DELAY_SAMPLES;
-            engine.channels[0].delay_line[read] = 0.25;
             let bank = &mut engine.channels[0].banks[engine.active_bank];
             bank.count = 1;
             bank.storage[0] = velvet::Tap { delay, gain: 0.5 };
+            engine.process_sample(0.25, 0.0);
+            for _ in 1..d { engine.process_sample(0.0, 0.0); }
             let (left, _) = engine.process_sample(0.0, 0.0);
             assert_eq!(left.to_bits(), math::soft_clip(0.125).to_bits(), "delay={delay}");
         }
+    }
+
+    #[test]
+    fn velvet_keeps_the_last_delayed_sample_through_silence() {
+        let mut engine = Box::new(velvet::VelvetDecorrelator::new());
+        engine.init(velvet::Parameters::default());
+        engine.current.dynamic = false;
+        for channel in &mut engine.channels {
+            let bank = &mut channel.banks[engine.active_bank];
+            bank.count = 1;
+            bank.storage[0] = velvet::Tap { delay: (velvet::MAX_DELAY_SAMPLES - 1) as u32, gain: 1.0 };
+        }
+        assert_eq!(engine.process_sample(0.5, -0.5), (0.0, 0.0));
+        for _ in 1..velvet::MAX_DELAY_SAMPLES - 1 {
+            assert_eq!(engine.process_sample(0.0, 0.0), (0.0, 0.0));
+        }
+        let (left, right) = engine.process_sample(0.0, 0.0);
+        assert_eq!(left.to_bits(), math::soft_clip(0.5).to_bits());
+        assert_eq!(right.to_bits(), math::soft_clip(-0.5).to_bits());
+        assert_eq!(engine.process_sample(0.0, 0.0), (0.0, 0.0));
+    }
+
+    #[test]
+    fn velvet_advances_dynamic_filters_during_silence_and_resumes() {
+        let mut engine = Box::new(velvet::VelvetDecorrelator::new());
+        let mut params = velvet::Parameters::default();
+        params.refresh_seconds = 0.1;
+        params.transition_ms = 1.0;
+        engine.init(params);
+        for _ in 0..6_000 { assert_eq!(engine.process_sample(0.0, 0.0), (0.0, 0.0)); }
+        assert!(engine.generation > 2);
+        let mut peak = 0.0f32;
+        for i in 0..velvet::MAX_DELAY_SAMPLES {
+            let (left, right) = engine.process_sample(if i == 0 { 0.5 } else { 0.0 }, 0.0);
+            peak = peak.max(left.abs()).max(right.abs());
+        }
+        assert!(peak > 0.0);
     }
 
     #[test]
