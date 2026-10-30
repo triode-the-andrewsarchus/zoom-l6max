@@ -1624,6 +1624,22 @@ The active/control diagnostic result hashes were
 They used the active/control MAIN and ELF identities in the preceding time
 series and the same stock fixture and QEMU identity recorded above.
 
+For a further QEMU-only intervention, a hash-guarded debugger call to the
+firmware priority-change routine raised the observed `SubMcuRX` task from 27
+to 31 before selecting the diagnostic effect. The task handle and name were
+checked in the recorded before/after snapshots. Under active synthetic sends,
+the enqueue trace then recorded 25 EFX edges, but the interrupt timestamp queue
+still had `(head, tail, overflow) = (25, 0, 0)`, no bank edits were observed,
+and the next short press did not select Spring. The audio callback recorded
+11,404 invocations and finite sampled output. This intervention shows that
+raising the receiver can restore enqueue in this run, but does not restore the
+downstream selector; it also does not validate audio deadlines or make a
+priority change safe on hardware. The modified execution uses debugger calls
+and unowned diagnostic memory. It used the active MAIN and ELF identities
+above; its recipe and result SHA-256 were
+`01b53375b847e6d5bbf1edb45cf9d37f78a988f5ea8f9a3e4c174e7ac3650a82` and
+`2df1ee4ea91408b6ebd2e23f8c31a0b3288a63625785156fa53f9d6da25c2b0f`.
+
 The tap loop now checks the range first and uses an out-of-line modulo only
 for out-of-range delays. Cortex-M7 disassembly confirmed that valid delays
 branch around the divide; the first inline version had not done so. A host
