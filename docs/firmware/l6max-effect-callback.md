@@ -300,6 +300,22 @@ The clear recipe, debugger script and log hashes were
 `1bd3b52f27acadc0759517c5ba8b0cd76cad8b3399e1bd3bd63105835203edcc`, and
 `452d160086fe099db2b9d3a8f6e037cdcd83179d9fe01fa0dd428e937b1bd826`.
 
+Static inspection of this MAIN image also identifies the initializer at
+`0x80056588` writing `0x80d00000`, `0x80dbb800`, and `0x000bb800` into
+the descriptor at `0x8020a3dc`. The clear at `0x80024678` independently
+hardcodes the same start and span. Other stock routines return `0x80dbb800`,
+`0x80e19400`, `0x81570400`, and `0x82241800` at `0x80016630`,
+`0x80016640`, `0x80016650`, and `0x80016660`, respectively; calls to these
+routines occur at `0x8000129c`, `0x800012a2`, `0x80001630`, and
+`0x8000162a`. The initializer at `0x80016670` also writes a sequence of
+addresses starting at `0x80f90400`, spaced by `0x0bc000`, into stock
+structures. These static findings show that the stock memory map extends
+well beyond the low BSS and heap. They do not establish the full extents or
+lifetimes of those regions, all indirect references, the capacity of the
+physical SDRAM, or ownership of any high address. In particular, the old
+claim that `0x83e00000` is safe merely because it is far above the heap is
+unsupported. All addresses here are scoped to this exact MAIN image.
+
 The selection path stores the new callback at `0x202a6f20` at instruction
 `0x202806ca`, before a later effect-specific call. In a separate disposable
 QEMU run, a debugger stopped the `Main` task immediately after that store,
