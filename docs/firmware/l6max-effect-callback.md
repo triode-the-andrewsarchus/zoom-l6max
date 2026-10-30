@@ -1725,6 +1725,25 @@ recipe and result SHA-256 values were
 It used the same stock MAIN, initial NOR, QEMU executable, and two
 instrumentation writes as the preceding high-density run.
 
+A further disposable high-density diagnostic skipped the cascade Velvet
+instance entirely and substituted zero for its output, while retaining the
+first Velvet instance, Plateau, synthetic inputs and the same instrumentation.
+This deliberately removes the cascade and does not implement the requested
+signal path. Its callback counts at the same times were 1,038, 3,492, 5,885
+and 8,278, averaging about 483 per guest second over the 15-second interval.
+The first instance's active bank had 64 taps at the final sample; the skipped
+instance remained at its initial 30. This isolates a much larger reduction in
+work than sharing some of the two instances' convolution bookkeeping, but
+still falls short of the 750-call bypass observation. It is a single modeled
+experiment, not a hardware timing bound or a functioning alternative.
+The diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`6fa2086ccd5dbc71a38988e6a5023b6732c723a386def1071212c80f1a5ec186`,
+`9d66af626ed3aafd94f12e56eab5b394b9f483cad710439d3bff31a546866df6`,
+`a66c34ea9763309e1781e140841a453946c3fea09f322a6485830971157bc750`, and
+`7ff9cd235e1c1211022187de90b1f2ea0644f16382efc94c852ad4b5a662f8ac`.
+The stock MAIN, initial NOR and QEMU executable matched the prior high-density
+experiments.
+
 An uncommitted experiment used 8,192-sample power-of-two Velvet histories,
 retaining the 4,802-sample logical delay and silence window. It increased the
 two Velvet instances' state by 54,240 bytes. Host output over 100,000 frames
