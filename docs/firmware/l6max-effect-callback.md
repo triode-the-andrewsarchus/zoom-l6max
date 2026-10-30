@@ -93,9 +93,17 @@ same style of turns. A follow-up snapshot after turning encoder 1 showed the flo
 setter `0x800118e0` shows it writes this target from the table at `0x800a70c4`
 and combines it with other channel factors before updating the accumulation
 loop's gain. At that observation, the other factor at `0x20016b80` was zero,
-explaining why the effective gain remained zero. The exact semantics of those
-factors and the time-varying gain path still need verification; these
-observations do not yet prove the audio-slot mapping. The follow-up recipe and
+explaining why the effective gain remained zero. In another run, after the
+same EFX encoder adjustment, selecting LEVEL and turning encoder 1 changed
+`0x20016b80` from `0.0` to `4.6415887`; the EFX target remained `1.7782794`
+and the effective gain at `0x20016170` changed from `0.0` to `8.2540417`.
+This establishes that the level control affects that gain in this fixture;
+the observations do not by themselves prove all factor semantics or the
+audio-slot mapping. The time-varying gain path still needs verification. The
+LEVEL follow-up recipe and result SHA-256 values were
+`5c5d9bac1d0a2e283c6c25029a50896bf8e2939175d65701508944370c7a789e` and
+`c8be50908d7eb75ebaabc44a2dc04db172c36289038a4dcaa23088f581381cee`.
+The earlier follow-up recipe and
 result hashes were
 `15d3135943928b47698911c270247b08491df4590af2c30ff1b87b662c26cda7` and
 `d6abd71b20f98528d1efba677366974368f7ade64288c85db3e5ebdce8b029db`.
