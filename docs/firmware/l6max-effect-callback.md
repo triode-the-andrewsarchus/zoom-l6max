@@ -920,6 +920,22 @@ input. Its result hash was
 The driver scenario is therefore unqualified until the missing event or
 readiness condition is explained; increasing delays does not establish a fix.
 
+The GPIO trace now records each L6max button-scanner read separately from
+other reads of the same pin. With QEMU SHA-256
+`66b93d53a35731947169df461eb8170e838ba54f64c4ce1d22149be1e91f549d`
+and the same stock MAIN, prepared NOR and scenario as above, a passing run
+sampled TAP low twice at 63290 and 63312 guest ms; a failing repeat sampled
+it low three times at 63281, 63305 and 63327 ms. The press intervals were
+63272–63322 and 63278–63328 ms respectively. These observations rule out a
+complete absence of low scanner samples in that failed run, but do not prove
+the debounce state, event submission or MAIN dispatch. Tracing can affect
+scheduling. The pass trace and result hashes were
+`eb420a6f1f4e7b408419b2dcd96e49867f940eb2106d52e6fb8f1ff8fd40b005` and
+`5066579a40d5bd38ed3e4f5c222cecd44f57ae148a7725eb3b6529fafe4473b3`;
+the failure trace and result hashes were
+`0e10f0c880634b75ae6cd246bab980352e10e6dea76ae16de061f41319664e46` and
+`2ed7e31847daec6eacc8930f24421a8f9933135ce37a1bbf0b69c028a517f9a6`.
+
 ## QEMU routing controls
 
 On the stock MAIN, a GDB stop at `0x80036f8a` observed the EFX button call
