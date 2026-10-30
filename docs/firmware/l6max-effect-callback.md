@@ -317,6 +317,28 @@ were `0d782d4fea7c3d18371375b35a3d6cb88b1a23f6237fa2ac823a664578cb7003`,
 The stock MAIN, initial NOR, and isolated QEMU identities are those recorded
 above and below; QEMU source provenance remains unattested.
 
+A separate stock-QEMU TCG memory trace watched CPU accesses to
+`0x80d00000..0x80dbb800` during boot and six EFX SEL presses. The recorded
+callback sequence was `0x20280ab9`, `0x20282221`, `0x8002c041`, `0x20280781`,
+`0x20280021`, and `0x20281649`. The trace observed reads and writes in the
+region from several code ranges, including `0x20280bdc`, `0x20282caa`,
+`0x8002c1fe`, and `0x20280890`, as well as repeated writes at `0x80000714`
+during selection. This supports treating the buffer as shared stock effect
+storage across the exercised cycle, rather than durable private state for a
+replacement while other stock effects run. It does not trace DMA, prove all
+callers or lifetimes, or establish that the absence of a CPU access in any
+interval means the region is free. Instrumentation can affect scheduling.
+The plugin source, plugin binary, recipe, trace and diagnostic JSON SHA-256
+values were
+`ab84d643febbbce641f29fde615d838188f26bdaeba80342a7ab00500ff51367`,
+`37acc3b39f8daaaf9e3626bf651c4566c5d5ebd93d2b7ea3b87e7cd11a6932f3`,
+`8314ef439b4a84f8dc5212c7ca8ed14aa65dcfc8d936aadc225a1884cb5b20a4`,
+`a6b20fc164b62494c2949f48adb7feb2aab46250147906977e556b0f167341fa`, and
+`0f2c62ebc8bb7d2c03216ef5565c882f7b56a9d6e22551208fe23b5b32463a09`.
+The stock MAIN and initial NOR were those above. The plugin-enabled QEMU
+executable was `69b2a6775a4cab8d778d2d9b91e41cfedbbaf35788ac1417955f0be66a874afa`,
+with source provenance unattested.
+
 Static inspection of this MAIN image also identifies the initializer at
 `0x80056588` writing `0x80d00000`, `0x80dbb800`, and `0x000bb800` into
 the descriptor at `0x8020a3dc`. The clear at `0x80024678` independently
