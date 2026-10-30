@@ -91,6 +91,22 @@ lifetime. The recipe, debugger script and log SHA-256 values were
 `c15a11de5f22eeb45fd9c2f18b4fc764ea7bc9e5365544b62c47219b820656e6`, and
 `c9a9013fac1397a2a3c4b10b08a52a9420822fbd54a33e9053fc7df65fd5979a`.
 
+In another forced-state stock-QEMU run, all 12 inputs were nonzero, six
+entries used a constant gain and six used the injected per-sample ramp. With
+the other gain forced to unity, the accumulated 64 samples exactly matched the
+sum calculated from those injected values. Between the end of the mixer loop
+and the following effect callback, the input-sample region, the 12 ramp
+descriptors, the forced ramp data, and the summed send were unchanged in that
+observation. The active ramp pointers had advanced by `0x100` bytes. The
+injected ramp was in QEMU-only scratch; actual stock ramp-buffer ownership,
+gain stability at the callback and behavior under real control activity are
+not established. This is evidence for investigating reconstruction at the
+callback, not a validated hardware hook. The recipe, debugger script and log
+SHA-256 values were
+`a5f0e3fe4c0c45087c5bfa6155eef46d585a239c3087d4d9e83a414ad8b8d187`,
+`b10a46032106be9a7eba9ca04d8c0d982682a71c244cac3f5e4eddcf9b3120d1`, and
+`98db8c0ec1a4e11e8e2aea17037a49919c488c718ad0ce565927430df136280b`.
+
 A control-driven attempt set a breakpoint at the ramp branch, then selected
 EFX and LEVEL and turned encoder 1 in each mode. The debugger timed out without
 observing the branch. A separate forced-ramp run did hit that breakpoint, so
