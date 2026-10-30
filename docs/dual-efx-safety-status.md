@@ -23,7 +23,9 @@ The blocking findings for L6max MAIN 1.10
   pre-AINR implementation. The standalone routing processor separates A-only
   and cascaded sends, but is not connected to firmware. Its additional DSP
   state and execution time have not been qualified on the target. The extended
-  UI and patch combinations are incomplete.
+  UI and patch combinations are incomplete. An experimental QEMU callback
+  remained selected after five further EFX SEL presses; the cause is under
+  investigation.
 - Shared mutable state and interrupt masking have not been proven safe. There
   are no measured target deadline, stack, memory-ownership, or output bounds.
   A forced emulator interleaving has shown that audio can reach a newly
