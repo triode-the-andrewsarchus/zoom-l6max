@@ -103,9 +103,19 @@ candidate stock-owned effect buffer, not free patch memory: ownership across
 stock effect switches, reset, DMA, and other users must be traced before any
 reuse. Stock routine `0x80024678` passes the same start and span to a
 zero-fill routine, so its callers and synchronization must be controlled
-before any reuse. The memory recipe and diagnostic SHA-256 values were
+before any reuse. In a separate diagnostic that pressed EFX SEL twice, two
+breakpoints at the clear routine stopped with return address `0x20280677` in
+the stock selection path, active callback `0`, and current task `Main`.
+The earlier audio stops were in `AudioProcess`, so a replacement must account
+for cross-task ownership; observing a null callback alone does not prove an
+in-flight audio callback has completed. The memory recipe and diagnostic
+SHA-256 values were
 `4963ea843249cdc15ea055d11877d41f7025c7a7837dc06166ce71fb4e48bfd8` and
 `a9dba569c1999acc77d0de45699bf01722ff52784d8e293ee2bb649ebc76c3c6`.
+The clear recipe, debugger script and log hashes were
+`b7ba14f1be0d5fcd5e54b5c6b8e0a2524faca0d67cb8b909d874acce990574e5`,
+`1bd3b52f27acadc0759517c5ba8b0cd76cad8b3399e1bd3bd63105835203edcc`, and
+`452d160086fe099db2b9d3a8f6e037cdcd83179d9fe01fa0dd428e937b1bd826`.
 
 ## Task and memory observations
 
