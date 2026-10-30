@@ -115,6 +115,23 @@ The repeat script and log hashes were
 This remains a forced-state observation, not proof of lifetime under real
 gain changes.
 
+A QEMU-only callback prototype then read those candidate inputs and gains at
+the callback and accumulated three separate sends with fixed test routes
+`entry % 4`: A, B, A-to-B, and off. The debugger injected nonzero inputs for
+all entries, with static gains on odd entries and forced ramps in QEMU-only
+scratch on even entries. The callback's 192 accumulated samples exactly
+matched independently computed test values; its returned block was finite,
+bounded and nonzero, peaking at `0.008113457821309566`. This diagnostic
+advanced the control stream before processing the block, rather than proving
+the stock per-frame timing, and did not implement selectable routes or UI.
+Its source, ELF, MAIN, recipe, debugger script and log hashes were
+`5981933d68b0054ec6e391613f4325359fe8f441d71e45b11541b2abb458862b`,
+`42cb755ff494ab216b2203811d640af9e116b54320f86d6642b01ef0deee5bfd`,
+`a5c2aa5960903be516ad441e9140bf8bb895884b8e4014a250d789d3b2d3254b`,
+`66483708859a084264b800597c05d7f9232f52afe99abb6479326d183b7fd513`,
+`a7e42ae3b5fc048ec1773d9d65c840772eb3efd949a79162acac01ac134bcee9`, and
+`9e4d87f8c822ba8085056d7ead50f1f946a256939ead9cfb661737fde4b33371`.
+
 A control-driven attempt set a breakpoint at the ramp branch, then selected
 EFX and LEVEL and turned encoder 1 in each mode. The debugger timed out without
 observing the branch. A separate forced-ramp run did hit that breakpoint, so
