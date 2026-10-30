@@ -883,6 +883,28 @@ the two diagnostic JSON hashes were
 `6cc2b97644f12eb0d60af189d97070f408b2124170aad29f0bcf649b95792403` and
 `f7f0dd91d8f1c9ba01b27b91b1a6599190c9b548055be6614b397307b4af45c2`.
 
+Two further untraced stress runs each switched banks ten times and edited the
+selected bank successfully, but the final 1,500 ms hold did not close the
+inspector. In the second run, the captured UI state showed that hold switched
+the bank, consistent with its being classified as a short press. For the ten
+preceding short presses, the stored firmware press tick minus the panel-input
+trace time ranged from -518 to -504 ms; for the failing hold it was +403 ms.
+This relative shift is consistent with roughly 900 ms of delayed press
+handling, but the two clocks and the upstream delivery path have not been
+qualified. A timestamp taken when the selector task handles a queued event
+therefore cannot yet be assumed to measure the physical hold duration.
+
+Both runs used untraced MAIN
+`effd3707af72987bab4994f87ec6329457069e3bc2b6816e0950f3263ea854d7`.
+Their recipe hashes were
+`4b106d5ba272b5c07bd6fee2e18d53354530e819285d3ebb6ffd632fd16d629a` and
+`03c19f6df589483b5d49739867f3aa0f15795bcea8d61aa57ff223048dbb2a0c`;
+their diagnostic JSON hashes were
+`d79317868466c938e2bf561d859ff7badd3ab48a6442e3efaf1dea2fcd7cc0a7` and
+`9dba807dc7535f86a7a58db76c42730e4d6d575e866ba367bac12fefb5f83129`.
+The second recipe's steps are reproduced by `prepare.py --callback
+--inspector --bank-stress`. Its output is observational, not a passing test.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:

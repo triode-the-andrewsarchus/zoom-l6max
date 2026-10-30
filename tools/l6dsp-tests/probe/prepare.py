@@ -23,6 +23,8 @@ parser.add_argument("output", type=Path, help="new directory under the system te
 parser.add_argument("--callback", action="store_true", help="observe automatic effect callback installation")
 parser.add_argument("--switches", action="store_true", help="observe all six effect selections")
 parser.add_argument("--inspector", action="store_true", help="enable QEMU-only inspector event hooks")
+parser.add_argument("--gesture-trace", action="store_true", help="record selector events (perturbs timing)")
+parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
 args = parser.parse_args()
 if args.switches and not args.callback:
     parser.error("--switches requires --callback")
@@ -30,6 +32,10 @@ if args.inspector and not args.callback:
     parser.error("--inspector requires --callback")
 if args.inspector and args.switches:
     parser.error("--inspector has its own gesture and bank sequence; omit --switches")
+if args.gesture_trace and not args.inspector:
+    parser.error("--gesture-trace requires --inspector")
+if args.bank_stress and not args.inspector:
+    parser.error("--bank-stress requires --inspector")
 out, main, nor = checked_inputs(parser, args.firmware, args.state, args.output)
 
 out.mkdir(parents=True)
@@ -49,6 +55,8 @@ rustc = [
 ]
 if args.inspector:
     rustc += ["--cfg", "inspector_probe"]
+if args.gesture_trace:
+    rustc += ["--cfg", "gesture_trace"]
 subprocess.run(rustc, cwd=ROOT, check=True)
 subprocess.run(["llvm-objcopy", "-O", "binary", str(elf), str(blob)], check=True)
 payload = blob.read_bytes()
@@ -166,6 +174,7 @@ wall_timeout_s = 300
     memory("active_room", 0x202a6f20, 4)
     press(40, 1500)
     memory("room_open", 0x83e00400, 32)
+    stress_prefix = recipe
     add("encoder", channel=1, steps=8)
     wait(3000)
     memory("room_edit", 0x83e00400, 32)
@@ -193,10 +202,28 @@ wall_timeout_s = 300
     wait(3000)
     memory("mixer_after_close", 0x8045ff90, 1)
     memory("after_close", 0x83e00400, 32)
-    memory("gesture_trace", 0x83e00500, 244)
+    if args.gesture_trace:
+        memory("gesture_trace", 0x83e00500, 244)
     press(40)  # Outside the inspector, EFX SEL still selects Spring.
     memory("active_spring", 0x202a6f20, 4)
     memory("selected_after_close", 0x83e00004, 4)
+    if args.bank_stress:
+        recipe = stress_prefix
+        for i in range(10):
+            add("press", target=40, hold_ms=150)
+            wait(500)
+            memory(f"ui_{i}", 0x83e00340, 32)
+            add("encoder", channel=1, steps=1)
+            wait(500)
+            memory(f"edit_{i}", 0x83e00400, 32)
+        press(40, 1500)
+        memory("ui_after_long", 0x83e00340, 32)
+        memory("closed", 0x83e00400, 32)
+        if args.gesture_trace:
+            memory("gesture_trace", 0x83e00500, 244)
+        press(40)
+        memory("ui_after_short", 0x83e00340, 32)
+        memory("selected_after_close", 0x83e00004, 4)
 (out / "recipe.toml").write_text(recipe)
 print(f"Input MAIN SHA-256: {MAIN_SHA}")
 print(f"Input NOR SHA-256: {hashlib.sha256((args.state / 'main-nor.bin').read_bytes()).hexdigest()}")
