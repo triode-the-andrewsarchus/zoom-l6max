@@ -176,6 +176,31 @@ and log hashes were
 `592dba7d12d567f2d506c6b0a699a255e101b5aafec52b2999f424db03eaa89d`, and
 `819a566b00c060198a0bbad22e231b8f305ff37086a1fcdbc612eacde3752fd4`.
 
+The checked-in QEMU-only callback diagnostic now reconstructs the three sends
+from those candidate mixer inputs and uses the routed DSP one frame at a time,
+advancing the stock control stream at each frame. A debugger set two different
+12-slot route patterns through its QEMU-only mailbox and injected nonzero
+sources with alternating fixed and per-frame ramp gains. In both cases all
+192 accumulated samples matched independently calculated values exactly;
+the returned blocks were finite and bounded, with peaks `0.0081134578` and
+`0.0150339631`. These were forced inputs and test routes, not physical input,
+button, UI, persistence, source-slot mapping, or deadline qualification.
+
+The callback source, routing source, diagnostic ELF, MAIN, recipe, debugger
+script and log SHA-256 values were respectively
+`5857f1d39340596cc011a504dc718d2965333fff4837f1a9746ecc7191776299`,
+`ebda32921252b24432887ec0a3d60f758cac1de83339d124e274d819207ddff2`,
+`4c6b8e6616fa252a056396ed2ffa9f06bcc01203228a33df1bf9bb8208126975`,
+`e91025b353e35278d7a5daf8dac76946a93e8f1f8e2f0865e778bfb00f9e35f4`,
+`d1d115f29d5b54df17ae152f41dff34cdf5bdf465fab9efd4476b92adb5f4310`,
+`e3b8cfb23c96b9a3f0fa3b6543926949fe5a2f30ce4ba357c83bd09be0de2dd0`, and
+`2329003fb535bbfcebae7fd837084c518447330fdfab1b6495c895890c3d600f`.
+After the injections, the recipe continued through the custom Spring callback
+and stock Delay, Echo, AI Noise Reduction and Hall callbacks in order; its
+result SHA-256 was
+`0f8c6c0d3d03751c983dc0579b8572e68417765448aeb66881d15bb6fe779dcd`.
+The stock MAIN, NOR and QEMU executable matched the identities below.
+
 A control-driven attempt set a breakpoint at the ramp branch, then selected
 EFX and LEVEL and turned encoder 1 in each mode. The debugger timed out without
 observing the branch. A separate forced-ramp run did hit that breakpoint, so
