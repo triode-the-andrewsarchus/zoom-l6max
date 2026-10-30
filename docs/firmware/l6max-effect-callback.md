@@ -800,10 +800,22 @@ and branch helper hashes for that rebuild were
 
 ## AI Noise Reduction investigation
 
+The [L6max operation manual](https://zoomcorp.com/manuals/l6max-en/), under
+“Using AI Noise Reduction,” says that the stock feature affects only the
+MASTER L/R outputs. It cannot be adjusted per channel or with EFX RTN. The TAP
+button starts a three-second environmental-noise analysis; pressing it again
+disables the feature and resets that analysis. Consequently the desired
+pre-effect use is a new routing and control requirement, not a documented
+per-channel stock send. A viable implementation must account for learning,
+state, and placement in the master path as well as prove the audio interface.
+
 The historical plan calls `0x80002666` a pre-AINR audio hook. In MAIN 1.10
 that address is a `bl` to the effect-type getter at `0x8000b270`, inside a
 larger routine; the following instructions compare its result with 5 and
 branch to `0x800027ec`. It is not an established noise-reduction API.
+An independent stock routine at `0x80005520` makes the same comparison and
+branches around its following per-channel effect-setting reads for type 5.
+These are static observations, not identification of the denoising algorithm.
 
 In a stock QEMU run beginning at Hall, five short EFX SEL presses selected
 callback `0x20280021`, consistent with the documented AI Noise Reduction
