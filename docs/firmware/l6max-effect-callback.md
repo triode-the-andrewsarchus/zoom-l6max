@@ -1949,6 +1949,24 @@ Its diagnostic MAIN, ELF, recipe, result and engine trace SHA-256 values were
 `bbc83c3a2cd1f1eaeec60f0c649ffed2617ed711f8cc5aaf92499f90a4fbed49`.
 The stock MAIN, initial NOR and QEMU identities match the preceding trace run.
 
+A disposable build of the current shared-filter and idle-path source used
+`opt-level=3` for the same active-send ten-edit diagnostic. The inspector
+did not open and Room remained selected. At the final audio snapshot it
+reported 14,101 callbacks and finite nonzero output, compared with 13,348 in
+the earlier size-optimized run with DMA tracing enabled. The different trace
+settings can affect timing; these individual totals include startup and are
+not a per-second deadline measurement. Diagnostic text increased from
+21,987 to 26,600 bytes. The faster setting was not adopted, and neither its
+target stack use nor its physical timing is established. The diagnostic MAIN,
+ELF, recipe, result and preparation-source SHA-256 values were
+`4ac12874f4cbfc3b5a94fe03ec04ffc9041cfee74246c17c0fdbebf577a46b38`,
+`03c2214f43d04eb02a4cacbd957edcb8ede6c5797170e5794b18324d0fc339b1`,
+`8d8030ec6629eb8740ebaa6a23f13e644593629f020fe94d48fa47fb784035be`,
+`eb4377db3e27396c6d73ca3eb566a1c479b20d3fd5d11d103dc9ef25c7baff2f`, and
+`f30835137cb9b3a4f0ac3328bd2b8206a365d5fc17a18a2702eae36b3ee474a2`.
+Stock MAIN, initial NOR and the rebuilt QEMU executable matched the preceding
+active DMA trace run.
+
 An uncommitted experiment used 8,192-sample power-of-two Velvet histories,
 retaining the 4,802-sample logical delay and silence window. It increased the
 two Velvet instances' state by 54,240 bytes. Host output over 100,000 frames
