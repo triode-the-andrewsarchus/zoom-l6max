@@ -26,6 +26,7 @@ parser.add_argument("--inspector", action="store_true", help="enable QEMU-only i
 parser.add_argument("--gesture-trace", action="store_true", help="record selector events (perturbs timing)")
 parser.add_argument("--enqueue-trace", action="store_true", help="record panel events before enqueue (perturbs timing)")
 parser.add_argument("--timing-control", action="store_true", help="bypass effects in a QEMU timing comparison")
+parser.add_argument("--active-sends", action="store_true", help="inject nonzero QEMU-only effect buses")
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
 args = parser.parse_args()
 if args.switches and not args.callback:
@@ -40,6 +41,10 @@ if args.enqueue_trace and not args.inspector:
     parser.error("--enqueue-trace requires --inspector")
 if args.timing_control and not args.inspector:
     parser.error("--timing-control requires --inspector")
+if args.active_sends and not args.inspector:
+    parser.error("--active-sends requires --inspector")
+if args.active_sends and args.timing_control:
+    parser.error("--active-sends cannot be combined with --timing-control")
 if args.bank_stress and not args.inspector:
     parser.error("--bank-stress requires --inspector")
 out, main, nor = checked_inputs(parser, args.firmware, args.state, args.output)
@@ -67,6 +72,8 @@ if args.enqueue_trace:
     rustc += ["--cfg", "enqueue_trace"]
 if args.timing_control:
     rustc += ["--cfg", "timing_control"]
+if args.active_sends:
+    rustc += ["--cfg", "active_sends"]
 subprocess.run(rustc, cwd=ROOT, check=True)
 subprocess.run(["llvm-objcopy", "-O", "binary", str(elf), str(blob)], check=True)
 payload = blob.read_bytes()
@@ -217,13 +224,6 @@ wall_timeout_s = 300
     wait(3000)
     memory("mixer_after_close", 0x8045ff90, 1)
     memory("after_close", 0x83e00400, 32)
-    if args.gesture_trace:
-        memory("gesture_trace", 0x83e00500, 244)
-    if args.enqueue_trace:
-        memory("enqueue_trace", 0x83e00600, 260)
-    press(40)  # Outside the inspector, EFX SEL still selects Spring.
-    memory("active_spring", 0x202a6f20, 4)
-    memory("selected_after_close", 0x83e00004, 4)
     if args.bank_stress:
         recipe = stress_prefix
         for i in range(10):
@@ -236,13 +236,18 @@ wall_timeout_s = 300
         press(40, 1500)
         memory("ui_after_long", 0x83e00340, 32)
         memory("closed", 0x83e00400, 32)
-        if args.gesture_trace:
-            memory("gesture_trace", 0x83e00500, 244)
-        if args.enqueue_trace:
-            memory("enqueue_trace", 0x83e00600, 260)
-        press(40)
+    if args.gesture_trace:
+        memory("gesture_trace", 0x83e00500, 244)
+    if args.enqueue_trace:
+        memory("enqueue_trace", 0x83e00600, 260)
+    if args.active_sends:
+        memory("active_audio", 0x83e00800, 16)
+    press(40)  # Outside the inspector, EFX SEL still selects Spring.
+    if args.bank_stress:
         memory("ui_after_short", 0x83e00340, 32)
-        memory("selected_after_close", 0x83e00004, 4)
+    else:
+        memory("active_spring", 0x202a6f20, 4)
+    memory("selected_after_close", 0x83e00004, 4)
 (out / "recipe.toml").write_text(recipe)
 print(f"Input MAIN SHA-256: {MAIN_SHA}")
 print(f"Input NOR SHA-256: {hashlib.sha256((args.state / 'main-nor.bin').read_bytes()).hexdigest()}")

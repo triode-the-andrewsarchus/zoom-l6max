@@ -42,6 +42,13 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
                 core::ptr::write_volatile((0x83e00100 as *mut u32).add(slot), route);
             }
             core::ptr::write_volatile(0x83e00140 as *mut u32, 0);
+            #[cfg(active_sends)]
+            {
+                core::ptr::write_volatile(0x83e00800 as *mut u32, 0x5349474e);
+                core::ptr::write_volatile(0x83e00804 as *mut u32, 0);
+                core::ptr::write_volatile(0x83e00808 as *mut u32, 0);
+                core::ptr::write_volatile(0x83e0080c as *mut u32, 0);
+            }
             // Prevent the copied stock effect-specific post-callback routine from
             // touching the diagnostic state after callback publication.
             core::ptr::write_volatile(0x202a6f28 as *mut u32, 0);
@@ -101,6 +108,13 @@ pub unsafe extern "C" fn diagnostic_audio(_context: u32, descriptor: u32) {
                 sends[(route - 1) as usize][i] += (sample * factor) * smoothed;
             }
         }
+        // QEMU-only worst-case control: keep all three effect buses active.
+        #[cfg(active_sends)]
+        {
+            sends[0].fill(0.125);
+            sends[1].fill(0.0625);
+            sends[2].fill(-0.09375);
+        }
         if unsafe { core::ptr::read_volatile(0x83e00140 as *const u32) } != 0 {
             for bus in 0..3 {
                 for i in 0..64 {
@@ -121,6 +135,12 @@ pub unsafe extern "C" fn diagnostic_audio(_context: u32, descriptor: u32) {
                 core::ptr::write_volatile(buffer.add(i), l);
                 core::ptr::write_volatile(buffer.add(i + 64), r);
             }
+        }
+        #[cfg(active_sends)]
+        unsafe {
+            core::ptr::write_volatile(0x83e00804 as *mut u32, core::ptr::read_volatile(counter));
+            core::ptr::write_volatile(0x83e00808 as *mut u32, core::ptr::read_volatile(buffer.add(63)).to_bits());
+            core::ptr::write_volatile(0x83e0080c as *mut u32, core::ptr::read_volatile(buffer.add(127)).to_bits());
         }
     }
 }
