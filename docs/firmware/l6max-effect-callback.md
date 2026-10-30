@@ -292,6 +292,43 @@ For the output-capture run they were
 `79cab44c2e0c940d3fbb254bed5b6ea10429c36566758f8dfa6dfca4a082bdf1`.
 The modified source, firmware and captures are local diagnostic artifacts.
 
+Another disposable QEMU variant held that modeled input silent until 85 guest
+seconds. Before input began, the inspector's EFX page and encoder turns changed
+the initial all-B route array to `(1, 3, 0, 2, 1, 1, 2, 2, 2, 2, 2, 2)`:
+strip 1 A, strip 2 A-to-B, strip 3 off, paired strip 5 A, and the remainder B.
+The same array was captured inside the callback after the input started; the
+192 reconstructed samples matched an independent calculation, and no ramp
+descriptors were active. An initial capture at signal onset had silent output;
+that observation alone cannot distinguish effect latency from a fault.
+
+A repeat waited 150 callbacks after the first nonzero send before capturing.
+It recorded the same routes and exact bus comparisons, plus 128 finite,
+nonzero output samples with peaks approximately 0.653 and 0.917. At guest time
+88.694 seconds the test sent a further encoder turn for strip 1. Three guest
+seconds later the route and displayed edit count were unchanged and the
+diagnostic event queue remained empty `(5, 5, 0)`. Thus the active-audio edit
+was not observed in this run. It does not prove where the event was delayed or
+lost, nor establish physical behavior. The first run's capture work and the
+repeat's extra capture and controls perturb the emulator workload. Both use
+unowned scratch memory and must never be installed.
+
+The modified QEMU source and executable SHA-256 values were
+`9360f18a2d2a8b61afeb136f0877e5a8b6452ff499b952869ccfd881f44e3d31` and
+`867c1fb8ed49c8acf4217a36cf5ff82502bc81130ae16ec2a997044751e87243`;
+source provenance remains unattested. The first diagnostic callback, MAIN,
+ELF, recipe and result hashes were respectively
+`231dacaa6b621d82000c3a04c5732a25a498b26685085baf42b0dd580a4f8713`,
+`a45bcd26190327aedd9417dc205e119e9775bd09a83f3a1fbe9a7e8fcfde755e`,
+`b3edb2bed19f96e90040c6f18db47ba348787694a81d549f6608992957d92b26`,
+`8ab432c5027e140580e73a555dd07fc21cf3797abb4e0574097902013d09d50f`, and
+`04681db30344cf1a8f2aa2948c22e8c76f93acba5027359173daf1ce9d266709`.
+The repeat's corresponding hashes were
+`b5a4387272a6a1103fe790e11f3576d8ceabd7c28d9df09dafba730cb0cb33b8`,
+`0f95d7e5c003c91b193beec37cdba395eae5d0b1b91a5cfb22a56fc6c64dfae0`,
+`211b2fa27a2ce6e90bf4e1394d93a2007a8a807eaaf67d8851b6264f64c15f06`,
+`1fca5a832992ccf851b50fd3dae13ded5be6a5d432a0a9bdda4c66eb31f6923b`, and
+`430c53a8bf96577ddc65e314b381b7299fd4a08879a0589b24c7a66efdfba9d8`.
+
 ## EFX encoder and stock effect storage observations
 
 With EFX mode selected, turning physical encoders 1 through 8 changed the
