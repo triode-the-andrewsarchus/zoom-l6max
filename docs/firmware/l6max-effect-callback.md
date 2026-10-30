@@ -1070,6 +1070,51 @@ The 40-edit hashes were
 `05fcedbd312ac7a37daae8d12b04ed8176e2e0794b992be4d7b644dd3e5ee832`, and
 `e1947641ab17bbf2aae0be28e24925eb0f9d22b2b932a82828f00e188aa2fe3f`.
 
+The interrupt-timed experiment has also been combined with the existing
+QEMU-only popup overlay and nonzero synthetic effect buses. In two debugger
+runs, the route slots matched the expected single and paired strip edits and
+survived bank changes; the mixer stayed at 44 while editing and changed after
+the inspector closed. The timestamp queues drained with no reported overflow,
+and the next short press selected Spring. The callback reported finite,
+nonzero output samples. These runs do not exercise physical signal inputs.
+
+At a snapshot 500 guest ms after returning to Plateau and turning its encoder,
+the first run still displayed `EFX CONTROLS / PLATEAU PARAM`; the later
+captured event count showed that the edit had been consumed. In a second run
+with a 1,500 ms observation window, GDB observed `PLATEAU PREDELAY / 28.0 ms`
+and `VND AMOUNT / 86.0 %`, along with the earlier routing and parameter text.
+The first delayed display remains a failure to investigate: the debugger
+changes scheduling and these observations do not bound response time.
+
+Both runs used combined MAIN
+`2fa742a5211714667855d6272d764a4d2d412136af6ccc66ce6f6b3b1dfc14ff`, effect
+ELF `46e771a31db851c38fef527388b6ffac22c6004c2b866191fb2cb116617cfcfe` and
+popup ELF `df826edc6a1b7fa17ca56974a3f81d3482525303af51b75fcdf9a044c801609b`.
+The recipes hashed to
+`4a2d01144f3b3e3b7be749ef080775ca1182771bbd99037c8fb5f726a2c72649` and
+`a41193d801763aba535040c297478d7239c5eee4480d8ff7ea149fa0998c8112`;
+their diagnostic JSON hashes were
+`186d0efbcf812ef66da47a4a2ced5826e1d18cd3bf3402aa3c75ee0b0a85d176` and
+`f39f0b270c6f080d6526eb4a5de8c38f737fa5e085bd7572fe0fbc2ca56ed9c1`.
+An additional run without debugger stops recorded the expected route slots,
+edit counts, mixer behavior, inspector close and Spring selection, with queue
+counters `(11, 11, 0)` and finite nonzero callback output. It did not inspect
+the popup's live text. Its recipe and diagnostic JSON hashes were
+`74b0fd4b2c9afc039e939778b14715f46f7725625f98707e10496c7fb053b981` and
+`0dd1b4f2fd3de92897ab2641df6986aa43185bf37cadabc02059f4a406d759d2`.
+
+A further debugger run sampled the delayed Plateau edit twice. At the first
+snapshot, 500 guest ms after the turn, the popup still showed the bank label,
+the audio-event queue was empty at `(19, 19, 0)`, and its consumed count was
+19. At the later snapshot, the popup showed `28.0 ms`, the queue was empty at
+`(20, 20, 0)`, and the consumed count was 20. Thus, in that run the edit had
+not reached the audio-event queue at the first observation; its delay was
+upstream of that queue. Debugger stops and emulator scheduling still prevent a
+target latency conclusion. The recipe, debugger log and diagnostic JSON hashes
+were `158c129ad811369392891f73d84e3296a8f1a2f1dd3ccbdf7664118b3f5cfe33`,
+`582dfc0d9caf0262445d93739a593a7031e977a92c48a6e1c6b9a34a72195fb3`, and
+`c0c81e3e47fe435ef84cc88cc704839dbc1f55641fde1585012c70567216dd6d`.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:
