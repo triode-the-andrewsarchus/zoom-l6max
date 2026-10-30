@@ -273,12 +273,12 @@ impl DualEfxProcessor {
                 if enable_a { in_l[i] } else { 0.0 },
                 if enable_a { in_r[i] } else { 0.0 },
             );
-            let cascade_l = if enable_a && self.cascade_gain > 1e-4 {
+            let cascade_l = if enable_a {
                 a_l * self.cascade_gain
             } else {
                 0.0
             };
-            let cascade_r = if enable_a && self.cascade_gain > 1e-4 {
+            let cascade_r = if enable_a {
                 a_r * self.cascade_gain
             } else {
                 0.0
