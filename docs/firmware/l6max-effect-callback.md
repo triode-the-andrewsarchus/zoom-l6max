@@ -749,6 +749,39 @@ result SHA-256 values were
 `0ea425a25aa674ddcc05121f8726bc9c9d16d6aae8475401f14b0ce20517bcf4`, and
 `6eb5a7d5b9fbbc1dd57865cd4a898285d279a6200bd7d62b2b0658317e5408db`.
 
+A separate QEMU-only combined image used a temporary knob-dialog source
+overlay and the existing notification manager to render copied inspector
+values on the display task. After the Room and Spring turns, debugger reads
+of the live popup's text buffers showed `PLATEAU PREDELAY` / `26.0 ms` and
+`VND AMOUNT` / `84.0 %`, respectively. The captured OLED frames differed;
+the normal mixer send changed before and after the inspector and stayed at
+44 during both edits. Both captured event queues were empty after eight
+events, with zero overflow. The debugger perturbs scheduling. Popup
+contention, other windows, UI coverage, safe memory ownership and target
+timing remain unqualified; the diagnostic must not be installed.
+
+The popup ELF, effect ELF, combined MAIN, recipe, result, debugger script and
+debugger log hashes for this run were
+`9b6bc70f6425adc0f11942347fb105df9d144005ad6a3314d00d860b01c61bc2`,
+`39855b5f3479339cfe814b4e28eb341512883933b62aef3cf8441c37a5c1a920`,
+`7ddf7b722f9b562cf8ca855ba66748a9416872b20633cb9c49995c43c00cddb1`,
+`57104237746ec8cea59cb900e84237f200d428d12835e6495182e144a2f5f14d`,
+`97011a8c4893230ff60a97703a4bdd29cb88177b7200bc9d53ab5e243165b0ef`,
+`c6967ec3cea4c4e0995d3a71c8dfc342b91fb37d1f36adcd939667caa6e70a21`, and
+`5f143c7261294ce83d798a4dfce7e92ad57393582fef479fb86bfa08734620ab`.
+The two captured ASCII frame hashes were
+`787ff473ad09e6eb70cc53119a514d04ee85bc37f998b0ac649d517ae4f23533` and
+`3bbf8502508ada2b92091c932c2bb81b4a4cf2117035ac9aaad420ec8e569b79`.
+The input MAIN, NOR and QEMU executable matched the identities above. A
+separate build from the same inputs produced the identical combined MAIN.
+The final guarded preparer, overlay patch, inspector source, fixture helper
+and branch helper hashes for that rebuild were
+`945b2edb3533cac5ef73c7a79ed319dfd77f2e875c0561bb7c323c1ea05df8d4`,
+`b570eb6a8333a63949e08d31526a65fb98c46e036ae336f8019f9ed55cb9dbbc`,
+`e14bdcbbacfbbb1057c2528f2a98d08cedf7a492e9c244fd809a597b02e850b1`,
+`3e9871574a6b5da8c383b2e1a2a857db02e38e45e0fb263a36d5e1636638a3ef`, and
+`c114b75edbb390178b1bbba1024798bd5f8d13af2cf1e2315c2d9c77821cbcc1`.
+
 ## AI Noise Reduction investigation
 
 The historical plan calls `0x80002666` a pre-AINR audio hook. In MAIN 1.10

@@ -98,3 +98,25 @@ Effect changes reinitialize the DSP and queue, so edits and tails can be lost.
 The queue can overflow, and synchronization, context changes, stock patch
 combinations, memory ownership and timing are not qualified. The scratch
 addresses are emulator-only. Never install the generated image.
+
+## Combined popup experiment
+
+`prepare_ui.py` makes a temporary source overlay of knob-dialog and combines
+its guarded hooks with the inspector diagnostic. It reuses the notification
+manager to render copied parameter values on the display task. The normal
+knob-dialog source is not modified. Its standard patch builder creates an
+intermediate knob-only package, which the script removes; no combined update
+package is created.
+
+```sh
+python3 tools/l6dsp-tests/probe/prepare_ui.py UNPACKED_DIR STOCK_STATE_DIR /tmp/l6-ui-probe
+cargo run --offline --locked -p l6dbg -- /tmp/l6-ui-probe/recipe.toml \
+  --firmware-dir /tmp/l6-ui-probe/firmware --state-dir /tmp/l6-ui-probe/state \
+  --logs /tmp/l6-ui-probe/logs --qemu QEMU_PATH
+```
+
+The recipe captures Room and Spring popup frames. Verify the captured widget
+text and mixer behavior; a completed recipe alone is not an assertion. The
+combined image uses emulator-only state, and does not qualify notification
+contention, queue overflow, effect switching, timing or physical hardware.
+Do not install it.
