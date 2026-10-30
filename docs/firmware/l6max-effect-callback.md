@@ -1897,6 +1897,28 @@ Its MAIN, ELF, recipe and result SHA-256 values were
 `335bb572520bb2cdd6bf4ba4416f8fc0f3b3bdbb44c60c0f96f49d8dd7d725ab`.
 Stock MAIN, initial NOR and QEMU matched the preceding control runs.
 
+A later exploratory profile used the current shared-filter and idle-path
+source with active synthetic sends. A disposable profiler waited until 45
+guest seconds, selected Room, waited until 51 guest seconds, and verified the
+diagnostic descriptor before sampling. Of 265 main-CPU PC samples taken
+between guest times 51.060 and 66.860 seconds, 62 fell in the shared Velvet
+routine, 28 in the reverb routine, and 37 in the `0x80024b00` page containing
+the channel-15 eDMA interrupt handler. The most sampled shared-Velvet PCs
+were in its aligned two-history tap loop. Sampling, host scheduling and the
+emulator's timing model limit these observations; they are not target cycle
+counts, worst-case timing, or proof of an interrupt fault.
+
+The diagnostic MAIN, ELF, sample TSV, profiler source, profiler binary and
+profiler Cargo lock SHA-256 values were
+`29b4622ca63d167c0ffadbc8acaa1a6549e1ac4266a75ec7bd2133099429cf20`,
+`ce91af2f1da9701eee69206583b02fe24255978286cbe91f8e7a8f4e3d646c81`,
+`f25b0029f9dd0d2495cf8f70a4f8c316bc8af096b4c07784fef87a58bfb86172`,
+`d3b922665eca2ec59f423aa1c0617605c4a190b4882a7ddf0bb67d241142578f`,
+`cc965dd99cb0fb87f5fe963d53e52a30ad9ccc7dbeb08d20dd6de6d94bcbe46f`, and
+`03e74d436527fc011c5ed3718a4933547fbaddb48fc41dd90ad94b7371960ac9`.
+The stock MAIN, initial NOR and unattested QEMU executable matched the
+preceding active-load run.
+
 An uncommitted experiment used 8,192-sample power-of-two Velvet histories,
 retaining the 4,802-sample logical delay and silence window. It increased the
 two Velvet instances' state by 54,240 bytes. Host output over 100,000 frames
