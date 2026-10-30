@@ -119,6 +119,16 @@ was zero at both stops. These are two observations of one run, not proof that
 all calls use that context or that available stack meets the replacement's
 worst case.
 
+After reducing temporary routing arrays, a standalone Cortex-M7 `opt-level=z`
+assembly build showed the routing function's own local stack allocation drop
+from 2,864 to 1,112 bytes, with the same register-save prologue. A host
+reference run spanning mixed routes, parameter changes and multi-block inputs
+produced identical output bytes before and after; both output files had
+SHA-256 `3137e951f31c6ee7882995fa38605f95a1ad70a373597cf596ef7298c6c7d935`.
+These are function-local figures and a host comparison: neither includes all
+callers, nested calls, exceptions or the actual deployed compiler context, so
+full stack and timing qualification remains necessary.
+
 The stock allocator at `0x80085478` maintains a free-list head and free-byte
 count at `0x8020ab2c` and `0x8020ab1c`. A debugger traversal in the same
 settled run observed a single free block of 160,008 bytes; the summed blocks
