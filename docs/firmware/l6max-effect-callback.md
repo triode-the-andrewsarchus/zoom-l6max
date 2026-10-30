@@ -1212,6 +1212,27 @@ were `45233d0c29dc9947da9353f8a78eb1e26788b80958fed6dd31f1cff11cbc51db`,
 `1a8dc79eeb56dd7e9bb4912c3668fa931d6fa9b8e7c787558331e87c76f978a9`.
 The stock MAIN, initial NOR and QEMU match the preceding observations.
 
+Static inspection of the learned-state branch adds an integration constraint.
+The dispatcher at `0x00000780` derives a descriptor from
+`0x2028ba0c + 132 * index`; for states 1 and 2 it branches to the routine
+at `0x00001060` (MAIN `0xef6e8`). That routine derives working storage from
+`0x2028bb14 + 0xda00 * index`, loads 32-bit values using floating-point load
+instructions, and writes them into indexed working storage while updating
+the descriptor word at offset `0x20`. Its unrolled loop advances over
+`0x100` input bytes per invocation. This is consistent with the observed
+64-float, in-place calls and shows shared per-index state being advanced;
+calling the same stock index again for a different send would also modify
+the instance used by the stock master path. The two observed indices' working
+bases are `0x2028bb14` and `0x20299514`, 55,808 bytes apart. These bases do
+not establish the complete state extent or that copying the region creates
+independent instances.
+
+The learned-state routine's visible prologue saves nine general registers
+and four double registers and reserves `0x4b0` additional stack bytes: 1,272
+bytes before deeper calls. This static lower bound excludes callers, nested
+functions and interrupts. It is not a target stack or timing qualification;
+any integration must account for this cost as well as state isolation.
+
 ## Plateau tank delay diagnostic
 
 After correcting the Plateau tank rings to return a sample after their full
