@@ -65,6 +65,24 @@ impl DualEfxProcessor {
         }
     }
 
+    /// Constructs and initializes the processor in caller-owned storage.
+    ///
+    /// The storage must be reserved exclusively for this processor for the
+    /// returned borrow's lifetime. Initialization clears hundreds of KiB and
+    /// generates filter banks, so it must not run in a real-time callback.
+    pub fn initialize_in_place(storage: &mut core::mem::MaybeUninit<Self>) -> &mut Self {
+        // All fields admit the all-zero representation: floats and integers,
+        // false bools, and RoutingMode::Neither. No typed reference may be
+        // created until the bytes are valid. Keep this invariant current when
+        // adding fields to this type or either DSP engine.
+        unsafe {
+            core::ptr::write_bytes(storage.as_mut_ptr(), 0, 1);
+            let processor = storage.assume_init_mut();
+            processor.init();
+            processor
+        }
+    }
+
     pub fn init(&mut self) {
         self.channel_routing.fill(RoutingMode::Neither);
         self.channel_send.fill(0.0);

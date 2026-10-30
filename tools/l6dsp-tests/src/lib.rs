@@ -258,12 +258,12 @@ mod tests {
     #[test]
     fn processor_initialization_restores_zeroed_and_dirty_state() {
         let mut reference = Box::new(routing::DualEfxProcessor::new());
-        let mut zeroed = Box::new(routing::DualEfxProcessor::new());
-        // Every field has a valid all-zero representation: floats, integers,
-        // false bools and RoutingMode::Neither. This models zeroed storage,
-        // not arbitrary, uninitialized RAM.
-        unsafe { std::ptr::write_bytes(&mut *zeroed, 0, 1) };
-        zeroed.init();
+        let mut storage = Box::<routing::DualEfxProcessor>::new_uninit();
+        // Model dirty raw storage without first creating a reference to the
+        // processor or relying on its normal constructor.
+        unsafe { std::ptr::write_bytes(storage.as_mut_ptr().cast::<u8>(), 0xa5,
+            std::mem::size_of::<routing::DualEfxProcessor>()) };
+        let zeroed = routing::DualEfxProcessor::initialize_in_place(&mut storage);
         reference.init();
         assert_eq!(zeroed.return_gain_a, 1.0);
         assert_eq!(zeroed.return_gain_b, 1.0);
