@@ -111,7 +111,7 @@ class Remote:
             self.expect(f'M{address + i:x},{len(part):x}:{part.hex()}')
 
 
-def compare(g, code):
+def compare(g, code, independent=False):
     g.expect('Hg1')
     g.expect('Z0,20228d86,2')
     g.packet('c')
@@ -125,21 +125,54 @@ def compare(g, code):
     if g.read(0x80e00000, len(source)) != source or g.read(0x80f00000, len(code)) != code:
         raise RuntimeError('clone readback mismatch')
     waveform = struct.pack('<64f', *(0.25 * math.sin(2 * math.pi * i / 16) for i in range(64)))
+    other_code = prepare_second_clone(g, source, code) if independent else None
+    other_waveform = (struct.pack('<64f', *(0.125 * math.sin(2 * math.pi * i / 11) for i in range(64)))
+                      if independent else None)
     outputs = bytearray()
+    other_outputs = bytearray()
     checkpoints = {0, 15, 31, 63, 95}
     for frame in range(96):
-        output = compare_block(g, frame, waveform, frame in checkpoints)
+        output, other = compare_block(g, frame, waveform, frame in checkpoints, other_waveform)
         outputs.extend(output)
+        other_outputs.extend(other)
+    result = summarize_outputs(outputs, other_outputs, checkpoints, other_code)
+    g.expect('D')
+    return result
+
+
+def summarize_outputs(outputs, other_outputs, checkpoints, other_code):
     values = struct.unpack(f'<{len(outputs) // 4}f', outputs)
     if not all(math.isfinite(x) for x in values) or not any(values):
         raise RuntimeError('output is silent or non-finite')
-    g.expect('D')
-    return {'blocks': 96, 'samples': len(values), 'nonzero': sum(x != 0 for x in values),
-            'peak': max(abs(x) for x in values), 'output_sha256': sha(outputs),
-            'state_checkpoints': sorted(checkpoints)}
+    result = {'blocks': 96, 'samples': len(values), 'nonzero': sum(x != 0 for x in values),
+              'peak': max(abs(x) for x in values), 'output_sha256': sha(outputs),
+              'state_checkpoints': sorted(checkpoints)}
+    if other_code is not None:
+        other_values = struct.unpack(f'<{len(other_outputs) // 4}f', other_outputs)
+        if not all(math.isfinite(x) for x in other_values) or not any(other_values) or outputs == other_outputs:
+            raise RuntimeError('second output is silent, non-finite or identical')
+        result.update({'second_nonzero': sum(x != 0 for x in other_values),
+                       'second_output_sha256': sha(other_outputs), 'second_clone_sha256': sha(other_code)})
+    return result
 
 
-def compare_block(g, frame, waveform, checkpoint):
+def prepare_second_clone(g, source, code):
+    other_code = bytearray(code)
+    for offset in OFFSETS:
+        first, second = struct.unpack_from('<HH', other_code, offset)
+        if first != 0xf2c8 or second & 0xf0ff != 0x00e0:
+            raise ValueError(f'unexpected relocated MOVT at {offset:#x}')
+        struct.pack_into('<HH', other_code, offset, first, (second & 0x0f00) | 0xe3)
+    if sha(other_code) != '4aeb87905ba0cfc270ad8a9d915b15e0322b7161ef2723f5982a8e411553e18f':
+        raise ValueError('unexpected second relocated code')
+    g.write(0x80e30000, source)
+    g.write(0x80f10000, other_code)
+    if g.read(0x80e30000, len(source)) != source or g.read(0x80f10000, len(other_code)) != other_code:
+        raise RuntimeError('second clone readback mismatch')
+    return other_code
+
+
+def compare_block(g, frame, waveform, checkpoint, other_waveform):
     if frame:
         g.expect('Z0,20228d86,2')
         g.packet('c')
@@ -149,6 +182,8 @@ def compare_block(g, frame, waveform, checkpoint):
     initial_regs = g.packet('g')
     g.write(0x20011010, waveform)
     g.write(0x80e21000, waveform)
+    if other_waveform is not None:
+        g.write(0x80e51000, other_waveform)
     g.expect('Z0,20228d8a,2')
     g.packet('c')
     if g.reg(15) != 0x20228d8a:
@@ -156,18 +191,36 @@ def compare_block(g, frame, waveform, checkpoint):
     original = g.read(0x20011010, 256)
     post_regs = g.packet('g')
     original_after = g.read(0x20280000, 0x20000) if checkpoint else None
-    g.expect('G' + initial_regs)
-    for index, value in ((0, 0x80e21000), (1, 0x80e21000), (2, 0),
-                         (14, 0x20228d8b), (15, 0x80f00780)):
-        g.setreg(index, value)
-    g.packet('c')
+    call_clone(g, initial_regs, 0x80e21000, 0x80f00780)
     if g.reg(15) != 0x20228d8a or g.read(0x80e21000, 256) != original:
         raise RuntimeError(f'clone return or output mismatch at block {frame}')
     if checkpoint:
         check_state(g, frame, original_after)
+    other = b''
+    if other_waveform is not None:
+        other = compare_second_clone(g, frame, initial_regs, original_after, checkpoint)
     g.expect('G' + post_regs)
     g.expect('z0,20228d8a,2')
-    return original
+    return original, other
+
+
+def compare_second_clone(g, frame, initial_regs, original_after, checkpoint):
+    clone_after = g.read(0x80e00000, 0x20000) if checkpoint else None
+    call_clone(g, initial_regs, 0x80e51000, 0x80f10780)
+    if g.reg(15) != 0x20228d8a:
+        raise RuntimeError(f'second clone return mismatch at block {frame}')
+    other = g.read(0x80e51000, 256)
+    if checkpoint and (g.read(0x20280000, 0x20000) != original_after
+                       or g.read(0x80e00000, 0x20000) != clone_after):
+        raise RuntimeError(f'second clone changed checked memory at block {frame}')
+    return other
+
+
+def call_clone(g, initial_regs, buffer, entry):
+    g.expect('G' + initial_regs)
+    for index, value in ((0, buffer), (1, buffer), (2, 0), (14, 0x20228d8b), (15, entry)):
+        g.setreg(index, value)
+    g.packet('c')
 
 
 def check_state(g, frame, original_after):
@@ -186,6 +239,7 @@ def main():
     parser.add_argument('state', type=Path, help='stock L6max state directory')
     parser.add_argument('output', type=Path, help='new directory under the system temp directory')
     parser.add_argument('--qemu', required=True, type=Path, help='QEMU executable')
+    parser.add_argument('--independent', action='store_true', help='compare a second clone using a different signal')
     args = parser.parse_args()
     out, main_image, nor = checked_inputs(parser, args.firmware, args.state, args.output)
     code = cloned_code(main_image)
@@ -226,7 +280,7 @@ def main():
                 if time.monotonic() >= deadline:
                     raise TimeoutError('learned snapshot not produced in 300 seconds')
                 time.sleep(.1)
-            result = compare(Remote(socket_path), code)
+            result = compare(Remote(socket_path), code, args.independent)
             process.wait(timeout=180)
             if process.returncode:
                 raise RuntimeError(f'l6dbg exited {process.returncode}')

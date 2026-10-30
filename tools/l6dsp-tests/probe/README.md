@@ -170,6 +170,13 @@ checkpoints. `result.json` is written only after the comparisons and recipe
 complete successfully. Logs and generated state remain in the temporary output.
 QEMU executable provenance is recorded as unattested.
 
+Add `--independent` to create a second relocated code and state copy receiving
+a different waveform. The original and first copy must still match, both
+outputs must be finite and nonzero, and at the five checkpoints the second
+copy must leave the checked stock and first-copy state ranges unchanged. The
+second output is not compared with an independent reference processor; this
+experiment does not verify its denoising behavior or all memory accesses.
+
 This diagnostic modifies emulated execution and uses memory whose ownership on
 hardware is unknown. It does not establish complete relocation coverage,
 concurrent isolation, timing, pre-AINR integration, or physical safety, and

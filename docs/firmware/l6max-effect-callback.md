@@ -1366,6 +1366,32 @@ result and QEMU executable SHA-256 values were
 `53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`.
 The stock MAIN and initial NOR matched the preceding experiment.
 
+A further debugger-controlled run initialized two relocated code/state copies
+from the same learned stock snapshot. For 96 consecutive channel-0 calls, the
+stock processor and first copy received the same forced waveform, while the
+second copy received a different waveform. The first copy matched stock
+byte-for-byte on every output block. Both copied outputs were finite, nonzero
+and distinct. At blocks 0, 15, 31, 63 and 95, the first copy's sampled channel
+state matched stock, and executing the second copy did not change the checked
+128 KiB stock or first-copy ranges. The second copy's output was not compared
+with an independent reference, and the checks do not cover all accesses,
+learning, simultaneous execution, audio quality, real-time behavior, or
+physical memory ownership. The debugger stops the guest and both copied
+regions are unowned emulator scratch; this is not an installable design.
+
+The test is reproducible using `ainr_isolation.py --independent`. The first
+and second copied-code SHA-256 values were
+`d0ebab6792ca14ddd20b7f27fa9cb27e384e7aa0baeb37cbc6c2427895f0e04d` and
+`4aeb87905ba0cfc270ad8a9d915b15e0322b7161ef2723f5982a8e411553e18f`.
+The probe, recipe, result, diagnostic JSON and QEMU executable hashes were
+`4582b6ee8e57d5a3f6aaeb07437a9a8a5bf55f146ff1361c4dd75211acb98eae`,
+`45233d0c29dc9947da9353f8a78eb1e26788b80958fed6dd31f1cff11cbc51db`,
+`5a18a2bdd98b40da1638fcd313f5a8d153d9c494431f9e53b4ac7ce6ab19bf27`,
+`1c849b91b8a16ea57c1459624174eff9e795945cbab5e7df22a03ae3a033a73e`, and
+`53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`.
+The stock MAIN and initial NOR matched the preceding experiment; QEMU source
+provenance remains unattested.
+
 An instrumented stock-QEMU run on the newer board model traced CPU memory
 accesses between entry to `0x00001060` and the two stock caller returns. It
 armed at the learning-start handler and skipped 64 subsequent entries before
