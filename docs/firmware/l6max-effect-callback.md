@@ -689,6 +689,19 @@ This is a snapshot, not a guaranteed heap bound or evidence that another RAM
 region is owned by the patch. It rules out assuming that a simple allocation
 from this observed heap is sufficient.
 
+Static inspection of the same MAIN image gives the pool's initial extent.
+On first use, `0x80085494..0x800854cc` initializes the aligned pool starting
+at `0x808a4148`, with `0x7d000` (512,000) bytes, ending at `0x80921148`.
+An eight-byte terminal header leaves 511,992 bytes in the initial free block.
+The observed free-list terminal pointer, `0x80921140`, agrees with this
+calculation. In that settled snapshot, 351,984 bytes of the initial free block
+were already unavailable; adding the then-current 319,216-byte state would
+exceed the initial free block by 159,208 bytes, even before any allocation
+overhead for the new state. Reserving that state earlier from this same pool
+therefore cannot preserve the observed stock allocation footprint. This does
+not rule out a smaller state, a different allocator, or another owned region,
+and does not establish behavior in other device configurations.
+
 The heap recipe, traversal script and log SHA-256 values were
 `a23dd43d67d045af4d2bf8492c9bb9d80f5cf4be880d31a10a0b7136cdfcae48`,
 `4eec680ad84db584bf74a4a01513780a0f6b0c8a9c772f0ec9bdbb3f918af601`, and
