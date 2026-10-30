@@ -1680,6 +1680,32 @@ the bypass hashes in the same order were
 `78b13a723d77b30096e2dea33c782f29fa519d89c5375d2f1824ca20a9905af4`, and
 `020abd08d2973df1618338d105b5cdfe282685617df0fdfd4e0da5c1825a24ee`.
 
+Two later QEMU-only experiments used the same cadence sequence with active
+synthetic sends and set Velvet length to 95 ms and density to 3,000 pulses/s
+at diagnostic initialization. These are reachable parameter limits; the
+generated filter is capped at 64 taps. At the four sampling times above, the
+first callback counts were 734, 2,525, 4,224 and 6,015; the second were 734,
+2,524, 4,222 and 6,014. Both average about 352 callbacks per guest second
+over the 15-second interval, below the earlier default-load observation of
+476 and bypass observation of 750. The second experiment also recorded 64
+active taps in each Velvet instance at the final sample. This shows a more
+demanding modeled load to consider when designing a fix; it does not measure
+physical timing, prove audio sample loss, or qualify the callback for hardware.
+The second experiment's instrumentation adds two scratch writes per callback.
+
+The two diagnostic MAIN SHA-256 values were
+`3158d8f82d56bcfa6dd2902cc09a9226b6f44fbc137f4cdaa66a7b36509e97c8` and
+`36ba3182e91885958ae38ce43f4920c2e72b7df91bc045627b7fdaca02a0c74d`;
+ELFs were `aca3f7123593970b2552cf122803f22375b4e0fa69fdff142f0f23a71f2c07bf`
+and `660a237afc58ceefcd4295c2772c9339f64d68a31be30fffabfb4183971fc926`;
+recipes were `23311eb2891b5af29f503f194d58fe72f8ea4357771fb7c7afaaf0f7eec5e575`
+and `6d1a01f4161802629c96be78a81c894285a075f2a3900e4e90457e8315851c13`;
+diagnostic results were `2b4e1ce7877723b252b7e89142b8b47584220bf7eca0fcb52ec245af020a83e3`
+and `116dcdfffa90720bb33905da4181a8e63ab5b507d98e968632943cbb13dfb87b`.
+Both used stock MAIN `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+and the same unattested QEMU executable as the earlier cadence comparison.
+
 An uncommitted experiment used 8,192-sample power-of-two Velvet histories,
 retaining the 4,802-sample logical delay and silence window. It increased the
 two Velvet instances' state by 54,240 bytes. Host output over 100,000 frames
