@@ -335,6 +335,23 @@ impl PlateauReverb {
     }
 
     pub fn init(&mut self, params: PlateauParameters) {
+        // These lengths and tank gains normally come from `new()`. Restore
+        // them explicitly so initialization also works on zeroed storage.
+        self.predelay.length = PREDELAY_MAX;
+        self.in_apf1.delay.length = IN_APF1_MAX;
+        self.in_apf2.delay.length = IN_APF2_MAX;
+        self.in_apf3.delay.length = IN_APF3_MAX;
+        self.in_apf4.delay.length = IN_APF4_MAX;
+        self.l_apf1.delay.length = L_APF1_MAX;
+        self.l_apf2.delay.length = L_APF2_MAX;
+        self.r_apf1.delay.length = R_APF1_MAX;
+        self.r_apf2.delay.length = R_APF2_MAX;
+        self.l_apf1.gain = -0.70;
+        self.r_apf1.gain = -0.70;
+        self.l_apf2.gain = 0.50;
+        self.r_apf2.gain = 0.50;
+        self.lfo1 = TriangleLFO::new(0.10);
+        self.lfo2 = TriangleLFO::new(0.15);
         self.out_hp_l.set_cutoff(20.0);
         self.out_hp_r.set_cutoff(20.0);
         self.set_parameters(params);

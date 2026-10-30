@@ -225,6 +225,51 @@ mod tests {
     }
 
     #[test]
+    fn processor_initialization_restores_zeroed_and_dirty_state() {
+        let mut reference = Box::new(routing::DualEfxProcessor::new());
+        let mut zeroed = Box::new(routing::DualEfxProcessor::new());
+        // Every field has a valid all-zero representation: floats, integers,
+        // false bools and RoutingMode::Neither. This models zeroed storage,
+        // not arbitrary, uninitialized RAM.
+        unsafe { std::ptr::write_bytes(&mut *zeroed, 0, 1) };
+        zeroed.init();
+        reference.init();
+        assert_eq!(zeroed.return_gain_a, 1.0);
+        assert_eq!(zeroed.return_gain_b, 1.0);
+        assert!(zeroed.plateau.lfo1.phase_inc > 0.0);
+        assert!(zeroed.plateau.lfo2.phase_inc > 0.0);
+
+        // Compare both effects after initialization, including more than one
+        // full delay-buffer rotation, and verify an audible response exists.
+        let mut plateau_peak = 0.0f32;
+        let mut velvet_peak = 0.0f32;
+        for i in 0..12000 {
+            let input = if i == 0 { 1.0 } else { 0.0 };
+            let actual = zeroed.plateau.process_sample(input, input);
+            let expected = reference.plateau.process_sample(input, input);
+            assert_eq!(actual, expected, "plateau frame {i}");
+            plateau_peak = plateau_peak.max(actual.0.abs()).max(actual.1.abs());
+            let actual = zeroed.velvet.process_sample(input, input);
+            let expected = reference.velvet.process_sample(input, input);
+            assert_eq!(actual, expected, "velvet frame {i}");
+            velvet_peak = velvet_peak.max(actual.0.abs()).max(actual.1.abs());
+        }
+        assert!(plateau_peak > 0.001 && velvet_peak > 0.001);
+
+        zeroed.channel_routing[0] = routing::RoutingMode::SendA;
+        zeroed.channel_send[0] = 0.7;
+        zeroed.cascade_gain = 1.0;
+        zeroed.return_gain_a = 0.0;
+        zeroed.pre_ainr_enabled = true;
+        zeroed.init();
+        assert_eq!(zeroed.channel_routing[0], routing::RoutingMode::Neither);
+        assert_eq!(zeroed.channel_send[0], 0.0);
+        assert_eq!(zeroed.cascade_gain, 0.0);
+        assert_eq!(zeroed.return_gain_a, 1.0);
+        assert!(!zeroed.pre_ainr_enabled);
+    }
+
+    #[test]
     fn test_dual_routing_matrix() {
         let mut dual = routing::DualEfxProcessor::new();
         dual.init();

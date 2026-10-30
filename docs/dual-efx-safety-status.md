@@ -9,8 +9,10 @@ The blocking findings for L6max MAIN 1.10
 
 - The supposed effect input and output audio addresses identify stock control
   structures. The output loop overwrites a structure containing code pointers.
-- The `NOLOAD` state is not constructed: `init()` leaves some buffer lengths,
-  gains, and other fields with whatever values were in RAM.
+- The firmware obtains a typed reference to `NOLOAD` state without first
+  constructing valid Rust values. The DSP initializer now restores defaults on
+  valid zeroed storage, but the firmware does not establish that precondition
+  or ensure the magic value is invalidated on every reset.
 - The hook at `0x8000277c` is in a routine containing file-output and card-error
   handling. The branch has not established an audio-buffer ABI or a live
   audio callback at that call site.
