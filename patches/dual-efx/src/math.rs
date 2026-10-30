@@ -8,7 +8,7 @@ pub const TWO_PI: f32 = 6.28318530717958647692;
 /// Fast clamp.
 #[inline(always)]
 pub fn clamp(val: f32, min: f32, max: f32) -> f32 {
-    if val < min {
+    if val.is_nan() || val < min {
         min
     } else if val > max {
         max
@@ -23,7 +23,9 @@ pub fn clamp(val: f32, min: f32, max: f32) -> f32 {
 /// Derivative f'(1.5) = 1 - 4/9*(2.25) = 0.0 (smooth C1 transition at ±1.0 ceiling).
 #[inline(always)]
 pub fn soft_clip(x: f32) -> f32 {
-    if x <= -1.5 {
+    if x.is_nan() {
+        0.0
+    } else if x <= -1.5 {
         -1.0
     } else if x >= 1.5 {
         1.0
