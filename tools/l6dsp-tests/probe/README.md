@@ -140,6 +140,10 @@ cargo run --offline --locked -p l6dbg -- /tmp/l6-ui-probe/recipe.toml \
   --logs /tmp/l6-ui-probe/logs --qemu QEMU_PATH
 ```
 
+The combined builder also accepts `--irq-timing`, `--active-sends`, and
+`--enqueue-trace` for the corresponding QEMU-only experiments described
+above. These flags do not enable an installable firmware patch.
+
 The combined prototype shows the current page on opening or switching it.
 The recipe captures Room and Spring popup frames and routing-page edits. Verify the captured widget
 text and mixer behavior; a completed recipe alone is not an assertion. The

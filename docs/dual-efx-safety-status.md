@@ -41,7 +41,11 @@ The blocking findings for L6max MAIN 1.10
   input runs passed after a DSP optimization; the active-audio control path
   and physical deadline remain unqualified. An optional QEMU-only interrupt
   timestamp prototype handles that observed sequence but uses unowned memory
-  and has not qualified lost events, target synchronization or timing.
+  and has not qualified lost events, target synchronization or timing. A
+  combined popup run also displayed a bank label instead of the edited value
+  at a 500 ms snapshot under active synthetic audio; a second run with a later
+  snapshot showed the value. A further observed delay occurred before the
+  audio-event queue; responsiveness remains unqualified.
 
 Some standalone DSP defects have been fixed and tested on the host. Those
 tests do not exercise the firmware bindings or establish hardware safety.

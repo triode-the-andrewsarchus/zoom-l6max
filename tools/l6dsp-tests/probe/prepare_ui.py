@@ -21,6 +21,9 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("firmware", type=Path)
 parser.add_argument("state", type=Path)
 parser.add_argument("output", type=Path)
+parser.add_argument("--irq-timing", action="store_true", help="use the QEMU-only interrupt timing experiment")
+parser.add_argument("--active-sends", action="store_true", help="inject nonzero QEMU-only effect buses")
+parser.add_argument("--enqueue-trace", action="store_true", help="record panel events before enqueue")
 args = parser.parse_args()
 out, main, nor = checked_inputs(parser, args.firmware, args.state, args.output)
 for name, expected in (
@@ -87,14 +90,21 @@ for hook in report["hooks"]:
 image.extend(knob_blob.read_bytes())
 probe_base = (0x80000000 + len(image) + 15) & ~15
 probe_elf = out / "probe.elf"
-subprocess.run([
+probe_args = [
     "rustc", str(PROBE / "callback.rs"), "--cfg", "inspector_probe", "--cfg", "knob_inspector",
     "--edition=2024", "--target=thumbv7em-none-eabihf", "-C", "opt-level=z",
     "-C", "panic=abort", "-C", "relocation-model=static",
     "-C", f"link-arg=--defsym=PROBE_BASE={probe_base:#x}",
     "-C", f"link-arg=--defsym=inspector_notify_hook={knob_symbols['inspector_notify_hook'] | 1:#x}",
     "-C", f"link-arg=-T{PROBE / 'link.ld'}", "-o", str(probe_elf),
-], cwd=ROOT, check=True)
+]
+if args.irq_timing:
+    probe_args += ["--cfg", "irq_trace", "--cfg", "irq_timing"]
+if args.active_sends:
+    probe_args += ["--cfg", "active_sends"]
+if args.enqueue_trace:
+    probe_args += ["--cfg", "enqueue_trace"]
+subprocess.run(probe_args, cwd=ROOT, check=True)
 probe_blob = out / "probe.bin"
 subprocess.run(["llvm-objcopy", "-O", "binary", str(probe_elf), str(probe_blob)], check=True)
 probe_symbols = symbols(probe_elf)
@@ -104,11 +114,16 @@ if probe_base + probe_blob.stat().st_size > 0x801a2ff8:
     raise ValueError("diagnostic payload exceeds application slot")
 image.extend(b"\xff" * (probe_base - 0x80000000 - len(image)))
 image.extend(probe_blob.read_bytes())
-for address, expected, target in (
+hooks = [
     (0x80036c74, branch(0x80036c74, report["knob_changed"]), probe_symbols["inspector_knob"]),
     (0x80036f28, bytes.fromhex("1df0bef9"), probe_symbols["inspector_select"]),
     (0x80036f8a, bytes.fromhex("1cf011fe"), probe_symbols["inspector_mode"]),
-):
+]
+if args.enqueue_trace:
+    if "inspector_enqueue" not in probe_symbols:
+        raise ValueError("missing diagnostic enqueue symbol")
+    hooks.append((0x8004c606, bytes.fromhex("dbf73ffd"), probe_symbols["inspector_enqueue"]))
+for address, expected, target in hooks:
     offset = address - 0x80000000
     if image[offset:offset + 4] != expected:
         raise ValueError(f"inspector call site mismatch at {address:#x}")
@@ -130,8 +145,13 @@ nor[0x50000:0x50000 + len(image)] = image
 
 # Reuse the inspector recipe, then capture the OLED before popup expiry.
 seed = out / "recipe-seed"
-subprocess.run(["python3", str(PROBE / "prepare.py"), str(args.firmware.resolve()),
-                str(args.state.resolve()), str(seed), "--callback", "--inspector"], cwd=ROOT, check=True)
+seed_args = ["python3", str(PROBE / "prepare.py"), str(args.firmware.resolve()),
+             str(args.state.resolve()), str(seed), "--callback", "--inspector"]
+for enabled, flag in ((args.irq_timing, "--irq-timing"), (args.active_sends, "--active-sends"),
+                      (args.enqueue_trace, "--enqueue-trace")):
+    if enabled:
+        seed_args.append(flag)
+subprocess.run(seed_args, cwd=ROOT, check=True)
 recipe = (seed / "recipe.toml").read_text()
 seed_hash = hashlib.sha256((seed / "firmware/main_firmware.bin").read_bytes()).hexdigest()
 image_hash = hashlib.sha256(image).hexdigest()
