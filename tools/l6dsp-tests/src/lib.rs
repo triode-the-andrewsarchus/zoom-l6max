@@ -735,7 +735,7 @@ mod tests {
     }
 
     #[test]
-    fn weighted_channels_route_above_unity_and_per_frame_ramps() {
+    fn weighted_channels_route_signed_gains_and_per_frame_ramps() {
         let mut routed = Box::new(routing::DualEfxProcessor::new());
         let mut reference = Box::new(routing::DualEfxProcessor::new());
         routed.init();
@@ -750,16 +750,17 @@ mod tests {
         let channels = [
             routing::WeightedChannel { samples: &a, gain: 2.0, ramp: None },
             routing::WeightedChannel { samples: &b, gain: 0.75, ramp: Some(&ramp) },
-            routing::WeightedChannel { samples: &c, gain: 1.0, ramp: None },
+            routing::WeightedChannel { samples: &c, gain: -1.0, ramp: None },
         ];
         let expected_a: Vec<_> = a.iter().map(|x| x * 2.0).collect();
         let expected_b: Vec<_> = b.iter().enumerate().map(|(i, x)| x * ramp.get(i).copied().unwrap_or(0.0) * 0.75).collect();
+        let expected_c: Vec<_> = c.iter().map(|x| -x).collect();
         let mut actual = [vec![0.0; 145], vec![0.0; 145]];
         let mut expected = [vec![0.0; 145], vec![0.0; 145]];
         let [ref mut left, ref mut right] = actual;
         routed.process_weighted_block(&channels, left, right);
         let [ref mut left, ref mut right] = expected;
-        reference.process_buses(&expected_a, &expected_b, &c, left, right);
+        reference.process_buses(&expected_a, &expected_b, &expected_c, left, right);
         assert_eq!(actual, expected);
         assert!(actual.iter().flatten().any(|x| x.abs() > 0.001));
     }
