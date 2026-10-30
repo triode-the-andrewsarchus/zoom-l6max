@@ -230,3 +230,19 @@ the effects state was not changed by the copies. It holds the learned snapshot
 on the host across effect selection; this is not a firmware initialization
 scheme. Stock buffer ownership, callback publication, concurrent users, update
 packaging and physical memory are unqualified. Never install this image.
+
+Adding `--auto-handoff` as well tests a device-side handoff without the
+observer. A guarded QEMU-only veneer calls the stock AINR routine, waits 10,000
+firmware ticks after the learned flag appears, then copies 128 KiB from the audio task
+to a stock-heap allocation. The effect initializer copies that snapshot into
+the three test states before publishing the replacement callback. The recipe
+records `heap_before`, `handoff_learned`, `heap_learned`, `handoff_selected`,
+`heap_selected`, all three send blocks, and the copied descriptors. The
+handoff words are allocation pointer, status (0 waiting, 1 captured, 2 failed),
+capture start/end ticks, source and first-copy state words, and learning-start
+tick. Inspect these observations; recipe completion alone is not a pass.
+
+This prototype retains a large heap allocation, copies 128 KiB on the audio
+task, uses unowned control words, and assumes an experimental settling delay.
+It does not establish snapshot coherence, stock coexistence, deadline safety,
+reset behavior or a usable learning workflow. Never install it on hardware.

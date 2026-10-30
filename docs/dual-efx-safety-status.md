@@ -62,6 +62,12 @@ The blocking findings for L6max MAIN 1.10
   them. This does not establish physical behavior, but TAP is not a validated
   control workaround under that modeled workload. The copies use unowned
   scratch memory and have no independent learning or target qualification.
+- A later QEMU-only automatic handoff retains a 128 KiB stock-heap allocation
+  and copies it inside an audio callback. In the observed run this left 28,920
+  bytes of stock heap free, and the three-processor workload ran at about 458
+  callbacks per second against a nominal 750. Neither the allocation lifetime
+  nor the copy's physical deadline is established. Its experimental settling
+  delay and modified samples do not establish useful noise reduction.
 
 Some standalone DSP defects have been fixed and tested on the host. Those
 tests do not exercise the firmware bindings or establish hardware safety.

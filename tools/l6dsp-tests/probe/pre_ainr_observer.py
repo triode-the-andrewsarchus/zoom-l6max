@@ -108,6 +108,8 @@ def install(g, main, metadata):
 
 def prepared_metadata(out):
     metadata = json.loads((out / 'pre-ainr.json').read_text())
+    if metadata.get('auto_handoff', False):
+        raise ValueError('auto-handoff diagnostics do not use the observer')
     if metadata.get('layout', 'scratch') not in CODE_HASHES:
         raise ValueError('unknown pre-AINR layout')
     diagnostic_main = (out / 'firmware' / 'main_firmware.bin').read_bytes()
