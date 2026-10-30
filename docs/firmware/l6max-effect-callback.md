@@ -1046,7 +1046,17 @@ its trace and result hashed to
 `59518a30b7a78efb9d87ac0dd19da71342ea19388c9d3442c61bae53f3e3faa0` and
 `5fc04bb9e6a507fe2a88f6b0052431e4a61582086d1cc8f0c3d79edbc2c00252`.
 
-Two subsequent plugin-assisted runs of the revised case observed the learning
+After rebasing on upstream `393ce52`, the same scenario passed once with the
+new paced timing and an isolated QEMU executable SHA-256
+`1e35161130eecdb148f2aaf6986e14f77fbd4714e2e7100cf89dc1680eb3b554`.
+The driver records external QEMU source provenance as unattested. The stock
+MAIN and scenario identities are those above; the input manifest and scenario
+result hashed to
+`8b5f4168d7c4f2ba78a20d03743d225c618082ecb323ffd169dcc8c77c2e163d`
+and `f38df67dc4fe52755ba49b2083aefa2f6ecf3db76a691b4f7dd9126ce9395cfb`.
+This single run does not qualify repeated reliability or denoised audio.
+
+Two earlier plugin-assisted runs of the revised case observed the learning
 poll take `0x80088dac`, the branch reached when both candidate processors
 no longer report state 3, then enter `0x80051080` with argument 1. Neither
 observed the timeout branch at `0x80088d9c`. This explains how a successful
