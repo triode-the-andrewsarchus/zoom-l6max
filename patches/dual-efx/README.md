@@ -40,6 +40,23 @@ on the L6max. The `0x83e00000` state address is unverified on hardware.
 - `linker/link.ld`: Payload placement at `PAYLOAD_BASE` (`0x80108000`) and `.state` at `0x83e00000`.
 - `hooks.tsv`: Hook table guarding `0x8000277c`.
 
+The standalone inspector parameter model maps encoders 1–8 as follows:
+
+| Encoder | Velvet bank | Plateau bank |
+| --- | --- | --- |
+| 1 | Amount | Predelay |
+| 2 | Time spread | Size |
+| 3 | Density | Decay |
+| 4 | Decay | Low cut |
+| 5 | Refresh time | High cut |
+| 6 | Dynamic mode | Diffusion |
+| 7 | Transition time | Modulation depth |
+| 8 | Cascade amount | Freeze |
+
+For the two on/off settings, clockwise selects on and counterclockwise selects
+off. The model and value formatter are host-tested; firmware event handling,
+display presentation, bank selection and routing controls are not connected.
+
 ## Build & Test
 
 The standalone DSP tests can be run with:
