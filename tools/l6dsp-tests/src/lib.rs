@@ -222,6 +222,28 @@ mod tests {
     }
 
     #[test]
+    fn shrinking_plateau_size_keeps_new_samples_in_the_delay_ring() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        reverb.init(plateau::PlateauParameters::default());
+        // These are valid positions just before each old ring wraps.
+        reverb.l_del1.write_pos = reverb.l_del1.length - 1;
+        reverb.l_del2.write_pos = reverb.l_del2.length - 1;
+        reverb.r_del1.write_pos = reverb.r_del1.length - 1;
+        reverb.r_del2.write_pos = reverb.r_del2.length - 1;
+        let mut params = reverb.params;
+        params.size = 0.2;
+        reverb.set_parameters(params);
+        reverb.l_del1.write(0.75);
+        reverb.l_del2.write(0.75);
+        reverb.r_del1.write(0.75);
+        reverb.r_del2.write(0.75);
+        assert_eq!(reverb.l_del1.read(1), 0.75);
+        assert_eq!(reverb.l_del2.read(1), 0.75);
+        assert_eq!(reverb.r_del1.read(1), 0.75);
+        assert_eq!(reverb.r_del2.read(1), 0.75);
+    }
+
+    #[test]
     fn test_plateau_reverb_decay() {
         let mut plat = plateau::PlateauReverb::new();
         plat.init(plateau::PlateauParameters::default());

@@ -422,6 +422,13 @@ impl PlateauReverb {
         self.r_apf2.delay_time = clamp_usize((2656.0 * scale) as usize, 1, R_APF2_MAX - 1);
         self.r_del2.length = clamp_usize((3163.0 * scale) as usize, 10, R_DEL2_MAX - 1);
 
+        // A smaller size can put an existing write position outside its new
+        // ring. Bring it back inside before the next sample is written.
+        self.l_del1.write_pos %= self.l_del1.length;
+        self.l_del2.write_pos %= self.l_del2.length;
+        self.r_del1.write_pos %= self.r_del1.length;
+        self.r_del2.write_pos %= self.r_del2.length;
+
         // Filters
         self.in_lp.set_cutoff(params.high_cut_hz);
         self.in_hp.set_cutoff(params.low_cut_hz);
