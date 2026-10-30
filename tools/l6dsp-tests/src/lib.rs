@@ -86,6 +86,32 @@ mod tests {
     }
 
     #[test]
+    fn plateau_predelay_delays_impulse_by_requested_samples() {
+        let mut immediate = plateau::PlateauReverb::new();
+        let mut delayed = plateau::PlateauReverb::new();
+        let mut params = plateau::PlateauParameters::default();
+        params.predelay_ms = 0.0;
+        params.mod_depth = 0.0;
+        immediate.init(params);
+        params.predelay_ms = 1.0;
+        delayed.init(params);
+
+        let mut reference = Vec::new();
+        let mut peak = 0.0f32;
+        for i in 0..12000 {
+            let input = if i == 0 { 1.0 } else { 0.0 };
+            let (left, right) = immediate.process_sample(input, input);
+            reference.push((left, right));
+            let (actual_l, actual_r) = delayed.process_sample(input, input);
+            let (expected_l, expected_r) = if i < 48 { (0.0, 0.0) } else { reference[i - 48] };
+            assert!((actual_l - expected_l).abs() < 1e-5, "left frame {i}");
+            assert!((actual_r - expected_r).abs() < 1e-5, "right frame {i}");
+            peak = peak.max(left.abs()).max(right.abs());
+        }
+        assert!(peak > 0.001, "test must observe a reverb response");
+    }
+
+    #[test]
     fn test_plateau_reverb_decay() {
         let mut plat = plateau::PlateauReverb::new();
         plat.init(plateau::PlateauParameters::default());

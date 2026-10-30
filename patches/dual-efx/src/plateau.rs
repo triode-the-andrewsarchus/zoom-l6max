@@ -419,8 +419,12 @@ impl PlateauReverb {
     pub fn process_sample(&mut self, in_l: f32, in_r: f32) -> (f32, f32) {
         // 1. Predelay & Input Sum
         let mono_in = 0.5 * (in_l + in_r);
+        let predelayed = if self.predelay_samples == 0 {
+            mono_in
+        } else {
+            self.predelay.read(self.predelay_samples)
+        };
         self.predelay.write(mono_in);
-        let predelayed = self.predelay.read(self.predelay_samples);
 
         // If frozen, cut input to tank
         let tank_in = if self.params.freeze { 0.0 } else { predelayed };
