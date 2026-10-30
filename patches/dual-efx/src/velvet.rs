@@ -120,7 +120,9 @@ pub fn splitmix64(state: &mut u64) -> u64 {
 /// Generates a signed uniform float in [-1.0, 1.0].
 pub fn uniform_signed(state: &mut u64) -> f32 {
     let bits = splitmix64(state) >> 11;
-    (bits as f64 * (1.0 / 9007199254740992.0) * 2.0 - 1.0) as f32
+    // The centered integer is exact in f64. Round it once to f32 and scale
+    // by a power of two, avoiding software double arithmetic on Cortex-M7.
+    ((bits as i64 - (1i64 << 52)) as f32) * (1.0 / 4503599627370496.0)
 }
 
 /// Mixes base seed with channel index and generation count.

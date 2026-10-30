@@ -130,6 +130,35 @@ mod tests {
     }
 
     #[test]
+    fn velvet_uniform_matches_double_precision_reference() {
+        let mut actual_state = 0x91a2_b3c4_d5e6_f708;
+        let mut reference_state = actual_state;
+        for _ in 0..200_000 {
+            let actual = velvet::uniform_signed(&mut actual_state);
+            let bits = velvet::splitmix64(&mut reference_state) >> 11;
+            let expected = (bits as f64 * (1.0 / 9007199254740992.0) * 2.0 - 1.0) as f32;
+            assert_eq!(actual.to_bits(), expected.to_bits());
+        }
+        // Exercise rounding boundaries and both endpoints of the 53-bit domain.
+        for exponent in 0..53 {
+            let base = 1u64 << exponent;
+            for bits in [base - 1, base, base + 1, (1u64 << 53) - base] {
+                // Invert SplitMix64 so this case exercises uniform_signed itself.
+                let mut state = bits << 11;
+                state ^= state >> 31 ^ state >> 62;
+                state = state.wrapping_mul(0x3196_42b2_d24d_8ec3);
+                state ^= state >> 27 ^ state >> 54;
+                state = state.wrapping_mul(0x96de_1b17_3f11_9089);
+                state ^= state >> 30 ^ state >> 60;
+                state = state.wrapping_sub(0x9e37_79b9_7f4a_7c15);
+                let expected = (bits as f64 * (1.0 / 9007199254740992.0) * 2.0 - 1.0) as f32;
+                let actual = velvet::uniform_signed(&mut state);
+                assert_eq!(actual.to_bits(), expected.to_bits(), "bits={bits}");
+            }
+        }
+    }
+
+    #[test]
     fn sine_range_reduction_terminates_for_extreme_inputs() {
         for x in [f32::MAX, f32::MIN, f32::INFINITY, f32::NEG_INFINITY, f32::NAN] {
             let result = math::sin(x);

@@ -935,6 +935,24 @@ the silent-control hashes were
 `9cfd89b774327b3f84403e90cc80ca8ffc1892b1b2f53d4902b288c07f5cd41a`, and
 `9b09e9904436c22a1911c0658e8182c36b808e5a5e06fd45511c1c3a15b47c59`.
 
+The Velvet jitter conversion now centers its 53-bit random integer before a
+single conversion to `f32` and scales by an exact power of two. On the host,
+200,000 generated samples and values at integer rounding boundaries matched
+the previous double-precision expression bit for bit. In the diagnostic
+Cortex-M7 build the generator's double-conversion, multiply and add calls were
+replaced by one `__aeabi_l2f` call; the measured diagnostic `.text` decreased
+from 22,320 to 20,228 bytes. This is a code-generation observation, not a
+target-cycle measurement.
+
+The active-DSP stress sequence still misclassified the last hold: the
+enqueue trace recorded 591 ticks, the inspector remained open, and Spring was
+not selected. This change does not resolve the input delay. That diagnostic
+MAIN, ELF, recipe and result SHA-256 were respectively
+`0563d5092f691be45997d714fb29ffd8576def1662c37611c907e6101001baaf`,
+`6a5d6ccba2d638ab8b7babe49183004b8467e33695583bb268a1036c6abb398b`,
+`9e1efae624ad8f79699d0ade180c268e689d5ec0e5a165575dd8a6a3240b69a0`, and
+`e36ab33478143547403cc9ed60852c54ad0142a6ce549c513ba3ec37caec7df6`.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:
