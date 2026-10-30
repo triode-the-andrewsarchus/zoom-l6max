@@ -648,6 +648,35 @@ The gesture probe source, recipe, diagnostic JSON and modified MAIN hashes were
 Both used the QEMU binary and stock package identified below and a prepared
 NOR image SHA-256 `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`.
 
+## AI Noise Reduction investigation
+
+The historical plan calls `0x80002666` a pre-AINR audio hook. In MAIN 1.10
+that address is a `bl` to the effect-type getter at `0x8000b270`, inside a
+larger routine; the following instructions compare its result with 5 and
+branch to `0x800027ec`. It is not an established noise-reduction API.
+
+In a stock QEMU run beginning at Hall, five short EFX SEL presses selected
+callback `0x20280021`, consistent with the documented AI Noise Reduction
+position. Static disassembly of its code at `0x20280020` shows it copies the
+64-word control stream from descriptor offset `0x20` through the indirect
+destination at offset `0x1c` and clears both 64-word effect scratch channels
+at descriptor offset `0x04`. The descriptor captured after selection used
+`0x8020a3ec` and `0x80463010` for those two control fields, the same addresses
+observed for Room above. A second run captured `0x805c5960` in the first word
+at `0x8020a3ec`, the same indirect destination observed for Room. This
+callback does not expose an in-place denoised
+effect return. It does not establish where noise reduction is performed,
+whether it can run alongside other effects, or whether its output can be
+chained; those questions remain open.
+
+The AI Noise Reduction selection recipe and result hashes were
+`d40c52dfa8f1e23f2621fde7ea1b97285cfb9bbd8f4ba173ebab5d0108a7f051` and
+`0589396e78896123952515283a391d0f366305f60b155b5610ab1f34e46266cc`.
+The follow-up recipe and result hashes were
+`debd9f63afc1bd8aa479bf739e3656c83de53634e2a2050d217a1351e0eb72a5` and
+`c5c3b6771953a77caeae3fe0a569c24fdb63f970eed86cbbd174052a70bf1328`.
+The stock MAIN, prepared NOR and QEMU identities are those below and above.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:
