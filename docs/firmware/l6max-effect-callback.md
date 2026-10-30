@@ -42,6 +42,30 @@ These arguments point to descriptors and scratch, not the two interleaved
 zero, so this observation does not prove nonzero signal routing or audio
 fidelity.
 
+## Candidate channel accumulation loop
+
+A write watchpoint on the first input word `0x20010210` stopped in a
+floating-point fill routine at `0x202300cc`, called from `0x20228ac0`.
+Static inspection of the caller shows it clearing 128 floats beginning at
+`0x20010210` and then iterating over 12 entries. Both branches of the loop
+multiply 64 samples per entry and accumulate into the first 64-float region;
+one also uses a per-sample multiplier. The sample source addresses in that
+loop are `0x2000e410 + entry * 0x100`. This is a candidate place to obtain
+separate send contributions, not yet a validated insertion point: the entry
+mapping, gain semantics, thread ownership, ordering and output destinations
+must still be confirmed with nonzero inputs and controls.
+
+The watched stop used a fresh emulator state and stock MAIN; its observed
+return address was `0x20228ac5` and QEMU stopped at `0x202300cc`. Captured
+256-byte regions at `0x20228a80` and `0x20230080` matched MAIN file offsets
+`0xfd4c8` and `0x104ac8` respectively. The watchpoint log SHA-256 was
+`2c22a4b249db9e4bf7c8fad99a5ab7b5643d26709bdfe1750b90e73d7b9c107a`;
+the captures hashed to
+`bb643a48ea864c1404f696b0059326651f564df0455c6a9476da9af511d37fa9` and
+`192d03418a27ba16f8b6a7ab7e47615a89733bd82271645dd4f34e1dcfb12d3a`.
+The log establishes the clear operation, while the channel accumulation is
+inferred from the following stock instructions.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:
