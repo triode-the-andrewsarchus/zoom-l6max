@@ -396,6 +396,38 @@ table's final contents. The source, ELF, MAIN, recipe and result hashes were
 `881a4bb3ac40df6f6f629f9729623db0f197a31aef436e1aa979351646fa1474`, and
 `e70130ddae6cc53da6a5a51589b26716c413eb666fd0d6a4b47bbce805e0d461`.
 
+An address-preserving variant redirected the stock Room callback's first
+instructions to a counter-only stub without changing the descriptor table.
+The active pointer remained the stock `0x20280ab9`, yet it too failed to
+advance after later presses. In a separate counter-only run, a breakpoint at
+the stock selection entry `0x20280580` did not fire during a 35-second wall
+observation that included a second EFX SEL press; when interrupted, the
+current task was `AudioEfxQFunc`, priority 26. This does not identify the
+cause, but makes callback-address identity alone an insufficient explanation.
+The address-preserving source, ELF, MAIN, recipe and result hashes were
+`dff749fcd3b535d15cdf15a669ece243371070a0f0c050755ce05b8f0e7f23f7`,
+`b366b6f6822c3ac8e7e8d5937d816d85caf66703e686ab16278f441874cd2254`,
+`1651917feed8a401d6c2e5797c71443f07afec8d9756fb49082aa53eb78b96d4`,
+`347391ba3694af35e18abd974f4f58eb36743199a3b1483a16650a8017a34a06`, and
+`e23bb89bfcf98398802c9723b0bb3737bc7e04d9d7716e6ed9f56573b2504220`.
+The selection-trace recipe, script and log hashes were
+`4a581dcaf8aa8cd47d6fa8632acc2eeed04424c8ad5e6bd4fdf195df84e69600`,
+`95fa0b243ee14eca9626d2d0fed6ee4d80cd34d50b2a831e10be4b12cdb727aa`, and
+`325fceb9d3dc38709ca803d15c72f58169d337d6202c0b853d0451e0c736a0f8`.
+
+Static inspection of the stock Room callback shows a 64-element stream read
+through the descriptor's word at offset `0x20` and copied one element per
+frame to the destination indirectly referenced by the word at offset `0x1c`.
+At one settled stock callback, those words were `0x80463010` and `0x8020a3ec`,
+which pointed to destination `0x805c5960`; the first and last stream values
+and the destination all held `0x3f2d2857` before and after the callback.
+This observation establishes the addresses and settled value, not the stream's
+full semantics or its role during a switch. The stock recipe, debugger script
+and log hashes were
+`6e6c0652b2f0e21eec8c976c6dbc122d1fbb3593ce200140ffaf844a361b0056`,
+`cae714e747a8385585ddf1d7b96bc1b7a1601fb1b7e537520a3fabfce4d2c4e3`, and
+`d6d2f8f99b7b515d757a34675652c51a5284b819e01c516bdaf01874d1bbee39`.
+
 ## Task and memory observations
 
 In a separate disposable stock-emulator run after 45 guest seconds, debugger
