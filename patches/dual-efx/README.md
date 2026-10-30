@@ -21,12 +21,11 @@ Targeted exclusively for **LiveTrak L6max** firmware revision 1.10 (`980d92272c1
 
 ## CPU & Memory Budget
 
-- **Target MCU**: NXP i.MX RT1041 / RT1040 (ARM Cortex-M7 @ 600 MHz) with single-cycle `VFMA.F32` hardware FPU.
-- **Clock budget**: 12,500 clock cycles per sample at 48 kHz.
-- **VND DSP**: ~30 MACs/sample $\approx 1.5\%$ CPU load.
-- **Plateau Reverb**: ~120 FLOPs/sample $\approx 3.5\%$ CPU load.
-- **Total DSP load**: $<6.0\%$ CPU load total, easily fitting inside the audio interrupt deadline.
-- **RAM footprint**: ~160 KiB placed in high SDRAM (`0x83e00000`), zero flash `.data` bloat.
+The original CPU estimates and 160 KiB memory figure were not measured and
+must not be used for target qualification. The processor now includes a
+separate Velvet instance for cascaded sends, increasing its state and work.
+Its memory ownership, stack use and worst-case execution time remain unproven
+on the L6max. The `0x83e00000` state address is unverified on hardware.
 
 ## Source Layout
 
@@ -43,13 +42,13 @@ Targeted exclusively for **LiveTrak L6max** firmware revision 1.10 (`980d92272c1
 
 ## Build & Test
 
+The standalone DSP tests can be run with:
+
 ```bash
-# DSP unit tests
-cargo test -p l6dsp-tests
-
-# Patch firmware
-cargo run -p l6patch -- unpacked-l6max firmware-dual-efx-v113 --patch dual-efx
-
-# Audio path qualification in emulator
-cargo run -p l6test -- run --case audio-path --model l6max
+cargo test --offline --locked -p l6dsp-tests
 ```
+
+Both patch builders intentionally reject `dual-efx`. The stock emulator's
+`audio-path` case checks callback and device observations; it does not test
+this effect or qualify its audio behavior. See the
+[safety status](../../docs/dual-efx-safety-status.md) for the remaining work.
