@@ -1,7 +1,8 @@
 //! Plateau / Dattorro Plate Reverb DSP Engine
 //!
 //! Adapted from Dale Johnson's Valley Plateau / PlateauNEVersio for bare-metal
-//! ARM Cortex-M7 (NXP i.MX RT1040/RT1041 on Zoom LiveTrak L6max).
+//! ARM Cortex-M7 target for Zoom LiveTrak L6max. The physical processor
+//! model has not been identified.
 //!
 //! Based on Jon Dattorro's 1997 AES paper "Effect Design Part 1: Reverberator".
 //! Provides lush, high-density plate reverberation with modulated allpass loops,
