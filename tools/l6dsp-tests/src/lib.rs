@@ -308,6 +308,60 @@ mod tests {
     }
 
     #[test]
+    fn routing_processes_long_buffers_like_successive_blocks() {
+        let mut long = Box::new(routing::DualEfxProcessor::new());
+        let mut split = Box::new(routing::DualEfxProcessor::new());
+        for processor in [&mut long, &mut split] {
+            processor.init();
+            processor.set_channel_routing(0, routing::RoutingMode::SendA);
+            processor.set_channel_routing(1, routing::RoutingMode::SendB);
+            processor.set_channel_send(0, 1.0);
+            processor.set_channel_send(1, 0.5);
+        }
+        let input: Vec<_> = (0..145).map(|i| (i as f32 * 0.1).sin() * 0.2).collect();
+        // The second channel ends partway through the second block.
+        let short = &input[..80];
+        let mut actual_l = vec![42.0; 145];
+        let mut actual_r = vec![42.0; 145];
+        let mut expected_l = vec![42.0; 145];
+        let mut expected_r = vec![42.0; 145];
+        long.process_block(&[&input, short], &mut actual_l, &mut actual_r);
+        for start in (0..145).step_by(64) {
+            let end = (start + 64).min(145);
+            let short_chunk = short.get(start..end.min(short.len())).unwrap_or(&[]);
+            split.process_block(&[&input[start..end], short_chunk],
+                &mut expected_l[start..end], &mut expected_r[start..end]);
+        }
+        assert_eq!(actual_l, expected_l);
+        assert_eq!(actual_r, expected_r);
+        assert!(actual_l.iter().all(|&x| x != 42.0));
+    }
+
+    #[test]
+    fn stereo_send_processes_long_buffers_like_successive_blocks() {
+        let mut long = Box::new(routing::DualEfxProcessor::new());
+        let mut split = Box::new(routing::DualEfxProcessor::new());
+        long.init();
+        split.init();
+        long.cascade_gain = 0.5;
+        split.cascade_gain = 0.5;
+        let input: Vec<_> = (0..145).map(|i| (i as f32 * 0.1).sin() * 0.2).collect();
+        let mut actual_l = vec![42.0; 145];
+        let mut actual_r = vec![42.0; 145];
+        let mut expected_l = vec![42.0; 145];
+        let mut expected_r = vec![42.0; 145];
+        long.process_stereo_send(&input, &input, &mut actual_l, &mut actual_r, true, true);
+        for start in (0..145).step_by(64) {
+            let end = (start + 64).min(145);
+            split.process_stereo_send(&input[start..end], &input[start..end],
+                &mut expected_l[start..end], &mut expected_r[start..end], true, true);
+        }
+        assert_eq!(actual_l, expected_l);
+        assert_eq!(actual_r, expected_r);
+        assert!(actual_l.iter().all(|&x| x != 42.0));
+    }
+
+    #[test]
     fn test_dual_routing_matrix() {
         let mut dual = routing::DualEfxProcessor::new();
         dual.init();
