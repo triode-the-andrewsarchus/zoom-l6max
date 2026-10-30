@@ -66,6 +66,19 @@ the captures hashed to
 The log establishes the clear operation, while the channel accumulation is
 inferred from the following stock instructions.
 
+A separate GDB probe stopped at `0x20228b08`, forced the mixer loop's
+branch selectors and gain values, and injected a `0.1` impulse in one source
+slot at a time. At `0x20228d54`, each of the 12 isolated slots produced
+`0.10000000149011612` at `0x20010210`, with the rest of that 64-sample send
+block zero. This confirms the candidate input-to-send path under forced
+conditions; it does not establish how physical channel controls map to slots,
+or which gains the firmware normally selects. The recipe, probe script and
+log SHA-256 values were, respectively,
+`a5f0e3fe4c0c45087c5bfa6155eef46d585a239c3087d4d9e83a414ad8b8d187`,
+`c9a000d27b9bbeb5264270590d239054b48eb6ebeafcae06649b21a7b031deec`, and
+`d3d61b4c37e572066b2e726f66db7c4e6238fded62f8da409080338e04aec387`.
+The forced state was confined to a disposable emulator run.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:
