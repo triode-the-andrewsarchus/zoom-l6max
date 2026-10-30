@@ -30,7 +30,8 @@ impl RoutingMode {
 }
 
 /// One mono mixer contribution before routing to an effect bus.
-/// `gain` may exceed unity; `ramp`, when present, supplies a multiplier per frame.
+/// `gain` may be signed or exceed unity; `ramp`, when present, supplies a
+/// multiplier per frame.
 #[derive(Clone, Copy)]
 pub struct WeightedChannel<'a> {
     pub samples: &'a [f32],
@@ -180,7 +181,7 @@ impl DualEfxProcessor {
 
             for ch in 0..channels.len().min(MAX_CHANNELS) {
                 let channel = channels[ch];
-                if !channel.gain.is_finite() || channel.gain <= 0.0 {
+                if !channel.gain.is_finite() || channel.gain == 0.0 {
                     continue;
                 }
                 let bus = match self.channel_routing[ch] {
