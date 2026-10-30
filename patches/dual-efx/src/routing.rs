@@ -129,7 +129,7 @@ impl DualEfxProcessor {
 
             for ch in 0..channels.len().min(MAX_CHANNELS) {
                 let send_level = self.channel_send[ch];
-                if send_level <= 1e-4 {
+                if send_level <= 0.0 {
                     continue;
                 }
                 let bus = match self.channel_routing[ch] {
