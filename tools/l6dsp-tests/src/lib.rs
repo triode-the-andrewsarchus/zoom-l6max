@@ -713,6 +713,32 @@ mod tests {
     }
 
     #[test]
+    fn plateau_freeze_does_not_delay_frozen_input_until_release() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        params.predelay_ms = 100.0;
+        params.freeze = true;
+        reverb.init(params);
+        for frame in 0..64 {
+            let input = if frame == 63 { 1.0 } else { 0.0 };
+            assert_eq!(reverb.process_sample(input, input), (0.0, 0.0));
+        }
+        params.freeze = false;
+        reverb.set_parameters(params);
+        for frame in 0..12_000 {
+            let (left, right) = reverb.process_sample(0.0, 0.0);
+            assert_eq!((left, right), (0.0, 0.0), "frozen input leaked at frame {frame}");
+        }
+        let mut peak = 0.0f32;
+        for frame in 0..16_000 {
+            let input = if frame == 0 { 1.0 } else { 0.0 };
+            let (left, right) = reverb.process_sample(input, input);
+            peak = peak.max(left.abs()).max(right.abs());
+        }
+        assert!(peak > 0.001, "new input must pass after freeze is released");
+    }
+
+    #[test]
     fn processor_initialization_restores_zeroed_and_dirty_state() {
         let mut reference = Box::new(routing::DualEfxProcessor::new());
         let mut storage = Box::<routing::DualEfxProcessor>::new_uninit();
