@@ -2022,6 +2022,32 @@ profiler Cargo lock SHA-256 values were
 The stock MAIN, initial NOR and unattested QEMU executable matched the
 preceding active-load run.
 
+The Plateau output-tap offsets now cache the calculation for the current
+size, including detecting direct writes to the public size field. An 80,000
+frame host comparison against the previous implementation, including two
+setter edits and one direct size edit while a tail was present, produced
+identical output bytes (SHA-256
+`5c3eda4dcb26005823c00866b4db50fcf9db0b6ef9984055087bb471356a4c2b`).
+A small host timing sample gave median times of 5.81 ms before and 4.87 ms
+after for that program; it is not a target timing measurement. The old and
+new host executables had SHA-256
+`fc3e8f43b08d69af5b8e20802db2dd5b8627136214ab91c651c4f91f13d82102` and
+`8b961e33492bad7e2dfa95c970b56f07b6f45a3e0c96d197f6276c8ee3605caf`.
+
+One QEMU active-send ten-edit run with this change completed the recipe but
+still did not open the inspector or select Spring. At the final audio snapshot
+the diagnostic reported 13,412 callbacks and finite nonzero output. This is
+not a controlled timing comparison, and the active-load control failure and
+physical deadline remain unresolved. The diagnostic MAIN, ELF, recipe,
+result and engine trace SHA-256 values were
+`77349a6d69bd4009cd1942c8e0334e12e857744038d94e4c414617d8a0d31cab`,
+`036ca9d62e9ed26534d60d4c7c4cf513569ecbe3704e629de0240ec02ee7224c`,
+`7f87210e16d8d839e256aea344f60b95446aa60254e2df16934bf7456b96234b`,
+`214916fc69957011a7810207aeb9296fe594472952d13354d94f72729e18f8e0`, and
+`466c91114c01cf63825565a227ba03463e0b08d8b0538c8191d82ade1c493943`.
+The stock MAIN, initial NOR and unattested QEMU executable matched the
+preceding active-load run.
+
 A separate stock-firmware diagnostic checked the corrected emulator trace
 windows through 47 guest seconds. Consecutive reported window lengths matched
 the timestamp differences within 1 ms. After the modeled 40.5-second receive

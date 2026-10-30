@@ -772,6 +772,43 @@ mod tests {
     }
 
     #[test]
+    fn plateau_output_survives_size_edits_with_existing_tail() {
+        // Reference samples were captured from the uncached implementation.
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        reverb.init(plateau::PlateauParameters::default());
+        let reference = [
+            (19999, 0.0250919, -0.011881147),
+            (20001, 0.008216565, -0.013316394),
+            (25000, -0.028677737, -0.012007806),
+            (40001, -0.027803516, -0.011604912),
+            (45000, 0.028411498, 0.000532995),
+            (60001, -0.018795291, -0.01570377),
+            (65000, -0.017707033, 0.033107616),
+            (79999, -0.028493254, -0.029480413),
+        ];
+        let mut next = 0;
+        for frame in 0..80000 {
+            if frame == 20000 || frame == 40000 {
+                let mut params = reverb.params;
+                params.size = if frame == 20000 { 0.2 } else { 1.2 };
+                reverb.set_parameters(params);
+            }
+            if frame == 60000 {
+                reverb.params.size = 0.55;
+            }
+            let input = if frame % 971 == 0 { 0.8 } else if frame % 137 == 0 { -0.2 } else { 0.0 };
+            let (left, right) = reverb.process_sample(input, input * 0.5);
+            if next < reference.len() && frame == reference[next].0 {
+                let (_, expected_l, expected_r) = reference[next];
+                assert!((left - expected_l).abs() < 1e-5, "left at {frame}: {left}");
+                assert!((right - expected_r).abs() < 1e-5, "right at {frame}: {right}");
+                next += 1;
+            }
+        }
+        assert_eq!(next, reference.len());
+    }
+
+    #[test]
     fn test_plateau_reverb_decay() {
         let mut plat = plateau::PlateauReverb::new();
         plat.init(plateau::PlateauParameters::default());
