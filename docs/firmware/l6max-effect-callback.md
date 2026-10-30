@@ -106,9 +106,14 @@ zero-fill routine, so its callers and synchronization must be controlled
 before any reuse. In a separate diagnostic that pressed EFX SEL twice, two
 breakpoints at the clear routine stopped with return address `0x20280677` in
 the stock selection path, active callback `0`, and current task `Main`.
-The earlier audio stops were in `AudioProcess`, so a replacement must account
-for cross-task ownership; observing a null callback alone does not prove an
-in-flight audio callback has completed. The memory recipe and diagnostic
+A follow-up observed `Main` at priority 12 and the two stock flags at
+`0x80202e68` and `0x8020026c` set to 1 during both stops; the earlier audio
+stops were in `AudioProcess` at priority 30. Static inspection shows those
+flags alter stock parameter-copy behavior. These observations do not establish
+that they are exclusion locks, or that an in-flight callback has completed;
+a replacement must account for cross-task ownership explicitly. The follow-up
+script and log SHA-256 values were
+`df4b7cbfaa239bf9a722bb57a04b8518a873d60e7aafbb0a1c00e2c44d1a9d54` and `65b9ffb3f77fa4aea7c812ca7b607063f9d981b7b611ef2f5697855529785752`. The memory recipe and diagnostic
 SHA-256 values were
 `4963ea843249cdc15ea055d11877d41f7025c7a7837dc06166ce71fb4e48bfd8` and
 `a9dba569c1999acc77d0de45699bf01722ff52784d8e293ee2bb649ebc76c3c6`.
