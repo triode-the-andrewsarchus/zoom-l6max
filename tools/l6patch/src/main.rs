@@ -2,7 +2,8 @@
 use firmware_patch_compile::{compile, symbol};
 use firmware_patch_core::{
     CallSiteEdit, FirmwareModel, HookEdit, L6_MAIN_BASE, L6_SLOT_END, PATCHES, PatchEdits,
-    apply_patch_with_map, first_payload_for, verify_firmware_for, write_image_length_and_version,
+    apply_patch_with_map, first_payload_for, validate_patch_selection, verify_firmware_for,
+    write_image_length_and_version,
 };
 use sha2::{Digest, Sha256};
 use std::{
@@ -92,6 +93,9 @@ fn read_hooks(
 // with the WASM-template prebuild tool so both compile payloads identically.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let options = parse_args()?;
+    if let Some(patches) = &options.patches {
+        validate_patch_selection(patches)?;
+    }
     let source = options.source.canonicalize()?;
     if options.output.exists() {
         return Err("output must be a new directory".into());
