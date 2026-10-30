@@ -14,21 +14,22 @@ it is not the 16-frame audio callback assumed by the original patch. The
 descriptor table observed at `0x2028b8c0` has five 28-byte entries. Its first
 words were, in table order:
 
-| Entry | Callback pointer observed |
-| --- | --- |
-| 0 | `0x20281649` |
-| 1 | `0x20280ab9` |
-| 2 | `0x20282221` |
-| 3 | `0x8002c041` |
-| 4 | `0x20280781` |
+| Entry | Callback pointer observed | Stock selector observation |
+| --- | --- | --- |
+| 0 | `0x20281649` | Before EFX SEL presses in a setup-complete boot |
+| 1 | `0x20280ab9` | After one EFX SEL press |
+| 2 | `0x20282221` | After two EFX SEL presses |
+| 3 | `0x8002c041` | Not tested in this observation |
+| 4 | `0x20280781` | Not tested in this observation |
 
 The active callback pointer is at `0x202a6f20`. Static inspection shows a
 wrapper at `0x202800e8` loading that pointer and calling it at `0x20280248`.
 Before the call, the wrapper scales and copies two 64-element arrays into
 scratch memory; afterward it copies them back with the inverse scale. The
 effect code for table entries 1 and 2 also contains 64-iteration floating-point
-processing loops. Their functional assignment and behavior require further
-runtime tests.
+processing loops. The one- and two-press progression is consistent with Room
+and Spring in the documented selector sequence; nonzero audio behavior and
+other starting states require further runtime tests.
 
 In a stock headless run, a GDB breakpoint at `0x20280248` stopped immediately
 before the indirect call. Registers were `r0=0x804683a4`, `r1=0x8045fe98`,
@@ -58,6 +59,11 @@ fidelity.
   `daf9ae1876775bd8ff7a8b6862aa93475e767be34dcead45fe2874d81176c29d` and
   `63c54db0e60edfd4736a35b091ee8d562605f7886d5930dd7624139357ca5b50`.
   Local logs and captured firmware remain outside version control.
+- A separate diagnostic waited 45 guest seconds, pressed EFX SEL twice with a
+  two-second guest-time interval, and read the active descriptor before and
+  after each press. The recipe and result hashes were
+  `1e7f6cf442730f82da89089a0ace47fef6f32a86705f63becaa06fc19bce5666` and
+  `9b437be3551f1d36651fb9073539bc77c97d57f18b7057e80581f37245fe0607`.
 
 Next, establish the exact per-channel send accumulation point, each table
 entry's effect selection, callback lifetime and synchronization, and the
