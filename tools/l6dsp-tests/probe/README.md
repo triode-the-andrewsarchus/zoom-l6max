@@ -92,6 +92,10 @@ hook. The trace adds work to that hook and can change timing.
 Add `--bank-stress` to repeat bank switching and encoder edits ten times,
 capture the inspector state, then exercise close and stock selection. Inspect
 the captured values; completion alone does not assert the expected behavior.
+`--enqueue-trace` separately records the EFX SEL edge and tick just before
+the stock panel parser enqueues it, at `0x83e00600`. `--timing-control` bypasses
+effect processing and writes silence for a QEMU-only scheduling comparison;
+it is not an effect implementation. Both options alter the diagnostic image.
 
 For the prepared fixture identified in the investigation, the expected
 captured values are `26.0 ms` for Plateau and `84.0 %` for Velvet, followed

@@ -65,47 +65,62 @@ pub unsafe extern "C" fn diagnostic_audio(_context: u32, descriptor: u32) {
     #[cfg(inspector_probe)]
     unsafe { inspector::consume(state); }
 
-    // Reconstruct the three mono sends from the observed mixer slots. This is
-    // a diagnostic hypothesis, not an ownership or lifetime guarantee.
-    let mut sends = [[0.0f32; 64]; 3];
-    for slot in 0..12 {
-        let route = unsafe { core::ptr::read_volatile((0x83e00100 as *const u32).add(slot)) };
-        if !(1..=3).contains(&route) { continue; }
-        let input = (0x2000e410usize + 256 * slot) as *const f32;
-        let smoothed = unsafe { core::ptr::read_volatile((0x20016140usize + 4 * slot) as *const f32) };
-        let gain = unsafe { core::ptr::read_volatile((0x20016170usize + 8 * slot) as *const f32) };
-        let ramp_desc = (0x200161d0usize + 16 * slot) as *const u32;
-        let ramped = unsafe { core::ptr::read_volatile(ramp_desc) } != 0;
-        let ramp = if ramped {
-            unsafe { core::ptr::read_volatile(ramp_desc.add(1)) }.wrapping_sub(256) as *const f32
-        } else {
-            core::ptr::null()
-        };
+    // Timing control for QEMU investigation only: preserve the callback's
+    // control stream and buffer contract while bypassing all effect DSP.
+    #[cfg(timing_control)]
+    {
         for i in 0..64 {
-            let sample = unsafe { core::ptr::read_volatile(input.add(i)) } * (1.0 / 2147483648.0);
-            let factor = if ramped { unsafe { core::ptr::read_volatile(ramp.add(i)) } } else { gain };
-            sends[(route - 1) as usize][i] += (sample * factor) * smoothed;
-        }
-    }
-    if unsafe { core::ptr::read_volatile(0x83e00140 as *const u32) } != 0 {
-        for bus in 0..3 {
-            for i in 0..64 {
-                unsafe { core::ptr::write_volatile((0x83e01000usize + bus * 256 + i * 4) as *mut f32, sends[bus][i]); }
+            unsafe {
+                core::ptr::write_volatile(control_target, core::ptr::read_volatile(control_source.add(i)));
+                core::ptr::write_volatile(buffer.add(i), 0.0);
+                core::ptr::write_volatile(buffer.add(i + 64), 0.0);
             }
         }
     }
-    state.prepare_bus_block();
-    for i in 0..64 {
-        unsafe {
-            core::ptr::write_volatile(
-                control_target,
-                core::ptr::read_volatile(control_source.add(i)),
-            );
+    #[cfg(not(timing_control))]
+    {
+        // Reconstruct the three mono sends from the observed mixer slots. This is
+        // a diagnostic hypothesis, not an ownership or lifetime guarantee.
+        let mut sends = [[0.0f32; 64]; 3];
+        for slot in 0..12 {
+            let route = unsafe { core::ptr::read_volatile((0x83e00100 as *const u32).add(slot)) };
+            if !(1..=3).contains(&route) { continue; }
+            let input = (0x2000e410usize + 256 * slot) as *const f32;
+            let smoothed = unsafe { core::ptr::read_volatile((0x20016140usize + 4 * slot) as *const f32) };
+            let gain = unsafe { core::ptr::read_volatile((0x20016170usize + 8 * slot) as *const f32) };
+            let ramp_desc = (0x200161d0usize + 16 * slot) as *const u32;
+            let ramped = unsafe { core::ptr::read_volatile(ramp_desc) } != 0;
+            let ramp = if ramped {
+                unsafe { core::ptr::read_volatile(ramp_desc.add(1)) }.wrapping_sub(256) as *const f32
+            } else {
+                core::ptr::null()
+            };
+            for i in 0..64 {
+                let sample = unsafe { core::ptr::read_volatile(input.add(i)) } * (1.0 / 2147483648.0);
+                let factor = if ramped { unsafe { core::ptr::read_volatile(ramp.add(i)) } } else { gain };
+                sends[(route - 1) as usize][i] += (sample * factor) * smoothed;
+            }
         }
-        let (l, r) = state.process_bus_sample(sends[0][i], sends[1][i], sends[2][i]);
-        unsafe {
-            core::ptr::write_volatile(buffer.add(i), l);
-            core::ptr::write_volatile(buffer.add(i + 64), r);
+        if unsafe { core::ptr::read_volatile(0x83e00140 as *const u32) } != 0 {
+            for bus in 0..3 {
+                for i in 0..64 {
+                    unsafe { core::ptr::write_volatile((0x83e01000usize + bus * 256 + i * 4) as *mut f32, sends[bus][i]); }
+                }
+            }
+        }
+        state.prepare_bus_block();
+        for i in 0..64 {
+            unsafe {
+                core::ptr::write_volatile(
+                    control_target,
+                    core::ptr::read_volatile(control_source.add(i)),
+                );
+            }
+            let (l, r) = state.process_bus_sample(sends[0][i], sends[1][i], sends[2][i]);
+            unsafe {
+                core::ptr::write_volatile(buffer.add(i), l);
+                core::ptr::write_volatile(buffer.add(i + 64), r);
+            }
         }
     }
 }
