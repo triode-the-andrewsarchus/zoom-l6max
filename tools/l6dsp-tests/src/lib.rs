@@ -208,6 +208,26 @@ mod tests {
     }
 
     #[test]
+    fn velvet_wraps_out_of_range_tap_delays() {
+        let mut engine = Box::new(velvet::VelvetDecorrelator::new());
+        engine.init(velvet::Parameters::default());
+        engine.current.dynamic = false;
+        for delay in [1, velvet::MAX_DELAY_SAMPLES as u32 + 1,
+            2 * velvet::MAX_DELAY_SAMPLES as u32 + 1, u32::MAX] {
+            engine.channels[0].delay_line.fill(0.0);
+            engine.channels[0].write_position = 5;
+            let d = delay as usize % velvet::MAX_DELAY_SAMPLES;
+            let read = (5 + velvet::MAX_DELAY_SAMPLES - d) % velvet::MAX_DELAY_SAMPLES;
+            engine.channels[0].delay_line[read] = 0.25;
+            let bank = &mut engine.channels[0].banks[engine.active_bank];
+            bank.count = 1;
+            bank.storage[0] = velvet::Tap { delay, gain: 0.5 };
+            let (left, _) = engine.process_sample(0.0, 0.0);
+            assert_eq!(left.to_bits(), math::soft_clip(0.125).to_bits(), "delay={delay}");
+        }
+    }
+
+    #[test]
     fn test_velvet_noise_decorrelator() {
         let mut vnd = velvet::VelvetDecorrelator::new();
         vnd.init(velvet::Parameters::default());
