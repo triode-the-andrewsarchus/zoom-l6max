@@ -46,8 +46,10 @@ impl Bank {
 }
 
 pub struct Channel {
-    pub delay_line: [f32; MAX_DELAY_SAMPLES],
-    pub write_position: usize,
+    // Only process_sample/reset may change history, so nonzero_samples stays exact.
+    delay_line: [f32; MAX_DELAY_SAMPLES],
+    write_position: usize,
+    nonzero_samples: usize,
     pub banks: [Bank; 2],
 }
 
@@ -82,6 +84,7 @@ impl Channel {
         Self {
             delay_line: [0.0; MAX_DELAY_SAMPLES],
             write_position: 0,
+            nonzero_samples: 0,
             banks: [Bank::new(), Bank::new()],
         }
     }
@@ -252,6 +255,7 @@ impl VelvetDecorrelator {
         for ch in &mut self.channels {
             ch.delay_line.fill(0.0);
             ch.write_position = 0;
+            ch.nonzero_samples = 0;
         }
         self.transitioning = false;
         self.transition_position = 0;
@@ -378,12 +382,23 @@ impl VelvetDecorrelator {
         for c in 0..2 {
             let dry = inputs[c];
             let wp = self.channels[c].write_position;
+            if self.channels[c].delay_line[wp] != 0.0 {
+                self.channels[c].nonzero_samples -= 1;
+            }
+            if dry != 0.0 {
+                self.channels[c].nonzero_samples += 1;
+            }
             self.channels[c].delay_line[wp] = dry;
 
-            let mut wet = self.convolve(&self.channels[c], self.active_bank);
-            if self.transitioning {
-                wet = old_weight * wet + new_weight * self.convolve(&self.channels[c], self.pending_bank);
-            }
+            let wet = if self.channels[c].nonzero_samples == 0 {
+                0.0
+            } else {
+                let mut wet = self.convolve(&self.channels[c], self.active_bank);
+                if self.transitioning {
+                    wet = old_weight * wet + new_weight * self.convolve(&self.channels[c], self.pending_bank);
+                }
+                wet
+            };
 
             // In an Aux Send bus effect, return pure wet scaled by amount, soft-clipped to [-1.0, 1.0].
             outputs[c] = soft_clip(wet * self.current.amount);
