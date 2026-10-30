@@ -713,6 +713,32 @@ The gesture probe source, recipe, diagnostic JSON and modified MAIN hashes were
 Both used the QEMU binary and stock package identified below and a prepared
 NOR image SHA-256 `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`.
 
+The reusable QEMU-only inspector experiment combines the deferred selector
+with the routed callback and a bounded input-event queue. In one prepared
+run, a normal EFX encoder turn changed the stock send from 0 to 44. A short
+selection entered Room; a long hold opened the diagnostic inspector without
+changing the active callback. Eight encoder events changed the captured
+Plateau predelay value to `26.0 ms` while the stock send remained 44. A short
+press selected Spring and closed the inspector; another long hold and eight
+opposite turns changed the captured Velvet amount to `84.0 %`, again leaving
+the send at 44. Closing the inspector and turning the encoder changed the
+stock send to 86. Both captured queues had head and tail 8 with zero overflow.
+The result contains text captured in scratch memory, not an OLED display.
+The test does not qualify queue overflow handling, loss across selection,
+other windows, patch combinations, ownership or physical timing.
+
+The inspector source, callback source, preparer, diagnostic ELF, MAIN,
+recipe and result SHA-256 values were
+`d9d763c9949cfa48a84b870fc782d5649ff070400bd1226198b98fdfbd984a94`,
+`af9cbd1cef4deaf363486c95ad3071b18bdd47b7bd837e6aa9cf6b847b976704`,
+`dc305e506aa65a00ac31a92e1c5b2cf10e12b54541c28bd2d7628b1416ef0cea`,
+`6d7bb483050da3bcab535b9741b0c60e3973c4a6883f75ea9144d47c8921c103`,
+`52603866eb7dcaeb9fe39e2483f358c9a0a1151734a88d3f10f79707a9611ad0`,
+`64e337f84af46e69e74a104f84ee10cce392e2091cea10d276c69673fc30230b`, and
+`e9f7bb9cbba0123f72ec7e42865f2cebce0f17add014c08d4a8ecffcf9625f62`.
+The stock MAIN, prepared NOR and QEMU executable matched the identities
+recorded elsewhere in this document.
+
 ## AI Noise Reduction investigation
 
 The historical plan calls `0x80002666` a pre-AINR audio hook. In MAIN 1.10

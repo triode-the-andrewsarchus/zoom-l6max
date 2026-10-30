@@ -72,3 +72,29 @@ for both custom selections. This is an observation recipe; check its captured
 values rather than treating a successful runner exit as a pass. See the
 [investigation](../../../docs/firmware/l6max-effect-callback.md) for evidence
 and limitations.
+
+## Inspector event experiment
+
+Pass `--callback --inspector` to prepare a separate QEMU-only image. Its
+generated recipe selects EFX mode and Room, opens the inspector with a long
+EFX SEL hold, turns encoder 1, selects Spring, repeats the hold and turn,
+then closes the inspector and turns the normal mixer control. The two
+revision-specific call sites are byte-guarded. The input hook queues edits;
+the diagnostic audio callback applies up to eight events per block and formats
+their captured text itself. That formatting placement is not qualified for
+real-time use. Summary
+memory at `0x83e00400` contains parameter ID, value length, 16 text bytes,
+consumed-event count and inspector-open flag. Queue head, tail and overflow
+count are captured at `0x83e00200`.
+
+For the prepared fixture identified in the investigation, the expected
+captured values are `26.0 ms` for Room and `84.0 %` for Spring, with eight
+consumed events and no queue overflow in each bank. The mixer send changes
+before and after the inspector but stays fixed during both edits. Check the
+captured observations; a completed recipe alone does not assert them.
+
+This experiment does not draw an OLED popup or implement routing controls.
+Effect changes reinitialize the DSP and queue, so edits and tails can be lost.
+The queue can overflow, and synchronization, context changes, stock patch
+combinations, memory ownership and timing are not qualified. The scratch
+addresses are emulator-only. Never install the generated image.
