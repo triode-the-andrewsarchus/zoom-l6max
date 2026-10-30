@@ -1263,6 +1263,27 @@ callback pointer. Index 3 is likewise outside the two observed descriptors.
 This is an address calculation for the supported 1.10 MAIN, not a tested
 hardware modification or a claim about the full region size.
 
+An instrumented stock-QEMU run on the newer board model traced CPU memory
+accesses between entry to `0x00001060` and the two stock caller returns. It
+armed at the learning-start handler and skipped 64 subsequent entries before
+capturing two calls; the later snapshot showed the learned word set to 1.
+The captured calls read and wrote the respective 256-byte channel buffers.
+Their observed working addresses extended to `0x20298513` and `0x202a5f13`,
+respectively 51,712 bytes from the two previously identified working bases.
+Both also read firmware tables in `0x800bc000`, `0x800cf000`, and
+`0x800e0000` pages. The trace spans calls and can include interrupt or task
+activity; it excludes DMA and unexecuted branches, so it is not a complete
+footprint or proof that those regions can be cloned safely. The plugin source,
+plugin binary, recipe, QEMU executable, trace and diagnostic result hashes were
+`b771980a371d91ba9a5924ff4a8ac03922044367434558169c53c5be9f687e4e`,
+`c0c1399e08fd549f09a659a8833db0a03b3335c2d7fee37e4523dbd681014f25`,
+`cb1841ecc9d2fbb185e75d204d493b8b8d1e192dab6e2e41b5ff4a54670339d7`,
+`249a29abb9e52e50d46472250475f2903a7b74e840ac0296545f3dad6ba41fee`,
+`630143b559ca826d46234a18f2b8fb96854218650d59563c61bce5f87761811b`, and
+`8a4d56bb737c56ac07e23a149ca98b2990d5d59a2aec145b99e38b98b89226a2`.
+The QEMU executable was built separately with plugins enabled; its source
+provenance is not attested by the executable hash.
+
 The learned-state routine's visible prologue saves nine general registers
 and four double registers and reserves `0x4b0` additional stack bytes: 1,272
 bytes before deeper calls. This static lower bound excludes callers, nested
