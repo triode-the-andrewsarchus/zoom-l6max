@@ -434,9 +434,9 @@ impl PlateauReverb {
 
     #[inline(always)]
     pub fn process_sample(&mut self, in_l: f32, in_r: f32) -> (f32, f32) {
-        // Do not let a non-finite sample poison the feedback tank.
-        let in_l = if in_l.is_finite() { in_l } else { 0.0 };
-        let in_r = if in_r.is_finite() { in_r } else { 0.0 };
+        // Do not let corrupt samples poison the feedback tank.
+        let in_l = audio_input(in_l);
+        let in_r = audio_input(in_r);
         // 1. Predelay & Input Sum
         let mono_in = 0.5 * in_l + 0.5 * in_r;
         let predelayed = if self.predelay_samples == 0 {

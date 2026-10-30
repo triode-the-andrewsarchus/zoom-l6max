@@ -5,6 +5,13 @@ pub const PI: f32 = 3.14159265358979323846;
 pub const PI_2: f32 = 1.57079632679489661923;
 pub const TWO_PI: f32 = 6.28318530717958647692;
 
+/// Reject corrupt samples before they enter delay lines and feedback state.
+/// The limit leaves 120 dB of headroom above normalized full scale.
+#[inline(always)]
+pub fn audio_input(x: f32) -> f32 {
+    if x >= -1_000_000.0 && x <= 1_000_000.0 { x } else { 0.0 }
+}
+
 /// Fast clamp.
 #[inline(always)]
 pub fn clamp(val: f32, min: f32, max: f32) -> f32 {

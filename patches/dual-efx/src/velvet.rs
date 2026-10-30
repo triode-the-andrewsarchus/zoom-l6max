@@ -318,8 +318,8 @@ impl VelvetDecorrelator {
         }
 
         let inputs = [
-            if in_l.is_finite() { in_l } else { 0.0 },
-            if in_r.is_finite() { in_r } else { 0.0 },
+            audio_input(in_l),
+            audio_input(in_r),
         ];
         let mut outputs = [0.0f32; 2];
 
