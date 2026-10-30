@@ -22,7 +22,10 @@ parser.add_argument("firmware", type=Path, help="unpacked stock firmware directo
 parser.add_argument("state", type=Path, help="disposable stock emulator state directory")
 parser.add_argument("output", type=Path, help="new directory under the system temporary directory")
 parser.add_argument("--callback", action="store_true", help="observe automatic effect callback installation")
+parser.add_argument("--switches", action="store_true", help="observe all six effect selections")
 args = parser.parse_args()
+if args.switches and not args.callback:
+    parser.error("--switches requires --callback")
 out = args.output.resolve()
 if not out.is_relative_to(Path(tempfile.gettempdir()).resolve()):
     parser.error("output must be under the system temporary directory")
@@ -70,7 +73,7 @@ nor = bytearray(nor)
 nor[0x50000:0x50000 + len(image)] = image
 (state / "main-nor.bin").write_bytes(nor)
 image_sha = hashlib.sha256(image).hexdigest()
-(out / "recipe.toml").write_text(f'''version = 1
+recipe = f'''version = 1
 model = "l6max"
 main_sha256 = "{image_sha}"
 wall_timeout_s = 180
@@ -98,7 +101,34 @@ action = "memory"
 name = "impulse_peaks"
 address = 0x83e00000
 length = 12
-'''))
+''')
+if args.switches:
+    recipe += '''[[step]]
+action = "memory"
+name = "active_1"
+address = 0x202a6f20
+length = 4
+'''
+    for i in range(2, 7):
+        recipe += f'''[[step]]
+action = "press"
+target = 40
+hold_ms = 150
+[[step]]
+action = "wait"
+guest_ms = 3000
+[[step]]
+action = "memory"
+name = "callback_state_{i}"
+address = 0x83e00000
+length = 12
+[[step]]
+action = "memory"
+name = "active_{i}"
+address = 0x202a6f20
+length = 4
+'''
+(out / "recipe.toml").write_text(recipe)
 print(f"Input MAIN SHA-256: {MAIN_SHA}")
 print(f"Input NOR SHA-256: {hashlib.sha256((args.state / 'main-nor.bin').read_bytes()).hexdigest()}")
 print(f"Diagnostic ELF SHA-256: {hashlib.sha256(elf.read_bytes()).hexdigest()}")
