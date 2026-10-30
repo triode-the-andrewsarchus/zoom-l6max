@@ -766,6 +766,41 @@ mod tests {
     }
 
     #[test]
+    fn corrupt_weighted_channel_does_not_silence_other_channels() {
+        let mut actual_processor = Box::new(routing::DualEfxProcessor::new());
+        let mut reference_processor = Box::new(routing::DualEfxProcessor::new());
+        actual_processor.init();
+        reference_processor.init();
+        for processor in [&mut actual_processor, &mut reference_processor] {
+            processor.set_channel_routing(0, routing::RoutingMode::SendA);
+            processor.set_channel_routing(1, routing::RoutingMode::SendA);
+            processor.set_channel_routing(2, routing::RoutingMode::SendA);
+        }
+        let mut valid = [0.0; 512];
+        let mut corrupt = [0.0; 512];
+        let mut ramp_input = [0.0; 512];
+        let mut ramp = [1.0; 512];
+        for i in [0, 64, 128] { valid[i] = 0.5; }
+        corrupt[0] = f32::NAN;
+        corrupt[64] = f32::INFINITY;
+        ramp_input[128] = 0.25;
+        ramp[128] = f32::NAN;
+        let channels = [
+            routing::WeightedChannel { samples: &valid, gain: 1.0, ramp: None },
+            routing::WeightedChannel { samples: &corrupt, gain: 1.0, ramp: None },
+            routing::WeightedChannel { samples: &ramp_input, gain: 1.0, ramp: Some(&ramp) },
+        ];
+        let mut actual = [[0.0; 512]; 2];
+        let mut reference = [[0.0; 512]; 2];
+        let [left, right] = &mut actual;
+        actual_processor.process_weighted_block(&channels, left, right);
+        let [left, right] = &mut reference;
+        reference_processor.process_weighted_block(&channels[..1], left, right);
+        assert_eq!(actual, reference);
+        assert!(reference.iter().flatten().any(|sample| sample.abs() > 0.001));
+    }
+
+    #[test]
     fn strip_routing_updates_both_sides_of_paired_strips() {
         let mut processor = Box::new(routing::DualEfxProcessor::new());
         let expected: [&[usize]; 8] = [&[0], &[1], &[2], &[3], &[4, 5], &[6, 7], &[8, 9], &[10, 11]];

@@ -168,7 +168,8 @@ impl DualEfxProcessor {
 
     /// Routes channels whose mixer gains have already been calculated.
     /// Samples and optional ramps shorter than the output contribute silence
-    /// beyond their lengths; effects still run to preserve their tails.
+    /// beyond their lengths; effects still run to preserve their tails. Invalid
+    /// or extreme weighted contributions are discarded before bus summation.
     pub fn process_weighted_block(&mut self, channels: &[WeightedChannel<'_>], out_l: &mut [f32], out_r: &mut [f32]) {
         let frames = out_l.len().min(out_r.len());
         let mut offset = 0;
@@ -194,11 +195,11 @@ impl DualEfxProcessor {
                 if let Some(ramp) = channel.ramp {
                     let ramp = ramp.get(offset..).unwrap_or(&[]);
                     for i in 0..n.min(input.len()).min(ramp.len()) {
-                        bus[i] += (input[i] * ramp[i]) * channel.gain;
+                        bus[i] += super::math::audio_input((input[i] * ramp[i]) * channel.gain);
                     }
                 } else {
                     for i in 0..n.min(input.len()) {
-                        bus[i] += input[i] * channel.gain;
+                        bus[i] += super::math::audio_input(input[i] * channel.gain);
                     }
                 }
             }
