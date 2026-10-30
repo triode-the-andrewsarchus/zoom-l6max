@@ -1252,6 +1252,17 @@ bases are `0x2028bb14` and `0x20299514`, 55,808 bytes apart. These bases do
 not establish the complete state extent or that copying the region creates
 independent instances.
 
+The addressing formulas also rule out simply passing new stock indices for
+extra send processors. Index 2's descriptor base would be `0x2028bb14`, the
+same address as index 0's working-storage base. Its computed working-storage
+base would be `0x202a6f14`, only 12 bytes below the active effect callback
+word at `0x202a6f20`. The learned-state routine uses that working base for
+its indexed input ring, so expanding the index without changing and owning
+the underlying layout could overwrite both existing AINR data and the live
+callback pointer. Index 3 is likewise outside the two observed descriptors.
+This is an address calculation for the supported 1.10 MAIN, not a tested
+hardware modification or a claim about the full region size.
+
 The learned-state routine's visible prologue saves nine general registers
 and four double registers and reserves `0x4b0` additional stack bytes: 1,272
 bytes before deeper calls. This static lower bound excludes callers, nested
