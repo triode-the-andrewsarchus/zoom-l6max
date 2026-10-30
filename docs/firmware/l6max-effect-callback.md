@@ -702,6 +702,19 @@ therefore cannot preserve the observed stock allocation footprint. This does
 not rule out a smaller state, a different allocator, or another owned region,
 and does not establish behavior in other device configurations.
 
+For perspective on reducing that deficit, the thirteen Plateau delay arrays
+currently hold 59,408 `f32` samples. A preliminary capacity calculation for
+the existing maximum `size` of 1.2, 190 ms predelay, 16-sample modulation,
+and output taps gives candidate array capacities, in source order, of 9,121;
+274, 209, 735, 538; 1,332, 8,620, 3,704, 7,201; and 1,790, 8,163,
+5,142, 6,123 samples. These total 52,952 samples, saving 25,824 bytes in raw
+arrays. Even if that reduction carried over exactly to the payload, the
+preceding snapshot would still exceed the stock pool by 133,384 bytes before
+allocation overhead. These capacities are an unimplemented estimate, not a
+verified bit-identical replacement: history during size and modulation edits,
+interpolated reads, and output taps would need comparison across their full
+ranges. They do not establish ownership or make that heap sufficient.
+
 The heap recipe, traversal script and log SHA-256 values were
 `a23dd43d67d045af4d2bf8492c9bb9d80f5cf4be880d31a10a0b7136cdfcae48`,
 `4eec680ad84db584bf74a4a01513780a0f6b0c8a9c772f0ec9bdbb3f918af601`, and
