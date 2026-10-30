@@ -619,6 +619,35 @@ The compiled payload ELF SHA-256 was
 `be1fd26b5212d2731a5c3a8169ad2b7998f0d9779836722723e415a953def6c6`;
 this was a build check, not an installed or tested image.
 
+## EFX SEL press and release diagnostic
+
+On the prepared L6max 1.10 fixture, a stepped QEMU debugger trace observed the
+call at `0x80036f28` reach `0x800542a8` with `r2=1` on press and `r2=0` on
+release. The candidate tick counter at `0x8020ab4c` advanced from 47497 to
+49001 during a 1500 ms simulated hold. The breakpoint was removed and the
+instruction stepped before waiting for release. This establishes neither the
+counter's rate nor event delivery in every context on hardware.
+
+A separate QEMU-only image intercepted this call and used the gesture state
+machine with a 750-tick threshold. Short (150 ms), long (1500 ms), then short
+presses produced stock active callbacks `0x20280ab9`, `0x20280ab9`, and
+`0x20282221`; diagnostic short/long counters were (1,0), (1,1), and (2,1).
+The long action only incremented a marker in experimental scratch memory: no
+inspector was opened. This image and its scratch address are not qualified for
+hardware, and the production firmware hook remains unconnected.
+
+The press/release recipe, script and log SHA-256 values were respectively
+`a75693bdd6f2bf783d5cbb165d171f8f12943daf6bebb5c45cb4821bae1130b4`,
+`2ddbe46e51b2b809515975d66f9ccec620970f5c0f1921b8da3462e74831c4ce`, and
+`a0409318ec9070298be395584fc47fabbc04bdc5c19d459fca18189dbb16a508`.
+The gesture probe source, recipe, diagnostic JSON and modified MAIN hashes were
+`ac18638951d17211ff441812a6112750b783c0a4ac6a34c3df9c77d2e491ef76`,
+`b53a2218c190b351266e91c39ff3267ca46c2de9f4f41c5f3c0a6033e6f9c9be`,
+`8d606168f384ff6f7ebbc843c586abdf11e1437ecc87219ca6807cb4c63e861a`, and
+`ff248b32e3c873c6f1a585ffc47025b01d89bde69539cf35d82cec76583e0b26`.
+Both used the QEMU binary and stock package identified below and a prepared
+NOR image SHA-256 `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:
