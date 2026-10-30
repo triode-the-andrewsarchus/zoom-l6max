@@ -88,9 +88,17 @@ positions later also changed. This agrees with the stock physical-channel
 mapping at `0x800564b0`. Some values were still changing when the next
 encoder was turned, so the captured values are not settled gain measurements.
 A separate capture of `0x20016138..0x20016337` showed no changes during the
-same style of turns. The relationship from those control bytes to the
-candidate accumulation-loop gains remains unresolved; do not use these
-observations to substitute the control index for a proven audio-slot mapping.
+same style of turns. A follow-up snapshot after turning encoder 1 showed the float at
+`0x20016d00` change from `0.0` to `1.7782794`. Static inspection of stock
+setter `0x800118e0` shows it writes this target from the table at `0x800a70c4`
+and combines it with other channel factors before updating the accumulation
+loop's gain. At that observation, the other factor at `0x20016b80` was zero,
+explaining why the effective gain remained zero. The exact semantics of those
+factors and the time-varying gain path still need verification; these
+observations do not yet prove the audio-slot mapping. The follow-up recipe and
+result hashes were
+`15d3135943928b47698911c270247b08491df4590af2c30ff1b87b662c26cda7` and
+`d6abd71b20f98528d1efba677366974368f7ade64288c85db3e5ebdce8b029db`.
 The control-capture recipe and diagnostic SHA-256 values were
 `fa5d64c9194c049c2a4acccd58720d95d6a92755b2220f30036371d80dccc41d` and
 `14979d87a6e758e572c48a11dcc23aa38fc6e0cc101f5f77d124b28c339e8c61`.
