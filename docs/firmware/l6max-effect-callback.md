@@ -79,6 +79,18 @@ log SHA-256 values were, respectively,
 `d3d61b4c37e572066b2e726f66db7c4e6238fded62f8da409080338e04aec387`.
 The forced state was confined to a disposable emulator run.
 
+In a further disposable run, each slot in turn was given a constant `0.125`
+input and a forced per-sample multiplier ramp from `0/64` to `63/64`; other
+slots were silent. With the other gain forced to unity, all 64 output samples
+matched `0.125 * ramp` exactly for each of the 12 slots. The corresponding
+descriptor's multiplier pointer advanced by `0x100` bytes after the block.
+The multiplier buffer was placed in QEMU-only scratch memory: this does not
+establish a usable hardware address, real control behavior, or buffer
+lifetime. The recipe, debugger script and log SHA-256 values were
+`a5f0e3fe4c0c45087c5bfa6155eef46d585a239c3087d4d9e83a414ad8b8d187`,
+`c15a11de5f22eeb45fd9c2f18b4fc764ea7bc9e5365544b62c47219b820656e6`, and
+`c9a9013fac1397a2a3c4b10b08a52a9420822fbd54a33e9053fc7df65fd5979a`.
+
 ## EFX encoder and stock effect storage observations
 
 With EFX mode selected, turning physical encoders 1 through 8 changed the
