@@ -1,5 +1,10 @@
 # Dual-EFX: Velvet Noise Decorrelator & Plateau Reverb
 
+**Disabled:** The firmware hooks and memory bindings are unsafe and have not
+been qualified on hardware. Both patch builders reject this patch until those
+issues are fixed and verified. The descriptions and estimates below describe
+the intended design; they do not establish implemented behavior or safety.
+
 Replaces the stock mono/reconstructed send effects with high-end modern DSP engines:
 1. **Velvet Noise Decorrelator (VND)** (Effect A):
    Ported from [115dkk/Velvet-Noise-Decorrelator-VST3](https://github.com/115dkk/Velvet-Noise-Decorrelator-VST3) to bare-metal `no_std` ARM Cortex-M7. Replaces Spring Reverb (`efx_type = 2`). Generates a sparse, unit-energy impulse sequence to decorrelate stereo audio channels without comb filtering or transient smearing.

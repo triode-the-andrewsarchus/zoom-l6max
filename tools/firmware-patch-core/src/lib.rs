@@ -7,6 +7,14 @@ use sha2::{Digest, Sha256};
 
 /// Patches in catalog order. Output never depends on the order patches are requested in.
 pub const PATCHES: [&str; 4] = ["knob-dialog", "midi-sync", "din-mixer-control", "dual-efx"];
+
+/// Refuse patches whose firmware integration has not been made safe to install.
+pub fn validate_patch_selection(patches: &[&str]) -> Result<(), &'static str> {
+    if patches.contains(&"dual-efx") {
+        return Err("dual-efx is disabled: its firmware hooks and memory use are unsafe");
+    }
+    Ok(())
+}
 pub const FIRST_PAYLOAD: u32 = 0x80108000;
 pub const SLOT_END: u32 = 0x801a2ff8;
 /// SHA-256 of the supported stock L6max MAIN firmware image (1.10).
@@ -251,6 +259,13 @@ pub fn write_image_length_and_version(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unsafe_dual_efx_is_rejected_alone_and_in_combinations() {
+        assert!(validate_patch_selection(&["dual-efx"]).is_err());
+        assert!(validate_patch_selection(&["knob-dialog", "dual-efx"]).is_err());
+        assert!(validate_patch_selection(&["knob-dialog", "midi-sync"]).is_ok());
+    }
 
     #[test]
     fn generic_firmware_verification_detects_both_models_from_reset_vector() {

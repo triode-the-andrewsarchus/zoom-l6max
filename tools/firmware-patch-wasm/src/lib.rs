@@ -145,6 +145,7 @@ fn find_unit(name: &str, model: FirmwareModel, base: u32) -> Result<Unit, String
 /// a small JSON report. `package` is the only untrusted input: every other
 /// byte comes from the embedded, Zoom-byte-free templates.
 pub fn apply_patches(package: &[u8], selected: &[&str]) -> Result<(Vec<u8>, Value), String> {
+    firmware_patch_core::validate_patch_selection(selected)?;
     let model = match l6fw::model_from_package(package)? {
         l6fw::Model::L6 => FirmwareModel::L6,
         l6fw::Model::L6max => FirmwareModel::L6max,
@@ -314,6 +315,13 @@ pub fn apply_patches_wasm(package: &[u8], selected: Vec<String>) -> Result<Patch
 mod tests {
     use super::{find_unit, parse_unit};
     use firmware_patch_core::FirmwareModel;
+
+    #[test]
+    fn unsafe_patch_is_rejected_before_processing_a_package() {
+        let err = super::apply_patches(&[], &["knob-dialog", "dual-efx"])
+            .unwrap_err();
+        assert!(err.contains("dual-efx is disabled"), "{err}");
+    }
 
     #[test]
     fn embedded_template_metadata_requires_an_explicit_model() {
