@@ -6,6 +6,8 @@ pub mod velvet;
 pub mod plateau;
 #[path = "../../../patches/dual-efx/src/routing.rs"]
 pub mod routing;
+#[path = "../../../patches/dual-efx/src/parameter_view.rs"]
+pub mod parameter_view;
 #[path = "../../../patches/dual-efx/src/parameters.rs"]
 pub mod parameters;
 #[path = "../../../patches/dual-efx/src/controls.rs"]
@@ -62,6 +64,32 @@ mod tests {
         assert_eq!(processor.velvet.current.density, 3000.0);
         edit_encoder(&mut processor, Bank::Plateau, 0, i32::MIN);
         assert_eq!(processor.plateau.params.predelay_ms, 0.0);
+    }
+
+    #[test]
+    fn display_snapshot_does_not_borrow_live_dsp_state() {
+        use parameters::{format_parameter, format_snapshot, snapshot_parameter, EfxParamId as Id, ParameterSnapshot};
+        let mut processor = Box::new(routing::DualEfxProcessor::new());
+        processor.init();
+        let ids = [Id::VndAmount, Id::VndTimeSpread, Id::VndDensity, Id::VndDecay,
+            Id::VndRefresh, Id::VndMode, Id::VndTransition, Id::PlatPreDelay,
+            Id::PlatSize, Id::PlatDecay, Id::PlatLowCut, Id::PlatHighCut,
+            Id::PlatDiffusion, Id::PlatModDepth, Id::PlatFreeze, Id::GlobalCascade];
+        let snapshots = ids.map(|id| snapshot_parameter(id, &processor));
+        let original = ids.map(|id| format_parameter(id, &processor));
+        processor.velvet.current.amount = 0.0;
+        processor.velvet.current.dynamic = false;
+        processor.plateau.params.freeze = true;
+        processor.cascade_gain = 0.0;
+        for (snapshot, expected) in snapshots.into_iter().zip(original) {
+            let copied = ParameterSnapshot::from_words(snapshot.id as u32, snapshot.value.to_bits()).unwrap();
+            let actual = format_snapshot(copied);
+            assert_eq!(actual.title, expected.title);
+            assert_eq!(&actual.value_str[..actual.value_len], &expected.value_str[..expected.value_len]);
+        }
+        assert!(ParameterSnapshot::from_words(16, 0).is_none());
+        assert!(ParameterSnapshot::from_words(Id::VndAmount as u32, f32::NAN.to_bits()).is_none());
+        assert!(ParameterSnapshot::from_words(Id::PlatFreeze as u32, 0.5f32.to_bits()).is_none());
     }
 
     #[test]
