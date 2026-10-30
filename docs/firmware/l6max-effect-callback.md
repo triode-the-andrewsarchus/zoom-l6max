@@ -193,6 +193,16 @@ The control-capture recipe and diagnostic SHA-256 values were
 `fa5d64c9194c049c2a4acccd58720d95d6a92755b2220f30036371d80dccc41d` and
 `14979d87a6e758e572c48a11dcc23aa38fc6e0cc101f5f77d124b28c339e8c61`.
 
+In a separate setup-complete run, EFX sends were adjusted on all eight strips,
+then LEVEL encoder turns were applied one strip at a time. The gain words at
+`0x20016170 + 8 * slot` changed only in slots `0`, `1`, `2`, `3`, `4–5`,
+`6–7`, `8–9`, and `10–11`, respectively. This confirms the control-to-gain
+slot grouping in that fixture, including both members of each paired strip;
+other link states, source-channel mapping and patch combinations remain
+unqualified. The recipe and result hashes were
+`06df73d2655fca9ffc1d41678671b89181603f89e8e66c81bc84785bdfc5a5c1` and
+`adfd29927843223f3bf2a70db60b228e59ee79e10355656a12b57da4e4197c87`.
+
 In a fresh stock-emulator boot, the descriptor at `0x8020a3dc`, referenced
 by the observed effect context, contained `0x80d00000`, `0x80dbb800`, and
 `0x000bb800` as its first three words. Static inspection of the Room callback

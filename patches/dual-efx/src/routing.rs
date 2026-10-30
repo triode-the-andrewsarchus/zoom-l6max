@@ -6,7 +6,7 @@
 use super::plateau::{PlateauParameters, PlateauReverb};
 use super::velvet::{Parameters as VelvetParameters, VelvetDecorrelator};
 
-pub const MAX_CHANNELS: usize = 12; // 8 mono/stereo channels + USB/pads
+pub const MAX_CHANNELS: usize = 12; // Four mono strips and four paired strips.
 pub const BLOCK_SIZE: usize = 64; // Max block size processed per callback
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -107,6 +107,21 @@ impl DualEfxProcessor {
     pub fn set_channel_routing(&mut self, channel: usize, mode: RoutingMode) {
         if channel < MAX_CHANNELS {
             self.channel_routing[channel] = mode;
+        }
+    }
+
+    /// Sets routing for one zero-based L6max 1.10 channel strip, using the
+    /// mapping observed in the setup-complete fixture. Other link states have
+    /// not been qualified. The first four strips use one slot; the rest use pairs.
+    pub fn set_strip_routing(&mut self, strip: usize, mode: RoutingMode) {
+        match strip {
+            0..=3 => self.channel_routing[strip] = mode,
+            4..=7 => {
+                let first = 4 + (strip - 4) * 2;
+                self.channel_routing[first] = mode;
+                self.channel_routing[first + 1] = mode;
+            }
+            _ => {}
         }
     }
 
