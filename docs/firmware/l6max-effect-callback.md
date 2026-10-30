@@ -91,6 +91,21 @@ lifetime. The recipe, debugger script and log SHA-256 values were
 `c15a11de5f22eeb45fd9c2f18b4fc764ea7bc9e5365544b62c47219b820656e6`, and
 `c9a9013fac1397a2a3c4b10b08a52a9420822fbd54a33e9053fc7df65fd5979a`.
 
+A control-driven attempt set a breakpoint at the ramp branch, then selected
+EFX and LEVEL and turned encoder 1 in each mode. The debugger timed out without
+observing the branch. A separate forced-ramp run did hit that breakpoint, so
+the location can detect at least the injected case. The timeout does not prove
+that normal controls never use ramps or that their data remains available at
+the callback. The control recipe, debugger script, log and diagnostic SHA-256
+values were
+`0e7a8ad94007a37f98decbc3338c0532073232025e2012a35ba70cc150653533`,
+`fc1d92c29a70b27fbdc76d059a787eb753e59bb03109f3f66037dcfad50df6f7`,
+`a8fa53fc160abe22d9c6b8d6ce3ae2905cf2b65baa006c402fa81527e4e7504c`, and
+`baaa86326a7dca862c860c56aab22ed8d693e3c07326c4831991bf3e097e61d3`.
+The forced-breakpoint script and log SHA-256 values were
+`ba45970d75d170f5c8146d8a3617ec8535243a45aa06cd5272b267c56a859fb8` and
+`bb17c056adb7c6f526fa2d184181225f8aa3e3b7b0f2ee1f2a67e584c7a690a3`.
+
 ## EFX encoder and stock effect storage observations
 
 With EFX mode selected, turning physical encoders 1 through 8 changed the
