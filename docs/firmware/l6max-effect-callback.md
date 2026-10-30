@@ -216,6 +216,47 @@ The forced-breakpoint script and log SHA-256 values were
 `ba45970d75d170f5c8146d8a3617ec8535243a45aa06cd5272b267c56a859fb8` and
 `bb17c056adb7c6f526fa2d184181225f8aa3e3b7b0f2ee1f2a67e584c7a690a3`.
 
+Two non-stopping follow-up experiments supplied a square wave of signed S32
+values `+/-0x10000000` to every modeled SAI receive word in a disposable
+QEMU build. A diagnostic callback captured the 12 source blocks, gain region,
+stock accumulated send and reconstructed B send together on the first nonzero
+block. Panel events set LEVEL and EFX before selecting Room; all diagnostic
+routes were B. With only strip 1 adjusted, its gain was about 7.08, the other
+11 gains were zero, and all 64 samples of both sends were finite and nonzero.
+The maximum difference after scaling the stock send by `2^-31` was about
+`1.5e-8`.
+
+In a second run, controls for all eight strips were adjusted and the 12
+captured gains were nonzero. All 64 send samples were finite and nonzero; the
+largest scaled difference was approximately `1.9e-6`. The reconstructed peak
+was about 18.13, exceeding normalized full scale: this is a calculation
+comparison, not an audio-quality or output-safety test. The injected signal
+was identical on all modeled RX words, and the single captured block does not
+establish physical input mapping, independent routing, ramp lifetime, control
+responsiveness under sustained audio or hardware timing. The snapshot and
+unowned scratch memory alter the QEMU workload; never install this image.
+
+Both runs used stock MAIN SHA-256
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`
+and initial NOR SHA-256
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`.
+The modified QEMU executable SHA-256 was
+`931151b462c98c6806223b387b1e47de385b8578ea66a0a6aa0ff0775941dab6`;
+its source provenance is unattested. The modified emulator source and
+diagnostic callback SHA-256 values were
+`d7b5fc1fc42789a03cdbbe1e06ca744a1ecd17e5d7192b33d22e8cfdadbf247b` and
+`210ee9f2722ef81cf47c88575b1e8ca48bd4d4a233986b93bb29d1c7bb770577`.
+The common diagnostic MAIN and ELF hashes were
+`32a5a808ffaed58572e53aaa86eaffa00b3ac9ac1b9da4107377f30b47b992ca` and
+`1017c7d8a4bd608762b4721231e8eef269c2cbbba928cb9859d54d6d889e5605`.
+The first recipe and result hashes were
+`d1479848adb75c35488c2d7ebda8ad8963c11ef5a8d0441777be73230bf3ee15` and
+`2563d918ede42d9357fb26d001c64426b76ab91925a3ec9bfc20c2f4a6e48a7d`;
+the second were
+`d7cf321fb37704a9b530d541c302429895943caa3c58f2baf7dcbdc32e5ba8be` and
+`d0e221141677d8e53b8aa9f123a9729cf64e328ecd5f11b338d20d91e762a324`.
+Firmware, state and runtime captures remain local.
+
 ## EFX encoder and stock effect storage observations
 
 With EFX mode selected, turning physical encoders 1 through 8 changed the
