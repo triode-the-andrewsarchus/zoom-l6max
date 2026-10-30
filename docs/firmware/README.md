@@ -19,6 +19,7 @@ validate the image and hook guards before building. See the
 - [Controls and indicators](../emulator/controls.md): model-specific inputs and lamps.
 - [QEMU board](../emulator/board.md): modeled peripherals and display boundaries.
 - [Updates](updates.md): package handling, installer behavior, and limits.
+- [L6max effect callback investigation](l6max-effect-callback.md): revision-scoped observations and remaining gaps.
 - [Editor MIDI](protocols/editor-midi.md): message formats and session behavior.
 - [Factory protocol scenario](protocols/factory-midi.md): emulator test setup and scope.
 - [Mixer MIDI](protocols/mixer-midi.md): Control Change numbers and state requests.
