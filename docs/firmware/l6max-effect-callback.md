@@ -122,6 +122,30 @@ The clear recipe, debugger script and log hashes were
 `1bd3b52f27acadc0759517c5ba8b0cd76cad8b3399e1bd3bd63105835203edcc`, and
 `452d160086fe099db2b9d3a8f6e037cdcd83179d9fe01fa0dd428e937b1bd826`.
 
+## Experimental relocated-veneer redirect
+
+The selection code calls the stock clear through a ten-byte veneer at MAIN
+file offset `0x107de6`, relocated to `0x20282f76`. A disposable QEMU-only
+experiment changed that veneer to load `0x80108001`, where an appended
+veneer transferred control to the original clear at `0x80024678`. It did not
+run the replacement DSP or make an update package. A debugger observed the
+redirected bytes at the relocated RAM address, then stopped at the appended
+veneer, the original clear and the stock return site `0x20280676`. Registers
+`r0` through `r11`, the stack pointer and the link register matched between
+the two entry stops; `r12` changed as expected to hold the next destination.
+This establishes a possible far-call interception mechanism for that path in
+this QEMU run. It does not establish state ownership, safe initialization,
+all callers, or real-hardware timing.
+
+The experimental MAIN SHA-256 was
+`ccfd22a151b80662d1e029fc2e8250fb8027206c884dee2f2d0b02589bbacb64`.
+The recipe, debugger script and log hashes were
+`4ae9171edd8dcee4234362c6f978b1b3e23945bd01a849543ef0b5d410e615c9`,
+`fe43855b37ecc00f620ee41d2c0de89532079ee2cdea1ca40b9946ad9043255b`, and
+`5bca7006b4bac67c74800638395bc9b20eca07be225274d51760b44741c910a3`.
+The modified MAIN and disposable NOR are local diagnostic artifacts only;
+they are not qualified or supported firmware.
+
 ## Task and memory observations
 
 In a separate disposable stock-emulator run after 45 guest seconds, debugger
