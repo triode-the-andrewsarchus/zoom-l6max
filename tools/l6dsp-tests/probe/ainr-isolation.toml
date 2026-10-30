@@ -1,0 +1,134 @@
+version = 1
+model = "l6max"
+main_sha256 = "980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461"
+wall_timeout_s = 350
+[[step]]
+action = "wait"
+guest_ms = 45000
+[[step]]
+action = "snapshot"
+name = "ready"
+[[step]]
+action = "wait"
+guest_ms = 3000
+[[step]]
+action = "memory"
+name = "low_exec_start"
+address = 0
+length = 256
+[[step]]
+action = "memory"
+name = "low_exec_candidate"
+address = 8096
+length = 256
+[[step]]
+action = "press"
+target = 40
+hold_ms = 150
+[[step]]
+action = "wait"
+guest_ms = 3000
+[[step]]
+action = "press"
+target = 40
+hold_ms = 150
+[[step]]
+action = "wait"
+guest_ms = 3000
+[[step]]
+action = "press"
+target = 40
+hold_ms = 150
+[[step]]
+action = "wait"
+guest_ms = 3000
+[[step]]
+action = "press"
+target = 40
+hold_ms = 150
+[[step]]
+action = "wait"
+guest_ms = 3000
+[[step]]
+action = "press"
+target = 40
+hold_ms = 150
+[[step]]
+action = "wait"
+guest_ms = 3000
+[[step]]
+action = "memory"
+name = "active"
+address = 539651872
+length = 4
+[[step]]
+action = "memory"
+name = "context"
+address = 2152070808
+length = 64
+[[step]]
+action = "memory"
+name = "effect_state"
+address = 539651872
+length = 64
+[[step]]
+action = "memory"
+name = "ainr_io_descriptor"
+address = 0x8020a3ec
+length = 32
+
+[[step]]
+action = "memory"
+name = "before_learn_control"
+address = 0x8046300c
+length = 4
+[[step]]
+action = "memory"
+name = "before_learn_processor"
+address = 0x2028ba0c
+length = 264
+[[step]]
+action = "press"
+target = 48
+hold_ms = 150
+[[step]]
+action = "wait"
+guest_ms = 14000
+[[step]]
+action = "memory"
+name = "after_learn_control"
+address = 0x8046300c
+length = 4
+[[step]]
+action = "snapshot"
+name = "learned_ready"
+[[step]]
+action = "wait"
+guest_ms = 4000
+[[step]]
+action = "memory"
+name = "after_learn_processor"
+address = 0x2028ba0c
+length = 264
+[[step]]
+action = "press"
+target = 48
+hold_ms = 150
+[[step]]
+action = "wait"
+guest_ms = 1000
+[[step]]
+action = "memory"
+name = "after_reset_control"
+address = 0x8046300c
+length = 4
+[[step]]
+action = "memory"
+name = "after_reset_processor"
+address = 0x2028ba0c
+length = 264
+[[step]]
+action = "memory"
+name = "candidate_code"
+address = 0x20219c6a
+length = 32

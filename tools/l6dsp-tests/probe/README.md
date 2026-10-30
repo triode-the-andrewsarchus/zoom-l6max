@@ -150,3 +150,28 @@ text and mixer behavior; a completed recipe alone is not an assertion. The
 combined image uses emulator-only state, and does not qualify notification
 contention, queue overflow, effect switching, timing or physical hardware.
 Do not install it.
+
+## Isolated AINR comparison
+
+This focused QEMU diagnostic reruns the copied-AINR experiment described in
+[the investigation](../../../docs/firmware/l6max-effect-callback.md#ai-noise-reduction-investigation):
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 tools/l6dsp-tests/probe/ainr_isolation.py \
+  UNPACKED_DIR STOCK_STATE_DIR /tmp/l6-ainr-isolation --qemu QEMU_PATH
+```
+
+The output directory must be new and under the system temporary directory. The
+script checks the stock MAIN revision and the MAIN in the supplied NOR, copies
+the state, records binary identities and runs `l6dbg` with the copied state.
+It waits for AINR learning, copies processor memory and guarded code into QEMU
+scratch RAM, then compares 96 forced signal blocks and sampled state at five
+checkpoints. `result.json` is written only after the comparisons and recipe
+complete successfully. Logs and generated state remain in the temporary output.
+QEMU executable provenance is recorded as unattested.
+
+This diagnostic modifies emulated execution and uses memory whose ownership on
+hardware is unknown. It does not establish complete relocation coverage,
+concurrent isolation, timing, pre-AINR integration, or physical safety, and
+must never be used with a real device. It does not enable the dual-effect
+patch builder.
