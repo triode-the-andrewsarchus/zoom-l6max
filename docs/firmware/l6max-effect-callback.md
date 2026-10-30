@@ -1706,6 +1706,22 @@ and result hashes were
 `f515584657849f83ad887970b859534f1ff7c090cd42f325417f79fedc4983c2`, and
 `7279bba25d70ea99efb0c41b60bfec58bfd42e57ad6207e210d477f9d6679aee`.
 
+To isolate the diagnostic input-path cost, a temporary active-sends build
+skipped reconstruction of the twelve mixer slots whose results that diagnostic
+then overwrites with synthetic signals. All three synthetic sends and both
+effects remained active. Its matched cadence counts were 1,074, 3,540, 5,946
+and 8,350: approximately 485 callbacks per guest second, compared with 476
+with reconstruction and 750 with effect DSP bypassed. This single emulator
+observation suggests that eliminating the reconstruction alone would not solve
+the overload. It does not qualify a real input path, so the experiment was
+not adopted. Its temporary callback source, MAIN, ELF, recipe and result hashes
+were
+`42f8c929fea0ab0c3c63e08b3c74e9e8b339d3cbab59a8595f909174ac26a3c1`,
+`78717d60d45e6bff37542e2e6561d7efecfc35cb5c189e985aea0ae42e61716e`,
+`adbda27462d294e319fdad1d95f86b697ee722659a66279fc8fd81ab3c3fe4fd`,
+`79fb1bce8d5bca7e25f7b442645c1133f2cf0296aca379f220743c5654c443a4`, and
+`e6709ac444e820a134e61959dafa2c0bc15a19f5b0c7896cc690298983e3d192`.
+
 The tap loop now checks the range first and uses an out-of-line modulo only
 for out-of-range delays. Cortex-M7 disassembly confirmed that valid delays
 branch around the divide; the first inline version had not done so. A host
