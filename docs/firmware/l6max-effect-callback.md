@@ -101,7 +101,9 @@ by the observed effect context, contained `0x80d00000`, `0x80dbb800`, and
 uses these as a start, end and circular span of 768,000 bytes. This is a
 candidate stock-owned effect buffer, not free patch memory: ownership across
 stock effect switches, reset, DMA, and other users must be traced before any
-reuse. The memory recipe and diagnostic SHA-256 values were
+reuse. Stock routine `0x80024678` passes the same start and span to a
+zero-fill routine, so its callers and synchronization must be controlled
+before any reuse. The memory recipe and diagnostic SHA-256 values were
 `4963ea843249cdc15ea055d11877d41f7025c7a7837dc06166ce71fb4e48bfd8` and
 `a9dba569c1999acc77d0de45699bf01722ff52784d8e293ee2bb649ebc76c3c6`.
 
