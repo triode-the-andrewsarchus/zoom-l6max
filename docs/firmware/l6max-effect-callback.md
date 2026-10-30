@@ -1140,6 +1140,32 @@ hashes were respectively
 `69b2a6775a4cab8d778d2d9b91e41cfedbbaf35788ac1417955f0be66a874afa`;
 external binary source provenance remains unattested.
 
+At a debugger stop on `0x0000002a` during a subsequent learning run, the
+current task was `AudioProcess`, and the saved return address was
+`0x20228d8b`. Registers `r8` and `r10` both held `0x20011010`, `r2` held 0,
+and the corresponding processor-state word at `0x2028ba4c` held 4. The
+sampled 128 bytes at `0x20011010` were all zero. The linked stock code at
+MAIN `0xfd7ce`, relocated to `0x20228d86`, passes `0x20011010` as both `r0`
+and `r1`, with `r2 = 0`, through a veneer to the low-memory dispatcher at
+`0x00000780`. The next call statically passes `0x20011110` as both pointers
+and `r2 = 1`; it was not separately observed at this stop. The dispatcher
+uses the per-index state word at `0x2028ba4c + 132 * index` and branches to
+the observed routine for state 4. This is a candidate in-place stereo
+processing interface in the audio task during learning. Silent samples and
+one debugger stop do not establish the data format, block length, behavior
+after learning, denoising output, or whether the interface can safely be
+reused for pre-effect processing.
+
+The active callback was `0x20280021`; the learned word changed 0 to 1 and
+then back to 0 after the second TAP. The recipe, debugger script, debugger
+log and diagnostic JSON SHA-256 values were
+`d27d3cfb5ff58eadb6d7dad52c6adaf2e037a0697bd085c0d328294f8aa0d61f`,
+`dd4970786420d397b846fe0ef03684b9444da7e6eb6fcc0dcfa93adb30c3d8dd`,
+`4ee37cbc491ab061118b024be97e4b00db09281a162b1ca884323c1aca34bf53`, and
+`2cad5291f8d04b1b65828e27b9a7d1b2540568e403a30e7e900b0f4290180298`.
+The stock MAIN, initial NOR and QEMU match the first run immediately above;
+the debugger stop may perturb scheduling.
+
 ## Plateau tank delay diagnostic
 
 After correcting the Plateau tank rings to return a sample after their full

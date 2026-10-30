@@ -24,7 +24,8 @@ The blocking findings for L6max MAIN 1.10
 - The active firmware signal path ignores per-channel routing and has no
   pre-AINR implementation. The planned pre-AINR address is an effect-type
   getter call, not an established audio interface; the selected AINR callback
-  clears the normal wet buffers. Its actual processing path is still unknown;
+  clears the normal wet buffers. A candidate in-place audio-task interface
+  observed during learning remains unqualified;
   see the [callback investigation](firmware/l6max-effect-callback.md#ai-noise-reduction-investigation).
   The standalone routing processor separates A-only
   and cascaded sends, but is not connected to firmware. Its additional DSP
