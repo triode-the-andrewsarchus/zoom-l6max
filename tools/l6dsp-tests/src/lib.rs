@@ -690,6 +690,29 @@ mod tests {
     }
 
     #[test]
+    fn plateau_freeze_does_not_replay_old_damping_state() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        reverb.init(params);
+        // Model filter history from before freeze with an otherwise empty tank.
+        reverb.l_hp.process(1.0);
+        reverb.r_hp.process(-1.0);
+        params.freeze = true;
+        reverb.set_parameters(params);
+        for _ in 0..20_000 {
+            assert_eq!(reverb.process_sample(0.0, 0.0), (0.0, 0.0));
+        }
+        params.freeze = false;
+        reverb.set_parameters(params);
+        let mut peak = 0.0f32;
+        for _ in 0..12_000 {
+            let (left, right) = reverb.process_sample(0.0, 0.0);
+            peak = peak.max(left.abs()).max(right.abs());
+        }
+        assert!(peak < 1e-7, "stale damping state reappeared after freeze: {peak}");
+    }
+
+    #[test]
     fn processor_initialization_restores_zeroed_and_dirty_state() {
         let mut reference = Box::new(routing::DualEfxProcessor::new());
         let mut storage = Box::<routing::DualEfxProcessor>::new_uninit();

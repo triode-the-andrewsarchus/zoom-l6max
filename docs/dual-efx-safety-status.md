@@ -60,7 +60,9 @@ Some standalone DSP defects have been fixed and tested on the host. Those
 tests do not exercise the firmware bindings or establish hardware safety.
 The stereo adapter now advances disabled effects on silence to avoid resuming
 stale audio, increasing its work while effects are disabled; target timing for
-that behavior has not been measured.
+that behavior has not been measured. Plateau also advances its bypassed
+damping filters during freeze to avoid replaying stale filter state when
+unfrozen; its added freeze-time work has not been measured on the target.
 Generic emulator boot, panel, and audio-callback checks do not qualify effects
 audio, controls, or behavior on a physical device.
 Earlier diagnostics using the always-on L6max SAI receive compatibility mode

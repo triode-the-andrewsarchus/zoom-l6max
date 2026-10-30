@@ -506,11 +506,10 @@ impl PlateauReverb {
         let l_del1_out = self.l_del1.read(0);
         self.l_del1.write(l_ap1_out);
 
-        let l_filtered = if self.params.freeze {
-            l_del1_out
-        } else {
-            self.l_hp.process(self.l_lp.process(l_del1_out))
-        };
+        // Keep damping history current while bypassed so releasing freeze
+        // does not reintroduce samples from before it was engaged.
+        let l_damped = self.l_hp.process(self.l_lp.process(l_del1_out));
+        let l_filtered = if self.params.freeze { l_del1_out } else { l_damped };
 
         let l_ap2_out = self.l_apf2.process(l_filtered * decay);
         let l_del2_out = self.l_del2.read(0);
@@ -522,11 +521,8 @@ impl PlateauReverb {
         let r_del1_out = self.r_del1.read(0);
         self.r_del1.write(r_ap1_out);
 
-        let r_filtered = if self.params.freeze {
-            r_del1_out
-        } else {
-            self.r_hp.process(self.r_lp.process(r_del1_out))
-        };
+        let r_damped = self.r_hp.process(self.r_lp.process(r_del1_out));
+        let r_filtered = if self.params.freeze { r_del1_out } else { r_damped };
 
         let r_ap2_out = self.r_apf2.process(r_filtered * decay);
         let r_del2_out = self.r_del2.read(0);
