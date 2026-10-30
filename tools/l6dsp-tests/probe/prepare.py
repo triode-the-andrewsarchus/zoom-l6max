@@ -31,6 +31,7 @@ parser.add_argument("--irq-timing", action="store_true", help="use QEMU-only IRQ
 parser.add_argument("--timing-control", action="store_true", help="bypass effects in a QEMU timing comparison")
 parser.add_argument("--active-sends", action="store_true", help="inject nonzero QEMU-only effect buses")
 parser.add_argument("--pre-ainr", action="store_true", help="run a debugger-installed AINR copy on each test send")
+parser.add_argument("--effect-buffer", action="store_true", help="place test states in the observed stock effect buffer")
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
 parser.add_argument("--bank-stress-count", type=int, default=10, help="number of bank changes (1..64)")
 args = parser.parse_args()
@@ -57,6 +58,8 @@ if args.active_sends and args.timing_control:
 if args.pre_ainr and (not args.active_sends or not args.inspector or args.bank_stress or args.irq_trace
                       or args.irq_timing or args.gesture_trace or args.enqueue_trace):
     parser.error("--pre-ainr requires --inspector --active-sends and no other trace or stress options")
+if args.effect_buffer and not args.pre_ainr:
+    parser.error("--effect-buffer requires --pre-ainr")
 if args.bank_stress and not args.inspector:
     parser.error("--bank-stress requires --inspector")
 if not 1 <= args.bank_stress_count <= 64 or (args.bank_stress_count != 10 and not args.bank_stress):
@@ -94,6 +97,8 @@ if args.active_sends:
     rustc += ["--cfg", "active_sends"]
 if args.pre_ainr:
     rustc += ["--cfg", "pre_ainr_probe"]
+if args.effect_buffer:
+    rustc += ["--cfg", "effect_buffer_probe"]
 subprocess.run(rustc, cwd=ROOT, check=True)
 subprocess.run(["llvm-objcopy", "-O", "binary", str(elf), str(blob)], check=True)
 payload = blob.read_bytes()
@@ -124,6 +129,21 @@ if args.inspector:
         image[offset:offset + 4] = branch(0x80000000 + offset, symbols["inspector_enqueue"])
 image.extend(b"\xff" * (0x108000 - len(image)))
 image.extend(payload)
+if args.effect_buffer:
+    from ainr_isolation import cloned_code
+    from pre_ainr_observer import relocated
+    # The known stock fixture has an erased application tail. No update
+    # package is produced, and this layout remains emulator-only.
+    tail_start, tail_end = 0x130000, 0x142000
+    tail = nor[0x50000 + tail_start:0x50000 + tail_end]
+    if len(image) > tail_start or len(tail) != tail_end - tail_start or any(b != 0xff for b in tail):
+        raise ValueError("experimental application tail is not available")
+    image.extend(b"\xff" * (tail_start - len(image)))
+    code = cloned_code(main)
+    for index in range(3):
+        copy = relocated(code, index, 'effect-buffer')
+        image.extend(copy)
+        image.extend(b"\xff" * (0x6000 - len(copy)))
 (firmware / "main_firmware.bin").write_bytes(image)
 nor = bytearray(nor)
 nor[0x50000:0x50000 + len(image)] = image
@@ -302,7 +322,15 @@ wall_timeout_s = 420
 (out / "recipe.toml").write_text(recipe)
 if args.pre_ainr:
     metadata = {"stock_main_sha256": MAIN_SHA, "diagnostic_main_sha256": image_sha,
-                "recipe_sha256": hashlib.sha256(recipe.encode()).hexdigest()}
+                "recipe_sha256": hashlib.sha256(recipe.encode()).hexdigest(),
+                "layout": "effect-buffer" if args.effect_buffer else "scratch"}
+    if args.effect_buffer:
+        matches = [line.split() for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines()
+                   if line.endswith(" diagnostic_audio")]
+        if len(matches) != 1:
+            raise ValueError("diagnostic callback symbol missing")
+        metadata["callback_address"] = int(matches[0][0], 16) & ~1
+        metadata["diagnostic_elf_sha256"] = hashlib.sha256(elf.read_bytes()).hexdigest()
     (out / "pre-ainr.json").write_text(json.dumps(metadata, indent=2) + "\n")
 print(f"Input MAIN SHA-256: {MAIN_SHA}")
 print(f"Input NOR SHA-256: {hashlib.sha256((args.state / 'main-nor.bin').read_bytes()).hexdigest()}")

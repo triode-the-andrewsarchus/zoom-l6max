@@ -219,3 +219,14 @@ to learn an independent instance, prove denoising quality, validate physical
 inputs or routing, establish scratch ownership, or meet a real-time deadline.
 The observer must not connect to a real device. The results depend on the exact
 firmware, state, QEMU binary and emulator timing.
+
+Add `--effect-buffer` to that preparation command to test an alternative
+layout. It places three guarded code copies in the erased application tail and
+three 128 KiB state copies after the effects state inside the observed stock
+effect buffer. The build rejects an oversized effects state or a non-erased
+tail. The observer captures the learned state, waits for Room's initialized
+callback, then copies the states while the guest is stopped and verifies that
+the effects state was not changed by the copies. It holds the learned snapshot
+on the host across effect selection; this is not a firmware initialization
+scheme. Stock buffer ownership, callback publication, concurrent users, update
+packaging and physical memory are unqualified. Never install this image.

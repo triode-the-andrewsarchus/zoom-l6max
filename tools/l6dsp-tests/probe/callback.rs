@@ -23,6 +23,8 @@ mod parameters;
 mod inspector;
 #[cfg(irq_trace)]
 mod irq;
+#[cfg(effect_buffer_probe)]
+const _: () = assert!(core::mem::size_of::<routing::DualEfxProcessor>() <= 0x50000);
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".text.probe")]
 pub unsafe extern "C" fn probe(entry: *mut u32) {
@@ -46,6 +48,8 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
                 core::ptr::write_volatile((0x83e00100 as *mut u32).add(slot), route);
             }
             core::ptr::write_volatile(0x83e00140 as *mut u32, 0);
+            #[cfg(effect_buffer_probe)]
+            core::ptr::write_volatile(0x83e0301c as *mut u32, core::mem::size_of::<routing::DualEfxProcessor>() as u32);
             #[cfg(active_sends)]
             {
                 core::ptr::write_volatile(0x83e00800 as *mut u32, 0x5349474e);
@@ -79,7 +83,10 @@ fn process_pre_ainr_sends(sends: &mut [[f32; 64]; 3]) {
     if unsafe { core::ptr::read_volatile(0x83e00144 as *const u32) } != 0x41494e52 { return; }
     for bus in 0..3 {
         let before = sends[bus][63];
+        #[cfg(not(effect_buffer_probe))]
         let entry = 0x80f00781usize + bus * 0x10000;
+        #[cfg(effect_buffer_probe)]
+        let entry = 0x80130781usize + bus * 0x6000;
         let ainr: unsafe extern "C" fn(*mut f32, *mut f32, u32) = unsafe { core::mem::transmute(entry) };
         let samples = sends[bus].as_mut_ptr();
         unsafe {
