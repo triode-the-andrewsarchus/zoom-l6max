@@ -36,6 +36,8 @@ pub unsafe fn initialize(entry: u32) {
         core::ptr::write_volatile((SUMMARY + 28) as *mut u32, 0);
         #[cfg(gesture_trace)]
         core::ptr::write_volatile(0x83e00500 as *mut u32, 0);
+        #[cfg(enqueue_trace)]
+        core::ptr::write_volatile(0x83e00600 as *mut u32, 0);
         // A selection closes the previous inspector, but preserves gesture
         // state until the selector event returns to its caller.
         let ui = INSPECTOR as *mut UiState;
@@ -44,6 +46,26 @@ pub unsafe fn initialize(entry: u32) {
             (*ui).routing_page = false;
             (*ui).velvet_bank = entry != 0x2028b8dc;
         }
+    }
+}
+
+/// Diagnostic only: observe the panel event immediately before stock enqueue.
+#[cfg(enqueue_trace)]
+#[unsafe(no_mangle)]
+#[unsafe(link_section = ".text.inspector_enqueue")]
+pub unsafe extern "C" fn inspector_enqueue(a: u32, edge: u32, key: u32, d: u32, e: u32) -> u32 {
+    let stock: unsafe extern "C" fn(u32, u32, u32, u32, u32) -> u32 = unsafe { core::mem::transmute(0x80028089usize) };
+    unsafe {
+        if a == 0 && edge <= 1 && key == 36 {
+            let count = core::ptr::read_volatile(0x83e00600 as *const u32);
+            if count < 32 {
+                let record = (0x83e00604 as *mut u32).add(count as usize * 2);
+                core::ptr::write_volatile(record, edge);
+                core::ptr::write_volatile(record.add(1), core::ptr::read_volatile(0x8020ab4c as *const u32));
+                core::ptr::write_volatile(0x83e00600 as *mut u32, count + 1);
+            }
+        }
+        stock(a, edge, key, d, e)
     }
 }
 

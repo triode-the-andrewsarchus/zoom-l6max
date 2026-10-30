@@ -24,6 +24,8 @@ parser.add_argument("--callback", action="store_true", help="observe automatic e
 parser.add_argument("--switches", action="store_true", help="observe all six effect selections")
 parser.add_argument("--inspector", action="store_true", help="enable QEMU-only inspector event hooks")
 parser.add_argument("--gesture-trace", action="store_true", help="record selector events (perturbs timing)")
+parser.add_argument("--enqueue-trace", action="store_true", help="record panel events before enqueue (perturbs timing)")
+parser.add_argument("--timing-control", action="store_true", help="bypass effects in a QEMU timing comparison")
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
 args = parser.parse_args()
 if args.switches and not args.callback:
@@ -34,6 +36,10 @@ if args.inspector and args.switches:
     parser.error("--inspector has its own gesture and bank sequence; omit --switches")
 if args.gesture_trace and not args.inspector:
     parser.error("--gesture-trace requires --inspector")
+if args.enqueue_trace and not args.inspector:
+    parser.error("--enqueue-trace requires --inspector")
+if args.timing_control and not args.inspector:
+    parser.error("--timing-control requires --inspector")
 if args.bank_stress and not args.inspector:
     parser.error("--bank-stress requires --inspector")
 out, main, nor = checked_inputs(parser, args.firmware, args.state, args.output)
@@ -57,6 +63,10 @@ if args.inspector:
     rustc += ["--cfg", "inspector_probe"]
 if args.gesture_trace:
     rustc += ["--cfg", "gesture_trace"]
+if args.enqueue_trace:
+    rustc += ["--cfg", "enqueue_trace"]
+if args.timing_control:
+    rustc += ["--cfg", "timing_control"]
 subprocess.run(rustc, cwd=ROOT, check=True)
 subprocess.run(["llvm-objcopy", "-O", "binary", str(elf), str(blob)], check=True)
 payload = blob.read_bytes()
@@ -70,7 +80,7 @@ if args.inspector:
     symbols = {}
     for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines():
         parts = line.split()
-        if len(parts) == 3 and parts[2] in ("inspector_select", "inspector_knob", "inspector_mode"):
+        if len(parts) == 3 and parts[2] in ("inspector_select", "inspector_knob", "inspector_mode", "inspector_enqueue"):
             symbols[parts[2]] = int(parts[0], 16) & ~1
     for offset, expected, symbol in (
         (0x36f28, bytes.fromhex("1df0bef9"), "inspector_select"),
@@ -80,6 +90,11 @@ if args.inspector:
         if image[offset:offset + 4] != expected or symbol not in symbols:
             raise ValueError(f"inspector call site or symbol mismatch: {symbol}")
         image[offset:offset + 4] = branch(0x80000000 + offset, symbols[symbol])
+    if args.enqueue_trace:
+        offset = 0x4c606
+        if image[offset:offset + 4] != bytes.fromhex("dbf73ffd") or "inspector_enqueue" not in symbols:
+            raise ValueError("panel enqueue call site or symbol mismatch")
+        image[offset:offset + 4] = branch(0x80000000 + offset, symbols["inspector_enqueue"])
 image.extend(b"\xff" * (0x108000 - len(image)))
 image.extend(payload)
 (firmware / "main_firmware.bin").write_bytes(image)
@@ -204,6 +219,8 @@ wall_timeout_s = 300
     memory("after_close", 0x83e00400, 32)
     if args.gesture_trace:
         memory("gesture_trace", 0x83e00500, 244)
+    if args.enqueue_trace:
+        memory("enqueue_trace", 0x83e00600, 260)
     press(40)  # Outside the inspector, EFX SEL still selects Spring.
     memory("active_spring", 0x202a6f20, 4)
     memory("selected_after_close", 0x83e00004, 4)
@@ -221,6 +238,8 @@ wall_timeout_s = 300
         memory("closed", 0x83e00400, 32)
         if args.gesture_trace:
             memory("gesture_trace", 0x83e00500, 244)
+        if args.enqueue_trace:
+            memory("enqueue_trace", 0x83e00600, 260)
         press(40)
         memory("ui_after_short", 0x83e00340, 32)
         memory("selected_after_close", 0x83e00004, 4)

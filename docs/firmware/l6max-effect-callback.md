@@ -905,6 +905,36 @@ their diagnostic JSON hashes were
 The second recipe's steps are reproduced by `prepare.py --callback
 --inspector --bank-stress`. Its output is observational, not a passing test.
 
+In a separate stock run, the five-word EFX SEL record observed at the
+dispatcher was `(0, 0, 36, 0, 0)` for press and `(0, 1, 36, 0, 0)` for
+release. A debugger stop at the direct queue wrapper identified the call at
+`0x8004c606` as the producer for both events; neither record contains an
+obvious timestamp. In the failing untraced stress run, the panel transmitted
+`91 04 06` and the main UART accepted and read those bytes between the
+69,804 ms press and the next 69,850 ms trace marker.
+
+A separate QEMU-only hook immediately before that enqueue recorded the final
+hold's press at tick 70,207 and release at 70,793. The inspector's stored
+press tick was also 70,207 and it classified the hold as a short press. Thus,
+in this run, measuring at this queue boundary would not fix the timing: the
+observed delay arose before that boundary. With the same sequence and enqueue
+hook, but the diagnostic audio callback writing silence instead of running the
+effects, the hold measured 1,504 ticks, closed the inspector, and the next
+press selected Spring. These single runs suggest a workload-dependent emulator
+delay; they do not identify its cause or establish target execution timing.
+
+The stock event-record and enqueue-probe logs had SHA-256 values
+`b49239ac8f0284c0e1aa60bab3fa9bc18c1e42bc0b1abd354787f2aa0fdaf970` and
+`72c9f15aa9176fc03118339ab0741b9ffa3d5cb9c4b992812c8f2ce5906b16db`.
+The active-DSP diagnostic MAIN, recipe and result hashes were
+`34e9fa79693616a66cade6cd822155e80de600e89e5a3f87f6d704ceedd4d110`,
+`a84baa304aea1b431e24e191469e2cdf9062b8ebb36d3197e95dba83a268a0b6`, and
+`08b3db04b2ce3c4a8c86e6c89538aaeeeb61bf4e35b27280590658ef9e9f4028`;
+the silent-control hashes were
+`4beb81ba475185a7784a76ae425f01440d3825afefb34c6cab6bf3b8d1940ce8`,
+`9cfd89b774327b3f84403e90cc80ca8ffc1892b1b2f53d4902b288c07f5cd41a`, and
+`9b09e9904436c22a1911c0658e8182c36b808e5a5e06fd45511c1c3a15b47c59`.
+
 ## Evidence and limits
 
 - QEMU binary SHA-256:
