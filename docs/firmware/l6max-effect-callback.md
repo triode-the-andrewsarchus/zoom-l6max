@@ -254,11 +254,13 @@ candidate stock-owned effect buffer, not free patch memory: ownership across
 stock effect switches, reset, DMA, and other users must be traced before any
 reuse. Stock routine `0x80024678` passes the same start and span to a
 zero-fill routine, so its callers and synchronization must be controlled
-before any reuse. In a separate diagnostic that pressed EFX SEL twice, two
-breakpoints at the clear routine stopped with return address `0x20280677` in
-the stock selection path, active callback `0`, and current task `Main`.
-A follow-up observed `Main` at priority 12 and the two stock flags at
-`0x80202e68` and `0x8020026c` set to 1 during both stops; the earlier audio
+before any reuse. In a separate diagnostic that pressed EFX SEL twice, stops
+at the clear routine showed return address `0x20280677` in the stock
+selection path, active callback `0`, and current task `Main`. The script did
+not explicitly step past the breakpoint between its two stops, so those stops
+cannot establish two distinct clear calls. A follow-up observed `Main` at
+priority 12 and the two stock flags at `0x80202e68` and `0x8020026c` set to 1;
+its repeated stops have the same limitation. The earlier audio
 stops were in `AudioProcess` at priority 30. Static inspection shows those
 flags alter stock parameter-copy behavior. These observations do not establish
 that they are exclusion locks, or that an in-flight callback has completed;
