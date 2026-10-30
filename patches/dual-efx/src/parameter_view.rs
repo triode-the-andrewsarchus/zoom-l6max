@@ -53,8 +53,26 @@ impl ParameterSnapshot {
     pub fn from_words(index: u32, bits: u32) -> Option<Self> {
         let id = EfxParamId::from_index(index)?;
         let value = f32::from_bits(bits);
-        if !value.is_finite() || (matches!(id, EfxParamId::VndMode | EfxParamId::PlatFreeze)
-            && value != 0.0 && value != 1.0) {
+        use EfxParamId::*;
+        // Bounds are in displayed units and must track the DSP setters and
+        // snapshot scaling, including f32 rounding at the endpoints.
+        let (min, max) = match id {
+            VndAmount | PlatDiffusion | GlobalCascade => (0.0, 100.0),
+            VndTimeSpread => (1.0, 95.0),
+            VndDensity => (10.0, 3000.0),
+            VndDecay => (-120.0, 0.0),
+            VndRefresh => (0.1, 60.0),
+            VndTransition => (1.0, 54000.0),
+            PlatPreDelay => (0.0, 190.0),
+            PlatSize => (0.2f32 * 100.0, 1.2f32 * 100.0),
+            PlatDecay => (0.1f32 * 100.0, 0.999f32 * 100.0),
+            PlatLowCut | PlatHighCut => (20.0, 48000.0 * 0.49),
+            PlatModDepth => (0.0, 16.0),
+            VndMode | PlatFreeze => {
+                return (value == 0.0 || value == 1.0).then_some(Self { id, value });
+            }
+        };
+        if !value.is_finite() || value < min || value > max {
             return None;
         }
         Some(Self { id, value })
