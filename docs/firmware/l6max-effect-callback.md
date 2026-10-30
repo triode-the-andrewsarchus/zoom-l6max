@@ -132,6 +132,20 @@ Its source, ELF, MAIN, recipe, debugger script and log hashes were
 `a7e42ae3b5fc048ec1773d9d65c840772eb3efd949a79162acac01ac134bcee9`, and
 `9e4d87f8c822ba8085056d7ead50f1f946a256939ead9cfb661737fde4b33371`.
 
+A subsequent QEMU-only variant copied the initialized DSP state to a second
+location in the effect buffer, then processed the same forced inputs once via
+the three reconstructed buses and once via `process_weighted_block`. The 128
+returned samples matched exactly in that run. Copying the large state and
+using the second buffer were diagnostic operations and are not a real-time
+or hardware-safe technique. The source, ELF, MAIN, recipe, debugger script
+and log hashes were
+`f1953e4205429849b931e3d7d81dc26b081b246ff1f5252fc2272a866e20637a`,
+`6a8da9a96c707e297b6125dae8e4c0e21cc90c862cc9bbac161a2de333eace45`,
+`cdef179503a623fe414bc76b9f26fcf089cc41eb60c9e1d1a84efe1eafee8d1e`,
+`b7509ba4b41122b4edac14488a1b6895735344f4d315dae1c7b052f37703d80b`,
+`592dba7d12d567f2d506c6b0a699a255e101b5aafec52b2999f424db03eaa89d`, and
+`819a566b00c060198a0bbad22e231b8f305ff37086a1fcdbc612eacde3752fd4`.
+
 A control-driven attempt set a breakpoint at the ramp branch, then selected
 EFX and LEVEL and turned encoder 1 in each mode. The debugger timed out without
 observing the branch. A separate forced-ramp run did hit that breakpoint, so
@@ -511,6 +525,16 @@ SHA-256 `3137e951f31c6ee7882995fa38605f95a1ad70a373597cf596ef7298c6c7d935`.
 These are function-local figures and a host comparison: neither includes all
 callers, nested calls, exceptions or the actual deployed compiler context, so
 full stack and timing qualification remains necessary.
+
+After introducing weighted-channel routing, a standalone `opt-level=z`
+Cortex-M7 assembly build allocated 252 bytes locally in `process_block`, 844
+in its `process_weighted_block` callee, and 304 in `process_buses`, plus their
+register saves. Together those three frames occupy 1,576 bytes on this build,
+about 296 bytes more than the immediately preceding two-frame version. This
+excludes deeper calls, interrupts and firmware callers; the assembly SHA-256
+was `af10eb4b32b66040c6f3d1a7932c20239985e2130c9cab7b7350666b3202b773`.
+The diagnostic callback need not use the `process_block` adapter, but its
+actual complete stack and timing remain unqualified.
 
 The stock allocator at `0x80085478` maintains a free-list head and free-byte
 count at `0x8020ab2c` and `0x8020ab1c`. A debugger traversal in the same
