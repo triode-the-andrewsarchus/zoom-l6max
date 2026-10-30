@@ -165,6 +165,29 @@ The clear recipe, debugger script and log hashes were
 `1bd3b52f27acadc0759517c5ba8b0cd76cad8b3399e1bd3bd63105835203edcc`, and
 `452d160086fe099db2b9d3a8f6e037cdcd83179d9fe01fa0dd428e937b1bd826`.
 
+The selection path stores the new callback at `0x202a6f20` at instruction
+`0x202806ca`, before a later effect-specific call. In a separate disposable
+QEMU run, a debugger stopped the `Main` task immediately after that store,
+observing callback `0x20280ab9`. The debugger temporarily replaced the next
+instruction at `0x202806cc` with a self-branch, delaying the control task, and
+then observed the priority-30 `AudioProcess` task reach the indirect call at
+`0x20280248` with that same callback in `r12`. The original instruction was
+restored before detaching. Thus the audio task can reach a published callback
+while the selection task has not yet continued past publication. Any new
+callback's state must be valid before publication; an initializer placed only
+in the later effect-specific call would be unsafe. The deliberate delay does
+not establish that an unmodified stock switch normally hits this interleaving,
+nor does it prove exclusive ownership of the effect buffer.
+
+This probe used input NOR SHA-256
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`
+and QEMU executable SHA-256
+`9724d60a31400becad8f1e98d6fd67bb9456c8dfbdeebe833e7636ed8e9cf536`
+(source provenance unattested). The recipe, debugger script and log hashes
+were `d64c6ae7bf7f90d46e064bd56300cb942687173a9658ec17fca91866d1cbb0e8`,
+`24de107f2450c262d0768555eecf6a8a4b5403b229b52b00abccfca95b6cd4a4`, and
+`65b455afaea0483b8b171793ef428f201783391fb6f7490de5bc92e0081d0778`.
+
 ## Experimental relocated-veneer redirect
 
 The selection code calls the stock clear through a ten-byte veneer at MAIN
