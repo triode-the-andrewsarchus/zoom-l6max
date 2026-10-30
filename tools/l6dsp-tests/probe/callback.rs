@@ -21,6 +21,8 @@ mod parameter_view;
 mod parameters;
 #[cfg(inspector_probe)]
 mod inspector;
+#[cfg(irq_trace)]
+mod irq;
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".text.probe")]
 pub unsafe extern "C" fn probe(entry: *mut u32) {
@@ -33,6 +35,8 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
         unsafe {
             #[cfg(inspector_probe)]
             inspector::initialize(entry as u32);
+            #[cfg(irq_trace)]
+            irq::install();
             core::ptr::write_volatile(0x83e00000 as *mut u32, 0x494e4954);
             core::ptr::write_volatile(0x83e00004 as *mut u32, entry as u32);
             core::ptr::write_volatile(0x83e00008 as *mut u32, 0);
