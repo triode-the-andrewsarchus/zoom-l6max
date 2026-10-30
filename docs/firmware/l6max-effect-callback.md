@@ -1885,6 +1885,18 @@ diagnostic MAIN, ELF, recipe and result SHA-256 values were
 The stock MAIN, initial NOR and unattested QEMU executable matched the
 preceding control runs.
 
+A fresh run of the integrated idle-path build with all three synthetic sends
+active did not open the inspector or select Spring. The callback reported
+finite nonzero output and 13,348 calls at the final audio snapshot. Thus the
+idle optimization does not resolve the observed active-load control failure.
+This is a diagnostic observation, not a physical timing or audio qualification.
+Its MAIN, ELF, recipe and result SHA-256 values were
+`29b4622ca63d167c0ffadbc8acaa1a6549e1ac4266a75ec7bd2133099429cf20`,
+`ce91af2f1da9701eee69206583b02fe24255978286cbe91f8e7a8f4e3d646c81`,
+`ca95bc00981d603002de5cc25f2a7a860cc860b1f1c740859831eb05f636f1e9`, and
+`335bb572520bb2cdd6bf4ba4416f8fc0f3b3bdbb44c60c0f96f49d8dd7d725ab`.
+Stock MAIN, initial NOR and QEMU matched the preceding control runs.
+
 An uncommitted experiment used 8,192-sample power-of-two Velvet histories,
 retaining the 4,802-sample logical delay and silence window. It increased the
 two Velvet instances' state by 54,240 bytes. Host output over 100,000 frames
