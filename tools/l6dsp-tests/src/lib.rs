@@ -93,6 +93,22 @@ mod tests {
     }
 
     #[test]
+    fn routing_display_decodes_only_valid_strips_and_routes() {
+        use parameter_view::{DisplaySnapshot, format_display};
+        for strip in 0..8 {
+            for (mode, expected) in ["OFF", "A", "B", "A -> B"].iter().enumerate() {
+                let snapshot = DisplaySnapshot::from_words(16 + strip, (mode as f32).to_bits()).unwrap();
+                let formatted = format_display(snapshot);
+                assert_eq!(formatted.title, format!("CH {} ROUTE", strip + 1));
+                assert_eq!(&formatted.value_str[..formatted.value_len], expected.as_bytes());
+            }
+        }
+        for (id, value) in [(24, 0.0), (16, -1.0), (16, 0.5), (16, 4.0), (16, f32::NAN)] {
+            assert!(DisplaySnapshot::from_words(id, value.to_bits()).is_none());
+        }
+    }
+
+    #[test]
     fn test_math_functions() {
         assert!((math::sin(0.0)).abs() < 1e-4);
         assert!((math::sin(math::PI_2) - 1.0).abs() < 1e-3);
