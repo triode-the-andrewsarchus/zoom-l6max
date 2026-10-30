@@ -50,12 +50,60 @@ fn strip_slots(strip: usize) -> Option<core::ops::Range<usize>> {
     }
 }
 
+/// Skips reverb arithmetic only while its freshly cleared state is untouched.
+/// A mutable borrow revokes that guarantee; validated parameter updates do not.
+pub struct IdlePlateau {
+    inner: PlateauReverb,
+    pristine: bool,
+}
+
+impl IdlePlateau {
+    pub const fn new() -> Self {
+        Self { inner: PlateauReverb::new(), pristine: false }
+    }
+
+    pub fn init(&mut self, params: PlateauParameters) {
+        self.inner.init(params);
+        self.pristine = true;
+    }
+
+    pub fn set_parameters(&mut self, params: PlateauParameters) {
+        self.inner.set_parameters(params);
+    }
+
+    pub fn process_sample(&mut self, l: f32, r: f32) -> (f32, f32) {
+        // Requiring positive zero preserves the ordinary path for signed zero.
+        if self.pristine && l.to_bits() == 0 && r.to_bits() == 0 {
+            self.inner.advance_pristine();
+            (0.0, 0.0)
+        } else {
+            self.pristine = false;
+            self.inner.process_sample(l, r)
+        }
+    }
+}
+
+impl core::ops::Deref for IdlePlateau {
+    type Target = PlateauReverb;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl core::ops::DerefMut for IdlePlateau {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.pristine = false;
+        &mut self.inner
+    }
+}
+
 pub struct DualEfxProcessor {
     pub velvet: VelvetDecorrelator,
     // A separate history keeps A-only sends out of the A-to-B cascade.
     // Both histories use the same Velvet filter timeline.
     cascade_history: MonoHistory,
-    pub plateau: PlateauReverb,
+    pub plateau: IdlePlateau,
 
     // Per-channel routing modes (12 mixer channels)
     pub channel_routing: [RoutingMode; MAX_CHANNELS],
@@ -77,7 +125,7 @@ impl DualEfxProcessor {
         Self {
             velvet: VelvetDecorrelator::new(),
             cascade_history: MonoHistory::new(),
-            plateau: PlateauReverb::new(),
+            plateau: IdlePlateau::new(),
             channel_routing: [RoutingMode::Neither; MAX_CHANNELS],
             channel_send: [0.0; MAX_CHANNELS],
             cascade_gain: 1.0,
