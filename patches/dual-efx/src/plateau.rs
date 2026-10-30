@@ -301,10 +301,6 @@ pub struct PlateauReverb {
     pub out_hp_r: OnePoleHP,
 
     pub params: PlateauParameters,
-    // Output taps depend only on size. Keep this cache coherent even if a
-    // caller changes the publicly accessible parameter without the setter.
-    tap_size_bits: u32,
-    tap_offsets: [usize; 14],
 }
 
 impl PlateauReverb {
@@ -340,8 +336,6 @@ impl PlateauReverb {
 
             out_hp_l: OnePoleHP::new(),
             out_hp_r: OnePoleHP::new(),
-            tap_size_bits: 0,
-            tap_offsets: [0; 14],
 
             params: PlateauParameters {
                 predelay_ms: 10.0,
@@ -541,32 +535,24 @@ impl PlateauReverb {
         self.r_sum = l_del2_out * decay;
 
         // 6. Output Taps Summation (Dattorro ratios scaled)
-        if self.tap_size_bits != self.params.size.to_bits() {
-            let scale = SR_SCALE * self.params.size;
-            let positions = [266.0, 2974.0, 1913.0, 1996.0, 1990.0, 187.0, 1066.0,
-                             353.0, 3627.0, 1228.0, 2673.0, 2111.0, 335.0, 121.0];
-            for (offset, position) in self.tap_offsets.iter_mut().zip(positions) {
-                *offset = (position * scale) as usize;
-            }
-            self.tap_size_bits = self.params.size.to_bits();
-        }
-        let t = &self.tap_offsets;
+        let scale = SR_SCALE * self.params.size;
+        let tap = |val: f32| (val * scale) as usize;
 
-        let mut out_l = self.l_del1.tap(t[0])
-            + self.l_del1.tap(t[1])
-            - self.l_apf2.delay.tap(t[2])
-            + self.l_del2.tap(t[3])
-            - self.r_del1.tap(t[4])
-            - self.r_apf2.delay.tap(t[5])
-            - self.r_del2.tap(t[6]);
+        let mut out_l = self.l_del1.tap(tap(266.0))
+            + self.l_del1.tap(tap(2974.0))
+            - self.l_apf2.delay.tap(tap(1913.0))
+            + self.l_del2.tap(tap(1996.0))
+            - self.r_del1.tap(tap(1990.0))
+            - self.r_apf2.delay.tap(tap(187.0))
+            - self.r_del2.tap(tap(1066.0));
 
-        let mut out_r = self.r_del1.tap(t[7])
-            + self.r_del1.tap(t[8])
-            - self.r_apf2.delay.tap(t[9])
-            + self.r_del2.tap(t[10])
-            - self.l_del1.tap(t[11])
-            - self.l_apf2.delay.tap(t[12])
-            - self.l_del2.tap(t[13]);
+        let mut out_r = self.r_del1.tap(tap(353.0))
+            + self.r_del1.tap(tap(3627.0))
+            - self.r_apf2.delay.tap(tap(1228.0))
+            + self.r_del2.tap(tap(2673.0))
+            - self.l_del1.tap(tap(2111.0))
+            - self.l_apf2.delay.tap(tap(335.0))
+            - self.l_del2.tap(tap(121.0));
 
         // DC blocking highpass
         out_l = self.out_hp_l.process(out_l * 0.6);
