@@ -449,14 +449,18 @@ impl PlateauReverb {
         self.r_del1.write_pos %= self.r_del1.length;
         self.r_del2.write_pos %= self.r_del2.length;
 
-        // Filters
+        // The input and both tank channels use the same coefficients, but
+        // each filter retains its own signal history.
         self.in_lp.set_cutoff(params.high_cut_hz);
         self.in_hp.set_cutoff(params.low_cut_hz);
-
-        self.l_lp.set_cutoff(params.high_cut_hz);
-        self.l_hp.set_cutoff(params.low_cut_hz);
-        self.r_lp.set_cutoff(params.high_cut_hz);
-        self.r_hp.set_cutoff(params.low_cut_hz);
+        self.l_lp.a = self.in_lp.a;
+        self.l_lp.b = self.in_lp.b;
+        self.r_lp.a = self.in_lp.a;
+        self.r_lp.b = self.in_lp.b;
+        self.l_hp.pole = self.in_hp.pole;
+        self.l_hp.gain = self.in_hp.gain;
+        self.r_hp.pole = self.in_hp.pole;
+        self.r_hp.gain = self.in_hp.gain;
     }
 
     #[inline(always)]
