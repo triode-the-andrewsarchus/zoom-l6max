@@ -1193,6 +1193,25 @@ The post-learning recipe, script, log and result hashes were
 `7574f27ea3240ebcbe65782c597c938319ffd515780c9cc3d6fb387f04305287`.
 Both used the stock MAIN, initial NOR and QEMU identities immediately above.
 
+A subsequent stock-QEMU run waited until the learned word was 1, then used
+debugger stops at the first channel's call and return to inject the same
+64-value, 0.25-amplitude sinusoidal pattern into 96 consecutive blocks.
+The sampled processor-state words were 1 at both ends. Returned samples were
+finite; blocks 0 through 3 were all zero, block 4 had peak magnitude about
+`9.87e-9`, block 6 about `0.1251`, and block 95 about `0.2496`. Thus the
+previous all-zero result for a single block cannot establish sustained
+suppression. This forced, repeated waveform with debugger pauses is not a
+controlled denoising-quality or latency measurement: it has no matched
+no-injection control, physical signal, or second-channel sequence, and does
+not establish the permissible interface or ownership for an additional call.
+The recipe, debugger script, log, output samples and result SHA-256 values
+were `45233d0c29dc9947da9353f8a78eb1e26788b80958fed6dd31f1cff11cbc51db`,
+`9d53e53e6312350ee295fabb8049214a3b2b8008e90e16d480b11f9b7299d53d`,
+`7bbbe84dbfc293c2103b2e7724007979a6044cd441242ad9a35c15d5969a2427`,
+`ccb87c0c3e0a7e9bfda33be06943b9692130c4e39c849f8c67941a068baa1f00`, and
+`1a8dc79eeb56dd7e9bb4912c3668fa931d6fa9b8e7c787558331e87c76f978a9`.
+The stock MAIN, initial NOR and QEMU match the preceding observations.
+
 ## Plateau tank delay diagnostic
 
 After correcting the Plateau tank rings to return a sample after their full
