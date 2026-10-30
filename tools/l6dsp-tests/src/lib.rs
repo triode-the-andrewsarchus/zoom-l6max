@@ -393,6 +393,30 @@ mod tests {
     }
 
     #[test]
+    fn reverb_tail_continues_after_send_is_closed() {
+        let mut processor = Box::new(routing::DualEfxProcessor::new());
+        processor.init();
+        processor.set_channel_routing(0, routing::RoutingMode::SendB);
+        processor.set_channel_send(0, 1.0);
+        let mut impulse = [0.0f32; 64];
+        impulse[0] = 1.0;
+        let mut left = [0.0; 64];
+        let mut right = [0.0; 64];
+        processor.process_block(&[&impulse], &mut left, &mut right);
+        processor.set_channel_send(0, 0.0);
+        let silence = [0.0; 64];
+        let mut tail_peak = 0.0f32;
+        for _ in 0..300 {
+            processor.process_block(&[&silence], &mut left, &mut right);
+            for (&l, &r) in left.iter().zip(&right) {
+                assert!(l.is_finite() && r.is_finite());
+                tail_peak = tail_peak.max(l.abs()).max(r.abs());
+            }
+        }
+        assert!(tail_peak > 0.001, "closing a send must not cut the reverb tail");
+    }
+
+    #[test]
     fn test_dual_routing_matrix() {
         let mut dual = routing::DualEfxProcessor::new();
         dual.init();
