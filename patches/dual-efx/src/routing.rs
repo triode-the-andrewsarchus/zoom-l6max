@@ -101,93 +101,45 @@ impl DualEfxProcessor {
     /// - `out_l`, `out_r`: destination buffers for the wet effect return to master bus.
     pub fn process_block(&mut self, channels: &[&[f32]], out_l: &mut [f32], out_r: &mut [f32]) {
         let frames = out_l.len().min(out_r.len());
-        if frames == 0 {
-            return;
-        }
-
         let mut offset = 0;
         while offset < frames {
-            // Send accumulation buffers
-            let mut send_a_l = [0.0f32; BLOCK_SIZE];
-            let mut send_a_r = [0.0f32; BLOCK_SIZE];
-            let mut send_b_l = [0.0f32; BLOCK_SIZE];
-            let mut send_b_r = [0.0f32; BLOCK_SIZE];
-            let mut send_cascade_l = [0.0f32; BLOCK_SIZE];
-            let mut send_cascade_r = [0.0f32; BLOCK_SIZE];
+            // Each physical input is mono here, so accumulate it only once per bus.
+            let mut send_a = [0.0f32; BLOCK_SIZE];
+            let mut send_b = [0.0f32; BLOCK_SIZE];
+            let mut send_cascade = [0.0f32; BLOCK_SIZE];
+            let n = (frames - offset).min(BLOCK_SIZE);
 
-            let num_channels = channels.len().min(MAX_CHANNELS);
-
-            // 1. Accumulate channel audio into Send A and Send B buses
-            for ch in 0..num_channels {
+            for ch in 0..channels.len().min(MAX_CHANNELS) {
                 let send_level = self.channel_send[ch];
                 if send_level <= 1e-4 {
                     continue;
                 }
-
-                let mode = self.channel_routing[ch];
-                let ch_data = channels[ch].get(offset..).unwrap_or(&[]);
-                let n = (frames - offset).min(ch_data.len()).min(BLOCK_SIZE);
-
-                match mode {
-                    RoutingMode::Neither => {}
-                    RoutingMode::SendA => {
-                        for i in 0..n {
-                            let sample = ch_data[i] * send_level;
-                            send_a_l[i] += sample;
-                            send_a_r[i] += sample;
-                        }
-                    }
-                    RoutingMode::SendB => {
-                        for i in 0..n {
-                            let sample = ch_data[i] * send_level;
-                            send_b_l[i] += sample;
-                            send_b_r[i] += sample;
-                        }
-                    }
-                    RoutingMode::SendAtoB => {
-                        for i in 0..n {
-                            let sample = ch_data[i] * send_level;
-                            send_cascade_l[i] += sample;
-                            send_cascade_r[i] += sample;
-                        }
-                    }
+                let bus = match self.channel_routing[ch] {
+                    RoutingMode::Neither => continue,
+                    RoutingMode::SendA => &mut send_a,
+                    RoutingMode::SendB => &mut send_b,
+                    RoutingMode::SendAtoB => &mut send_cascade,
+                };
+                let input = channels[ch].get(offset..).unwrap_or(&[]);
+                for i in 0..n.min(input.len()) {
+                    bus[i] += input[i] * send_level;
                 }
             }
 
-            // 2. Process Effect A (Velvet Noise Decorrelator)
-            let mut wet_a_l = [0.0f32; BLOCK_SIZE];
-            let mut wet_a_r = [0.0f32; BLOCK_SIZE];
-
-            let n = (frames - offset).min(BLOCK_SIZE);
             self.velvet_cascade.set_parameters(self.velvet.current);
             for i in 0..n {
-                let (l, r) = self.velvet.process_sample(send_a_l[i], send_a_r[i]);
+                let (a_l, a_r) = self.velvet.process_sample(send_a[i], send_a[i]);
                 let (cascade_l, cascade_r) = self
                     .velvet_cascade
-                    .process_sample(send_cascade_l[i], send_cascade_r[i]);
-                wet_a_l[i] = l + cascade_l;
-                wet_a_r[i] = r + cascade_r;
-                send_b_l[i] += cascade_l * self.cascade_gain;
-                send_b_r[i] += cascade_r * self.cascade_gain;
-            }
-
-            // 3. Process Effect B (Plateau Plate Reverb)
-            let mut wet_b_l = [0.0f32; BLOCK_SIZE];
-            let mut wet_b_r = [0.0f32; BLOCK_SIZE];
-
-            for i in 0..n {
-                let (l, r) = self.plateau.process_sample(send_b_l[i], send_b_r[i]);
-                wet_b_l[i] = l;
-                wet_b_r[i] = r;
-            }
-
-            // 4. Sum to Master Return with soft clipping to protect downstream DAC
-            for i in 0..n {
+                    .process_sample(send_cascade[i], send_cascade[i]);
+                let b_l = send_b[i] + cascade_l * self.cascade_gain;
+                let b_r = send_b[i] + cascade_r * self.cascade_gain;
+                let (wet_b_l, wet_b_r) = self.plateau.process_sample(b_l, b_r);
                 out_l[offset + i] = super::math::soft_clip(
-                    wet_a_l[i] * self.return_gain_a + wet_b_l[i] * self.return_gain_b,
+                    (a_l + cascade_l) * self.return_gain_a + wet_b_l * self.return_gain_b,
                 );
                 out_r[offset + i] = super::math::soft_clip(
-                    wet_a_r[i] * self.return_gain_a + wet_b_r[i] * self.return_gain_b,
+                    (a_r + cascade_r) * self.return_gain_a + wet_b_r * self.return_gain_b,
                 );
             }
             offset += n;
@@ -206,77 +158,50 @@ impl DualEfxProcessor {
         enable_b: bool,
     ) {
         let frames = in_l.len().min(in_r.len()).min(out_l.len()).min(out_r.len());
-        let mut offset = 0;
-        while offset < frames {
-            let n = (frames - offset).min(BLOCK_SIZE);
-
-            let mut a_out_l = [0.0f32; BLOCK_SIZE];
-            let mut a_out_r = [0.0f32; BLOCK_SIZE];
-
-            if enable_a {
-                for i in 0..n {
-                    let (l, r) = self
-                        .velvet
-                        .process_sample(in_l[offset + i], in_r[offset + i]);
-                    a_out_l[i] = l;
-                    a_out_r[i] = r;
-                }
-            }
-
-            let mut b_in_l = [0.0f32; BLOCK_SIZE];
-            let mut b_in_r = [0.0f32; BLOCK_SIZE];
-
-            for i in 0..n {
-                let cascade_l = if enable_a && self.cascade_gain > 1e-4 {
-                    a_out_l[i] * self.cascade_gain
-                } else {
-                    0.0
-                };
-                let cascade_r = if enable_a && self.cascade_gain > 1e-4 {
-                    a_out_r[i] * self.cascade_gain
-                } else {
-                    0.0
-                };
-                b_in_l[i] = in_l[offset + i] + cascade_l;
-                b_in_r[i] = in_r[offset + i] + cascade_r;
-            }
-
-            let mut b_out_l = [0.0f32; BLOCK_SIZE];
-            let mut b_out_r = [0.0f32; BLOCK_SIZE];
-
-            if enable_b {
-                for i in 0..n {
-                    let (l, r) = self.plateau.process_sample(b_in_l[i], b_in_r[i]);
-                    b_out_l[i] = l;
-                    b_out_r[i] = r;
-                }
-            }
-
-            for i in 0..n {
-                let val_a_l = if enable_a {
-                    a_out_l[i] * self.return_gain_a
-                } else {
-                    0.0
-                };
-                let val_a_r = if enable_a {
-                    a_out_r[i] * self.return_gain_a
-                } else {
-                    0.0
-                };
-                let val_b_l = if enable_b {
-                    b_out_l[i] * self.return_gain_b
-                } else {
-                    0.0
-                };
-                let val_b_r = if enable_b {
-                    b_out_r[i] * self.return_gain_b
-                } else {
-                    0.0
-                };
-                out_l[offset + i] = super::math::soft_clip(val_a_l + val_b_l);
-                out_r[offset + i] = super::math::soft_clip(val_a_r + val_b_r);
-            }
-            offset += n;
+        for i in 0..frames {
+            let (a_l, a_r) = if enable_a {
+                self.velvet.process_sample(in_l[i], in_r[i])
+            } else {
+                (0.0, 0.0)
+            };
+            let cascade_l = if enable_a && self.cascade_gain > 1e-4 {
+                a_l * self.cascade_gain
+            } else {
+                0.0
+            };
+            let cascade_r = if enable_a && self.cascade_gain > 1e-4 {
+                a_r * self.cascade_gain
+            } else {
+                0.0
+            };
+            let (b_l, b_r) = if enable_b {
+                self.plateau
+                    .process_sample(in_l[i] + cascade_l, in_r[i] + cascade_r)
+            } else {
+                (0.0, 0.0)
+            };
+            let val_a_l = if enable_a {
+                a_l * self.return_gain_a
+            } else {
+                0.0
+            };
+            let val_a_r = if enable_a {
+                a_r * self.return_gain_a
+            } else {
+                0.0
+            };
+            let val_b_l = if enable_b {
+                b_l * self.return_gain_b
+            } else {
+                0.0
+            };
+            let val_b_r = if enable_b {
+                b_r * self.return_gain_b
+            } else {
+                0.0
+            };
+            out_l[i] = super::math::soft_clip(val_a_l + val_b_l);
+            out_r[i] = super::math::soft_clip(val_a_r + val_b_r);
         }
     }
 }
