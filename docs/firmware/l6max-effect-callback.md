@@ -1690,6 +1690,24 @@ recipe and result SHA-256 were
 `2523305fa4950bf5b0e3c4c519e40abad15830d7694c5bc07e934784a1f9f8bc`, and
 `f3acef9127d0408d9e72c90a4825759cb19b4306f1a43f7552d4abe3e2a6534b`.
 
+A repeat with the later shared-filter/idle-path DSP and rebuilt QEMU
+`53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`
+also failed to open the inspector or select Spring under active synthetic
+sends. At guest time 73,627 ms, the IRQ trace contained 25 edges, the
+timestamp queue was `(25, 0, 0)`, and the enqueue and selector traces had
+zero records. The diagnostic callback reported 13,352 calls and finite
+nonzero sampled output. Thus the interrupt-timestamp prototype alone also
+fails in this later configuration; it cannot deliver events while the stock
+path does not reach the selector. The result is one instrumented emulator
+run, not a physical timing measurement. Its stock MAIN and initial NOR
+matched the identities above. The diagnostic MAIN, ELF, recipe, result and
+engine trace SHA-256 values were
+`e55e9426934a8e5eda7bc2b64096cb7f7142c8fe70080d993dafb31234b1dd48`,
+`07b2626e6d68a174b0c961867b75fb716f0d831cb4fece030d6e58ff56d40ec9`,
+`b2c5db683b972067f8d70c24d6b02e204765dd7d9431283e8e651007dd1dde6d`,
+`9d272dacafe79a9fbbc9e88c8ae766487744b7f3dd6b082e662e23efbb46088a`, and
+`b64bd78322a6ae749403ece3e99b1080417b53fccc653382e1312555c8c8bcfe`.
+
 A repeat captured the port-0 receive structure after the gesture sequence.
 The observed ring fields were buffer `0x808814a4`, write index `0x488`, read
 index `0x3f5`, and capacity `0x2000`: 147 bytes separated the indices at that
