@@ -1599,6 +1599,31 @@ The bypass-control hashes in the same order were
 `290b741d543dc9f3b5d84260ff5ad4cc3b3f39c226dbd272d986e11e3e57da5a`, and
 `2e0583319b9001816e8a51bfe9e4df2af87183a1cd5aa246af98135de3f566f4`.
 
+Static inspection of this firmware shows `SubMcuRX` created at priority 27;
+its loop takes the semaphore at `0x8020a328` and calls the selected receive
+parser. `AudioProcess` has priority 30. In a separate debugger snapshot during
+the active-load sequence, `AudioProcess` was current, `SubMcuRX` was on its
+priority-27 ready list with no event-list wait, its receive semaphore held one
+signal, and its ring contained 72 pending bytes. At the corresponding
+DSP-bypassed snapshot, `SubMcuRX` was waiting on that semaphore, its signal
+count was zero, and the ring was empty. This is consistent with a ready
+receiver being starved by higher-priority work, but individual debugger stops
+do not establish continuous scheduling or target execution time. Changing task
+priorities could affect the audio deadline and is not established as a safe
+fix. The active/control recipe hashes were
+`2cc3347efd3deff74fa1d1583e4fce305d22afc79405f7b9eb9107443146d280` and
+`4761902c85a3a1696a4fdd5ac697004736c49f4b123cf1261a0034b8242787b7`;
+debugger observer log hashes were
+`e40c37d3a524a6792ff627dc5fadd7c8960eda7904457fd1b1af144ab92d2d3b` and
+`07733addde00a7db5343fe424ef6d56076a642abe23fb819962070f5b67647b0`;
+the observer script hash was
+`da43e8a3cd90d66fa9a5818d946c9be46b15789671edb0787db45d9f21c017f0`.
+The active/control diagnostic result hashes were
+`ec266ecef995df31cc3a34f7aab231de2e214860798ff22c2a212a7bde449295` and
+`a6f37d3852c26b633fe58edbeaea95ef16d42bca8012c1f46955b22711924c27`.
+They used the active/control MAIN and ELF identities in the preceding time
+series and the same stock fixture and QEMU identity recorded above.
+
 The tap loop now checks the range first and uses an out-of-line modulo only
 for out-of-range delays. Cortex-M7 disassembly confirmed that valid delays
 branch around the divide; the first inline version had not done so. A host
