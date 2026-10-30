@@ -24,8 +24,10 @@ words were, in table order:
 
 The active callback pointer is at `0x202a6f20`. Static inspection shows a
 wrapper at `0x202800e8` loading that pointer and calling it at `0x20280248`.
-Before the call, the wrapper scales and copies two 64-element arrays into
-scratch memory; afterward it copies them back with the inverse scale. The
+Before the call, the wrapper scales a 64-element input array at `0x20010210`
+and copies the same samples into both 64-element scratch channels; afterward
+it copies the two scratch channels back with the inverse scale. This observed
+wrapper therefore does not expose separate per-channel sends. The
 effect code for table entries 1 and 2 also contains 64-iteration floating-point
 processing loops. The one- and two-press progression is consistent with Room
 and Spring in the documented selector sequence; nonzero audio behavior and
