@@ -86,6 +86,67 @@ mod tests {
     }
 
     #[test]
+    fn velvet_gain_and_timer_edits_preserve_the_active_filter() {
+        let mut reference = velvet::VelvetDecorrelator::new();
+        let mut edited = velvet::VelvetDecorrelator::new();
+        let mut params = velvet::Parameters::default();
+        params.refresh_seconds = 0.1;
+        params.transition_ms = 10.0;
+        reference.init(params);
+        edited.init(params);
+        for i in 0..15000 {
+            let signal = (i as f32 * 0.1).sin() * 0.1;
+            reference.process_sample(signal, signal);
+            edited.process_sample(signal, signal);
+        }
+        params.amount -= 0.000001;
+        params.refresh_seconds = 0.2;
+        edited.set_parameters(params);
+        for i in 15000..16000 {
+            let signal = (i as f32 * 0.1).sin() * 0.1;
+            let (a_l, a_r) = reference.process_sample(signal, signal);
+            let (b_l, b_r) = edited.process_sample(signal, signal);
+            assert!((a_l - b_l).abs() < 0.00001);
+            assert!((a_r - b_r).abs() < 0.00001);
+        }
+    }
+
+    #[test]
+    fn velvet_filter_edits_crossfade_even_when_dynamic_is_disabled() {
+        let mut edited = velvet::VelvetDecorrelator::new();
+        let mut reference = velvet::VelvetDecorrelator::new();
+        let mut params = velvet::Parameters::default();
+        params.dynamic = false;
+        params.transition_ms = 10.0;
+        edited.init(params);
+        reference.init(params);
+        for i in 0..2000 {
+            let signal = (i as f32 * 0.1).sin() * 0.1;
+            edited.process_sample(signal, signal);
+            reference.process_sample(signal, signal);
+        }
+        params.density = 2000.0;
+        edited.set_parameters(params);
+        let signal = (2000.0f32 * 0.1).sin() * 0.1;
+        let first = edited.process_sample(signal, signal);
+        let unchanged = reference.process_sample(signal, signal);
+        assert!((first.0 - unchanged.0).abs() < 0.00001);
+        assert!((first.1 - unchanged.1).abs() < 0.00001);
+
+        // A second edit during the fade must also finish, even in static mode.
+        params.density = 500.0;
+        edited.set_parameters(params);
+        for i in 2001..4000 {
+            let signal = (i as f32 * 0.1).sin() * 0.1;
+            let (left, right) = edited.process_sample(signal, signal);
+            assert!(left.is_finite() && right.is_finite());
+        }
+        assert!(!edited.transitioning);
+        assert!(!edited.filter_update_pending);
+        assert_eq!(edited.channels[0].banks[edited.active_bank].count, 14);
+    }
+
+    #[test]
     fn plateau_predelay_delays_impulse_by_requested_samples() {
         let mut immediate = plateau::PlateauReverb::new();
         let mut delayed = plateau::PlateauReverb::new();

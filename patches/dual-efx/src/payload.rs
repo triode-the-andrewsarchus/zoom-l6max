@@ -100,9 +100,10 @@ pub unsafe extern "C" fn efx_dispatch_hook(
                     proc.plateau.set_parameters(proc.plateau.params);
                 } else {
                     // Spring Reverb: param0 = VND Time Spread, param1 = VND Decay
-                    proc.velvet.current.length_ms = 1.0 + (param0 as f32 / 127.0) * 94.0;
-                    proc.velvet.current.decay_db = -120.0 + (param1 as f32 / 127.0) * 120.0;
-                    proc.velvet.set_parameters(proc.velvet.current);
+                    let mut params = proc.velvet.current;
+                    params.length_ms = 1.0 + (param0 as f32 / 127.0) * 94.0;
+                    params.decay_db = -120.0 + (param1 as f32 / 127.0) * 120.0;
+                    proc.velvet.set_parameters(params);
                 }
             }
 
@@ -215,12 +216,13 @@ pub unsafe extern "C" fn knob_changed(
                 0 => {
                     // Encoder 1: Effect A Amount or Effect B PreDelay
                     if bank == 0 {
-                        proc.velvet.current.amount = math::clamp(
+                        let mut params = proc.velvet.current;
+                        params.amount = math::clamp(
                             proc.velvet.current.amount + (delta as f32 * 0.02),
                             0.0,
                             1.0,
                         );
-                        proc.velvet.set_parameters(proc.velvet.current);
+                        proc.velvet.set_parameters(params);
                     } else {
                         proc.plateau.params.predelay_ms = math::clamp(
                             proc.plateau.params.predelay_ms + (delta as f32 * 2.0),
@@ -233,12 +235,13 @@ pub unsafe extern "C" fn knob_changed(
                 1 => {
                     // Encoder 2: Effect A Time Spread or Effect B Size
                     if bank == 0 {
-                        proc.velvet.current.length_ms = math::clamp(
+                        let mut params = proc.velvet.current;
+                        params.length_ms = math::clamp(
                             proc.velvet.current.length_ms + (delta as f32 * 1.0),
                             1.0,
                             95.0,
                         );
-                        proc.velvet.set_parameters(proc.velvet.current);
+                        proc.velvet.set_parameters(params);
                     } else {
                         proc.plateau.params.size = math::clamp(
                             proc.plateau.params.size + (delta as f32 * 0.02),
@@ -251,12 +254,13 @@ pub unsafe extern "C" fn knob_changed(
                 2 => {
                     // Encoder 3: Effect A Density or Effect B Decay
                     if bank == 0 {
-                        proc.velvet.current.density = math::clamp(
+                        let mut params = proc.velvet.current;
+                        params.density = math::clamp(
                             proc.velvet.current.density + (delta as f32 * 50.0),
                             100.0,
                             3000.0,
                         );
-                        proc.velvet.set_parameters(proc.velvet.current);
+                        proc.velvet.set_parameters(params);
                     } else {
                         proc.plateau.params.decay = math::clamp(
                             proc.plateau.params.decay + (delta as f32 * 0.02),
@@ -269,12 +273,13 @@ pub unsafe extern "C" fn knob_changed(
                 3 => {
                     // Encoder 4: Effect A Decay or Effect B Low-Cut
                     if bank == 0 {
-                        proc.velvet.current.decay_db = math::clamp(
+                        let mut params = proc.velvet.current;
+                        params.decay_db = math::clamp(
                             proc.velvet.current.decay_db + (delta as f32 * 2.0),
                             -120.0,
                             0.0,
                         );
-                        proc.velvet.set_parameters(proc.velvet.current);
+                        proc.velvet.set_parameters(params);
                     } else {
                         proc.plateau.params.low_cut_hz = math::clamp(
                             proc.plateau.params.low_cut_hz + (delta as f32 * 20.0),
@@ -287,12 +292,13 @@ pub unsafe extern "C" fn knob_changed(
                 4 => {
                     // Encoder 5: Effect A Refresh or Effect B High-Cut
                     if bank == 0 {
-                        proc.velvet.current.refresh_seconds = math::clamp(
+                        let mut params = proc.velvet.current;
+                        params.refresh_seconds = math::clamp(
                             proc.velvet.current.refresh_seconds + (delta as f32 * 0.5),
                             0.1,
                             30.0,
                         );
-                        proc.velvet.set_parameters(proc.velvet.current);
+                        proc.velvet.set_parameters(params);
                     } else {
                         proc.plateau.params.high_cut_hz = math::clamp(
                             proc.plateau.params.high_cut_hz + (delta as f32 * 250.0),
