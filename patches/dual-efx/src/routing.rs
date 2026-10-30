@@ -63,6 +63,12 @@ impl DualEfxProcessor {
     }
 
     pub fn init(&mut self) {
+        self.channel_routing.fill(RoutingMode::Neither);
+        self.channel_send.fill(0.0);
+        self.cascade_gain = 0.0;
+        self.return_gain_a = 1.0;
+        self.return_gain_b = 1.0;
+        self.pre_ainr_enabled = false;
         self.velvet.init(VelvetParameters::default());
         self.plateau.init(PlateauParameters::default());
     }
