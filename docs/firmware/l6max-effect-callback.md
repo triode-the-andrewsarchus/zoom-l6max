@@ -972,6 +972,37 @@ the result hashes were
 `db341c0772352e2dae86e976ddb9c7f7a5a3e617ea831771d4623852341385c6` and
 `73d87cef8f52d89c30c0b7314e21985c77f5b9040336ffea298172aceb3a8c88`.
 
+A non-stopping QEMU plugin traced a driver run that failed the earlier
+progress-byte assertion. It observed TAP event `0x23` at EventPort enqueue,
+MAIN dispatch and the type-5 learning-start routine `0x80055568`. This rules
+out a completely missing TAP dispatch in that run; it does not establish why
+the sampled progress byte was already zero. The temporary plugin's first
+version did not read register 0 correctly, so its queue-return values are not
+evidence. Its source and binary hashes were
+`cb740585e6ac221c89173e17f7a3bcf839e2aa1674740a774b96bef6c69dfe2b` and
+`e2fcd9cc0314c5035f6530bd0e065502021b2378a4fd6018506ca3a295d42091`;
+its trace and result hashes were
+`845e8def17ab27e3a70737f5cb410d6097dd271923aa97ad21d537e5cbb855f1` and
+`aceb9472ba725a6325e25efbb2cd6a744eae2e2f2a45395b750dee6e0aef99a9`.
+
+The revised scenario checks the stable learned word after 14 guest seconds
+and verifies a second TAP clears it, rather than requiring a transient progress
+byte at 500 ms. One plugin-assisted and one uninstrumented driver run passed.
+The fixed wait includes the stock fallback; it neither explains every earlier
+failure nor establishes learned audio or target timing. The revised scenario,
+uninstrumented result and inputs hashes were
+`45a880c448af8a5cb06f19cf4bb2f48d54b7ac4fd655c2a9f31cf9456e262f1f`,
+`f38e16e5c051563d2854053fddff602cfbf5d6c670ecf6377c862db69e1a92ae`, and
+`7a11c0b925e4b4747970eddd9796d6d40f2f76fdc8d764b51c466b7b703ff4b6`.
+The isolated QEMU executable hashed to
+`69b2a6775a4cab8d778d2d9b91e41cfedbbaf35788ac1417955f0be66a874afa`;
+its source provenance was unattested. The corrected plugin source and binary
+hashed to `d3ed3e6bb839ab26f01d64474c77d6c43ead70c33095ce7bbe5af170511144c8`
+and `2a53221f62248f0573c65ee9ff4567f037322b86755dadde615bd0bc69056242`;
+its trace and result hashed to
+`59518a30b7a78efb9d87ac0dd19da71342ea19388c9d3442c61bae53f3e3faa0` and
+`5fc04bb9e6a507fe2a88f6b0052431e4a61582086d1cc8f0c3d79edbc2c00252`.
+
 ## QEMU routing controls
 
 On the stock MAIN, a GDB stop at `0x80036f8a` observed the EFX button call
