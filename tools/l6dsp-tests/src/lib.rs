@@ -473,6 +473,22 @@ mod tests {
     }
 
     #[test]
+    fn strip_routing_updates_both_sides_of_paired_strips() {
+        let mut processor = Box::new(routing::DualEfxProcessor::new());
+        let expected: [&[usize]; 8] = [&[0], &[1], &[2], &[3], &[4, 5], &[6, 7], &[8, 9], &[10, 11]];
+        for (strip, slots) in expected.iter().enumerate() {
+            processor.channel_routing.fill(routing::RoutingMode::Neither);
+            processor.set_strip_routing(strip, routing::RoutingMode::SendAtoB);
+            for (slot, &mode) in processor.channel_routing.iter().enumerate() {
+                assert_eq!(mode == routing::RoutingMode::SendAtoB, slots.contains(&slot));
+            }
+        }
+        let before = processor.channel_routing;
+        processor.set_strip_routing(8, routing::RoutingMode::SendA);
+        assert_eq!(processor.channel_routing, before);
+    }
+
+    #[test]
     fn stereo_send_processes_long_buffers_like_successive_blocks() {
         let mut long = Box::new(routing::DualEfxProcessor::new());
         let mut split = Box::new(routing::DualEfxProcessor::new());
