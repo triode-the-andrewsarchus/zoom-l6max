@@ -819,8 +819,9 @@ QEMU-only combined inspector experiment uses this guarded call to switch
 between parameter and routing pages. In the Room fixture, the recorded route
 slots started at B (2); encoder 1 changed slot 0 to A-to-B (3), encoder 5
 changed slots 4 and 5 to 3, and reversing encoder 1 restored slot 0 to 2.
-The mixer send remained at 44 while the inspector was open. The test captured
-popup frames, but did not independently verify the routing popup widget text.
+The mixer send remained at 44 while the inspector was open. A follow-up GDB
+inspection of the popup's live UTF-16 widget strings observed `CH 1 ROUTE` /
+`A -> B` and `CH 5 ROUTE` / `A -> B`; attaching the debugger perturbs timing.
 
 The MAIN, ELF, recipe and diagnostic JSON SHA-256 values were respectively
 `681f245d14833c74b9120810177cea10785567a1998450634760b3ecb5adb05b`,
@@ -829,6 +830,21 @@ The MAIN, ELF, recipe and diagnostic JSON SHA-256 values were respectively
 `cfa8b026acbf65d3d4121415564fbcf839aa0d229670951dac6a4adad30bd336`.
 The stock MAIN, NOR and QEMU identities are recorded below. Strip mapping,
 notification behavior, synchronization and target timing remain unqualified.
+The follow-up recipe, diagnostic JSON and GDB log SHA-256 values were
+`633bd720dba9b9656eab312eaa6060a5ccad6a7c6806cd7dcefb657de18926b0`,
+`7205ae1124a3b50b93467bf34c13c54f72246390223295675530b243276fdd7a`, and
+`7c2e9d601a2fd4a722d2a10c1b7e3285672fbdf4063ff48cd7f0ae392e0cf859`.
+
+The subsequent page-feedback experiment displayed `EFX CONTROLS` /
+`PARAMETERS` on opening, `EFX CONTROLS` / `ROUTING` after the EFX press,
+and `PARAMETERS` again on the next press. GDB also observed both route labels
+in that run; route slot changes and mixer values matched the observations
+above. Its MAIN, effect ELF, recipe, diagnostic JSON and GDB log SHA-256 were
+`f42f1888998e4d4910748c165eb6faea5bd92cee35aba44fc58a6b6937307a60`,
+`4186d4e766f98a06d714a38464d2e9464b3412fa9ea5cc975403feac6894c578`,
+`94f5a1ae9c0939b4dc4095e6e7791094ee3f5b90fb185b6998af164f2e1ab929`,
+`5ef520ea4a820b77fd3fcdd7b0196541d77dc7dc1201544d985cd30758d617e2`, and
+`3e34ad0c4918a591c9f2e7f3cec8d17ebe622bc53b8c3e71a8cd20d130ad4ebe`.
 
 ## Evidence and limits
 

@@ -81,6 +81,8 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
                 s.active = !s.active;
                 s.routing_page = false;
                 core::ptr::write_volatile((SUMMARY + 28) as *mut u32, s.active as u32);
+                #[cfg(knob_inspector)]
+                if s.active { inspector_notify_hook(24, 0.0f32.to_bits()); }
                 0
             }
         }
@@ -97,6 +99,8 @@ pub unsafe extern "C" fn inspector_mode(mode: u32, event: u32) {
         if mode == 6 && event == 1 && recorder_active() && custom_active()
             && core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) == MAGIC && (*ui).active {
             (*ui).routing_page = !(*ui).routing_page;
+            #[cfg(knob_inspector)]
+            inspector_notify_hook(24, ((*ui).routing_page as u8 as f32).to_bits());
         }
     }
 }
