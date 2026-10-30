@@ -169,6 +169,32 @@ the probe ELF, diagnostic MAIN and result JSON SHA-256 values were
 This checks target-code initialization and DSP arithmetic in QEMU; it does
 not test live audio routing, effect-switch synchronization or hardware timing.
 
+## Experimental audio-callback round trip
+
+A QEMU-only payload provided a temporary two-effect callback with the observed
+stock `(context, descriptor)` ABI. In an existing disposable run, a debugger
+stopped at `0x20280248`, invoked the diagnostic initializer, restored the
+saved argument registers, and substituted the callback address in `r12` for
+each of 256 calls. It injected a `0.5` impulse in both 64-frame scratch
+channels on the first call and zeroes thereafter. At `0x2028024a`, all 256
+blocks were finite and nonzero, with a peak of `0.3052642345428467`. All
+32,768 returned sample values matched a host reference bit-for-bit; both
+outputs had SHA-256
+`5b410787521ba66713ac39a9b01069cb8636bbcab9d793786eddb99a10aa6125`.
+
+This experiment explicitly redirected every call with a debugger and ran the
+initializer on the stopped audio task. It did not install a callback in the
+firmware, test per-channel routing, timing, controls or stock-effect
+coexistence. The same emulator run included two earlier interrupted debugger
+attempts; the successful attempt reinitialized the DSP before measurement.
+The experimental MAIN, probe ELF, recipe, debugger script and log hashes were
+`21e625b0a029327e4de63731890980eea8fbef18debf44793df2522f9223cc01`,
+`68538c82f07498adf1ff0ea00fade27c5470a1fa181a58ee70d828968793bb20`,
+`9d9b3c61c4f1ff29b23a3422962f4b1d5f0fb9af8d16620c9f0274bb3a508d0f`,
+`9d40a8627c2307626e1629b57c67a7e9ff663e08025587ff59534ae6f5a88c74`, and
+`f6e427dbf7fd2b6764b77b6864bed80b66eef30c06f9210914126552e451ef96`.
+The modified firmware and debugger artifacts remain local.
+
 ## Task and memory observations
 
 In a separate disposable stock-emulator run after 45 guest seconds, debugger
