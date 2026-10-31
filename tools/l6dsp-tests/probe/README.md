@@ -114,7 +114,9 @@ it is not a safe target hook.
 `--irq-timing` uses that same experimental hook and a bounded single-producer
 queue to time selector gestures from the interrupt. A missing, mismatched or
 overflowed event cancels the gesture. The queue counters are captured at
-`0x83e00b00`; neither this experiment nor its scratch memory is target-safe.
+`0x83e00b00`. A verified existing hook retains its decoder, queued edges and
+bounded trace across effect selections; overflow recovery remains unresolved.
+Neither this experiment nor its scratch memory is target-safe.
 
 For the prepared fixture identified in the investigation, the expected
 captured values are `26.0 ms` for Plateau and `84.0 %` for Velvet, followed

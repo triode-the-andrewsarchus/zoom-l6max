@@ -1773,6 +1773,55 @@ It used the same stock MAIN, NOR and isolated QEMU as the preceding run.
 
 ## QEMU routing controls
 
+The QEMU-only interrupt-timestamp hook now initializes its decoder and queue
+only on first installation. On subsequent custom selections, it preserves
+pending edges if both hook words and the veneer match; a mismatch marks the
+trace invalid. In matched disposable variants, a synthetic queued press with
+tick 12,345 was inserted immediately before the Room-to-Spring installation.
+The earlier installer changed the queue from `(1, 0, 0)` to `(0, 0, 0)`;
+the updated variant retained `(1, 0, 0)` and the timestamp. This is a forced
+interleaving, not proof of physical input delivery, queue overflow recovery,
+or target-safe ownership of the hook and scratch memory.
+
+The two variants used callback SHA-256
+`c1fdb06cdabeed391d2525f01fc342a548120efbeb83cd58914f0eefd663e987`;
+the earlier IRQ source, MAIN, ELF, recipe and result hashes were
+`b59870a37e8924359af842cbd3c9fa69fd0615e3a181f8f47cdbf6a4152089e0`,
+`06fd7b193aebc2c8e86a19427967fe31ea164f8887b42ea5b4ca59a6c4d9d1f3`,
+`3c7d929b0a304f8e898afc875ef30ee198221952872a681a97c2a8119919823b`,
+`fb9cf942b85c356a6e744735973ed7da6118e60ada5bf22bf3220e35644ba6db`, and
+`97390ae7c929e69aa2674f3f60feb98915974025b20f658594efa4345dd17f67`.
+The updated variant's corresponding hashes were
+`e6428e0cd811e5955666e003246d0e2ae2ca4b49882ad865a0e3b2e4f9201775`,
+`c935944d97a00220565eb62f6c9b6faefef827adbbcf8c5ba2d732b031863a9e`,
+`918fa5152476167af62ffccfc00801ea1cb99a5d33fd49334ac85d43a14cfacf`,
+`7f734b182428492f514eb1a89341bdb592b92f3756c8df4aa80493f8d7a6a197`, and
+`d90cced7a8b0b693318657ea1117ef7f52759be75b1a00a9f980737bf590d373`.
+
+In a separate silent-input ten-edit diagnostic using the updated checked-in
+hook, the inspector opened, recorded ten edits, closed, and selected Spring;
+the IRQ queue observation before the last short press was `(25, 25, 0)`.
+This does not establish active-audio responsiveness. The diagnostic MAIN,
+ELF, recipe and result hashes were
+`63ec0f611f40001baf11270ea3f4172c97f140ae58dfc129544ce69f1f38a95a`,
+`b662bb3155deb8904c553af3e56cdec01dcdc0202456ad578b97b24ac4ebf911`,
+`8889981a8bac834912985ca862fdca9bc9028aa7e13470f5e37be77874b8c3a2`, and
+`40f27f99e48b3b9ed0c9bf9b57e09db9d6989e86b6d0d2a15a2fb3d29bfcf1b5`.
+All used the stock MAIN, initial NOR and unattested QEMU executable recorded
+in the parameter-mailbox run below.
+
+Another disposable variant changed the installed veneer target immediately
+before the second installation with interrupts masked, then restored it.
+The installer recorded the invalid-hook marker `0x42414421` instead of
+accepting the changed target. The callback, IRQ source, MAIN, ELF, recipe
+and result hashes were
+`a7965f21ecaaa335860d9588459e81fa03527be6e46ada99469fcd55f8b1acaa`,
+`e6428e0cd811e5955666e003246d0e2ae2ca4b49882ad865a0e3b2e4f9201775`,
+`d75f74d980f7c7ba71063046688a210bd06fe6b66b65cc5e78c9f317ce27d337`,
+`9ea440320427d33d16635983aded6201929c1b783f76be7d68d953fcb553d434`,
+`6ce1f82c1fd3384c3d80ebd0f7181346c9706d1a40f83d9764002ea7857b6ed6`, and
+`81279f6a508f2e0832c775aed2465066856101d7076d1d6d1f435ab56bcd63a3`.
+
 Two temporary attempts to reduce the shared Velvet tap-loop cost did not
 improve the modeled active-send cadence. Unrolling the aligned two-history
 loop by two, without changing tap order, counted 2,615 callbacks over five
