@@ -3810,6 +3810,37 @@ hardware; the production dual-effect builder remains disabled.
 
 ## Evidence and limits
 
+A reverb size change previously shortened its tank delay rings without
+updating the excluded buffer contents. In a host experiment, filling the
+large reverb, shrinking it for three seconds of silence, and enlarging it
+again produced an old-tail peak of approximately 0.992. Tank histories now
+continue through the full backing buffers while their configured tap delays
+change; the same experiment stays below `1e-5` and accepts new input. This
+does not eliminate all transients when changing size during active audio.
+A separate host comparison at four fixed sizes, including freeze transitions,
+matched the previous implementation bit for bit over 120,000 frames per size.
+
+A QEMU-only impulse run produced Velvet and Plateau peaks of approximately
+`0.30966336` and `0.03750144`, respectively, and completion marker
+`0x46585031`. The diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`8b74de3053a21d659500bf0c99f7d7c9883834c8485bd4637dc5ee88a4007f12`,
+`97a57c3744bc1a62b754bbcb3f12b83524587a366f5ff6de4d7b35b6cfd5e59b`,
+`b0c68627e244796516267c7e4385da2ed444ea55a491e7e4ad34c7c3278355c3`, and
+`447d1d4466c1a144c6154d451910f360329d14a3c95897ff158932c26ae9ede5`.
+Stock MAIN, initial NOR and unattested QEMU executable match the identities
+in the preceding section. The impulse run does not exercise live size changes
+or qualify target timing, audio safety or hardware installation.
+
+A separate combined UI run observed the expected route edits, drained queues,
+and mixer controls before and after closing the inspector. Its diagnostic
+MAIN, effect ELF, popup ELF, recipe and result SHA-256 values were
+`f6c7357060ef203671087d3649caa54b4aefc4cdf3dd90e4e24d32edb9474d49`,
+`e2c8dd6c6cfdc8f99181647ec713dd06ca095bdd9aa1285faf7e0a472b09b870`,
+`3361d999fb0fd09fd2cb9b2c211940e5734040ff8e203cda48a1b0097782695a`,
+`0a90ef67efe02d87d52f6912764ab85d81a971d53d879b4e3968b4aed7190671`, and
+`5df3bcba809dc81d326b4eecf54cdf1cc8891bd49b4fd636c015fca3a724e162`.
+This silent-input UI sequence does not establish active-audio responsiveness.
+
 A later control-path change applies Plateau decay, modulation-depth and
 freeze encoder edits without recalculating unrelated delay lengths or filter
 coefficients in the audio task. A host comparison exercised repeated edits

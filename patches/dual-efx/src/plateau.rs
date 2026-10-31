@@ -35,6 +35,7 @@ const R_DEL2_MAX: usize = 7000;   // 3163 * scale * 1.25
 pub struct Delay<const N: usize> {
     pub buffer: [f32; N],
     pub write_pos: usize,
+    // Configured delay length; the complete backing ring keeps moving.
     pub length: usize,
 }
 
@@ -56,18 +57,24 @@ impl<const N: usize> Delay<N> {
     pub fn write(&mut self, sample: f32) {
         self.buffer[self.write_pos] = sample;
         self.write_pos += 1;
-        if self.write_pos >= self.length {
+        if self.write_pos >= N {
             self.write_pos = 0;
         }
     }
 
     #[inline(always)]
     pub fn read(&self, delay: usize) -> f32 {
-        let d = if delay >= self.length { self.length - 1 } else { delay };
-        let read_pos = if self.write_pos >= d {
-            self.write_pos - d
+        self.read_history(if delay >= self.length { self.length - 1 } else { delay })
+    }
+
+    // The whole backing ring advances even when the configured delay is short.
+    // Otherwise expanding it can replay samples from before the last shrink.
+    #[inline(always)]
+    fn read_history(&self, delay: usize) -> f32 {
+        let read_pos = if self.write_pos >= delay {
+            self.write_pos - delay
         } else {
-            self.write_pos + self.length - d
+            self.write_pos + N - delay
         };
         self.buffer[read_pos]
     }
@@ -81,9 +88,9 @@ impl<const N: usize> Delay<N> {
         let r1 = if self.write_pos >= d_int {
             self.write_pos - d_int
         } else {
-            self.write_pos + self.length - d_int
+            self.write_pos + N - d_int
         };
-        let r2 = if r1 == 0 { self.length - 1 } else { r1 - 1 };
+        let r2 = if r1 == 0 { N - 1 } else { r1 - 1 };
 
         let s1 = self.buffer[r1];
         let s2 = self.buffer[r2];
@@ -443,13 +450,6 @@ impl PlateauReverb {
         self.r_apf2.delay_time = clamp_usize((2656.0 * scale) as usize, 1, R_APF2_MAX - 1);
         self.r_del2.length = clamp_usize((3163.0 * scale) as usize, 10, R_DEL2_MAX - 1);
 
-        // A smaller size can put an existing write position outside its new
-        // ring. Bring it back inside before the next sample is written.
-        self.l_del1.write_pos %= self.l_del1.length;
-        self.l_del2.write_pos %= self.l_del2.length;
-        self.r_del1.write_pos %= self.r_del1.length;
-        self.r_del2.write_pos %= self.r_del2.length;
-
         // The input and both tank channels use the same coefficients, but
         // each filter retains its own signal history.
         self.in_lp.set_cutoff(params.high_cut_hz);
@@ -504,8 +504,8 @@ impl PlateauReverb {
         // 4. Left Tank Loop
         self.l_sum += diff_in;
         let l_ap1_out = self.l_apf1.process_modulated(self.l_sum, l_mod);
-        // Read the slot about to be overwritten: it is exactly one ring old.
-        let l_del1_out = self.l_del1.read(0);
+        // Read the configured delay from continuously advancing history.
+        let l_del1_out = self.l_del1.read_history(self.l_del1.length);
         self.l_del1.write(l_ap1_out);
 
         // Keep damping history current while bypassed so releasing freeze
@@ -514,20 +514,20 @@ impl PlateauReverb {
         let l_filtered = if self.params.freeze { l_del1_out } else { l_damped };
 
         let l_ap2_out = self.l_apf2.process(l_filtered * decay);
-        let l_del2_out = self.l_del2.read(0);
+        let l_del2_out = self.l_del2.read_history(self.l_del2.length);
         self.l_del2.write(l_ap2_out);
 
         // 5. Right Tank Loop
         self.r_sum += diff_in;
         let r_ap1_out = self.r_apf1.process_modulated(self.r_sum, r_mod);
-        let r_del1_out = self.r_del1.read(0);
+        let r_del1_out = self.r_del1.read_history(self.r_del1.length);
         self.r_del1.write(r_ap1_out);
 
         let r_damped = self.r_hp.process(self.r_lp.process(r_del1_out));
         let r_filtered = if self.params.freeze { r_del1_out } else { r_damped };
 
         let r_ap2_out = self.r_apf2.process(r_filtered * decay);
-        let r_del2_out = self.r_del2.read(0);
+        let r_del2_out = self.r_del2.read_history(self.r_del2.length);
         self.r_del2.write(r_ap2_out);
 
         // Cross feedback
@@ -575,7 +575,7 @@ impl PlateauReverb {
             ($d:expr) => {{
                 let d = &mut $d;
                 d.write_pos += 1;
-                if d.write_pos >= d.length {
+                if d.write_pos >= d.buffer.len() {
                     d.write_pos = 0;
                 }
             }};

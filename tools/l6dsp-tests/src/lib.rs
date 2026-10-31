@@ -876,6 +876,45 @@ mod tests {
     }
 
     #[test]
+    fn plateau_size_expansion_does_not_replay_abandoned_history() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        params.size = 1.2;
+        params.decay = 0.1;
+        reverb.init(params);
+
+        // Fill the long tank delays, then let the short reverb decay well
+        // beyond the largest backing buffer's duration.
+        for frame in 0..96_000 {
+            let input = if frame % 100 < 50 { 0.7 } else { -0.7 };
+            reverb.process_sample(input, input);
+        }
+        params.size = 0.2;
+        reverb.set_parameters(params);
+        for _ in 0..144_000 {
+            reverb.process_sample(0.0, 0.0);
+        }
+        params.size = 1.2;
+        reverb.set_parameters(params);
+        let mut peak = 0.0f32;
+        for _ in 0..16_000 {
+            let (left, right) = reverb.process_sample(0.0, 0.0);
+            peak = peak.max(left.abs()).max(right.abs());
+        }
+        assert!(peak < 1e-5, "size expansion replayed an old tail: {peak}");
+
+        // Discarding stale history must not prevent subsequent input from
+        // reaching the reverb.
+        let mut response = 0.0f32;
+        for frame in 0..16_000 {
+            let input = if frame == 0 { 1.0 } else { 0.0 };
+            let (left, right) = reverb.process_sample(input, input);
+            response = response.max(left.abs()).max(right.abs());
+        }
+        assert!(response > 0.001, "reverb did not respond to new input");
+    }
+
+    #[test]
     fn test_plateau_reverb_decay() {
         let mut plat = plateau::PlateauReverb::new();
         plat.init(plateau::PlateauParameters::default());
