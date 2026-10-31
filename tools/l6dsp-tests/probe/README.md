@@ -119,9 +119,11 @@ While the inspector is open, a short EFX SEL press switches the parameter
 bank without changing the selected stock effect; pressing EFX changes between
 parameter and routing pages. Turning a strip encoder on the routing page cycles that strip
 through off, A, B and A-to-B. This experiment does not draw an OLED popup.
-Effect changes reinitialize the DSP and queue, so parameter edits and tails can
-be lost. The QEMU-only route mailbox survives effect selection within the
-session; its memory ownership and reset behavior are not qualified.
+Effect changes reinitialize the DSP and queue, so pending edits and tails can
+be lost. Applied inspector values and routes are retained in QEMU-only
+mailboxes across effect selections within the session. The parameter values
+are read individually, not as a transaction with concurrent edits; mailbox
+ownership, callback lifetime and reset behavior are not qualified.
 The queue can overflow, and synchronization, context changes, stock patch
 combinations, memory ownership and timing are not qualified. The scratch
 addresses are emulator-only. Never install the generated image.

@@ -1773,13 +1773,43 @@ It used the same stock MAIN, NOR and isolated QEMU as the preceding run.
 
 ## QEMU routing controls
 
+The inspector diagnostic now records each applied parameter value in a
+QEMU-only atomic mailbox and restores the observed values before publishing a
+new custom callback. Values are stored in their native units; the diagnostic
+rebuilds the saved Velvet filter on selection instead of crossfading from a
+fresh default. Individual atomic words avoid reading live DSP state from the
+selector, but they do not provide a transactional snapshot of edits racing a
+selection. The mailbox is unowned scratch memory, pending queue events can
+still be lost, and DSP histories and tails are still cleared. Initialization
+and filter generation add selection-time work. None of this qualifies a
+hardware allocation, callback lifetime, reset, or deadline.
+
+In one silent-input QEMU run, the inspector changed Plateau pre-delay from
+10 to 26 ms and Velvet amount from 100% to 84%, closed the inspector and
+selected Spring. After reopening, one turn advanced Velvet to 86%; switching
+back to Plateau and turning once advanced pre-delay to 28 ms. The diagnostic
+queue was empty `(2, 2, 0)` after those edits. A host test checks all 16
+inspector parameters and repeated edits, but neither test checks tails,
+concurrent selection, active-audio responsiveness or physical hardware.
+
+The stock MAIN SHA-256 was
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+and QEMU executable `53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`
+with unattested source provenance. The final diagnostic MAIN, ELF, recipe and
+result SHA-256 values were respectively
+`2382d31f9a8af011628742ac24f8475479997837a71315e715d3f8a6a5fefcd3`,
+`82c9fad049d2f4ae5046f6e30d6cd34f44504ef7b66fe76ad594fd983ebfa2bc`,
+`836358ec9f3dfdac50d22220541ddf30dfa3b8e7eeae4174e6a4cfc44654b50c`, and
+`5e5c3994f5f8113cc1280596ee55d94e11c20aa30de4fb85b1db78ee74b7865f`.
+
 The diagnostic used to reset its route mailbox on every custom-effect
 selection. With a temporary raised-priority intervention and modeled input,
 a stress run edited routes, changed both parameter banks, closed the inspector
 and selected Spring; Spring reset all 12 routes to A. The diagnostic now
 initializes its unowned route mailbox only on the first custom selection and
 retains it on later selections. It still reinitializes DSP state and its event
-queue: parameter edits and effect tails can be lost. Reset behavior, ownership,
+queue: pending edits and effect tails can be lost. Reset behavior, ownership,
 and synchronization with in-flight callbacks remain unqualified.
 
 In a repeat of the active-input stress with that change, the edited route array

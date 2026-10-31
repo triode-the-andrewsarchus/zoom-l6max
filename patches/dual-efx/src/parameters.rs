@@ -8,6 +8,79 @@ pub enum ParameterBank {
     Plateau,
 }
 
+/// Latest applied value for each inspector parameter. One audio task writes
+/// individual entries; selection can read them without borrowing DSP state.
+/// This does not reserve memory or synchronize callback lifetime.
+pub struct ParameterHandoff {
+    values: [core::sync::atomic::AtomicU32; 16],
+}
+
+impl ParameterHandoff {
+    pub const fn new() -> Self {
+        Self { values: [const { core::sync::atomic::AtomicU32::new(u32::MAX) }; 16] }
+    }
+
+    pub fn record(&self, id: EfxParamId, processor: &super::routing::DualEfxProcessor) {
+        use core::sync::atomic::Ordering;
+        use EfxParamId::*;
+        // Store native units so restoring percentages does not round twice.
+        let value = match id {
+            VndAmount => processor.velvet.current.amount,
+            PlatSize => processor.plateau.params.size,
+            PlatDecay => processor.plateau.params.decay,
+            PlatDiffusion => processor.plateau.params.diffusion,
+            GlobalCascade => processor.cascade_gain,
+            _ => snapshot_parameter(id, processor).value,
+        };
+        self.values[id as usize].store(value.to_bits(), Ordering::Release);
+        // Reducing refresh also clamps transition length in set_parameters.
+        if id == VndRefresh {
+            self.values[VndTransition as usize]
+                .store(processor.velvet.current.transition_ms.to_bits(), Ordering::Release);
+        }
+    }
+
+    /// Restore into freshly initialized, exclusively owned DSP state.
+    /// Individually atomic values do not form a transaction with live edits.
+    pub fn restore(&self, processor: &mut super::routing::DualEfxProcessor) {
+        use core::sync::atomic::Ordering;
+        let mut velvet = processor.velvet.current;
+        let mut plateau = processor.plateau.params;
+        let mut velvet_changed = false;
+        let mut plateau_changed = false;
+        for (index, word) in self.values.iter().enumerate() {
+            let bits = word.load(Ordering::Acquire);
+            if bits == u32::MAX { continue; }
+            let value = f32::from_bits(bits);
+            match index {
+                0 => velvet.amount = value,
+                1 => velvet.length_ms = value,
+                2 => velvet.density = value,
+                3 => velvet.decay_db = value,
+                4 => velvet.refresh_seconds = value,
+                5 => velvet.dynamic = value != 0.0,
+                6 => plateau.predelay_ms = value,
+                7 => plateau.size = value,
+                8 => plateau.decay = value,
+                9 => plateau.low_cut_hz = value,
+                10 => plateau.high_cut_hz = value,
+                11 => plateau.diffusion = value,
+                12 => plateau.mod_depth = value,
+                13 => plateau.freeze = value != 0.0,
+                14 => processor.cascade_gain = value,
+                15 => velvet.transition_ms = value,
+                _ => unreachable!(),
+            }
+            velvet_changed |= index <= 5 || index == 15;
+            plateau_changed |= (6..=13).contains(&index);
+        }
+        // Rebuild the saved filter before callback publication, rather than
+        // crossfading from the newly constructed default filter.
+        if velvet_changed { processor.velvet.init(velvet); }
+        if plateau_changed { processor.plateau.set_parameters(plateau); }
+    }
+}
+
 /// Applies one inspector encoder turn to the DSP state and returns the value
 /// to present. The caller must provide exclusive access to the processor;
 /// firmware event delivery and synchronization are not implemented here.

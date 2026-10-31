@@ -167,6 +167,51 @@ mod tests {
     }
 
     #[test]
+    fn parameter_handoff_restores_each_latest_applied_value() {
+        use parameters::{edit_encoder, snapshot_parameter, ParameterBank, ParameterHandoff};
+        let mut source = Box::new(routing::DualEfxProcessor::new());
+        let mut restored = Box::new(routing::DualEfxProcessor::new());
+        source.init();
+        restored.init();
+        let handoff = ParameterHandoff::new();
+        let mut ids = Vec::new();
+        for bank in [ParameterBank::Velvet, ParameterBank::Plateau] {
+            for encoder in 0..8 {
+                let delta = if bank == ParameterBank::Velvet && (encoder == 5 || encoder == 7) { -1 } else { 1 };
+                let id = edit_encoder(&mut source, bank, encoder, delta).unwrap();
+                handoff.record(id, &source);
+                ids.push(id);
+            }
+        }
+        // A second edit to one slot must replace its earlier value.
+        let id = edit_encoder(&mut source, ParameterBank::Plateau, 2, 2).unwrap();
+        handoff.record(id, &source);
+        handoff.restore(&mut restored);
+        for id in ids {
+            assert_eq!(snapshot_parameter(id, &restored).value.to_bits(),
+                       snapshot_parameter(id, &source).value.to_bits(), "{id:?}");
+        }
+        // Applying the handoff to fresh state does not claim to restore tails.
+        assert_eq!(restored.velvet.current.amount.to_bits(), source.velvet.current.amount.to_bits());
+        assert_eq!(restored.plateau.params.size.to_bits(), source.plateau.params.size.to_bits());
+        assert_eq!(restored.plateau.params.decay.to_bits(), source.plateau.params.decay.to_bits());
+        assert_eq!(restored.plateau.params.diffusion.to_bits(), source.plateau.params.diffusion.to_bits());
+        assert_eq!(restored.cascade_gain.to_bits(), source.cascade_gain.to_bits());
+
+        // Refresh edits can also clamp the transition length, so they must
+        // replace both stored values before the next selection.
+        let transition = edit_encoder(&mut source, ParameterBank::Velvet, 6, 40).unwrap();
+        handoff.record(transition, &source);
+        let refresh = edit_encoder(&mut source, ParameterBank::Velvet, 4, -10).unwrap();
+        handoff.record(refresh, &source);
+        restored.init();
+        handoff.restore(&mut restored);
+        assert_eq!(source.velvet.current.transition_ms, 450.0);
+        assert_eq!(restored.velvet.current.refresh_seconds, source.velvet.current.refresh_seconds);
+        assert_eq!(restored.velvet.current.transition_ms, source.velvet.current.transition_ms);
+    }
+
+    #[test]
     fn efx_select_defers_short_press_and_distinguishes_hold() {
         use controls::EfxSelectAction as Action;
         let mut gesture = controls::EfxSelectGesture::default();

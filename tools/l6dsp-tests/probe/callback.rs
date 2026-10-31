@@ -39,13 +39,13 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
         unsafe { auto_handoff::allocate(); }
         let storage =
             unsafe { &mut *(0x80d00000 as *mut core::mem::MaybeUninit<routing::DualEfxProcessor>) };
-        routing::DualEfxProcessor::initialize_in_place(storage);
+        let _processor = routing::DualEfxProcessor::initialize_in_place(storage);
         unsafe {
             // The route mailbox is outside the stock effect buffer. Keep it
             // across selections within this disposable emulator session.
             let routes_initialized = core::ptr::read_volatile(0x83e00000 as *const u32) == 0x494e4954;
             #[cfg(inspector_probe)]
-            inspector::initialize(entry as u32);
+            inspector::initialize(entry as u32, _processor, routes_initialized);
             #[cfg(irq_trace)]
             irq::install();
             core::ptr::write_volatile(0x83e00000 as *mut u32, 0x494e4954);

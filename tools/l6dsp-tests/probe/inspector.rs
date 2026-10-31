@@ -7,6 +7,7 @@ unsafe extern "C" { fn inspector_notify_hook(id: u32, bits: u32); }
 const QUEUE: usize = 0x83e00200;
 const INSPECTOR: usize = 0x83e00340;
 const SUMMARY: usize = 0x83e00400;
+const SAVED_PARAMETERS: usize = 0x83e03800;
 const CAPACITY: u32 = 64;
 const MAGIC: u32 = 0x47535431;
 
@@ -26,8 +27,14 @@ unsafe fn atomic(address: usize) -> &'static AtomicU32 {
 }
 
 /// Called while the stock effect callback is disabled during selection.
-pub unsafe fn initialize(entry: u32) {
+pub unsafe fn initialize(entry: u32, processor: &mut routing::DualEfxProcessor, initialized: bool) {
     unsafe {
+        let saved = SAVED_PARAMETERS as *mut parameters::ParameterHandoff;
+        if initialized {
+            (*saved).restore(processor);
+        } else {
+            core::ptr::write(saved, parameters::ParameterHandoff::new());
+        }
         core::ptr::write(QUEUE as *mut AtomicU32, AtomicU32::new(0));
         core::ptr::write((QUEUE + 4) as *mut AtomicU32, AtomicU32::new(0));
         core::ptr::write_volatile((QUEUE + 8) as *mut u32, 0);
@@ -254,6 +261,7 @@ pub unsafe fn consume(processor: &mut routing::DualEfxProcessor) {
             } else if let Some(id) = parameters::edit_encoder(processor,
                 if item & 0x40 != 0 { parameters::ParameterBank::Velvet } else { parameters::ParameterBank::Plateau },
                 (item & 0x3f) as usize, delta) {
+                (*(SAVED_PARAMETERS as *const parameters::ParameterHandoff)).record(id, processor);
                 #[cfg(knob_inspector)]
                 {
                     let value = parameters::snapshot_parameter(id, processor);
