@@ -1906,6 +1906,31 @@ Its callback, MAIN, ELF, recipe and result SHA-256 values were respectively
 The preparer, linker script, stock MAIN, NOR and QEMU matched the post-fade
 variant above.
 
+A further disposable variant saved the previous callback before disabling it
+and restored that pointer if the acknowledgment timed out. It withheld only
+the request for Spring, after Room had been selected. In a repeat with a
+second observation two guest seconds after the timeout, the active pointer
+was again the diagnostic Room callback and its count advanced from 3,625 to
+4,994; the following press selected the stock effect. The first run also
+observed the restored pointer and subsequent stock selection. Neither run
+measured whether the stock fade or other selector state was restored, nor
+established audible output during recovery. A late acknowledgment, other
+callers, interrupt ordering, and actual ownership remain unqualified. This is
+evidence for a possible recovery mechanism, not an installable implementation.
+
+Both runs used callback SHA-256
+`b5d08672c1ca3d264b352181c4a9a464843d35c1307425e8459d8c7502e153c9`, MAIN
+`819264b1fb5c958cb79adc75b88f3abc429e205bfb014b8b3a3eaf0da94908d2`, and ELF
+`3cce71104d873d277afdfd81619ba6605c9390cffaa24007db0ab11429353f66`.
+The first recipe and result hashes were
+`8ef4599aa1c93d8ce11c95daedf39bcfefd90d34fe84c537d4db5c45bd6c104f` and
+`e0fd28ca12f2cb4fdfd91a2f873fea5a7796754d775faef75efa509aab7e5eaf`;
+the repeat's were
+`c8639b9a7bdf63c199b8c04313b72ee2c0a4449ed714e0a6dc4a93e5b026e335` and
+`24a548c38f84045481d0cf9505abc3619c8e5452ff2627c752c54b474e8f33ec`.
+The preparer, linker script, stock MAIN, NOR and QEMU matched the preceding
+post-fade variants.
+
 The QEMU-only interrupt-timestamp hook now initializes its decoder and queue
 only on first installation. On subsequent custom selections, it preserves
 pending edges if both hook words and the veneer match; a mismatch marks the
