@@ -3810,6 +3810,49 @@ hardware; the production dual-effect builder remains disabled.
 
 ## Evidence and limits
 
+The combined QEMU-only inspector now stores its 16 saved parameter words in
+the popup manager's heap sidecar, instead of the unowned scratch mailbox used
+by the standalone inspector. In one run, the tagged context pointed to
+`0x808cb668` and the handoff to `0x808cb68c`, 36 bytes into that allocation.
+After a direct custom-effect switch, pre-delay was restored at 28 ms and a
+turn changed it to 30 ms; the saved Velvet amount remained approximately 86%.
+The MAIN, effect ELF, popup ELF, recipe and result SHA-256 values were
+`6bdc8f5b475df07e556c58cf24ddcbaa9e7fa399e5451860f7ff3de34a6aeafc`,
+`0dc978d5938f42f1eb5845c0890650e44c125fddd022d72e24e03df8f403f211`,
+`968c17b6b85952a914061b17abb9aacb303283da4eb48adf58026c09b438ac72`,
+`e9c7e8df2ff485ec5c044ec1704fd98436cf41ddd393d23a5aa4dcfc192c351f`, and
+`ee850a78633be5d808b86142a104f18b632b68f62949edeea3296f77fbd89e9a`.
+
+In a forced sidecar-allocation failure, the inspector stayed closed and the
+normal mixer encoder changed its value from 42 to 86; its queue stayed empty.
+The forced MAIN, effect ELF, popup ELF, recipe and result hashes were
+`6dfa168d7c215ac0228429ede94b723cc65bc59a595b46d837fe64f19d5842b0`,
+`f1dc6e76263712e8e5121c5fda1250f36a7dc06dc13331e438737c98ec253e78`,
+`ffdc2d51bf79f522edd8b28711e261d789f4f755941778a2a2775b203971f549`,
+`e3fbe3472c08218906033d33443dc0aaabe77acbb627c8d1216442ef60d27acf`, and
+`d3d9b09a05c6261ed373bcfd5131fd78b7dee9d7378a35b97819ca4de28900b8`.
+This forced variant is a separate disposable build.
+
+In another run, the saved pre-delay and Velvet values survived a cycle through
+the four stock effects back to Room. The inspector reopened, but an encoder
+turn did not reach its queue. A matched traced run of the prior scratch-backed
+diagnostic showed the same behavior: the turn reached the inspector hook in
+LEVEL mode 9, while that hook requires EFX mode 6. The stock-cycle recipe and
+result hashes were `a7b48c93f2a4ccfbc440dc7fa64c16f5afe2a4f89a92f20b06ebe170ce3bb532`
+and `415547fd2ba546b3a52af1acc563571096607f3f79670ac1a64256343c026d01`.
+The heap-trace MAIN, recipe and result hashes were
+`1d803acec9bdf23216a5433944265effacd7e63b5447b7810a3293036a74b158`,
+`2cd0b020ffc62aba2269b337b1272a660ca628bb4d220080e57e7a7e780f1195`, and
+`e6c6172cc434fa86d924ff417f546b12255fa355f4fad8cf65d74ba390ff3fd8`;
+the scratch-trace counterparts were
+`0359ba9e18212dc38da697199ce7d516ea3d3fc1aed799f42c0396c3edf31e21`,
+`65c08cbef02effd49641dc81845a435fdc197d9e07e87507408ae414d3ea0d21`, and
+`25c449df60ecbe880083c44ff2eb2c669989bb68a7f0213584de37a65a70fb8a`.
+The handoff allocation, queue, gesture state, routes, callback ownership,
+failure recovery, target timing and physical memory remain unqualified; only
+the parameter words moved out of scratch. All runs used the stock MAIN, NOR
+and unattested QEMU executable identified in the preceding section.
+
 A reverb size change previously shortened its tank delay rings without
 updating the excluded buffer contents. In a host experiment, filling the
 large reverb, shrinking it for three seconds of silence, and enlarging it

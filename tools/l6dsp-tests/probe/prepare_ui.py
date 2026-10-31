@@ -97,7 +97,7 @@ probe_args = [
     "-C", "panic=abort", "-C", "relocation-model=static",
     "-C", f"link-arg=--defsym=PROBE_BASE={probe_base:#x}",
     "-C", f"link-arg=--defsym=inspector_notify_hook={knob_symbols['inspector_notify_hook'] | 1:#x}",
-    *[arg for name in ("inspector_generation_hook", "inspector_edit_hook", "inspector_cancel_hook", "inspector_defer_cancel_hook")
+    *[arg for name in ("inspector_generation_hook", "inspector_edit_hook", "inspector_cancel_hook", "inspector_defer_cancel_hook", "inspector_handoff_hook")
       for arg in ("-C", f"link-arg=--defsym={name}={knob_symbols[name] | 1:#x}")],
     "-C", f"link-arg=-T{PROBE / 'link.ld'}", "-o", str(probe_elf),
 ]

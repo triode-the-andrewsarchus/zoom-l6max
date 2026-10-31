@@ -176,6 +176,15 @@ This avoids relying on a separately published queue cutoff, but scratch
 ownership, all transition interleavings, generation wrap, and real-time
 effects of the popup synchronization remain unqualified.
 
+The combined experiment keeps its 16 saved parameter words in an extra 64
+bytes of the popup manager's heap sidecar. If that sidecar is unavailable,
+the inspector defers to the normal button and encoder handlers. The pointer
+is recorded at QEMU-only scratch `0x83e07e00` for observation; the queue,
+routing, gesture state and other diagnostic words still use unowned scratch.
+The standalone inspector continues to use its scratch parameter mailbox.
+This does not qualify allocation lifetime, reset, exhaustion, concurrent
+selection, callback ownership, or the remaining scratch addresses on hardware.
+
 ```sh
 python3 tools/l6dsp-tests/probe/prepare_ui.py UNPACKED_DIR STOCK_STATE_DIR /tmp/l6-ui-probe
 cargo run --offline --locked -p l6dbg -- /tmp/l6-ui-probe/recipe.toml \
