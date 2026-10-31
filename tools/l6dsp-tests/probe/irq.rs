@@ -71,6 +71,17 @@ pub unsafe fn install() {
 pub unsafe extern "C" fn inspector_irq_byte(port: u32, raw: u32) {
     if port != 0 { return; }
     unsafe {
+        if read(TRACE) != 0x49525154 { return; }
+        // The RT1042 SDK describes DATA bits 12..15 as invalid/errored
+        // receive data. The L6max processor is not identified; this is only
+        // a fail-closed QEMU diagnostic, not a hardware-qualified check.
+        if raw & 0xf000 != 0 {
+            #[cfg(ring_timing)]
+            crate::ring_timing::reject_uart_data();
+            core::ptr::write(DECODER, crate::controls::PanelEfxDecoder::default());
+            write(TRACE, 0x42414421);
+            return;
+        }
         #[cfg(ring_timing)]
         crate::ring_timing::observe_byte();
         if let Some(pressed) = (*DECODER).feed(raw as u8) {

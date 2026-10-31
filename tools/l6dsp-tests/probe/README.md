@@ -165,11 +165,16 @@ with a tick and nonzero sequence associated with the observed receive-ring
 slot, and cancels a pending gesture on a sequence gap or detected fault. It
 guards four observed byte-read calls and latches a fault if the ring identity,
 capacity or available space violates its assumptions, or if a pending slot
-has been skipped or is about to be overwritten. State begins at
+has been skipped or is about to be overwritten. It also disables timing if
+the observed UART DATA word has an empty, framing, parity or noise indication
+in bits 12–15, as defined in the [NXP RT1042 header](https://github.com/nxp-mcuxpresso/legacy-mcux-sdk/blob/8a289764d763ad06e0c3a05c885644ed98b970af/devices/MIMXRT1042/MIMXRT1042.h).
+The L6max processor is not identified, and the emulator does not model these
+receive errors. State begins at
 `0x83e02800`; this is unowned scratch memory. The modified event words,
 interrupt masking, ring ownership and timing are unqualified on hardware.
-It does not detect bytes lost before the interrupt or establish that the four
-sites cover every possible consumer. Consecutive press edges discard the
+It does not inspect the UART overrun status, detect all bytes lost before the
+interrupt, or establish that the four sites cover every possible consumer.
+Consecutive press edges discard the
 ambiguous gesture through its next release, even when their sequences are
 consecutive; a later clean press can be recognized. Overflow recovery requires
 a fresh run. If both a release and the following press disappear before
@@ -178,7 +183,8 @@ hold; this guard does not make the timing path safe on hardware.
 The first ten state words are magic, fault, ring pointer, record head/tail,
 last-tag valid/tick/edge/sequence, and the last assigned sequence. Faults 1–3
 cover an invalid or changed ring, 4–5 a full ring or record queue, 6 an
-unexpected stock event, 7 a skipped record, and 8 a pending-slot overwrite.
+unexpected stock event, 7 a skipped record, 8 a pending-slot overwrite, and
+9 an invalid or errored UART data word.
 
 Use `--ring-timing --ring-drop pair` or `--ring-timing --ring-drop release`
 with `--callback --inspector` to inject one missing selector pair or release
