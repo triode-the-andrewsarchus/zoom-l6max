@@ -94,8 +94,9 @@ pub unsafe extern "C" fn inspector_irq_byte(port: u32, raw: u32) {
     }
 }
 
-/// Match a queued IRQ edge to the stock selector event. A lost or mismatched
-/// edge cancels the gesture; this diagnostic never guesses a timestamp.
+/// Match by polarity only. An empty queue or visible mismatch cancels the
+/// gesture, but an entire lost press/release pair leaves matching stale edges.
+/// This diagnostic cannot establish event identity or safe gesture timing.
 #[cfg(irq_timing)]
 pub unsafe fn take(pressed: bool) -> Option<u32> {
     unsafe {
