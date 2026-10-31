@@ -2,9 +2,26 @@
 import hashlib
 from pathlib import Path
 import tempfile
+from thumb_branch import branch
 
 MAIN_SHA = "980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461"
+# L6max 1.10 direct calls from the recorder event dispatcher.
+MODE_CALL_SITES = (0x80036dd4, 0x80036e2e, 0x80036e4e, 0x80036ec2,
+                   0x80036f4a, 0x80036f6a, 0x80036f8a, 0x8003714e, 0x8003716e)
 VENEER_SHA = "c366ef222fb2b2b87302d6eae469b721f11ba6b41dd79d4b7fe16a582e332c13"
+
+
+def install_mode_hooks(image, target):
+    """Guard every observed direct mode call before changing the copied image."""
+    if target is None or target & 1 or not 0x80108000 <= target < 0x801a2ff8:
+        raise ValueError("invalid diagnostic mode hook")
+    for address in MODE_CALL_SITES:
+        offset = address - 0x80000000
+        if image[offset:offset + 4] != branch(address, 0x80053bb0):
+            raise ValueError(f"mode call site mismatch at {address:#x}")
+    for address in MODE_CALL_SITES:
+        offset = address - 0x80000000
+        image[offset:offset + 4] = branch(address, target)
 
 
 def install_ainr_selector_veneer(image, symbols):

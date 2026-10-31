@@ -88,8 +88,8 @@ and limitations.
 Pass `--callback --inspector` to prepare a separate QEMU-only image. Its
 generated recipe selects EFX mode and Room, opens the inspector with a long
 EFX SEL hold, edits both parameter banks, revisits each, then closes the
-inspector and turns the normal mixer control. The three
-revision-specific call sites are byte-guarded. The input hook queues edits;
+inspector and turns the normal mixer control. The revision-specific call
+sites are byte-guarded. The input hook queues edits;
 the diagnostic audio callback applies up to eight events per block and formats
 their captured text itself. That formatting placement is not qualified for
 real-time use. Summary
@@ -148,6 +148,10 @@ While the inspector is open, a short EFX SEL press switches the parameter
 bank without changing the selected stock effect; pressing EFX changes between
 parameter and routing pages. Turning a strip encoder on the routing page cycles that strip
 through off, A, B and A-to-B. This experiment does not draw an OLED popup.
+Opening the inspector requests EFX mode through the observed stock mode
+handler if a different panel mode is active. Selecting another observed mode
+closes the inspector before the stock handler runs. These call sites and the
+mode state are scoped to the guarded L6max 1.10 diagnostic.
 Effect changes can reinitialize the DSP, so tails can be lost. The queue is
 retained within the modeled session, but overflow or reset can still lose
 pending edits. Applied inspector values and routes are retained in QEMU-only

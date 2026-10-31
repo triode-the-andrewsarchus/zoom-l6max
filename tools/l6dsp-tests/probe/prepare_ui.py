@@ -12,7 +12,7 @@ import struct
 import subprocess
 import tomllib
 from thumb_branch import branch
-from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer
+from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_mode_hooks
 
 ROOT = Path(__file__).resolve().parents[3]
 PROBE = Path(__file__).resolve().parent
@@ -120,7 +120,6 @@ image.extend(probe_blob.read_bytes())
 hooks = [
     (0x80036c74, branch(0x80036c74, report["knob_changed"]), probe_symbols["inspector_knob"]),
     (0x80036f28, bytes.fromhex("1df0bef9"), probe_symbols["inspector_select"]),
-    (0x80036f8a, bytes.fromhex("1cf011fe"), probe_symbols["inspector_mode"]),
 ]
 if args.enqueue_trace:
     if not {"inspector_enqueue", "inspector_encoder_enqueue"} <= probe_symbols.keys():
@@ -132,6 +131,7 @@ for address, expected, target in hooks:
     if image[offset:offset + 4] != expected:
         raise ValueError(f"inspector call site mismatch at {address:#x}")
     image[offset:offset + 4] = branch(address, target)
+install_mode_hooks(image, probe_symbols.get("inspector_mode"))
 if image[0x107de6:0x107df0] != main[0x107de6:0x107df0]:
     raise ValueError("relocated veneer changed unexpectedly")
 image[0x107de6:0x107df0] = bytes.fromhex("2046dff800f0") + struct.pack("<I", probe_base | 1)

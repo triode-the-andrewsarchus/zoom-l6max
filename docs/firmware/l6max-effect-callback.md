@@ -3853,6 +3853,30 @@ failure recovery, target timing and physical memory remain unqualified; only
 the parameter words moved out of scratch. All runs used the stock MAIN, NOR
 and unattested QEMU executable identified in the preceding section.
 
+The QEMU-only inspector now requests EFX mode through the stock mode handler
+when opened from another panel mode, and closes before another mode is
+selected. Nine observed direct calls to that handler are guarded and routed
+through the diagnostic hook. A mode-button sweep observed each of the nine
+non-EFX modes close the inspector and a subsequent long press reopen it in
+EFX mode. A normal LEVEL turn after closing changed its stored value from 0 to
+1 without changing the inspector queue. After a stock-effect cycle, another
+run observed LEVEL-to-EFX reopening and an edit of the restored pre-delay from
+28 to 30 ms; choosing LEVEL closed the inspector and restored its encoder.
+
+Both runs used QEMU-only MAIN, effect ELF and popup ELF SHA-256 values
+`7a1d796d89d531fec44201368a24c70315b37da6e6c57ec9791ea1a389c3b6b5`,
+`cdc5505344345eedc35c76f917f7af858c9b6450926cdadefabaa6949b3b856c`, and
+`968c17b6b85952a914061b17abb9aacb303283da4eb48adf58026c09b438ac72`.
+The sweep recipe and result hashes were
+`aa8f53cd9fc490ee9ec5d5c29cf57fc6401c75c1e51f59379efb55daa08160f8` and
+`4afedc41d287e66c486530324bbd5102cb7f45c744074c45222c433423328e79`;
+the stock-cycle counterparts were
+`fc32cad929a7cf0b045730ac681f6aeb991922f440c7c86ec5dfa2a99e4d35d7` and
+`f4ce6399c40691c15335421779ae47fb01dc6945f7ac3f15d6660e685c97cdaa`.
+Stock MAIN, initial NOR and the unattested QEMU executable match the identities
+in the preceding section. These observations do not cover all indirect callers,
+window transitions, event races, target timing or physical controls.
+
 A reverb size change previously shortened its tank delay rings without
 updating the excluded buffer contents. In a host experiment, filling the
 large reverb, shrinking it for three seconds of silence, and enlarging it
