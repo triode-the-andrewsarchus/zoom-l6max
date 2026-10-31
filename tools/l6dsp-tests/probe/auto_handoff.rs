@@ -10,6 +10,8 @@ const READY: usize = 0x83e00144;
 const STATE_STRIDE: usize = 0x20000;
 #[cfg(hybrid_ainr_probe)]
 const PROGRESS: usize = 0x83e03130;
+#[cfg(hybrid_ainr_probe)]
+const CONTROL: usize = 0x83e03134;
 #[cfg(compact_ainr_probe)]
 const CAPTURE_BYTES: usize = 0x19514;
 #[cfg(not(compact_ainr_probe))]
@@ -24,11 +26,17 @@ pub unsafe fn disable() {
     unsafe {
         word(READY).store(0, Ordering::Release);
         #[cfg(hybrid_ainr_probe)]
-        if word(STATUS).load(Ordering::Acquire) == 0 {
+        if crate::handoff_protocol::CaptureProtocol(word(CONTROL)).cancel(true) {
             word(PROGRESS).store(0, Ordering::Release);
             word(START).store(0, Ordering::Release);
         }
     }
+}
+
+/// Rearm after the selector enters the stock AINR path.
+#[cfg(hybrid_ainr_probe)]
+pub unsafe fn arm() {
+    unsafe { crate::handoff_protocol::CaptureProtocol(word(CONTROL)).arm(); }
 }
 
 pub fn ready() -> bool {
@@ -76,7 +84,14 @@ pub unsafe extern "C" fn ainr_capture(input: *mut f32, output: *mut f32, index: 
             if status.load(Ordering::Acquire) == 1 { status.store(0, Ordering::Release); }
             word(START).store(0, Ordering::Release);
             #[cfg(hybrid_ainr_probe)]
-            word(PROGRESS).store(0, Ordering::Release);
+            {
+                let protocol = crate::handoff_protocol::CaptureProtocol(word(CONTROL));
+                if protocol.needs_reset() {
+                    protocol.cancel(false);
+                    protocol.arm();
+                    word(PROGRESS).store(0, Ordering::Release);
+                }
+            }
             return result;
         }
         let ptr = word(POINTER).load(Ordering::Acquire) as *mut u8;
@@ -107,20 +122,18 @@ pub unsafe extern "C" fn ainr_capture(input: *mut f32, output: *mut f32, index: 
 #[cfg(hybrid_ainr_probe)]
 unsafe fn capture_hybrid(ptr: *mut u8, now: u32) -> bool {
     unsafe {
-        let progress = word(PROGRESS);
-        let mut offset = progress.load(Ordering::Acquire) as usize;
-        if offset >= CAPTURE_BYTES || offset % 4096 != 0 || (offset > 0xb000 && offset <= 0x16000) {
-            progress.store(0, Ordering::Release);
-            return false;
-        }
-        if offset == 0 { core::ptr::write_volatile(0x83e03108 as *mut u32, now); }
-        if offset == 0xb000 { offset = 0x16000; }
+        let protocol = crate::handoff_protocol::CaptureProtocol(word(CONTROL));
+        let Some((claim, step)) = protocol.claim() else { return false; };
+        if step >= 15 { protocol.cancel(false); return false; }
+        let offset = if step < 11 { step * 4096 } else { 0x16000 + (step - 11) * 4096 };
+        if step == 0 { core::ptr::write_volatile(0x83e03108 as *mut u32, now); }
         let next = offset + core::cmp::min(4096, CAPTURE_BYTES - offset);
         core::ptr::copy_nonoverlapping((0x20280000usize + offset) as *const u8, ptr.add(offset), next - offset);
-        progress.store(next as u32, Ordering::Release);
-        if next != CAPTURE_BYTES { return false; }
-        core::ptr::copy_nonoverlapping(0x2028b000 as *const u8, ptr.add(0xb000), 0xb000);
-        true
+        let complete = next == CAPTURE_BYTES;
+        if complete { core::ptr::copy_nonoverlapping(0x2028b000 as *const u8, ptr.add(0xb000), 0xb000); }
+        if !protocol.finish(claim, step + 1, complete) { return false; }
+        word(PROGRESS).store(next as u32, Ordering::Release);
+        complete
     }
 }
 
@@ -129,6 +142,8 @@ pub unsafe fn install() {
     unsafe {
         let ptr = word(POINTER).load(Ordering::Acquire) as *const u8;
         if ptr.is_null() || word(STATUS).load(Ordering::Acquire) != 1 { return; }
+        #[cfg(hybrid_ainr_probe)]
+        if !crate::handoff_protocol::CaptureProtocol(word(CONTROL)).done() { return; }
         for index in 0..3 {
             let dest = (0x80d50000usize + index * STATE_STRIDE) as *mut u8;
             core::ptr::copy_nonoverlapping(ptr, dest, CAPTURE_BYTES);

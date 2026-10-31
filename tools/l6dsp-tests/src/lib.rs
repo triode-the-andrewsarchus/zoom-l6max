@@ -14,10 +14,52 @@ pub mod parameters;
 pub mod controls;
 #[path = "../probe/event_queue.rs"]
 pub mod event_queue;
+#[path = "../probe/handoff_protocol.rs"]
+pub mod handoff_protocol;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ainr_capture_cancellation_rejects_stale_claims_across_rearm() {
+        use core::sync::atomic::AtomicU32;
+        let word = AtomicU32::new(0);
+        let protocol = handoff_protocol::CaptureProtocol(&word);
+        let (old_claim, step) = protocol.claim().unwrap();
+        assert_eq!(step, 0);
+        assert!(protocol.cancel(true));
+        assert!(!protocol.finish(old_claim, 1, false));
+        protocol.arm();
+        let (new_claim, step) = protocol.claim().unwrap();
+        assert_eq!(step, 0);
+        assert!(!protocol.finish(old_claim, 15, true));
+        assert!(!protocol.done());
+        assert!(protocol.finish(new_claim, 1, false));
+        let (claim, step) = protocol.claim().unwrap();
+        assert_eq!(step, 1);
+        assert!(protocol.finish(claim, 15, true));
+        assert!(protocol.done());
+        assert!(!protocol.cancel(true));
+        assert!(protocol.done());
+        assert!(protocol.cancel(false));
+        assert!(!protocol.done());
+        protocol.arm();
+        assert_eq!(protocol.claim().unwrap().1, 0);
+    }
+
+    #[test]
+    fn ainr_capture_epoch_exhaustion_fails_closed() {
+        use core::sync::atomic::AtomicU32;
+        let word = AtomicU32::new(0xffff_ff80);
+        let protocol = handoff_protocol::CaptureProtocol(&word);
+        let (claim, _) = protocol.claim().unwrap();
+        assert!(protocol.cancel(true));
+        assert!(!protocol.finish(claim, 1, false));
+        protocol.arm();
+        assert!(protocol.claim().is_none());
+        assert!(!protocol.done());
+    }
 
     #[test]
     fn control_queue_preserves_fifo_at_capacity_and_counter_wrap() {

@@ -3895,6 +3895,30 @@ ELF, recipe and result hashes were
 This sequential test does not establish cancellation against an in-flight
 audio callback, cold or warm reset behavior, or target memory ownership.
 
+The hybrid diagnostic now uses a versioned atomic claim for capture progress.
+Selection invalidates an incomplete claim, and installation requires a
+completed claim; an old callback cannot publish after cancellation and rearm
+by finishing its old claim. Host tests exercise that ordering and fail closed
+on epoch exhaustion. In a disposable ARM build, a forced cancellation and
+rearm between the first chunk and its publication rejected the old claim; a
+longer run then waited through the experimental delay and completed a fresh
+capture before returning to Room. This is a forced call ordering, not proof
+that the selector waits for the audio task or that its memory accesses are
+safe. The normal MAIN, ELF, recipe and result hashes were
+`87bfe10ff670e3d48f45e618ed8864dd10ea58c2e2fa8c085ea27f3b2e3148f1`,
+`76a82e149c2adaabc808ea7cf064cfcfe4c81e66b0af22d4880a20201fbfb616`,
+`03beae421b04617d3fd9715e0310a6db235de5acb5cd33377fc8360e87b8497e`, and
+`143746f402c6d3d66845b5a6e902b3986ef51e882e474b5d1e1478c7b2226774`.
+The forced-recovery MAIN, ELF, recipe and result hashes were
+`65d93ad571b82a62fba8f8ec142952b0138327248085a67646615654403c97ef`,
+`65c50c2bc32314a9fd7cfb8b9bedfd3f446541e94d46943a85538c3a6baaf9be`,
+`0ead20602112acc4d3e7b25036d88013606712b5729509670cd47978fb108c7e`, and
+`c727a241b4cc4443dd8ddfbcb08f1b67f3ccbd0ab3d423a7578939f4e55b2d02`.
+Both used the stock MAIN, NOR and unattested QEMU executable identified below.
+The earlier compact diagnostic without this option rebuilt byte-for-byte
+unchanged. The capture range, target timing, memory ownership and callback
+lifetime remain unqualified.
+
 Both runs used stock MAIN SHA-256
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
 initial NOR SHA-256
