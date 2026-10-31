@@ -4528,6 +4528,36 @@ the scratch locations, 64-frame bypass ABI and return value, all state users,
 selection paths, timeout recovery, click-free behavior and target timing
 remain unqualified. The production builder remains disabled.
 
+A later forced-interleaving test invalidated the pause immediately after the
+selector's last validity check. The old diagnostic nevertheless marked the
+snapshot ready and installed it; the revised diagnostic atomically closes an
+acknowledged pause before publishing, and left the ready token and sampled
+sends at zero. The invalidation was inserted directly into the selector code;
+this does not demonstrate a naturally concurrent callback or establish that
+all users of the copied memory are synchronized. In MAIN, ELF, recipe, result
+order, the old run's SHA-256 values were
+`8d6e957c57e9bde39e87d25247fca46b0adf4c00bf865351e6812be9143b63d5`,
+`1f137c56972f288d35d3bfe438bc96623f39b9a80357f579e0b451118f6c9e91`,
+`8accfab8fef793825939810f3dc794c160223ad87464abb1e4fae60e3f389bb2`, and
+`7d69826946b524a0028c099378d6b643af97988aa6fd28862b0a8790e09329dc`;
+the revised forced run's values were
+`48dbd292dc5ccab68573645c077623bae293d91819054b4ca8c84efedb71b30a`,
+`1251739f6672ae95e754b9c519fe5277bd61cd490d6abed2b0209d8b40e417d9`,
+`7e4f971d6b40ca7c0151de0fcf7ff7d26086d2055156db1f78d4c61e91b4a610`, and
+`612e189d8b68c603d83c518fd160292349150f011dfbf9f31a84d19a6126de3f`.
+These runs used stock MAIN `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+QEMU executable `53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`
+(source provenance unattested), and `l6dbg`
+`9a7f882911b7e44c76ddd1c28a226f3f5507878899fc5dd78f616eb10cb360da`.
+With the same fixture and executables, the revised unforced build installed
+three matching descriptors and produced nonzero sampled sends. Its MAIN, ELF,
+recipe and result SHA-256 values were
+`d098b5ab2ddaafb95fbee1a56a78fe4fb34df085dce343b4f02ce78f6f13f9c1`,
+`5cbe77729ce3a533212aabb2f26aa8251bbf3795ff5b286eeb9c98e4b179d1ff`,
+`2d4bb0ee4e002997d31c2862c6c7c37d76467da625f31224b14f722eb1d60c36`, and
+`cceaf27188ea0204fcb728a8e3140ff41588c1cda887e721bf9382a121d87e8c`.
+
 In the normal paced run with deterministic nonzero stock AINR input, the
 diagnostic observed the learned flag, acknowledged after one wait, bypassed
 two calls for each observed index, and installed three matching descriptors.

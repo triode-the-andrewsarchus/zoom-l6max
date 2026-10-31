@@ -38,6 +38,20 @@ impl BoundaryPause<'_> {
         request & PHASE == REQUESTED && self.0.load(Ordering::Acquire) == (request & EPOCH) | PAUSED
     }
 
+    /// Close this pause before publishing the snapshot. An unexpected index
+    /// may invalidate it after the caller's last validity check.
+    pub fn publish_capture(&self, request: u32, capture: &crate::handoff_protocol::CaptureProtocol<'_>, claim: u32) -> bool {
+        let epoch = request & EPOCH;
+        let closed = request & PHASE == REQUESTED && epoch != EPOCH
+            && self.0.compare_exchange(epoch | PAUSED, epoch + 4, Ordering::AcqRel, Ordering::Acquire).is_ok();
+        if closed {
+            capture.finish(claim, 15, true)
+        } else {
+            capture.finish(claim, 0, false);
+            false
+        }
+    }
+
     /// Ends only this request; late acknowledgments cannot affect its successor.
     pub fn finish(&self, request: u32) -> bool {
         if request & PHASE != REQUESTED { return false; }

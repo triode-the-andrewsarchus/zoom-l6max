@@ -52,6 +52,44 @@ mod tests {
     }
 
     #[test]
+    fn ainr_boundary_cannot_publish_after_pause_invalidation() {
+        use core::sync::atomic::AtomicU32;
+        let pause_word = AtomicU32::new(0);
+        let capture_word = AtomicU32::new(0);
+        let pause = boundary_pause::BoundaryPause(&pause_word);
+        let capture = handoff_protocol::CaptureProtocol(&capture_word);
+        let (unacknowledged_claim, _) = capture.claim().unwrap();
+        let unacknowledged = pause.request().unwrap();
+        assert!(!pause.publish_capture(unacknowledged, &capture, unacknowledged_claim));
+        assert!(!capture.done());
+        assert!(pause.finish(unacknowledged));
+        let (claim, _) = capture.claim().unwrap();
+        let request = pause.request().unwrap();
+        assert!(pause.bypass(0));
+        // The selector has just performed its last validity check.
+        assert!(pause.acknowledged(request));
+        // An unexpected callback arrives before publication.
+        assert!(!pause.bypass(2));
+        assert!(!pause.publish_capture(request, &capture, claim));
+        assert!(!capture.done());
+        let (retry, _) = capture.claim().unwrap();
+        let next = pause.request().unwrap();
+        assert!(pause.bypass(0));
+        assert!(pause.publish_capture(next, &capture, retry));
+        assert!(capture.done());
+        assert!(!pause.bypass(0));
+        assert!(capture.cancel(false));
+        capture.arm();
+        let (cancelled, _) = capture.claim().unwrap();
+        let third = pause.request().unwrap();
+        assert!(pause.bypass(0));
+        assert!(capture.cancel(false));
+        assert!(!pause.publish_capture(third, &capture, cancelled));
+        assert!(!capture.done());
+        assert!(!pause.bypass(0));
+    }
+
+    #[test]
     fn ainr_capture_cancellation_rejects_stale_claims_across_rearm() {
         use core::sync::atomic::AtomicU32;
         let word = AtomicU32::new(0);
