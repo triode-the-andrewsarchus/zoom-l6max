@@ -40,9 +40,11 @@ impl<'a> Queue<'a> {
         Ok(next)
     }
 
-    /// Capture a bounded batch; events published later wait for the next one.
-    pub fn batch(&self) -> (u32, u32) {
-        (self.words[0].load(Ordering::Acquire), self.words[1].load(Ordering::Relaxed))
+    /// Capture a bounded batch; reject impossible indices without consuming.
+    pub fn batch(&self) -> Option<(u32, u32)> {
+        let head = self.words[0].load(Ordering::Acquire);
+        let tail = self.words[1].load(Ordering::Relaxed);
+        (head.wrapping_sub(tail) <= CAPACITY).then_some((head, tail))
     }
 
     pub fn read(&self, tail: u32) -> (u32, u32) {

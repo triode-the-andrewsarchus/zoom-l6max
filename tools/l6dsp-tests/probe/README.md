@@ -196,7 +196,9 @@ The bounded event queue drops a new edit when full; it does not recover that
 edit. Host tests in `l6dsp-tests` exercise FIFO ordering, counter wrap, full
 capacity, standalone storage, and a two-thread producer/consumer exchange.
 They assume one producer, one consumer and stable storage; they do not prove
-those assumptions for the firmware.
+those assumptions for the firmware. The consumer stops applying events if
+the head and tail imply more than 64 pending entries. It cannot detect every
+form of corruption and does not automatically repair invalid indices.
 
 ```sh
 python3 tools/l6dsp-tests/probe/prepare_ui.py UNPACKED_DIR STOCK_STATE_DIR /tmp/l6-ui-probe
