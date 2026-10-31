@@ -3870,6 +3870,29 @@ The impulse peaks matched those above; the UI sequence observed route edits,
 drained queues and mixer control after close. Both used the preceding stock
 MAIN, NOR and QEMU identities. Neither run qualifies hardware behavior.
 
+Freeze edges now use the same short output transition through both the full
+setter and the inspector's live control path. In a host sweep of 64 phases
+with a 60 Hz, 0.5-amplitude input, the largest measured freeze-on step fell
+from about 0.119 to 0.002 full scale; these observations do not establish
+click-free operation for arbitrary material. A regression test compares both
+control paths through repeated toggles, and unchanged-size, unchanged-freeze
+host renders matched the prior engine bit for bit at four sizes.
+
+The QEMU-only impulse MAIN, ELF, recipe and result SHA-256 values were
+`ac504f32382f2c96379d328c0931baa0609af3d59fc69b9f9bbefd9c3115fa34`,
+`2ea40a5a2a8d2f64a17a77e0b404ca137b42a761e43d2e4fc45aa74b14dcb89a`,
+`cb35b4243ab57fc9b3b3c143e3174aeddd57eabce0fc92acd55b504800aa4052`, and
+`8f06714edcebb5dbb5c107070d30e550ec3780e44042b14b5c29b42f940624fa`.
+The separate combined UI MAIN, effect ELF, popup ELF, recipe and result were
+`b0bc5cd11a4894542a8f7fe8b5162f1dfd8f90b7e999e6550f3705a23d95961d`,
+`d38c574012cea1635024d9ffee232e4b0ecf9fa634c35b9d68910d82d7539f39`,
+`3361d999fb0fd09fd2cb9b2c211940e5734040ff8e203cda48a1b0097782695a`,
+`c52901c9e1cfb164b1cb6cba430774d394f84755b4d6db5891d39bded1079478`, and
+`c522ab780331452dfc1c233492b4d777097d88b225f8e2ae706eef7b4d78c029`.
+The impulse and UI observations matched the checks described above, using
+the same stock MAIN, NOR and unattested QEMU executable. Neither experiment
+tested freeze with live audio or qualifies target timing or hardware.
+
 A later control-path change applies Plateau decay, modulation-depth and
 freeze encoder edits without recalculating unrelated delay lengths or filter
 coefficients in the audio task. A host comparison exercised repeated edits

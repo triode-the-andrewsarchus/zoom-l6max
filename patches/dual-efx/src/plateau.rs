@@ -11,7 +11,7 @@
 use super::math::*;
 
 pub const SAMPLE_RATE: f32 = 48000.0;
-const RESIZE_FADE_SAMPLES: u32 = 64;
+const OUTPUT_FADE_SAMPLES: u32 = 64;
 const DATTORRO_SR: f32 = 29761.0;
 const SR_SCALE: f32 = SAMPLE_RATE / DATTORRO_SR; // ~1.61285
 
@@ -308,9 +308,9 @@ pub struct PlateauReverb {
     pub out_hp_l: OnePoleHP,
     pub out_hp_r: OnePoleHP,
 
-    // Short output transition masks discontinuities when delay taps move.
-    resize_remaining: u32,
-    resize_anchor: [f32; 2],
+    // Short output transition masks discontinuities from live controls.
+    transition_remaining: u32,
+    transition_anchor: [f32; 2],
     previous_output: [f32; 2],
     pub params: PlateauParameters,
 }
@@ -349,8 +349,8 @@ impl PlateauReverb {
             out_hp_l: OnePoleHP::new(),
             out_hp_r: OnePoleHP::new(),
 
-            resize_remaining: 0,
-            resize_anchor: [0.0; 2],
+            transition_remaining: 0,
+            transition_anchor: [0.0; 2],
             previous_output: [0.0; 2],
             params: PlateauParameters {
                 predelay_ms: 10.0,
@@ -417,8 +417,8 @@ impl PlateauReverb {
 
         self.out_hp_l.clear();
         self.out_hp_r.clear();
-        self.resize_remaining = 0;
-        self.resize_anchor = [0.0; 2];
+        self.transition_remaining = 0;
+        self.transition_anchor = [0.0; 2];
         self.previous_output = [0.0; 2];
     }
 
@@ -434,9 +434,8 @@ impl PlateauReverb {
         params.low_cut_hz = clamp(params.low_cut_hz, 20.0, SAMPLE_RATE * 0.49);
         params.high_cut_hz = clamp(params.high_cut_hz, 20.0, SAMPLE_RATE * 0.49);
 
-        if self.params.size != params.size {
-            self.resize_anchor = self.previous_output;
-            self.resize_remaining = RESIZE_FADE_SAMPLES;
+        if self.params.size != params.size || self.params.freeze != params.freeze {
+            self.begin_output_transition();
         }
         self.params = params;
         self.predelay_samples = ((params.predelay_ms / 1000.0) * SAMPLE_RATE) as usize;
@@ -477,6 +476,22 @@ impl PlateauReverb {
         self.l_hp.gain = self.in_hp.gain;
         self.r_hp.pole = self.in_hp.pole;
         self.r_hp.gain = self.in_hp.gain;
+    }
+
+    fn begin_output_transition(&mut self) {
+        self.transition_anchor = self.previous_output;
+        self.transition_remaining = OUTPUT_FADE_SAMPLES;
+    }
+
+    // The audio callback updates these controls without rebuilding delays or
+    // filters; a freeze edge needs the same output transition as the full setter.
+    pub(crate) fn set_live_parameters(&mut self, params: PlateauParameters) {
+        if self.params.freeze != params.freeze {
+            self.begin_output_transition();
+        }
+        self.params.decay = clamp(params.decay, 0.1, 0.999);
+        self.params.mod_depth = clamp(params.mod_depth, 0.0, 16.0);
+        self.params.freeze = params.freeze;
     }
 
     #[inline(always)]
@@ -578,12 +593,12 @@ impl PlateauReverb {
         // Continuous cubic soft clipper to prevent harsh digital clipping
         out_l = soft_clip(out_l);
         out_r = soft_clip(out_r);
-        if self.resize_remaining != 0 {
-            let fade = (RESIZE_FADE_SAMPLES - self.resize_remaining + 1) as f32
-                / RESIZE_FADE_SAMPLES as f32;
-            out_l = self.resize_anchor[0] * (1.0 - fade) + out_l * fade;
-            out_r = self.resize_anchor[1] * (1.0 - fade) + out_r * fade;
-            self.resize_remaining -= 1;
+        if self.transition_remaining != 0 {
+            let fade = (OUTPUT_FADE_SAMPLES - self.transition_remaining + 1) as f32
+                / OUTPUT_FADE_SAMPLES as f32;
+            out_l = self.transition_anchor[0] * (1.0 - fade) + out_l * fade;
+            out_r = self.transition_anchor[1] * (1.0 - fade) + out_r * fade;
+            self.transition_remaining -= 1;
         }
         self.previous_output = [out_l, out_r];
         (out_l * self.params.wet, out_r * self.params.wet)
@@ -617,7 +632,7 @@ impl PlateauReverb {
         advance!(self.r_del2);
         self.lfo1.step();
         self.lfo2.step();
-        self.resize_remaining = self.resize_remaining.saturating_sub(1);
+        self.transition_remaining = self.transition_remaining.saturating_sub(1);
     }
 
     pub fn process_block(&mut self, left: &mut [f32], right: &mut [f32]) {
