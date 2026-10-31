@@ -4163,6 +4163,20 @@ hardware; the production dual-effect builder remains disabled.
 
 ## Evidence and limits
 
+Live cascade encoder edits now ramp the gain over 64 samples, including when
+another edit interrupts the ramp. Host tests exercise both routing paths and
+an explicit direct-write override. In one active-sends QEMU observation, the
+callback counter advanced from 1,242 to 9,719 over 15 guest seconds, about
+565 callbacks per second; this is below the nominal 750 and does not qualify
+target timing. The diagnostic MAIN, ELF, recipe and result hashes were
+`44d8bdef1d6efd1b2c48a7ae588fa2ddaba354b5bf4d633d6772e4bdec569eb6`,
+`c06cb79dc4032642370f1be3e7d10da26ea0442a771c2b3b271f881fafdbe24c`,
+`454670965aef44b46337973b49b85073999996004776d5b12924fed791289f2d`, and
+`9ce8158b89d694d57cb3972a17d0cd9229fa7356835db4d59739633d606748bd`.
+Stock MAIN, initial NOR, panel state, `l6dbg` and the unattested QEMU binary
+match the full-density comparison identified below. This run did not exercise
+a live encoder edit on the emulator or physical hardware.
+
 The Velvet generator now retains the requested density without rebuilding a
 bank when the rounded, capped tap count is unchanged. Length changes still
 rebuild because they change tap positions; changes that alter the count also
