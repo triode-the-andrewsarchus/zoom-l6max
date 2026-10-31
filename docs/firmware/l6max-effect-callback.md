@@ -3844,6 +3844,57 @@ the audio task. These bounded runs do not establish the complete state
 footprint, denoising quality, capture coherence, target timing or safe heap
 headroom; the prefix is not enabled in installable firmware.
 
+Three further disposable diagnostics split that prefix into 4 KiB copies and
+compared it with a full snapshot made at the last chunk. With stock emulator
+input, 14 bytes differed in the `0xb000..0xc000` region, while two copied
+processors produced identical output for 512 same-input blocks. With injected
+nonzero input, 13,178 bytes differed across `0xb000..0x16000`, and the
+chunked and full copies differed in 576 of 32,768 same-input output samples;
+two copies of the chunked snapshot matched one another. A third variant
+copied the outer pages incrementally but copied `0xb000..0x16000` together
+at the end. In that one nonzero-input run, the snapshot bytes and all 512
+compared output blocks matched the full snapshot. This does not prove the
+range is complete for other inputs or learning states. The final callback
+still copies at least 44 KiB, and the full-reference capture and comparison
+instrumentation themselves add work; these are not timing measurements.
+
+The silent-input, nonzero-input and grouped-range MAIN hashes were
+`73e7abf8991cbaff60e8c9473eb93437f960b2ee7d32c0fc2972b71f27e04966`,
+`ac4ee39f6e926e8e6968b8d76f3f1495c03bd5515218fc818c84dd096bbc1dd4`, and
+`520cb7c8d058b95fb888f606ae5fa29b981bc697cbee873cf1d2bd952434d4ae`;
+their effect ELFs were
+`871447b0a1e220abe310468c03be90bfc01d2188cecea1a1af3d11ff86c0fca6`,
+`93c760075aaa10fbf929032d01cd8e9b813677fade4b45b4489be1264a5c350d`, and
+`bf9b9234020f8f238505a0f4788f498784a21657ea1e9bef195bd25d065c68bc`;
+their recipe hashes were
+`9bb0320d5beb59c3ea27a2107fbfd36215f0ac8d7cfa6de73ba1733506b5a494`,
+`a70575943d81cea72a60e969f9ec9f78ce393ec3ddff222aa1c29da443c69032`, and
+`3bafb8a9126002f1e3fa7155d11ceffb5ae0b1084c54ad2855994dc4c70b3615`;
+their results were
+`b323168b721dbbd23577eee35969c06ea3621e194e878778bbbd73228b593bf8`,
+`fb341a2c43d8f550422d2b492b62eb748c2c2bd3d59713e5c5096fbef629911b`, and
+`875da3a559bbe3bb16f9482f5357c267afa0c27a0d6e3ed18acb8d4547d37f40`.
+They used the preceding stock MAIN, NOR and unattested QEMU executable.
+
+The QEMU-only `--hybrid-handoff` option now provides the grouped-range
+experiment without the comparison instrumentation. Its normal run captured
+and installed the state and observed changed samples on two sends. The MAIN,
+ELF, recipe and result hashes were
+`cdeff328c7cf41449e482ae12539b21534cdbc0628618abc5108060c9040f9bb`,
+`ebb2b6959a1908d135329a5ce59171dc95f99859b31191b2bf2f4836ad1b489d`,
+`0fa5df223fe0b08d46e2e1437465078aeb9bcf6f6db789004ceb9b15d26f61cc`, and
+`6a039d1a1ece7469e264d3445b9e8d2c848693e3538c4021c96a2d93dcfe940a`.
+In a forced interruption,
+the diagnostic was held after one 4 KiB chunk; effect selection reset the
+progress and left capture status and AINR readiness at zero. The forced MAIN,
+ELF, recipe and result hashes were
+`69993d65f131e8b37684f668e246df3c6d79f3b93440a18649059c1728e7b689`,
+`43d6a2e952239b4c1fa02f3969ea39a7e1e4c5bd7138fbf4543c2b48c33d471f`,
+`03c828495409adad6b7895383693fd557cdd964edb39dffc1417e90304abf553`, and
+`c12219094f39779c6893c8abb835ca6fe95bd631ba58f7ca444d0b422cd35ade`.
+This sequential test does not establish cancellation against an in-flight
+audio callback, cold or warm reset behavior, or target memory ownership.
+
 Both runs used stock MAIN SHA-256
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
 initial NOR SHA-256
