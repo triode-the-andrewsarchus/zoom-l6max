@@ -26,11 +26,21 @@ reports the input NOR, probe ELF and modified MAIN hashes. Record those and the
 exact QEMU hash with any result. The Rust toolchain, target and `llvm-objcopy`
 must be installed; Cargo and `l6dbg` use the repository's pinned toolchain.
 
-An observed result is approximately `(0.30966336, 0.01861336, 1180192817)`:
+An observed result is approximately `(0.30966336, 0.03750144, 1180192817)`:
 the first two numbers are Velvet and Plateau peak magnitudes and the last is
-the `0x46585031` completion marker. A successful recipe only collects this
-observation. It does not prove live signal routing, effect-switch safety,
-callback timing, UI behavior, or physical-device compatibility.
+the `0x46585031` completion marker. This observation used stock MAIN
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+and QEMU executable `53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`
+with unattested source provenance. The diagnostic MAIN, ELF, recipe and
+result SHA-256 values were
+`7a83a32ad3e73d329c6207bbc248c26a67c1bb10f67df3fd24c67ce1f393ac94`,
+`85dd9e854200ce057f29382246ec059f2867b69d26bd2cceb6404c69a6464f25`,
+`7688748588fcd0da093a2bd9f0c2f1d58feb4db3aa0f7d7bb9ecf8fb00ad9d40`, and
+`82f96b336c65001ae9fc6654702b9180bcbaca1091a933d383c6eddc6f99a667`.
+A successful recipe only collects this observation. It does not prove live
+signal routing, effect-switch safety, callback timing, UI behavior, or
+physical-device compatibility.
 
 ## Automatic callback diagnostic
 
