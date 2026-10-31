@@ -34,6 +34,15 @@ def install_ainr_selector_veneer(image, symbols):
     image[offset:offset + 8] = bytes.fromhex("dff800f0") + (target | 1).to_bytes(4, "little")
 
 
+def install_boundary_hook(image, target):
+    """Guard the observed L6max 1.10 panel pre-disable call."""
+    offset = 0x5435c
+    if (image[offset:offset + 4] != bytes.fromhex("b6f7c0ff")
+            or target is None or target & 1 or not 0x80108000 <= target < 0x801a2ff8):
+        raise ValueError("pre-disable call or boundary hook mismatch")
+    image[offset:offset + 4] = branch(0x8005435c, target)
+
+
 def checked_inputs(parser, firmware, state, output):
     out = output.resolve()
     if not out.is_relative_to(Path(tempfile.gettempdir()).resolve()) or out.exists():

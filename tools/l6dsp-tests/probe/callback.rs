@@ -27,8 +27,10 @@ mod event_queue;
 mod irq;
 #[cfg(auto_handoff_probe)]
 mod auto_handoff;
-#[cfg(hybrid_ainr_probe)]
+#[cfg(any(hybrid_ainr_probe, boundary_ainr_probe))]
 mod handoff_protocol;
+#[cfg(boundary_ainr_probe)]
+mod boundary_pause;
 #[cfg(effect_buffer_probe)]
 const _: () = assert!(core::mem::size_of::<routing::DualEfxProcessor>() <= 0x50000);
 
@@ -60,12 +62,36 @@ ainr_selector_veneer:
 .Lselector_branch: .word 0x202805d5
 "#, options(raw));
 
+// Only the observed panel-selection path is hooked in this diagnostic.
+#[cfg(boundary_ainr_probe)]
+core::arch::global_asm!(r#"
+    .syntax unified
+    .thumb
+    .section .text.before_ainr_disable,"ax",%progbits
+    .global before_ainr_disable
+    .thumb_func
+before_ainr_disable:
+    push.w {r0, r1, r2, r3, r12, lr}
+    bl capture_before_ainr_disable
+    pop.w {r0, r1, r2, r3, r12, lr}
+    ldr.w r12, .Lbefore_ainr_original
+    bx r12
+    .align 2
+.Lbefore_ainr_original: .word 0x8000b2e1
+"#, options(raw));
+
+#[cfg(boundary_ainr_probe)]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn capture_before_ainr_disable() {
+    unsafe { auto_handoff::capture_boundary(); }
+}
+
 #[cfg(inspector_probe)]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn ainr_selection_close() {
     unsafe {
         inspector::close_for_selection();
-        #[cfg(hybrid_ainr_probe)]
+        #[cfg(any(hybrid_ainr_probe, boundary_ainr_probe))]
         auto_handoff::arm();
     }
 }

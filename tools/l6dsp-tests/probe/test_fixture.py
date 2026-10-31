@@ -1,7 +1,7 @@
 """Guard checks for disposable L6max diagnostic image preparation."""
 import unittest
 
-from fixture import MODE_CALL_SITES, install_ainr_selector_veneer, install_mode_hooks
+from fixture import MODE_CALL_SITES, install_ainr_selector_veneer, install_boundary_hook, install_mode_hooks
 from thumb_branch import branch
 
 
@@ -57,6 +57,25 @@ class ModeHookGuardTests(unittest.TestCase):
             with self.subTest(target=target), self.assertRaises(ValueError):
                 install_mode_hooks(self.image, target)
             self.assertEqual(self.image, before)
+
+
+class BoundaryHookGuardTests(unittest.TestCase):
+    def test_guarded_pre_disable_call(self):
+        image = bytearray(0x54360)
+        image[0x5435c:] = bytes.fromhex("b6f7c0ff")
+        install_boundary_hook(image, 0x80109000)
+        self.assertEqual(image[0x5435c:], branch(0x8005435c, 0x80109000))
+        for target in (None, 0x80109001, 0x80001000, 0x801a2ff8):
+            candidate = bytearray(0x54360)
+            candidate[0x5435c:] = bytes.fromhex("b6f7c0ff")
+            before = candidate[:]
+            with self.subTest(target=target), self.assertRaises(ValueError):
+                install_boundary_hook(candidate, target)
+            self.assertEqual(candidate, before)
+        before = image[:]
+        with self.assertRaises(ValueError):
+            install_boundary_hook(image, 0x80109000)
+        self.assertEqual(image, before)
 
 
 if __name__ == "__main__":

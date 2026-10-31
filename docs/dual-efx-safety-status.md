@@ -68,6 +68,12 @@ The blocking findings for L6max MAIN 1.10
   callbacks per second against a nominal 750. Neither the allocation lifetime
   nor the copy's physical deadline is established. Its experimental settling
   delay and modified samples do not establish useful noise reduction.
+- An opt-in QEMU boundary-handoff diagnostic moves the snapshot copy to the
+  observed panel selector and bypasses AINR while that copy is made. It does
+  not establish ownership, all selection paths, the bypass ABI, audio continuity,
+  or target timing. Under active dry fallback, a paced run still failed to
+  reach AINR; a faster instruction-clock model completed a forced retry. This
+  is not a physical timing measurement or an installable integration.
 
 Some standalone DSP defects have been fixed and tested on the host. Those
 tests do not exercise the firmware bindings or establish hardware safety.

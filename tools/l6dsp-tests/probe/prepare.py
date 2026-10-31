@@ -9,7 +9,7 @@ import shlex
 import struct
 import subprocess
 from thumb_branch import branch
-from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_mode_hooks
+from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_boundary_hook, install_mode_hooks
 
 ROOT = Path(__file__).resolve().parents[3]
 PROBE = Path(__file__).resolve().parent
@@ -37,6 +37,8 @@ parser.add_argument("--effect-buffer", action="store_true", help="place test sta
 parser.add_argument("--auto-handoff", action="store_true", help="capture and restore AINR state inside the QEMU guest")
 parser.add_argument("--channel0-prefix", action="store_true", help="experimentally snapshot only the observed channel-0 state prefix")
 parser.add_argument("--hybrid-handoff", action="store_true", help="experimentally split the channel-0 snapshot over several callbacks")
+parser.add_argument("--boundary-handoff", action="store_true", help="QEMU-only selector-side snapshot after an audio-boundary pause")
+parser.add_argument("--boundary-noise", action="store_true", help="inject nonzero stock AINR input in the boundary experiment")
 parser.add_argument("--passthrough-unready", action="store_true", help="keep synthetic sends active when AINR is unavailable")
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
 parser.add_argument("--bank-stress-count", type=int, default=10, help="number of bank changes (1..64)")
@@ -74,6 +76,10 @@ if args.channel0_prefix and not args.auto_handoff:
     parser.error("--channel0-prefix requires --auto-handoff")
 if args.hybrid_handoff and not args.channel0_prefix:
     parser.error("--hybrid-handoff requires --channel0-prefix")
+if args.boundary_handoff and (not args.channel0_prefix or args.hybrid_handoff):
+    parser.error("--boundary-handoff requires --channel0-prefix and excludes --hybrid-handoff")
+if args.boundary_noise and not args.boundary_handoff:
+    parser.error("--boundary-noise requires --boundary-handoff")
 if args.passthrough_unready and not args.pre_ainr:
     parser.error("--passthrough-unready requires --pre-ainr")
 if args.bank_stress and not args.inspector:
@@ -123,6 +129,10 @@ if args.channel0_prefix:
     rustc += ["--cfg", "compact_ainr_probe"]
 if args.hybrid_handoff:
     rustc += ["--cfg", "hybrid_ainr_probe"]
+if args.boundary_handoff:
+    rustc += ["--cfg", "boundary_ainr_probe"]
+if args.boundary_noise:
+    rustc += ["--cfg", "boundary_noise_probe"]
 if args.passthrough_unready:
     rustc += ["--cfg", "unready_passthrough_probe"]
 subprocess.run(rustc, cwd=ROOT, check=True)
@@ -138,7 +148,7 @@ if args.inspector:
     symbols = {}
     for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines():
         parts = line.split()
-        if len(parts) == 3 and parts[2] in ("inspector_select", "inspector_knob", "inspector_mode", "inspector_enqueue", "ainr_selector_veneer"):
+        if len(parts) == 3 and parts[2] in ("inspector_select", "inspector_knob", "inspector_mode", "inspector_enqueue", "ainr_selector_veneer", "before_ainr_disable"):
             symbols[parts[2]] = int(parts[0], 16) & ~1
     hooks = [
         (0x36f28, bytes.fromhex("1df0bef9"), "inspector_select"),
@@ -150,6 +160,8 @@ if args.inspector:
         image[offset:offset + 4] = branch(0x80000000 + offset, symbols[symbol])
     install_mode_hooks(image, symbols.get("inspector_mode"))
     install_ainr_selector_veneer(image, symbols)
+    if args.boundary_handoff:
+        install_boundary_hook(image, symbols.get("before_ainr_disable"))
     if args.enqueue_trace:
         offset = 0x4c606
         if image[offset:offset + 4] != bytes.fromhex("dbf73ffd") or "inspector_enqueue" not in symbols:
@@ -365,6 +377,8 @@ wall_timeout_s = 420
         if args.hybrid_handoff:
             memory("hybrid_progress_selected", 0x83e03130, 4)
             memory("hybrid_control_selected", 0x83e03134, 4)
+        if args.boundary_handoff:
+            memory("boundary_handoff", 0x83e03138, 20)
     memory("ainr_sends_1", 0x83e03000, 28)
     wait(5000)
     memory("ainr_sends_2", 0x83e03000, 28)
@@ -383,6 +397,9 @@ if args.pre_ainr:
     if args.auto_handoff:
         metadata["snapshot_bytes"] = 0x19514 if args.channel0_prefix else 0x20000
         metadata["hybrid_handoff"] = args.hybrid_handoff
+        if args.boundary_handoff:
+            metadata["boundary_handoff"] = True
+            metadata["boundary_noise"] = args.boundary_noise
     if args.effect_buffer:
         matches = [line.split() for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines()
                    if line.endswith(" diagnostic_audio")]
