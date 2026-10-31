@@ -968,6 +968,32 @@ mod tests {
     }
 
     #[test]
+    fn plateau_freeze_edges_transition_on_both_control_paths() {
+        use parameters::{edit_encoder, ParameterBank};
+        let (mut live, mut full) = paired_reverb_return();
+        let mut previous = (0.0f32, 0.0f32);
+        for frame in 0..48_064 {
+            if frame >= 48_000 && frame % 8 == 0 {
+                let freeze = (frame / 8) % 2 == 0;
+                let mut params = full.plateau.params;
+                params.freeze = freeze;
+                full.plateau.set_parameters(params);
+                let delta = if freeze { 1 } else { -1 };
+                assert!(edit_encoder(&mut live, ParameterBank::Plateau, 7, delta).is_some());
+            }
+            let input = (frame as f32 * std::f32::consts::TAU * 60.0 / 48_000.0).sin() * 0.5;
+            let actual = live.plateau.process_sample(input, input);
+            let expected = full.plateau.process_sample(input, input);
+            assert_eq!(actual, expected, "control paths differ at frame {frame}");
+            if frame >= 48_000 && frame % 8 == 0 {
+                assert!((actual.0 - previous.0).abs() <= 0.032);
+                assert!((actual.1 - previous.1).abs() <= 0.032);
+            }
+            previous = actual;
+        }
+    }
+
+    #[test]
     fn test_plateau_reverb_decay() {
         let mut plat = plateau::PlateauReverb::new();
         plat.init(plateau::PlateauParameters::default());
