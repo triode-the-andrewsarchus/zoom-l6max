@@ -1931,6 +1931,25 @@ the repeat's were
 The preparer, linker script, stock MAIN, NOR and QEMU matched the preceding
 post-fade variants.
 
+The restoration variant was also run with continuous synthetic sends. After
+the forced Spring timeout, the Room callback remained selected and later
+continued to run; sampled left/right callback outputs were approximately
+`0.02268/-0.04137` and, two guest seconds later, `0.00425/0.01305`. The
+observed fade flag at `0x8020a3e8` was zero at both observations and before
+the timeout. A subsequent press selected the stock effect. These are
+instrumented samples inside the callback, before any later processing; they
+do not prove the final mixer output, audible continuity, or restoration of
+all stock selector state. The synthetic sends and raised task priorities
+change the workload.
+
+The callback, preparer, linker, stock MAIN, NOR and QEMU identities matched
+the preceding restoration experiment. This active-sends variant's MAIN, ELF,
+recipe and result SHA-256 values were respectively
+`8a3e33f10adb345c88b8d0934df4af0d176231d2a77c55792eac2e51db377f19`,
+`c594b24b6a652c577005f2d6dca093e5f83aa6067708bc96d363893e7bbbe841`,
+`e349b82b688ccbd789de12e961a13e5d818f0c95a73297cccf5398ae895be388`, and
+`39222f2ef02dd4a0ab3550436df19e3ee2eedafd6f0c218bc0ac913aee3b31d6`.
+
 The QEMU-only interrupt-timestamp hook now initializes its decoder and queue
 only on first installation. On subsequent custom selections, it preserves
 pending edges if both hook words and the veneer match; a mismatch marks the
