@@ -4260,6 +4260,50 @@ The control MAIN, ELF, recipe and result were
 Stock MAIN, initial NOR, panel state, `l6dbg` and the unattested QEMU binary
 match the identities in the following full-density comparison.
 
+A host comparison with 512-frame tail partitions and a 1,024-sample direct
+head matched direct convolution, including an interrupted bank build and a
+later crossfade. For the captured 285-tap bank, the head had 64 taps per
+channel. The model can spread a stereo rebuild over one or two transforms per
+64-frame callback and skip the pending bank's tails while it is incomplete.
+Its spectra, input spectra and double-buffered tails occupied 205,136 bytes,
+excluding FFT workspace and the existing DSP and AINR state. The executable
+host experiment is in `tools/l6dsp-tests/experiments`; it is not a target
+implementation.
+
+Three matching QEMU-only workloads used 1,024-point real FFTs and finite,
+nonzero spectral operands, with the effect DSP bypassed. Over five guest
+seconds, the two-transform rebuild with both banks' tail work counted 1,628
+callbacks; spreading that rebuild to one transform counted 1,966; and
+skipping the incomplete bank's tail work counted 2,369: about 326, 393 and
+474 per second. The last run's sampled active-output counter was 1,702,
+compared with 1,701 expected at the earlier callback-count sample; those
+reads were not atomic. The FFT's first 64 bins and 1,024-sample round trip
+matched a host reference within `3.82e-6` and `1.79e-7`, respectively.
+These workloads omit the direct head, Plateau and pre-AINR, do not implement
+the complete scheduler, and do not measure physical execution time or worst
+callback latency. They do not qualify this design or rule out a better one.
+
+For the two-transform, one-transform and active-bank-only workloads, the
+diagnostic MAIN hashes were
+`dcc3832f11ea7ff7402ba0b9c34083cf6a502d338f06989950ff107e551acf2c`,
+`a7e42b466003ed061bf0825319ee9ee3c6550e58a1de5acc4481d0c99b9a7027`, and
+`b2a0ad5a97bffa8c955ef697bc580eed495a3713045c550e891dfb6804e9833d`;
+ELFs `a36037755d2fd7984354913253eb99e7b8d061887ec76915fb14173ad5c113d6`,
+`4b04b932b6a200ecb2041a5936292fa09a8a4d99195b711b2dc23e5a305b342a`, and
+`4bba2ebffc89fe1e3df4d71f17f4ddacef9ff1722527fb2b350c76e143cf58c1`;
+recipes `7b391c8f7f07297c98d2755defc78f628d042494282c95c044e68ee9ec6f6e99`,
+`9e90b03b0ea6c815072ec5405662d2bc1d96a1f4b54e9f48b0faa455602a0a0b`, and
+`8d059d76079b66896c38ec489942e14000ecc7f7590e88f531dfde8ed7426484`;
+results `ddb4374585ec0862205ad7dd405f2a29dbb1c7bccb8a01e0aef165fd672e8ca8`,
+`35f8dcc15b603a8c12334a1add9357872eac8f8fbc19168af164bc52ad58fa24`, and
+`3872c9b9310801195460ea6e7e017dda715b850120dc568ae3ecb112edf39cbc`;
+temporary workload sources
+`6d83c589e9d8d00da5e5bf6be34adba14171e9612f81e0400889ff4266fdb7d8`,
+`96c8aa645718321fd9ea2cc2c1a2a707449dad061002c74caeae7f9a56234993`, and
+`373ce5b57fe5d4f2892ce7c018230bdd011688f3b44d9feaeed85f26df6724ca`.
+They used the same stock MAIN, initial NOR, panel state, `l6dbg` and unattested
+QEMU executable as the preceding workload comparison.
+
 The 64- and 285-tap diagnostic MAIN hashes were
 `eada2c2061eb7f2804279be04880595c96e75b2e03f068afffa6189b9c4290c6` and
 `96d51c8852043db24db79634cf8ec512a8c285328533ab0aa1e1d4da411fa484`, ELFs
