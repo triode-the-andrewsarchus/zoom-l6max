@@ -88,7 +88,11 @@ The blocking findings for L6max MAIN 1.10
   established the complete AINR footprint or excluded all other writers. Its
   packed heap snapshot now holds only a candidate 56,264-byte channel-0 tail;
   selection still reconstructs three copies in unqualified effect storage.
-  The pause therefore does not establish a coherent snapshot.
+  The pause therefore does not establish a coherent snapshot. A smaller
+  temporary prototype captured 512 bytes and reconstructed the remainder
+  after selection; under injected signal the resulting state differed from
+  its capture-time observation despite a successful handoff status. That
+  reconstruction was discarded.
 
 Some standalone DSP defects have been fixed and tested on the host. Those
 tests do not exercise the firmware bindings or establish hardware safety.
