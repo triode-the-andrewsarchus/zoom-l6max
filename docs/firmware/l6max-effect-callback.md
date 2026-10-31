@@ -3781,6 +3781,41 @@ build above; the extended recipe and result hashes were
 The capture still takes place in the audio callback and the low heap headroom,
 signal quality, snapshot consistency and target deadline are unqualified.
 
+Three further disposable QEMU variants tested moving that copy to the Main
+task during effect selection. Instead of copying, the audio callback marked
+the learned state ready after the same experimental delay. The first variant
+copied at the redirected stock buffer clear. At that point the observed AINR
+enable word `0x2028ba4c` was 0, the learned flag was 1, and the active
+callback was 0. The three sampled before/after send pairs were identical.
+In the second variant, forcing the copied enable words at offsets `0xba4c`
+and `0xbad0` back to 1 still produced identical sampled send pairs. The third
+variant copied earlier, immediately after the selector's fade call. There the
+active callback was still `0x20280021`, but `0x2028ba4c` was already 0 and
+the sampled pairs were again identical. The original audio-callback capture
+had produced changed samples in the extended run above. These observations
+rule out neither all output changes nor a different earlier capture protocol;
+they show that these simple substitutions do not reproduce the observed
+processing. The earlier point also lacks a proven quiescence barrier.
+
+The clear-point, restored-word and after-fade MAIN hashes were respectively
+`4c52656c991714ca3555783074885cc89813a58a13efa79240cf03174be92f97`,
+`d333813088bf7ecf22a1f666d56754cb0127db53b403fc886ab9f1c32348cedd`, and
+`1fbd08aed3ac169ea568ce95f7940ade76b98355a7d541e3efc91554b2537890`;
+their effect ELFs were
+`8026fd4680f540e19e33570dd8ca55d480ee819dc1337f045eb243c894c923ba`,
+`d7aad22661f02c2f0ba4e2b342f99e6558aa9549fea55800833d45371182abda`, and
+`0c7d0eb7909336ee71c45b2ab17334257171d5e1327cd60f08cbf31b39a89b65`.
+Their recipe hashes were
+`027cab3b3d63bb0a58d6b64cc76f3bce26d559d24cf899e1a1135b386d679c9a`,
+`1a42f066e18bc3d7363d2009caa9210c6eec3f71ea2d5a40ea81f20d8b15bfd6`, and
+`840ea11ed58aa4052d1e2ac0503712c3ddab7336663da503e06d7cc9a8597ef8`;
+their result hashes were
+`5b644e0462e8b97670f019a39869831dfd94724bd5d9a0621c8a2eeb80e1c831`,
+`e1bb205aafecbc9c30d4c7ceda3b9ae9ffe0de3446ca62155c26cb261f267223`, and
+`1975656c794d21eea4097656f983e7cd2169f87e03709b017f543453fd4fcab3`.
+They used the stock MAIN, NOR and unattested QEMU executable identified below.
+The modified source, binaries and runtime artifacts remain local.
+
 Both runs used stock MAIN SHA-256
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
 initial NOR SHA-256
