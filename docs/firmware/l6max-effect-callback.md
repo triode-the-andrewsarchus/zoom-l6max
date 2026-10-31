@@ -4446,6 +4446,57 @@ The normal identities were
 `fb8fa2eab10f914e60a784d9b1e5bebfb1291965110792ab100a16ad431cc7be`.
 They used the same stock MAIN, NOR and unattested QEMU binary identified above.
 
+### Selector-side boundary handoff diagnostic
+
+An opt-in diagnostic now requests a pause at the observed AINR audio hook
+before the panel handler clears AINR, then copies the channel-0 prefix from
+the selector task. It uses versioned pause and snapshot claims, a 20-tick
+acknowledgment limit, and a revision-guarded call hook. Unknown AINR indices
+invalidate the pause. This is a QEMU-only experiment, not a firmware fix:
+the scratch locations, 64-frame bypass ABI and return value, all state users,
+selection paths, timeout recovery, click-free behavior and target timing
+remain unqualified. The production builder remains disabled.
+
+In the normal paced run with deterministic nonzero stock AINR input, the
+diagnostic observed the learned flag, acknowledged after one wait, bypassed
+two calls for each observed index, and installed three matching descriptors.
+The sampled processed sends differed from their inputs. The MAIN, ELF, recipe
+and result SHA-256 values were
+`5f50eeb134c3ce72d7ebdc1020adf64dbc6d0af47b89616fb112ca443d7c1a3f`,
+`303c80174db56b42a4311bd5c2ced8e47a832c6c712d6b840eda9bc0cdf2231c`,
+`cec7f0df1ea8f29b573778a448f78bd8a4a51e58de40c19785d59fbab94fc723`, and
+`23e34d93b2589831b39795a8da541cb6255ad3a66102e49176619502abbf50a9`.
+
+A separate instrumented run cancelled and rearmed the snapshot claim after
+the copy. The forced-invalidation marker was set, the handoff reported failure,
+and the ready token and sampled sends remained zero. This exercises one forced
+interleaving, not all concurrent state changes. Its MAIN, ELF, recipe and
+result SHA-256 values were
+`4b69dd23c651d78437690d46d55bb8b4aedf8d0697c6b112aa84be29036a85fe`,
+`da501d69feef9715fbba0841f2aae9b10f37512dd5e268102bdaea53a8a294a9`,
+`a2268c01a33410819017a7df16cf0d8588d5061f4ee0c44c15fea79a0e30d6d9`, and
+`a9f16569cf0571b66979c35aecfd9b0a725eec886c8a1a41dd5935ff05e81dba`.
+
+A separately instrumented build withheld the first acknowledgment and enabled
+dry fallback. With QEMU `icount shift=1`, it timed out after 20 waits, produced
+nonzero sampled fallback output, then revisited AINR and captured on the second
+attempt. The same MAIN, ELF, recipe and initial fixture at the normal paced
+`shift=2` did not reach AINR; no timeout or retry occurred. These are two
+modeled schedules, not a target CPU-frequency or deadline measurement. Their
+shared MAIN, ELF and recipe SHA-256 values were
+`ef5e3c18be50589359280c4462381ae66497bb125cddeade25ef785be566b7fa`,
+`80bc7e96af971c0f35b29eefeb485c2f75e6e35fbb81ca8c2e35240f0ccfda2c`, and
+`5dca099b97e82eb099a846fdca3331f9916da5ed51f2c8fe4048c950c2952cb7`;
+the shift-1 and paced result hashes were
+`1416c7c60c09a93129d11a3604dc3a41dee56490e5adbde6e0a3a517f1745f11` and
+`2500f6a5a57cdd61bced753510d556179500a9db91f5715c3587b39cf0c7750b`.
+The shift-1 wrapper SHA-256 was
+`89ae90de09bc4bba85cc042b5ef686f25c8d584ba34156357bfc277a0d703698`;
+both runs used stock MAIN `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+and QEMU executable `53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`
+with unattested source provenance.
+
 - QEMU binary SHA-256:
   `9724d60a31400becad8f1e98d6fd67bb9456c8dfbdeebe833e7636ed8e9cf536`.
   The `l6test` runner records its source provenance as unattested.

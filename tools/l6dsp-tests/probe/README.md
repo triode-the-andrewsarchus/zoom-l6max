@@ -342,6 +342,17 @@ quiescence for the destination effect buffer or other stock users. This is an
 unqualified experiment: the inferred span may
 miss mutable state, the last callback still copies at least 44 KiB, and the
 selector has no proven audio-task quiescence or deadline guarantee.
+Alternatively, `--boundary-handoff` (with `--channel0-prefix`, excluding
+`--hybrid-handoff`) tests an earlier, observed panel selection call. It asks
+the AINR hook to bypass indices 0 and 1, waits up to 20 firmware ticks for an
+index-0 acknowledgment, and copies the prefix on the selector task. Status 3
+means a candidate is waiting; `boundary_handoff` records the pause word, wait
+count, outcome and two bypass counters. `--boundary-noise` injects a
+deterministic nonzero signal into the stock AINR input for this experiment.
+The pointer ownership, call ordering, 64-frame bypass and return ABI,
+other selector paths, timeout recovery, audio continuity, and target timing
+are not established. The code uses unowned scratch and flash. **Never install
+or run this diagnostic image on hardware.**
 Add `--passthrough-unready` to keep synthetic sends active without AINR while
 the snapshot is unavailable, including after a diagnostic allocation failure.
 The resulting extra work can prevent the selection sequence from reaching

@@ -16,10 +16,40 @@ pub mod controls;
 pub mod event_queue;
 #[path = "../probe/handoff_protocol.rs"]
 pub mod handoff_protocol;
+#[path = "../probe/boundary_pause.rs"]
+pub mod boundary_pause;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ainr_boundary_pause_rejects_stale_acknowledgment_after_timeout() {
+        use core::sync::atomic::{AtomicU32, Ordering};
+        let word = AtomicU32::new(0);
+        let pause = boundary_pause::BoundaryPause(&word);
+        let old = pause.request().unwrap();
+        assert!(pause.bypass(1));
+        assert!(!pause.acknowledged(old));
+        assert!(pause.finish(old));
+        let new = pause.request().unwrap();
+        assert!(word.compare_exchange(old, (old & !3) | 2, Ordering::AcqRel, Ordering::Acquire).is_err());
+        assert!(!pause.acknowledged(old));
+        assert!(!pause.finish(old));
+        assert!(pause.bypass(0));
+        assert!(pause.acknowledged(new));
+        assert!(pause.bypass(1));
+        assert!(!pause.bypass(2));
+        assert!(!pause.acknowledged(new));
+        assert!(!pause.finish(new));
+        let following = pause.request().unwrap();
+        assert!(pause.bypass(0));
+        assert!(pause.acknowledged(following));
+        assert!(pause.finish(following));
+        assert!(!pause.bypass(0));
+        let exhausted = AtomicU32::new(u32::MAX & !3);
+        assert!(boundary_pause::BoundaryPause(&exhausted).request().is_none());
+    }
 
     #[test]
     fn ainr_capture_cancellation_rejects_stale_claims_across_rearm() {
