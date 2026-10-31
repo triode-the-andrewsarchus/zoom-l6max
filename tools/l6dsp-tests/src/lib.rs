@@ -86,6 +86,33 @@ mod tests {
     }
 
     #[test]
+    fn ainr_install_holds_snapshot_and_rejects_cancelled_generation() {
+        use core::sync::atomic::AtomicU32;
+        let word = AtomicU32::new(0);
+        let protocol = handoff_protocol::CaptureProtocol(&word);
+        let (capture, _) = protocol.claim().unwrap();
+        assert!(protocol.finish(capture, 15, true));
+        let install = protocol.claim_install().unwrap();
+        assert!(protocol.claim_install().is_none());
+        assert!(protocol.cancel(true));
+        protocol.arm();
+        assert!(protocol.claim().is_none());
+        assert!(!protocol.finish(install, 15, true));
+        assert!(!protocol.current_done((install & !3) | 2));
+        let (capture, _) = protocol.claim().unwrap();
+        assert!(protocol.finish(capture, 15, true));
+        let install = protocol.claim_install().unwrap();
+        assert!(protocol.finish(install, 15, true));
+        let ready = (install & !3) | 2;
+        assert!(protocol.current_done(ready));
+        assert!(protocol.cancel(false));
+        protocol.arm();
+        let (capture, _) = protocol.claim().unwrap();
+        assert!(protocol.finish(capture, 15, true));
+        assert!(!protocol.current_done(ready));
+    }
+
+    #[test]
     fn control_queue_preserves_fifo_at_capacity_and_counter_wrap() {
         use core::sync::atomic::{AtomicU32, Ordering};
         use event_queue::{Queue, CAPACITY, WORDS_WITH_GENERATIONS};
