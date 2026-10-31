@@ -3754,6 +3754,33 @@ hashes were
 Target timing, memory ownership, callback lifetime and physical output remain
 unverified. The production builder remains disabled.
 
+The diagnostic now retries a failed snapshot allocation on a later custom
+selection. In matched disposable builds that forced the first allocation to
+fail, both first reported `(pointer, status) = (0, 2)`. On the next custom
+selection the retrying build reported `(0x808fa040, 0)` and free heap fell
+from 160,008 to 28,920 bytes; the earlier build remained at `(0, 2)` with its
+heap unchanged. These observations establish retry behavior, not successful
+learning, snapshot coherence, or safe heap headroom. The retrying and earlier
+MAIN hashes were
+`b4eae887e89f6a8d41f4a73875f5be04759fead4fdff88b4a2b89426852449a3` and
+`ef127b38e6219aea767df32b9bb72787e1d875a508b60766bb70e20bfa47c07c`,
+effect ELF hashes `5b28342fff7ae69ae4ba53bb61c0086337c2080ba2013079cba6f994373443fd`
+and `47e43bb1ffb157d744b83950eaea0f97ea1da450cc8d7440086d6c4107c33215`,
+recipe hashes `b822ed147aaddc73e747f04872898f2bbf027e223232582cfa133b566fa88d25`
+and `1efce83d0472c36471b1a9a4ad065765c542e4f3c3369ea352287204620c58b4`,
+and result hashes `84222cf5baa0685acf7b63d4a8727e7d4a1495e7c65af38ea5f9eae617683606`
+and `4e26d2387798ff0ac3a3b541db4d0115a04a9b5bfd2c55291018d1e7080f7278`.
+The stock MAIN, NOR and unattested QEMU executable are identified below.
+An extended run of the retrying build then selected stock AINR, observed the
+learned flag and captured status, and installed the snapshot copies on return
+to Room. Two of the three observed synthetic sends differed after AINR; the
+third sampled pair was unchanged. The MAIN and effect ELF matched the retrying
+build above; the extended recipe and result hashes were
+`259a3d14e3e7f0d0805eb1defed2a6ab990811169e412c102ea3bc964364f2d2` and
+`dcf05cdf65a66086da5bc6be83df5a96df84c7f2f4a9921334d72418c8f31c60`.
+The capture still takes place in the audio callback and the low heap headroom,
+signal quality, snapshot consistency and target deadline are unqualified.
+
 Both runs used stock MAIN SHA-256
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
 initial NOR SHA-256
