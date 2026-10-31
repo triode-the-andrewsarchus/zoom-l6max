@@ -1773,6 +1773,39 @@ It used the same stock MAIN, NOR and isolated QEMU as the preceding run.
 
 ## QEMU routing controls
 
+Two temporary attempts to reduce the shared Velvet tap-loop cost did not
+improve the modeled active-send cadence. Unrolling the aligned two-history
+loop by two, without changing tap order, counted 2,615 callbacks over five
+guest seconds versus 2,829 for a matching baseline. Forcing the shared-mono
+method to inline removed its separate compiled function but counted 2,825.
+The diagnostic text sizes were 23,715, 22,611 and 22,767 bytes respectively.
+These single emulator observations do not measure physical cycles or prove a
+deadline; neither change was adopted. For each variant, host comparisons
+matched 153,600 frames through parameter edits, fades, silence and wraps, and
+another 70,000 frames with zero, odd, even and maximum tap counts and
+out-of-range delays. Host equivalence does not establish target equivalence.
+
+The baseline MAIN, ELF, recipe and result hashes were
+`3201cb4c042daa9c84367ff9ea88f83ded751d3789cffd72b7e005cc69c6ad51`,
+`70fd5adc557a84e83b3a5b22f8234377397557b7ba6f1fd723a03702c88d77e7`,
+`c4f26838e7cb35e9244edf19c22b73e1864690b82e7349ff145a66bf50dd63c6`, and
+`154d31567d22f11ed7ca466b7826f22130ffd649c7393bd66fd2ebb59f00b530`.
+The unrolled variant's corresponding hashes were
+`71e7a881ef40b2c1d3f38638c615861b2bfac28c2bdbd0ebc7f341794bb579be`,
+`02125c72cd23c7776d91b6f9fdf7908b268d0ace6b9bfc4b2b666d1449216410`,
+`a6b35199893b0e98222160ea0e1b6172be6fa65ffa36cb1a59a13db77c5a39e9`, and
+`b1bc63c789699036a3dfed19cfb4b433e51f81a8cffd4b31317ee4919dc61559`.
+The inline variant's corresponding hashes were
+`1d58d73ada492e526fa73a730fa4e80a3d48f101b39cb035d7094d9062a48f11`,
+`dbb51e8048b4a4bca93719c259bfbb31038191dc89a77a23996a18587a0f5222`,
+`23c553c99310fe23953824d1e6cc99149934c1fa9c9e5efcdf7365752b11e75c`, and
+`51898b53a5a4e196fdab1d77191a82540dc3f5b063b8d4ed7738617358b7a89f`.
+The unrolled and inline Velvet source hashes were respectively
+`6efc834fee58108167bf0ddc0b7422520b5fabd8bbbcbb3869562310fd28dbc2` and
+`609bfb349a136ae5495cfbd9e605cd79ca6cac2f193b61b82a736dd1fe9e1c80`.
+The stock MAIN, initial NOR and unattested QEMU executable match the
+parameter-mailbox run below.
+
 The diagnostic's mixer reconstruction now rejects each invalid or extreme
 weighted channel contribution before adding it to a send, using the same
 guard as the weighted-channel DSP path. Previously, a single NaN contribution
