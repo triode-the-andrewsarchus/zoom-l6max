@@ -4367,6 +4367,28 @@ saved value. Its recipe and result SHA-256 values were
 `990e1d383a4cec986e262432174261da689b0389264bd1efac565d27781e0e1d` and
 `22c683d5e0c95071f2f327810e7b53f5e09de56ab3d6f59b070589b34beed94b`.
 
+The hybrid AINR diagnostic now holds a cancelled capture claim until its
+writer retires, deferring an early rearm. Host tests exercise repeated
+cancellation, delayed retirement and stale completions. A temporary QEMU
+instrumentation forced cancellation and rearm while a writer held a claim;
+the attempted overlapping claim was rejected, and a later capture completed
+and installed three matching descriptors. A normal diagnostic also captured
+the `0x19514`-byte prefix and installed three matching descriptors. These
+tests do not establish snapshot coherence, installation quiescence, target
+timing or physical safety.
+
+The normal diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`528cf3638d899112e063f0c72deb65707a9a22de4ca7d8d42f7db83e8272d03d`,
+`2c56da27142fc09a6b0c4dfe37fb8d5497fc553b5156b3f820cc30660007a262`,
+`462c32d5b7893c52e26ee5641e82a0782d0b87f5ff44f67988949ee7ae5931c0`, and
+`073cd61b87bec18d77539b2bde55e06af9f9364644d4bfe462e4ab3186270cab`.
+The instrumented diagnostic's corresponding identities were
+`8fba82edd2ba056c0d19f76f7edb9ef569dfc9c253aca8dcd820108c5260d76f`,
+`935a581314db487bdadd238a8b31f310988254c8aa9a902cef73d9cee78dc9a9`,
+`fd597c2c889e5e0ebee86c9689725c7186f943848960c5a3db04bfd9c4684d4d`, and
+`a3635b713db17dd26dc2097f2715cd657eb585f23c0a917491a4cea9d2af9f62`.
+Both used the same stock MAIN, NOR and unattested QEMU binary identified above.
+
 - QEMU binary SHA-256:
   `9724d60a31400becad8f1e98d6fd67bb9456c8dfbdeebe833e7636ed8e9cf536`.
   The `l6test` runner records its source provenance as unattested.

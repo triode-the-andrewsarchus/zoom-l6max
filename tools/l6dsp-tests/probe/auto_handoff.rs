@@ -124,7 +124,11 @@ unsafe fn capture_hybrid(ptr: *mut u8, now: u32) -> bool {
     unsafe {
         let protocol = crate::handoff_protocol::CaptureProtocol(word(CONTROL));
         let Some((claim, step)) = protocol.claim() else { return false; };
-        if step >= 15 { protocol.cancel(false); return false; }
+        if step >= 15 {
+            protocol.cancel(false);
+            protocol.finish(claim, 0, false);
+            return false;
+        }
         let offset = if step < 11 { step * 4096 } else { 0x16000 + (step - 11) * 4096 };
         if step == 0 { core::ptr::write_volatile(0x83e03108 as *mut u32, now); }
         let next = offset + core::cmp::min(4096, CAPTURE_BYTES - offset);
