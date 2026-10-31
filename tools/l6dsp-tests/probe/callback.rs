@@ -31,6 +31,8 @@ const _: () = assert!(core::mem::size_of::<routing::DualEfxProcessor>() <= 0x500
 #[unsafe(link_section = ".text.probe")]
 pub unsafe extern "C" fn probe(entry: *mut u32) {
     let custom = entry as usize == 0x2028b8dc || entry as usize == 0x2028b8f8;
+    #[cfg(inspector_probe)]
+    if !custom { unsafe { inspector::close_for_selection(); } }
     // This unowned marker is only for disposable QEMU experiments. It does
     // not establish buffer ownership or synchronization on the device.
     let reuse = cfg!(retain_custom_state) && custom

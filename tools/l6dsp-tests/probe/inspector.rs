@@ -33,6 +33,21 @@ unsafe fn atomic(address: usize) -> &'static AtomicU32 {
     unsafe { &*(address as *const AtomicU32) }
 }
 
+/// Close a live inspector when the observed selector enters another effect.
+/// Gesture state remains intact until the selector event returns.
+pub unsafe fn close_for_selection() {
+    unsafe {
+        let ui = INSPECTOR as *mut UiState;
+        if core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) == MAGIC {
+            #[cfg(knob_inspector)]
+            if (*ui).active { inspector_cancel_hook(); }
+            (*ui).active = false;
+            (*ui).routing_page = false;
+        }
+        core::ptr::write_volatile((SUMMARY + 28) as *mut u32, 0);
+    }
+}
+
 /// Called while the stock effect callback is disabled during selection.
 pub unsafe fn initialize(entry: u32, processor: *mut routing::DualEfxProcessor, initialized: bool, reuse: bool) {
     unsafe {
@@ -62,14 +77,9 @@ pub unsafe fn initialize(entry: u32, processor: *mut routing::DualEfxProcessor, 
                 core::ptr::write_volatile(0x83e02200 as *mut u32, 0);
             }
         }
-        // A selection closes the previous inspector, but preserves gesture
-        // state until the selector event returns to its caller.
+        close_for_selection();
         let ui = INSPECTOR as *mut UiState;
         if core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) == MAGIC {
-            #[cfg(knob_inspector)]
-            if (*ui).active { inspector_cancel_hook(); }
-            (*ui).active = false;
-            (*ui).routing_page = false;
             (*ui).velvet_bank = entry != 0x2028b8dc;
         }
     }

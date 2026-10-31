@@ -2627,6 +2627,44 @@ cancellation, direct effect changes, overflow, callback lifetime, the cost
 of critical sections on audio, and physical timing remain unqualified. This is
 not an installable firmware fix.
 
+A separate forced direct-selection probe invoked the stock selector for
+effect 3 while the inspector was open. Before the diagnostic change, the
+stock callback became active but the inspector's open flag remained set.
+With the close operation applied at the observed stock selector hook, the
+same forced sequence left the stock callback active and the inspector closed.
+The selection was injected in a QEMU-only UI hook; it does not establish
+physical MIDI behavior or every path into the selector. In particular, the
+AINR branch bypasses that hook and remains unresolved.
+
+The baseline MAIN, effect ELF, recipe and result SHA-256 values were
+`c3e75af0812687a3abf9a2a2b2206f0e8a4b73dbe080e9b376f9a1dce571c69b`,
+`c4aeedb7e8faf9dc66020c864903cf832a0be07f0790b06155443752ab527dc1`,
+`d269a33b564a7c0ad49536aea3379bc2879cfcc49aa920ce3cab02456cfac1da`, and
+`c947c47b631ccafc13a664c08b8a333a0f740a967fdd0c951a54a0307f78643c`.
+The fixed variant's corresponding hashes were
+`ae1b6cbe0ba98b993adb9272fe52db159b2cb6b071d89adf82304d90709dc163`,
+`a51b872b42ed0d397386c6ade780cdfb3d4a567593e6a4ffcfe0b53c9f17d195`,
+`b9cbb2aca87e2d09cfd7b787eb0ec2b3162fb216858346c75ea032ac3f0b3531`, and
+`b8d61e6598efe9c08f3c2cc5df237abdc4caadbad7b7dbd85852f6ff599b7640`.
+Both used popup ELF
+`be47cda2c3cfc74d0e0761853e257b0f64bacb1b0a4269b32e1f0582f72bc85b`
+and the stock MAIN, NOR and QEMU identities above. The baseline callback and
+injected inspector source hashes were
+`8005848f6022a091c4bf7d82f1422c21dd9b6fb8c69e6422463806258d34d662` and
+`45a394f29a2429ffe823191ffb98e0b19fc984a460eb9edcfccdccecbcc5e625`;
+the fixed sources were
+`2bce608eab780235328b401512f0195c32debf2e19470626bdab2454d18e9681` and
+`036d5d80f58015f5a100c9f907e06632d35cebb0de83cb9a01b3c75026436b2d`.
+An ordinary run from the maintained builder also completed its inspector
+sequence: the queue drained, the mixer value stayed at 43 while editing and
+changed after close, and the sampled routing changes matched the turns. Its
+MAIN, effect ELF, recipe and result hashes were
+`132c3b6a0629e64601806f9977e365c798e0c141e70de8345b72b9501fdc167f`,
+`4d78bd6ca1b3080ab573ee4605eebbb270a8d09e9b7081decfb807bac1806edc`,
+`c5a753ba3b83ab2d8f55ddc18ba940ce509a82936150ee9a9dceed7fa271099a`, and
+`e80003704b8897cf70509af76047b583e1e3e69bac36e7b9332730587132eba1`;
+its popup ELF matched the two forced runs.
+
 In a further run of the suppression variant, the old edit was applied without
 a notification; opening the inspector then generated its page notification,
 and a fresh encoder edit generated a notification for Room predelay at 8 ms.
