@@ -1979,6 +1979,30 @@ The silent control's callback, MAIN, ELF, recipe and result hashes were
 `0e46ae94ef7b8f37f172d85c1c136f8f231262a1aef8adca08703b96921b78ca`.
 Both captures used the preceding preparer, linker, stock MAIN, NOR and QEMU.
 
+Two additional instrumented runs captured panel snapshots around the forced
+Spring timeout with callback restoration. In the repeat, the mapped Room lamp
+was lit at the first post-timeout snapshot and two guest seconds later, while
+the restored Room callback remained active. The next press reached the stock
+Delay callback and the mapped Delay lamp was lit: Spring was skipped in this
+sequence. The snapshot after the initial Room selection still showed Hall,
+illustrating that panel updates can lag the selector under this workload. A
+byte sampled at `0x8045ff90` remained zero across the three observations and
+did not identify the selected effect; it must not be used as evidence of the
+internal selection state. The captured OLED frames were identical and do not
+establish an effect label. A complete recovery design must reconcile the
+requested selection and its feedback, not only restore the audio pointer.
+
+The first display recipe and result SHA-256 values were
+`1a488cfc7d77261f34c2b3fd3df52203c54b9d391d85d86e0d3615dcaff805e7` and
+`71b15273cf283ebd1e430ace15f90b5530e3da3930f2e29c2b63919461b8055e`;
+the repeat's were
+`d2984e7200478343bb47fd5257399fc93b4cd99ba935637bf8b2b008aee5db5d` and
+`62320735fbdb70356797474f8790c9f96e822b817dc3f1bb5ea6aee4e40c8b01`.
+The repeat's settled OLED ASCII capture hash was
+`92f93b4183084b065b2d99774c8f97b3b27f191a645d5bc2c538c3332f116d7e`.
+Both runs used the preceding active-sends callback, MAIN, ELF, stock MAIN,
+NOR and QEMU identities.
+
 The QEMU-only interrupt-timestamp hook now initializes its decoder and queue
 only on first installation. On subsequent custom selections, it preserves
 pending edges if both hook words and the veneer match; a mismatch marks the
