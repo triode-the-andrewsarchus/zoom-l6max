@@ -510,6 +510,38 @@ mod tests {
     }
 
     #[test]
+    fn plateau_first_tank_allpass_reaches_each_output() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        reverb.init(plateau::PlateauParameters::default());
+        reverb.params.freeze = true;
+        reverb.l_sum = 0.5;
+        reverb.r_sum = -0.25;
+
+        // PlateauNEVersio Dattorro.cpp, commit 4218b072e7420dd788cd3c98c36b3eba445f8886,
+        // includes each first tank-allpass output in its matching channel.
+        // All other tank taps start silent. With gain -0.7, the first
+        // allpasses immediately contribute 0.35 and -0.175 respectively.
+        let mut left_hp = plateau::OnePoleHP::new();
+        let mut right_hp = plateau::OnePoleHP::new();
+        left_hp.set_cutoff(20.0);
+        right_hp.set_cutoff(20.0);
+        let wet = reverb.params.wet;
+        let expected = (
+            math::soft_clip(left_hp.process(0.35 * 0.6)) * wet,
+            math::soft_clip(right_hp.process(-0.175 * 0.6)) * wet,
+        );
+        let actual = reverb.process_sample(0.0, 0.0);
+        assert!(
+            (actual.0 - expected.0).abs() < 1e-6,
+            "left: {actual:?} vs {expected:?}"
+        );
+        assert!(
+            (actual.1 - expected.1).abs() < 1e-6,
+            "right: {actual:?} vs {expected:?}"
+        );
+    }
+
+    #[test]
     fn plateau_tank_delays_match_their_configured_ring_lengths() {
         let mut reverb = Box::new(plateau::PlateauReverb::new());
         reverb.init(plateau::PlateauParameters::default());

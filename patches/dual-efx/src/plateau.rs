@@ -538,7 +538,8 @@ impl PlateauReverb {
         let scale = SR_SCALE * self.params.size;
         let tap = |val: f32| (val * scale) as usize;
 
-        let mut out_l = self.l_del1.tap(tap(266.0))
+        let mut out_l = l_ap1_out
+            + self.l_del1.tap(tap(266.0))
             + self.l_del1.tap(tap(2974.0))
             - self.l_apf2.delay.tap(tap(1913.0))
             + self.l_del2.tap(tap(1996.0))
@@ -546,7 +547,8 @@ impl PlateauReverb {
             - self.r_apf2.delay.tap(tap(187.0))
             - self.r_del2.tap(tap(1066.0));
 
-        let mut out_r = self.r_del1.tap(tap(353.0))
+        let mut out_r = r_ap1_out
+            + self.r_del1.tap(tap(353.0))
             + self.r_del1.tap(tap(3627.0))
             - self.r_apf2.delay.tap(tap(1228.0))
             + self.r_del2.tap(tap(2673.0))
