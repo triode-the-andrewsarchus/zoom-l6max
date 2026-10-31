@@ -7,6 +7,22 @@ const REQUESTED: u32 = 1;
 const PAUSED: u32 = 2;
 const EPOCH: u32 = !PHASE;
 
+// QEMU-only candidate: stock ring buffers occupy this part of the prefix.
+// The exclusion is not a complete AINR state-footprint or ownership proof.
+pub const SNAPSHOT_BYTES: usize = 0x19514;
+const RINGS_START: usize = 0x2ff8;
+const RINGS_END: usize = 0xb94c;
+
+/// Copy a disjoint channel-0 prefix while replacing the observed stock rings
+/// with silence. Both regions must be valid for SNAPSHOT_BYTES bytes.
+pub unsafe fn copy_snapshot(source: *const u8, dest: *mut u8) {
+    unsafe {
+        core::ptr::copy_nonoverlapping(source, dest, RINGS_START);
+        core::ptr::write_bytes(dest.add(RINGS_START), 0, RINGS_END - RINGS_START);
+        core::ptr::copy_nonoverlapping(source.add(RINGS_END), dest.add(RINGS_END), SNAPSHOT_BYTES - RINGS_END);
+    }
+}
+
 pub struct BoundaryPause<'a>(pub &'a AtomicU32);
 
 impl BoundaryPause<'_> {

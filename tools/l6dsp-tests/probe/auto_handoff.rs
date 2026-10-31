@@ -22,6 +22,8 @@ const CONTROL: usize = 0x83e03134;
 const PAUSE: usize = 0x83e03138;
 #[cfg(compact_ainr_probe)]
 const CAPTURE_BYTES: usize = 0x19514;
+#[cfg(boundary_ainr_probe)]
+const _: () = assert!(CAPTURE_BYTES == crate::boundary_pause::SNAPSHOT_BYTES);
 #[cfg(not(compact_ainr_probe))]
 const CAPTURE_BYTES: usize = STATE_STRIDE;
 
@@ -218,7 +220,7 @@ pub unsafe fn capture_boundary() {
         let valid = boundary_selection_valid(status, &pause, request);
         let completed = if valid {
             core::ptr::write_volatile(0x83e03108 as *mut u32, core::ptr::read_volatile(0x8020ab4c as *const u32));
-            core::ptr::copy_nonoverlapping(0x20280000 as *const u8, ptr, CAPTURE_BYTES);
+            crate::boundary_pause::copy_snapshot(0x20280000 as *const u8, ptr);
             core::ptr::write_volatile(0x83e0310c as *mut u32, core::ptr::read_volatile(0x8020ab4c as *const u32));
             let still_valid = boundary_selection_valid(status, &pause, request);
             if still_valid { pause.publish_capture(request, &capture, claim) }
