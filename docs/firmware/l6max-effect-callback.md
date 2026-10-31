@@ -1886,6 +1886,26 @@ executable. The debugger script and snapshot hashes were
 `5acfe8f4f5516bb39d859f780345e8ce958c318f670035b9dd39b93926a87245` and
 `757067e45f53969b746a3b685a12f0a6dd336559aa3fefb370ef0300e0805e07`.
 
+A separate post-fade variant deliberately withheld acknowledgment only for
+the first button selection after startup, then allowed later requests. The
+forced request timed out after 20 waits and left the active callback zero.
+The next press selected Spring and the following press selected a stock
+effect; both subsequent requests were acknowledged. Thus this sequence did
+not remain permanently stuck, but the requested first selection was skipped
+and the effect was disabled until a later press. The probe does not establish
+correct recovery after other failures or concurrent calls, or that the
+intermediate audio and other state were acceptable. It uses the same altered
+priorities and unowned memory as the preceding experiment.
+
+Its callback, MAIN, ELF, recipe and result SHA-256 values were respectively
+`ef438264120b5d11141ebea47ae1ef8cac0722f54be0ceb3f8e08e37de32cdc0`,
+`7d8d19d8370d451bc3466c727c0ecda7a40dd07153b35abd9477343f186c52bb`,
+`f293f6db3477434b7dede9a612e7c6c44f8637c029e1a8dc80e0f5fc5a8b9f69`,
+`bddc563892cd7b990462585565831269ae9a22ea8dca45224ac264b0febe648e`, and
+`da3b1b2d8d4ee6f5a818329492c883414deab00998592b832c4924ac969d424e`.
+The preparer, linker script, stock MAIN, NOR and QEMU matched the post-fade
+variant above.
+
 The QEMU-only interrupt-timestamp hook now initializes its decoder and queue
 only on first installation. On subsequent custom selections, it preserves
 pending edges if both hook words and the veneer match; a mismatch marks the
