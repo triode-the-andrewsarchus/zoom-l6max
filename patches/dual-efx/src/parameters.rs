@@ -122,7 +122,7 @@ pub fn edit_encoder(
         ParameterBank::Plateau => {
             let mut p = processor.plateau.params;
             let id = match encoder {
-                0 => { p.predelay_ms = clamp(p.predelay_ms + step * 2.0, 0.0, 150.0); PlatPreDelay }
+                0 => { p.predelay_ms = clamp(p.predelay_ms + step * 2.0, 0.0, 190.0); PlatPreDelay }
                 1 => { p.size += step * 0.02; PlatSize }
                 2 => { p.decay += step * 0.02; PlatDecay }
                 3 => { p.low_cut_hz = clamp(p.low_cut_hz + step * 20.0, 20.0, 1000.0); PlatLowCut }

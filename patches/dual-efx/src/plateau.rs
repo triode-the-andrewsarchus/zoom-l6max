@@ -243,7 +243,7 @@ impl TriangleLFO {
 
 #[derive(Clone, Copy)]
 pub struct PlateauParameters {
-    pub predelay_ms: f32,     // 0.0 to 200.0 ms
+    pub predelay_ms: f32,     // 0.0 to 190.0 ms
     pub size: f32,             // 0.2 to 1.2 (time scale)
     pub decay: f32,            // 0.1 to 0.999 (tail duration)
     pub low_cut_hz: f32,       // 20.0 to 1000.0 Hz
