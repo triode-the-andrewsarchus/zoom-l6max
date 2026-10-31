@@ -169,7 +169,12 @@ has been skipped or is about to be overwritten. State begins at
 `0x83e02800`; this is unowned scratch memory. The modified event words,
 interrupt masking, ring ownership and timing are unqualified on hardware.
 It does not detect bytes lost before the interrupt or establish that the four
-sites cover every possible consumer. Overflow recovery requires a fresh run.
+sites cover every possible consumer. Consecutive press edges discard the
+ambiguous gesture through its next release, even when their sequences are
+consecutive; a later clean press can be recognized. Overflow recovery requires
+a fresh run. If both a release and the following press disappear before
+sequence assignment, a later release is indistinguishable here from a long
+hold; this guard does not make the timing path safe on hardware.
 The first ten state words are magic, fault, ring pointer, record head/tail,
 last-tag valid/tick/edge/sequence, and the last assigned sequence. Faults 1–3
 cover an invalid or changed ring, 4–5 a full ring or record queue, 6 an

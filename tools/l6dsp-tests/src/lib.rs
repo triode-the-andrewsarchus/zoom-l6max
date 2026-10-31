@@ -656,8 +656,10 @@ mod tests {
         let mut gesture = controls::EfxSelectGesture::default();
         assert_eq!(gesture.edge(true, 100, 750), Action::None);
         assert_eq!(gesture.edge(true, 200, 750), Action::None);
-        assert_eq!(gesture.edge(false, 249, 750), Action::SelectNext);
+        assert_eq!(gesture.edge(false, 249, 750), Action::None);
         assert_eq!(gesture.edge(false, 250, 750), Action::None);
+        assert_eq!(gesture.edge(true, 300, 750), Action::None);
+        assert_eq!(gesture.edge(false, 400, 750), Action::SelectNext);
         assert_eq!(gesture.edge(true, 1000, 750), Action::None);
         assert_eq!(gesture.edge(false, 1750, 750), Action::ToggleInspector);
         assert_eq!(gesture.edge(true, u32::MAX - 99, 750), Action::None);
@@ -694,6 +696,40 @@ mod tests {
         assert_eq!(gesture.edge(false, 1000, 750), Action::None);
         assert_eq!(gesture.edge(true, 2000, 750), Action::None);
         assert_eq!(gesture.sequenced_edge(false, 3000, 3, 750), Action::None);
+    }
+
+    #[test]
+    fn efx_select_repeated_press_cannot_turn_a_short_press_into_a_hold() {
+        use controls::EfxSelectAction as Action;
+        let mut gesture = controls::EfxSelectGesture::default();
+        // The release was lost before the decoder assigned sequence numbers.
+        assert_eq!(gesture.sequenced_edge(true, 100, 1, 750), Action::None);
+        assert_eq!(gesture.sequenced_edge(true, 3000, 2, 750), Action::None);
+        assert_eq!(gesture.sequenced_edge(true, 3050, 3, 750), Action::None);
+        assert_eq!(gesture.sequenced_edge(false, 3150, 4, 750), Action::None);
+        // A clean following gesture still works.
+        assert_eq!(gesture.sequenced_edge(true, 4000, 5, 750), Action::None);
+        assert_eq!(gesture.sequenced_edge(false, 4100, 6, 750), Action::SelectNext);
+        assert_eq!(gesture.sequenced_edge(true, 5000, 7, 750), Action::None);
+        assert_eq!(gesture.sequenced_edge(false, 6000, 8, 750), Action::ToggleInspector);
+        // A detected gap discards ambiguity and permits a fresh press.
+        assert_eq!(gesture.sequenced_edge(true, 7000, 9, 750), Action::None);
+        assert_eq!(gesture.sequenced_edge(true, 7100, 10, 750), Action::None);
+        assert_eq!(gesture.sequenced_edge(true, 8000, 12, 750), Action::None);
+        assert_eq!(gesture.sequenced_edge(false, 8100, 13, 750), Action::SelectNext);
+        // Losing the tag explicitly cancels the ambiguous gesture.
+        assert_eq!(gesture.sequenced_edge(true, 9000, 14, 750), Action::None);
+        assert_eq!(gesture.sequenced_edge(true, 9100, 15, 750), Action::None);
+        assert_eq!(gesture.sequenced_edge(false, 9200, 0, 750), Action::None);
+        assert_eq!(gesture.sequenced_edge(true, 10000, 20, 750), Action::None);
+        assert_eq!(gesture.sequenced_edge(false, 10100, 21, 750), Action::SelectNext);
+
+        let mut untagged = controls::EfxSelectGesture::default();
+        assert_eq!(untagged.edge(true, 100, 750), Action::None);
+        assert_eq!(untagged.edge(true, 3000, 750), Action::None);
+        assert_eq!(untagged.edge(false, 3100, 750), Action::None);
+        assert_eq!(untagged.edge(true, 4000, 750), Action::None);
+        assert_eq!(untagged.edge(false, 4100, 750), Action::SelectNext);
     }
 
     #[test]
