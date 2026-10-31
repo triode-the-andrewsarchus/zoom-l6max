@@ -12,10 +12,86 @@ pub mod parameter_view;
 pub mod parameters;
 #[path = "../../../patches/dual-efx/src/controls.rs"]
 pub mod controls;
+#[path = "../probe/event_queue.rs"]
+pub mod event_queue;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn control_queue_preserves_fifo_at_capacity_and_counter_wrap() {
+        use core::sync::atomic::{AtomicU32, Ordering};
+        use event_queue::{Queue, CAPACITY, WORDS_WITH_GENERATIONS};
+        let words: [AtomicU32; WORDS_WITH_GENERATIONS] = [const { AtomicU32::new(0) }; WORDS_WITH_GENERATIONS];
+        let start = u32::MAX - 31;
+        words[0].store(start, Ordering::Relaxed);
+        words[1].store(start, Ordering::Relaxed);
+        let queue = Queue::new(&words, true);
+        for n in 0..CAPACITY {
+            assert_eq!(queue.push(n, || n ^ 0x55aa), Ok(start.wrapping_add(n + 1)));
+        }
+        assert_eq!(queue.push(999, || panic!("full queue requested generation")), Err(1));
+        let (head, mut tail) = queue.batch();
+        for n in 0..CAPACITY {
+            assert_ne!(tail, head);
+            assert_eq!(queue.read(tail), (n, n ^ 0x55aa));
+            tail = tail.wrapping_add(1);
+            queue.commit(tail);
+        }
+        assert_eq!(tail, head);
+        assert_eq!(queue.push(123, || 456), Ok(head.wrapping_add(1)));
+        assert_eq!(queue.read(tail), (123, 456));
+    }
+
+    #[test]
+    fn standalone_queue_does_not_access_generation_storage() {
+        use core::sync::atomic::AtomicU32;
+        use event_queue::{Queue, CAPACITY, HEADER_WORDS};
+        let words: [AtomicU32; HEADER_WORDS + CAPACITY as usize] =
+            [const { AtomicU32::new(0) }; HEADER_WORDS + CAPACITY as usize];
+        let queue = Queue::new(&words, false);
+        assert_eq!(queue.push(77, || panic!("standalone requested a generation")), Ok(1));
+        let (head, tail) = queue.batch();
+        assert_eq!((head, tail), (1, 0));
+        assert_eq!(queue.push(88, || 1), Ok(2));
+        assert_eq!(queue.read(tail), (77, 0));
+        queue.commit(tail + 1);
+        assert_eq!(head, 1, "the original batch excludes the later event");
+        assert_eq!(queue.batch(), (2, 1));
+        assert_eq!(queue.read(1), (88, 0));
+    }
+
+    #[test]
+    fn control_queue_publishes_events_with_their_generations_between_threads() {
+        use core::sync::atomic::AtomicU32;
+        use event_queue::{Queue, WORDS_WITH_GENERATIONS};
+        let words: [AtomicU32; WORDS_WITH_GENERATIONS] = [const { AtomicU32::new(0) }; WORDS_WITH_GENERATIONS];
+        let queue = Queue::new(&words, true);
+        let mut mismatch = None;
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                for n in 0..100_000u32 {
+                    while queue.push(n, || !n).is_err() { std::thread::yield_now(); }
+                }
+            });
+            let mut expected = 0u32;
+            while expected < 100_000 {
+                let (head, mut tail) = queue.batch();
+                while tail != head {
+                    let observed = queue.read(tail);
+                    if observed != (expected, !expected) && mismatch.is_none() {
+                        mismatch = Some((expected, observed));
+                    }
+                    expected += 1;
+                    tail = tail.wrapping_add(1);
+                    queue.commit(tail);
+                }
+                std::thread::yield_now();
+            }
+        });
+        assert_eq!(mismatch, None);
+    }
 
     fn paired_reverb_return() -> (Box<routing::DualEfxProcessor>, Box<routing::DualEfxProcessor>) {
         let mut actual = Box::new(routing::DualEfxProcessor::new());

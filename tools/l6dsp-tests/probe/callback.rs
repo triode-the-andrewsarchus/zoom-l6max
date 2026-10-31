@@ -21,6 +21,8 @@ mod parameter_view;
 mod parameters;
 #[cfg(inspector_probe)]
 mod inspector;
+#[cfg(inspector_probe)]
+mod event_queue;
 #[cfg(irq_trace)]
 mod irq;
 #[cfg(auto_handoff_probe)]
