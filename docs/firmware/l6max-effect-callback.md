@@ -3773,6 +3773,41 @@ The forced-failure build's corresponding hashes were
 `2e54ed34b9c458431cccac2cfe1bb6f17025b5e3b18f32865b98dad366f10ba0`.
 All firmware and runtime artifacts remain local.
 
+## Deferred inspector close under selector contention
+
+The QEMU-only combined inspector now invalidates queued inspector events and
+requests popup cleanup without waiting for the popup semaphore when stock
+selection closes the inspector. The display callback performs cleanup while
+holding its usual popup lock. Other close paths remain synchronous. This avoids
+adding a blocking popup-lock acquisition while the selector holds its stock
+semaphore; it does not establish the complete stock lock order.
+
+In an artificially contended run, an instrumented display callback held the
+popup lock for 3,000 ticks while a forced AINR selection ran. The selection
+returned and the inspector closed while the lock was still held; the lock was
+subsequently released and the stock AINR callback was selected. This does not
+prove all popup replacement races or timing behavior. The QEMU-only MAIN,
+popup ELF, effect ELF, recipe and result SHA-256 values were respectively
+`fde9f436de5cfa1ac3c68954d7f847661aad462e6170b6b9f552a8dbe5c385d3`,
+`a518cd5816915cd9b2a874894b1c8b4b9adae7c1ec864f1bb1d826f19b5380eb`,
+`6a2781b9a74a2f654700a41424e2d94c1d5a4758cbd17bd3a7cb651e6f970f74`,
+`32caf6ff3f3155f57a1d8a7879e35ab033bbebe927c43f65562aa35bb4f362ba`, and
+`ec9b35211ea389700b79b56eea2b321411c66c3ecbb872ed446f4ef1f81221ac`.
+
+A separate ordinary combined UI run exercised inspector edits, route changes,
+queue draining and mixer controls after closing. Its QEMU-only MAIN, popup ELF,
+effect ELF, recipe and result SHA-256 values were respectively
+`159a4c83c7569ba4886930ab953c9c33295cdb579ea00547794be0768e6142ff`,
+`3361d999fb0fd09fd2cb9b2c211940e5734040ff8e203cda48a1b0097782695a`,
+`e2da9d801e043935ee9ae96f66941e33ad947f02ad5ed4de43cbe6c30e62c26e`,
+`5fbf330bf30aaf99ab4d6879a1e4bd8707bc6f0224ee407fb2d2ba39f32f8061`, and
+`7236188c3211e2836489499f8312d680b7004975888dc6b753a38f5ef032cdb0`.
+Both runs used stock MAIN `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+and QEMU executable `53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`
+with unattested source provenance. Neither diagnostic image is suitable for
+hardware; the production dual-effect builder remains disabled.
+
 ## Evidence and limits
 
 A later control-path change applies Plateau decay, modulation-depth and
