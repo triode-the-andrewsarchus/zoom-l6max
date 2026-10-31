@@ -10,12 +10,11 @@ unsafe extern "C" {
     fn inspector_defer_cancel_hook();
     fn inspector_handoff_hook() -> u32;
     fn inspector_routes_hook() -> u32;
+    fn inspector_queue_hook() -> u32;
 }
 
 const QUEUE: usize = 0x83e00200;
 const INSPECTOR: usize = 0x83e00340;
-#[cfg(knob_inspector)]
-const QUEUE_GENERATIONS: usize = 0x83e02400;
 const SUMMARY: usize = 0x83e00400;
 #[cfg(not(knob_inspector))]
 const SAVED_PARAMETERS: usize = 0x83e03800;
@@ -71,6 +70,10 @@ pub unsafe fn initialize_routes(processor: &mut routing::DualEfxProcessor, entry
 }
 const CAPACITY: u32 = 64;
 const MAGIC: u32 = 0x47535431;
+// The sidecar queue has four header words, then CAPACITY event words and
+// CAPACITY generation words. The standalone queue has no generation array.
+const _: () = assert!(core::mem::size_of::<AtomicU32>() == 4
+    && core::mem::align_of::<AtomicU32>() == 4);
 
 #[repr(C)]
 struct UiState {
@@ -85,6 +88,13 @@ struct UiState {
 
 unsafe fn atomic(address: usize) -> &'static AtomicU32 {
     unsafe { &*(address as *const AtomicU32) }
+}
+
+unsafe fn queue() -> usize {
+    #[cfg(knob_inspector)]
+    { unsafe { inspector_queue_hook() as usize } }
+    #[cfg(not(knob_inspector))]
+    { QUEUE }
 }
 
 /// Close a live inspector when the observed selector enters another effect.
@@ -116,6 +126,7 @@ pub unsafe fn initialize(entry: u32, processor: *mut routing::DualEfxProcessor, 
             }
             // The queue lives outside the stock effect buffer. Pending edits
             // must survive a stock selection until a custom callback resumes.
+            #[cfg(not(knob_inspector))]
             if !initialized {
                 core::ptr::write(QUEUE as *mut AtomicU32, AtomicU32::new(0));
                 core::ptr::write((QUEUE + 4) as *mut AtomicU32, AtomicU32::new(0));
@@ -311,33 +322,45 @@ pub unsafe extern "C" fn inspector_knob(channel: u32, mode: u32, absolute: u32, 
             stock(channel, mode, absolute, delta, value);
             return;
         }
-        let head = atomic(QUEUE).load(Ordering::Relaxed);
-        let tail = atomic(QUEUE + 4).load(Ordering::Acquire);
+        let queue = queue();
+        if queue == 0 {
+            stock(channel, mode, absolute, delta, value);
+            return;
+        }
+        let head = atomic(queue).load(Ordering::Relaxed);
+        let tail = atomic(queue + 4).load(Ordering::Acquire);
         if head.wrapping_sub(tail) >= CAPACITY {
-            let dropped = (QUEUE + 8) as *mut u32;
-            core::ptr::write_volatile(dropped, core::ptr::read_volatile(dropped).wrapping_add(1));
+            let dropped = atomic(queue + 8).fetch_add(1, Ordering::Relaxed).wrapping_add(1);
+            #[cfg(knob_inspector)]
+            core::ptr::write_volatile((QUEUE + 8) as *mut u32, dropped);
+            #[cfg(not(knob_inspector))]
+            let _ = dropped;
             return;
         }
         let signed = delta.clamp(-8_388_608, 8_388_607) as u32 & 0x00ff_ffff;
         let encoded_channel = channel | if (*ui).routing_page { 0x80 } else if (*ui).velvet_bank { 0x40 } else { 0 };
         #[cfg(knob_inspector)]
-        core::ptr::write_volatile((QUEUE_GENERATIONS + ((head % CAPACITY) as usize) * 4) as *mut u32, inspector_generation_hook());
-        core::ptr::write_volatile((QUEUE + 16 + ((head % CAPACITY) as usize) * 4) as *mut u32, (signed << 8) | encoded_channel);
-        atomic(QUEUE).store(head.wrapping_add(1), Ordering::Release);
+        atomic(queue + 16 + (CAPACITY as usize + (head % CAPACITY) as usize) * 4).store(inspector_generation_hook(), Ordering::Relaxed);
+        atomic(queue + 16 + ((head % CAPACITY) as usize) * 4).store((signed << 8) | encoded_channel, Ordering::Relaxed);
+        atomic(queue).store(head.wrapping_add(1), Ordering::Release);
+        #[cfg(knob_inspector)]
+        core::ptr::write_volatile(QUEUE as *mut u32, head.wrapping_add(1));
     }
 }
 
 /// Apply at most eight queued events per callback; only the audio task touches DSP state.
 pub unsafe fn consume(processor: &mut routing::DualEfxProcessor) {
     unsafe {
-        let head = atomic(QUEUE).load(Ordering::Acquire);
-        let mut tail = atomic(QUEUE + 4).load(Ordering::Relaxed);
+        let queue = queue();
+        if queue == 0 { return; }
+        let head = atomic(queue).load(Ordering::Acquire);
+        let mut tail = atomic(queue + 4).load(Ordering::Relaxed);
         for _ in 0..8 {
             if tail == head { break; }
-            let item = core::ptr::read_volatile((QUEUE + 16 + ((tail % CAPACITY) as usize) * 4) as *const u32);
+            let item = atomic(queue + 16 + ((tail % CAPACITY) as usize) * 4).load(Ordering::Relaxed);
             let delta = (item as i32) >> 8;
             #[cfg(knob_inspector)]
-            let generation = core::ptr::read_volatile((QUEUE_GENERATIONS + ((tail % CAPACITY) as usize) * 4) as *const u32);
+            let generation = atomic(queue + 16 + (CAPACITY as usize + (tail % CAPACITY) as usize) * 4).load(Ordering::Relaxed);
             if item & 0x80 != 0 {
                 let strip = (item & 0x7f) as usize;
                 let routes = routes_ptr();
@@ -382,7 +405,9 @@ pub unsafe fn consume(processor: &mut routing::DualEfxProcessor) {
                 core::ptr::write_volatile(count, core::ptr::read_volatile(count).wrapping_add(1));
             }
             tail = tail.wrapping_add(1);
-            atomic(QUEUE + 4).store(tail, Ordering::Release);
+            atomic(queue + 4).store(tail, Ordering::Release);
+            #[cfg(knob_inspector)]
+            core::ptr::write_volatile((QUEUE + 4) as *mut u32, tail);
         }
     }
 }

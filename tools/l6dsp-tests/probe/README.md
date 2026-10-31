@@ -172,22 +172,24 @@ intermediate knob-only package, which the script removes; no combined update
 package is created.
 
 The combined experiment tags queued edits with the popup manager's current
-generation in QEMU-only scratch at `0x83e02400`. Closing or changing the
+generation. Closing or changing the
 inspector page cancels pending popup work; the audio callback applies an old
 edit but only publishes its notification if its generation still matches.
 The comparison and publication use the popup manager's critical section.
-This avoids relying on a separately published queue cutoff, but scratch
-ownership, all transition interleavings, generation wrap, and real-time
-effects of the popup synchronization remain unqualified.
+This avoids relying on a separately published queue cutoff, but all transition
+interleavings, generation wrap, and real-time effects of popup synchronization
+remain unqualified.
 
-The combined experiment keeps its 16 saved parameter words and 12 route
-words in the popup manager's heap sidecar. If that sidecar is unavailable,
+The combined experiment keeps its 16 saved parameter words, 12 route words,
+and 64-entry event queue with notification generations in the popup manager's
+heap sidecar. If that sidecar is unavailable,
 the inspector defers to normal button and encoder handlers and the selected
 effect uses its default routes. Pointers are recorded at QEMU-only scratch
-`0x83e07e00` and `0x83e07e04`; the route words at `0x83e00100` are only an
-observation mirror for this experiment. The queue, gesture state and other
-diagnostic words still use unowned scratch. The standalone inspector continues
-to use its scratch parameter and route mailboxes.
+`0x83e07e00`, `0x83e07e04`, and `0x83e07e0c`; the route words at
+`0x83e00100` and queue counters at `0x83e00200` are only observation mirrors
+for this experiment. Gesture state and other diagnostic words still use
+unowned scratch. The standalone inspector continues to use its scratch
+parameter, route, and event mailboxes.
 This does not qualify allocation lifetime, reset, exhaustion, concurrent
 selection, callback ownership, or the remaining scratch addresses on hardware.
 

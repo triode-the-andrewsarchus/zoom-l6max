@@ -3908,6 +3908,42 @@ result hashes were
 Sidecar lifetime and failure recovery, the event queue, gesture state,
 callback ownership, target timing and physical memory remain unqualified.
 
+The combined diagnostic now stores its event ring and notification-generation
+words in that sidecar as well. Its QEMU scratch counters are observation
+mirrors. In one run, 21 control edits were consumed, the queue ended at
+head 21, tail 21 and zero drops, the edited routes survived custom-effect
+switches, and a normal mixer turn changed 42 to 86 after closing the inspector.
+The observed sidecar queue was at `0x808cb6fc`; the tagged context was
+`0x808cb669`. The MAIN, effect ELF, popup ELF, recipe and result hashes were
+`d48aefd202c0cbd1df3aabdc008a00b6a2737fb601821166a38ce543b2a94156`,
+`1940b710e53ccb17fc5c5e23d02df302b9aa239a1f54e0163def29d351f1b976`,
+`1189474f6a8be0b1b413cab0fc08a1be2910633b7dccef247a8e137acd77d341`,
+`ce37df90e7f7fa438fdfe794ce177d928cfbe0cb0c583908910eb50534b4bc40`, and
+`91a2ca9a9b37b593f818778e8f00483e170f85608ed7ecf97086f3bdb6f9c1bf`.
+
+A separate disposable build forced the scratch head counter to `0xffffffff`
+before each encoder enqueue. It still consumed 11 edits and recorded the
+expected route changes, with heap head and tail both 11 and zero drops. Its
+MAIN, effect ELF, popup ELF, recipe and result hashes were
+`5907087faf537abea239d466cc28180bfe1c300a80a38c85899b908f9b03b5b4`,
+`0d9d353522511192dce0515ac51e46ddc8c6b065df218564c1e6c478d196f277`,
+`1189474f6a8be0b1b413cab0fc08a1be2910633b7dccef247a8e137acd77d341`,
+`1d76820b352cf9588d34e0bf7214892a618cbb5b4b36270b0aae84cc9bdcf05d`, and
+`572314da6b0c758de8c2737fdb5b9dd643c344daf150306d35fa5275489f2cc8`.
+The previous scratch-backed build with the same forced counter reached the
+first edit with eight drops and no consumed inspector edits; its corrupted
+head also caused the consumer to advance through scratch entries. Its shorter
+recipe and MAIN, effect ELF, popup ELF and result hashes were
+`85f5ac0fd6506d5c02672af063df0d946e7a096a7bbeee70facbfd8b1f77eb55`,
+`d8b39b26f98b2f4cab1708f870178043c77a246524c2d72aa1e3da53ff574bb9`,
+`2fe91837034c695908e3f4e9bbaebdb02f272066ec8585269d3e8bfc8885bbd5`,
+`4e5868d0f8f258d7ae6f7bea85c294f74cff0eaaecaa30e84a363179093cbe7f`, and
+`9cc0442ca57e92f76f5078e46d30b5b3f6b8218874a9178c62a6d7025e0eaf46`.
+These runs do not prove sidecar lifetime, the queue's single-producer
+assumption, overflow recovery, callback synchronization, target deadlines, or
+physical memory ownership. They used the stock MAIN, NOR and unattested QEMU
+executable identified above.
+
 The QEMU-only inspector now requests EFX mode through the stock mode handler
 when opened from another panel mode, and closes before another mode is
 selected. Nine observed direct calls to that handler are guarded and routed
