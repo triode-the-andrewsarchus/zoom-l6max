@@ -2530,10 +2530,20 @@ recorded one notification for Velvet amount 98% even though the inspector
 open flag was zero. This demonstrates an unwanted stale notification request,
 not a rendered popup. A disposable selection-boundary variant suppressed that
 request while still applying the edit in the same sequence. It has not been
-adopted: normal new edits, repeated selection, close/reopen races, concurrent
+adopted: repeated selection, close/reopen races, concurrent
 producer/consumer behavior and ownership of its two additional scratch words
 remain untested. Suppressing a notification at consume time also does not by
 itself cancel a notification already published before the inspector closed.
+
+In a further run of the suppression variant, the old edit was applied without
+a notification; opening the inspector then generated its page notification,
+and a fresh encoder edit generated a notification for Room predelay at 8 ms.
+The queue drained after both edits. This checks one sequential path using the
+counter hook, not actual popup rendering or concurrent event handling. The
+recipe and diagnostic result SHA-256 values were
+`fcc24e103f26d85471773ff78e24f18b1af1f0b70c4e063e26368949a1cfdbc8` and
+`b6ed03210b53295a6235a573382efd1e028d5dc3c94aaec36ba8f4f26515f228`;
+the diagnostic MAIN, ELF and fixtures matched the suppression variant below.
 
 The shared callback, preparer and linker SHA-256 values were
 `cdb66cb544f9776d4b6b5513752b71259874bc9ba703baa4e8e25e4557a62f94`,
