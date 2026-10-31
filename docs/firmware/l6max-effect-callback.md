@@ -1773,6 +1773,45 @@ It used the same stock MAIN, NOR and isolated QEMU as the preceding run.
 
 ## QEMU routing controls
 
+The diagnostic used to reset its route mailbox on every custom-effect
+selection. With a temporary raised-priority intervention and modeled input,
+a stress run edited routes, changed both parameter banks, closed the inspector
+and selected Spring; Spring reset all 12 routes to A. The diagnostic now
+initializes its unowned route mailbox only on the first custom selection and
+retains it on later selections. It still reinitializes DSP state and its event
+queue: parameter edits and effect tails can be lost. Reset behavior, ownership,
+and synchronization with in-flight callbacks remain unqualified.
+
+In a repeat of the active-input stress with that change, the edited route array
+survived the Room-to-Spring switch. The extended sequence then selected stock
+Delay but timed out before completing the remaining cycle; this is not a pass
+for active-audio effect cycling. A separate silent-input run without the
+priority intervention edited strip 1, selected Spring, cycled through Delay,
+Echo, AINR and Hall, and returned to Room. Its route array remained unchanged
+across both custom selections. These runs use disposable QEMU firmware and
+do not qualify hardware or effect state persistence.
+
+The active-input run used stock MAIN
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+and the PR-based modified QEMU executable
+`71bab061900eb23bc8dfb75b9c27c1ede40e873731c1e55c254c25b1cdb1adf8` from
+the panel comparison above. Its diagnostic callback, MAIN, ELF, recipe and
+result SHA-256 values were respectively
+`7922c2df26d3f52c91543497286d4e30bf0e771777c0c61c04171a785be5e083`,
+`c51a8f48aa9450e995424241c8b93cdbcbb818ede8fb417bbb62f0fb676df4cf`,
+`6a0583ca288784b55b156919380ad2c940883f32c7e2e9b78d401f6656876406`,
+`43ea578947694460ecd7da2753bbeec555564a58ddfecc56f3f4b8b6363c15f6`, and
+`c078c12620660c1e0f2cb628f7b0d2304c5cbb5cac9dddf2dc493600a8bba83c`.
+The silent-input run used the same stock MAIN and NOR, and QEMU executable
+`53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`.
+Its diagnostic MAIN, ELF, recipe and result hashes were
+`47bc4bbdcfbd9b5da00702f7b0d7907425e49b6d694ffd31dfe8495d4d1480ba`,
+`05c2fc65ef97ed71f95b9fbb28b4d055aa40b22627667cd9d0b419bb9ea1cec3`,
+`014e434b74def60afc8cd568646e962dbb11e4dcb815b24fb99395fb9a3c15f6`, and
+`3c2582df4175ee9d0460391f4fcb07337e11fe2ff5fc03c61241c4b1f519c72b`.
+The QEMU binaries' source provenance is unattested.
+
 On the stock MAIN, a GDB stop at `0x80036f8a` observed the EFX button call
 with `r0 = 6` and `r1 = 1` on press, then `r1 = 0` on release. A separate
 QEMU-only combined inspector experiment uses this guarded call to switch

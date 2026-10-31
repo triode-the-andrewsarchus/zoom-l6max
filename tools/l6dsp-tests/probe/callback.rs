@@ -41,6 +41,9 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
             unsafe { &mut *(0x80d00000 as *mut core::mem::MaybeUninit<routing::DualEfxProcessor>) };
         routing::DualEfxProcessor::initialize_in_place(storage);
         unsafe {
+            // The route mailbox is outside the stock effect buffer. Keep it
+            // across selections within this disposable emulator session.
+            let routes_initialized = core::ptr::read_volatile(0x83e00000 as *const u32) == 0x494e4954;
             #[cfg(inspector_probe)]
             inspector::initialize(entry as u32);
             #[cfg(irq_trace)]
@@ -48,10 +51,12 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
             core::ptr::write_volatile(0x83e00000 as *mut u32, 0x494e4954);
             core::ptr::write_volatile(0x83e00004 as *mut u32, entry as u32);
             core::ptr::write_volatile(0x83e00008 as *mut u32, 0);
-            // QEMU-only test mailbox. Room starts on B; Spring starts on A.
-            let route = if entry as usize == 0x2028b8dc { 2u32 } else { 1u32 };
-            for slot in 0..12 {
-                core::ptr::write_volatile((0x83e00100 as *mut u32).add(slot), route);
+            // Room starts on B and Spring on A only on the first selection.
+            if !routes_initialized {
+                let route = if entry as usize == 0x2028b8dc { 2u32 } else { 1u32 };
+                for slot in 0..12 {
+                    core::ptr::write_volatile((0x83e00100 as *mut u32).add(slot), route);
+                }
             }
             core::ptr::write_volatile(0x83e00140 as *mut u32, 0);
             #[cfg(effect_buffer_probe)]
