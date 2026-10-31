@@ -30,3 +30,21 @@ The send WAV, return WAV and report SHA-256 values were
 The recordings remain local and are not committed. A controlled isolation
 check, firmware identification and known mixer state are still needed before
 using this rig to compare hardware with the simulator or DSP implementation.
+
+The same physical connection enumerated as ZOOM `1686:08f5` at 12 Mbit/s,
+with a nine-byte configuration declaring zero interfaces. Linux consequently
+exposed no L6max audio or MIDI ports. For comparison, a disposable QEMU build
+changed the modeled `PORTSC` speed bits from high speed to full speed on
+connect and controller reset. The `l6test` headless `usb` case still passed
+and observed five interfaces and a 507-byte configuration. That experiment
+only changes the modeled register bits; it does not model physical USB
+negotiation or explain the physical connection's state. The device firmware
+identity remains unknown.
+
+The modified QEMU USB source, executable and scenario-result SHA-256 values
+were `289d77cd9df0e3ca717425bda93a95a82ec2333030636d0dcf6d4b6dc2ba69d6`,
+`ec3e724925cb39ddf78af06f1ced09433af323c15e338aee6390a05b87f7df25`, and
+`2e2581a21935d012fbcd011ce7d11c36de3cc6fe1d6f15f14fd2f4df61558936`.
+The emulator's build source provenance was not independently attested. The
+stock firmware package used in QEMU had SHA-256
+`4e20f92c9c5131ed082c0feec2b2d7d0445fb576296f11f6dace56a4fc0c9b47`.
