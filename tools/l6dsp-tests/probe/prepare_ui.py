@@ -12,7 +12,7 @@ import struct
 import subprocess
 import tomllib
 from thumb_branch import branch
-from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_mode_hooks
+from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_mode_hooks, install_panel_receive_hooks
 
 ROOT = Path(__file__).resolve().parents[3]
 PROBE = Path(__file__).resolve().parent
@@ -22,9 +22,12 @@ parser.add_argument("firmware", type=Path)
 parser.add_argument("state", type=Path)
 parser.add_argument("output", type=Path)
 parser.add_argument("--irq-timing", action="store_true", help="use the QEMU-only interrupt timing experiment")
+parser.add_argument("--ring-timing", action="store_true", help="use QEMU-only receive-slot timing and sequences")
 parser.add_argument("--active-sends", action="store_true", help="inject nonzero QEMU-only effect buses")
 parser.add_argument("--enqueue-trace", action="store_true", help="record panel events before enqueue")
 args = parser.parse_args()
+if args.irq_timing and args.ring_timing:
+    parser.error("--ring-timing excludes --irq-timing")
 out, main, nor = checked_inputs(parser, args.firmware, args.state, args.output)
 for name, expected in (
     ("payload.rs", "9034539aefa64cad6797570ad8de9da9dbe4d51718a81fa774da1ad478441488"),
@@ -103,6 +106,8 @@ probe_args = [
 ]
 if args.irq_timing:
     probe_args += ["--cfg", "irq_trace", "--cfg", "irq_timing"]
+if args.ring_timing:
+    probe_args += ["--cfg", "irq_trace", "--cfg", "ring_timing"]
 if args.active_sends:
     probe_args += ["--cfg", "active_sends"]
 if args.enqueue_trace:
@@ -113,24 +118,31 @@ subprocess.run(["llvm-objcopy", "-O", "binary", str(probe_elf), str(probe_blob)]
 probe_symbols = symbols(probe_elf)
 if probe_symbols.get("probe") != probe_base or not {"inspector_select", "inspector_knob", "inspector_mode"} <= probe_symbols.keys():
     raise ValueError("unexpected diagnostic effect symbols")
+if args.ring_timing and not {"inspector_tag_veneer", "inspector_rx_read"} <= probe_symbols.keys():
+    raise ValueError("missing diagnostic ring timing symbols")
 if probe_base + probe_blob.stat().st_size > 0x801a2ff8:
     raise ValueError("diagnostic payload exceeds application slot")
 image.extend(b"\xff" * (probe_base - 0x80000000 - len(image)))
 image.extend(probe_blob.read_bytes())
 hooks = [
     (0x80036c74, branch(0x80036c74, report["knob_changed"]), probe_symbols["inspector_knob"]),
-    (0x80036f28, bytes.fromhex("1df0bef9"), probe_symbols["inspector_select"]),
+    (0x80036f28, bytes.fromhex("1df0bef9"), probe_symbols["inspector_tag_veneer"] if args.ring_timing else probe_symbols["inspector_select"]),
 ]
+if args.enqueue_trace or args.ring_timing:
+    if "inspector_enqueue" not in probe_symbols:
+        raise ValueError("missing diagnostic selector enqueue symbol")
+    hooks.append((0x8004c606, bytes.fromhex("dbf73ffd"), probe_symbols["inspector_enqueue"]))
 if args.enqueue_trace:
     if not {"inspector_enqueue", "inspector_encoder_enqueue"} <= probe_symbols.keys():
         raise ValueError("missing diagnostic enqueue symbols")
-    hooks.append((0x8004c606, bytes.fromhex("dbf73ffd"), probe_symbols["inspector_enqueue"]))
     hooks.append((0x8004c55c, bytes.fromhex("dbf794fd"), probe_symbols["inspector_encoder_enqueue"]))
 for address, expected, target in hooks:
     offset = address - 0x80000000
     if image[offset:offset + 4] != expected:
         raise ValueError(f"inspector call site mismatch at {address:#x}")
     image[offset:offset + 4] = branch(address, target)
+if args.ring_timing:
+    install_panel_receive_hooks(image, probe_symbols.get("inspector_rx_read"))
 install_mode_hooks(image, probe_symbols.get("inspector_mode"))
 if image[0x107de6:0x107df0] != main[0x107de6:0x107df0]:
     raise ValueError("relocated veneer changed unexpectedly")
@@ -152,7 +164,7 @@ nor[0x50000:0x50000 + len(image)] = image
 seed = out / "recipe-seed"
 seed_args = ["python3", str(PROBE / "prepare.py"), str(args.firmware.resolve()),
              str(args.state.resolve()), str(seed), "--callback", "--inspector"]
-for enabled, flag in ((args.irq_timing, "--irq-timing"), (args.active_sends, "--active-sends"),
+for enabled, flag in ((args.irq_timing, "--irq-timing"), (args.ring_timing, "--ring-timing"), (args.active_sends, "--active-sends"),
                       (args.enqueue_trace, "--enqueue-trace")):
     if enabled:
         seed_args.append(flag)

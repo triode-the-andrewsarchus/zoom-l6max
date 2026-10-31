@@ -1,6 +1,22 @@
 //! QEMU-only inspector experiment. Scratch addresses and hooks are unqualified.
 use core::sync::atomic::{AtomicU32, Ordering};
 use crate::{controls, parameters, routing};
+// Diagnostic veneer: the observed dispatcher holds event word 3 in r9 and
+// the event pointer in r7. Neither this ABI nor the words are target-qualified.
+#[cfg(ring_timing)]
+core::arch::global_asm!(r#"
+    .syntax unified
+    .thumb
+    .section .text.inspector_tag_veneer,"ax",%progbits
+    .global inspector_tag_veneer
+    .thumb_func
+inspector_tag_veneer:
+    ldr r4, [r7, #16]
+    push {r4, lr}
+    mov r3, r9
+    bl inspector_select
+    pop {r4, pc}
+"#, options(raw));
 #[cfg(knob_inspector)]
 unsafe extern "C" {
     fn inspector_notify_hook(id: u32, bits: u32);
@@ -154,20 +170,43 @@ pub unsafe fn initialize(entry: u32, processor: *mut routing::DualEfxProcessor, 
     }
 }
 
-/// Diagnostic only: observe the panel event immediately before stock enqueue.
-#[cfg(enqueue_trace)]
+/// Diagnostic only: observe or tag the panel event before stock enqueue.
+#[cfg(any(enqueue_trace, ring_timing))]
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".text.inspector_enqueue")]
 pub unsafe extern "C" fn inspector_enqueue(a: u32, edge: u32, key: u32, d: u32, e: u32) -> u32 {
     let stock: unsafe extern "C" fn(u32, u32, u32, u32, u32) -> u32 = unsafe { core::mem::transmute(0x80028089usize) };
     unsafe {
         if a == 0 && edge <= 1 && key == 36 {
-            let count = core::ptr::read_volatile(0x83e00600 as *const u32);
-            if count < 32 {
-                let record = (0x83e00604 as *mut u32).add(count as usize * 2);
-                core::ptr::write_volatile(record, edge);
-                core::ptr::write_volatile(record.add(1), core::ptr::read_volatile(0x8020ab4c as *const u32));
-                core::ptr::write_volatile(0x83e00600 as *mut u32, count + 1);
+            #[cfg(enqueue_trace)]
+            {
+                let count = core::ptr::read_volatile(0x83e00600 as *const u32);
+                if count < 32 {
+                    let record = (0x83e00604 as *mut u32).add(count as usize * 2);
+                    core::ptr::write_volatile(record, edge);
+                    core::ptr::write_volatile(record.add(1), core::ptr::read_volatile(0x8020ab4c as *const u32));
+                    core::ptr::write_volatile(0x83e00600 as *mut u32, count + 1);
+                }
+            }
+            #[cfg(ring_timing)]
+            {
+                let (d, e) = if d == 0 && e == 0 {
+                    crate::ring_timing::tag(edge == 0, d)
+                } else {
+                    crate::ring_timing::reject_unexpected_event();
+                    (d, e)
+                };
+                #[cfg(any(ring_drop_pair, ring_drop_release))]
+                if custom_active() {
+                    let marker = 0x83e02c80 as *mut u32;
+                    let drop = match (core::ptr::read_volatile(marker), edge) {
+                        (0, 0) => { core::ptr::write_volatile(marker, 1); cfg!(ring_drop_pair) }
+                        (1, 1) => { core::ptr::write_volatile(marker, 2); true }
+                        _ => false,
+                    };
+                    if drop { return 0; }
+                }
+                return stock(a, edge, key, d, e);
             }
         }
         stock(a, edge, key, d, e)
@@ -212,7 +251,8 @@ fn custom_active() -> bool {
 
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".text.inspector_select")]
-pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u32 {
+pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32,
+    #[cfg(ring_timing)] tick: u32, #[cfg(ring_timing)] sequence: u32) -> u32 {
     let stock: unsafe extern "C" fn(u32, u32, u32) -> u32 = unsafe { core::mem::transmute(0x800542a9usize) };
     unsafe {
         let ui = INSPECTOR as *mut UiState;
@@ -245,14 +285,19 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
             return stock(arg0, arg1, event);
         }
         if event == 1 { s.arg0 = arg0; s.arg1 = arg1; }
-        #[cfg(not(irq_timing))]
+        #[cfg(not(any(irq_timing, ring_timing)))]
         let tick = core::ptr::read_volatile(0x8020ab4c as *const u32);
         #[cfg(irq_timing)]
         let Some(tick) = crate::irq::take(event == 1) else {
             s.gesture.cancel();
             return 0;
         };
-        match s.gesture.edge(event == 1, tick, 750) {
+        #[cfg(not(ring_timing))]
+        let action = s.gesture.edge(event == 1, tick, 750);
+        #[cfg(ring_timing)]
+        let action = s.gesture.sequenced_edge(event == 1, tick,
+            if crate::ring_timing::usable() { sequence } else { 0 }, 750);
+        match action {
             controls::EfxSelectAction::None => 0,
             controls::EfxSelectAction::SelectNext => {
                 if s.active {

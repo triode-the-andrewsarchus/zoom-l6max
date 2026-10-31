@@ -160,6 +160,28 @@ wrong gesture. The queue counters are captured at
 bounded trace across effect selections; overflow recovery remains unresolved.
 Neither this experiment nor its scratch memory is target-safe.
 
+`--ring-timing` is a separate QEMU-only experiment. It tags selector events
+with a tick and nonzero sequence associated with the observed receive-ring
+slot, and cancels a pending gesture on a sequence gap or detected fault. It
+guards four observed byte-read calls and latches a fault if the ring identity,
+capacity or available space violates its assumptions, or if a pending slot
+has been skipped or is about to be overwritten. State begins at
+`0x83e02800`; this is unowned scratch memory. The modified event words,
+interrupt masking, ring ownership and timing are unqualified on hardware.
+It does not detect bytes lost before the interrupt or establish that the four
+sites cover every possible consumer. Overflow recovery requires a fresh run.
+The first ten state words are magic, fault, ring pointer, record head/tail,
+last-tag valid/tick/edge/sequence, and the last assigned sequence. Faults 1–3
+cover an invalid or changed ring, 4–5 a full ring or record queue, 6 an
+unexpected stock event, 7 a skipped record, and 8 a pending-slot overwrite.
+
+Use `--ring-timing --ring-drop pair` or `--ring-timing --ring-drop release`
+with `--callback --inspector` to inject one missing selector pair or release
+into a disposable guest. The generated short scenario records `loss_injected`,
+`loss_ui`, `loss_selected` and `ring_timing`; a completed scenario alone does
+not assert the expected values. The combined popup builder also accepts
+`--ring-timing`, but not the forced-loss options.
+
 For the prepared fixture identified in the investigation, the expected
 captured values are `26.0 ms` for Plateau and `84.0 %` for Velvet, followed
 by `28.0 ms` and `86.0 %` when revisiting them. The mixer send changes

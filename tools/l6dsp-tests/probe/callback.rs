@@ -25,6 +25,8 @@ mod inspector;
 mod event_queue;
 #[cfg(irq_trace)]
 mod irq;
+#[cfg(ring_timing)]
+mod ring_timing;
 #[cfg(auto_handoff_probe)]
 mod auto_handoff;
 #[cfg(any(hybrid_ainr_probe, boundary_ainr_probe))]
