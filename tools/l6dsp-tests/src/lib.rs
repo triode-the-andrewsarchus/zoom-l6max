@@ -1009,6 +1009,19 @@ mod tests {
             for _ in 1..d { engine.process_sample(0.0, 0.0); }
             let (left, _) = engine.process_sample(0.0, 0.0);
             assert_eq!(left.to_bits(), math::soft_clip(0.125).to_bits(), "delay={delay}");
+
+            // The aligned two-history path must apply the same wrap to both
+            // the direct and cascaded sends, including malformed tap values.
+            engine.reset();
+            let bank = &mut engine.channels[0].banks[engine.active_bank];
+            bank.count = 1;
+            bank.storage[0] = velvet::Tap { delay, gain: 0.5 };
+            let mut cascade = velvet::MonoHistory::new();
+            engine.process_shared_mono(&mut cascade, 0.25, -0.5);
+            for _ in 1..d { engine.process_shared_mono(&mut cascade, 0.0, 0.0); }
+            let ((direct, _), (cascaded, _)) = engine.process_shared_mono(&mut cascade, 0.0, 0.0);
+            assert_eq!(direct.to_bits(), math::soft_clip(0.125).to_bits(), "direct delay={delay}");
+            assert_eq!(cascaded.to_bits(), math::soft_clip(-0.25).to_bits(), "cascade delay={delay}");
         }
     }
 
