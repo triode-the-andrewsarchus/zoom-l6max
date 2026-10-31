@@ -2194,6 +2194,35 @@ and engine trace SHA-256 values were respectively
 `cb46e9fa510dc72f98922658b247bde06fd65826d74ac53cae55c097fb2d8776`.
 The stock MAIN, NOR and QEMU identities matched the preceding experiments.
 
+A fresh debugger snapshot with the packet pending showed `UartMidiSendMsg` at
+priority 18 on the observed priority-18 ready list (`0x808a3c5c`) with no
+event-list wait. `AudioProcess` was on the priority-30 ready list and current;
+the MIDI wake semaphore held one signal, and the packet ring was `(9, 6)`.
+This supports a ready-task scheduling delay in that snapshot, not a proof of
+continuous starvation or physical timing. In a separate disposable run,
+the diagnostic checked the MIDI task name and priority before raising it from
+18 to 31 after the third enqueue. The queue then reached `(9, 9)` and the
+modeled UART emitted `b0 75 40` after the two Room messages. This intervention
+also changes scheduling and is not a recommended target priority: audio,
+other tasks, interrupts and deadlines remain unqualified.
+
+The snapshot recipe, result, debugger script and log SHA-256 values were
+`22fcdc106ad657438a85470617fd088a6d36ffb8753272ce8459ade227f764f0`,
+`7e3d841d5359956a36df22f884c7caa6299a434b36dfcc3834377d53adbf7fd9`,
+`779494cec9ab602f1b23292ffbfe427f814c9cae6e980c2cc03e856490599460`, and
+`82deff655ec87f120d6ce3420b0a9a97fd0ba40ab782d3ff0d2be102bb0571f9`.
+The priority variant's callback, preparer, linker, MAIN, ELF, recipe, result
+and trace hashes were respectively
+`818c1f863cbca6e9557c51ede5865f726be6973b8c395fde6aae71f336ff1e4e`,
+`74ce6243b32c278743a3926a55a8bd28610e6b247f1c582cf22ad12954c1e6f2`,
+`0b07e9ac9ccb7ddfaff6980cac90e40426e4bcb7463bc21c3d07f778f83ee487`,
+`6ddf31e97438eaba5124c8f122d11392a4bc05ad62bfb6a29f3c5171a15477d3`,
+`d6fc74bb9cff3455a88de05b8454528e90c374e3644914f9927c6b57314320fa`,
+`87aa817fe7aebd41d76a2d6bf655d058cf82ab50eb6971dbdabb1101985cb070`,
+`509e6260706f112b9f2b0ea17d1b48a0a301cea792e78a825f2178d0c8d85f98`, and
+`c1b20b774ec00b6273564727394f4f8436185c107ab5000b14e5dd2c2d0e1311`.
+Stock MAIN, NOR and QEMU identities matched the preceding experiments.
+
 The QEMU-only interrupt-timestamp hook now initializes its decoder and queue
 only on first installation. On subsequent custom selections, it preserves
 pending edges if both hook words and the veneer match; a mismatch marks the
