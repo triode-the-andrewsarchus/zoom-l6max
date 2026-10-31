@@ -607,6 +607,35 @@ mod tests {
     }
 
     #[test]
+    fn efx_select_sequence_gaps_discard_unfinished_gestures() {
+        use controls::EfxSelectAction as Action;
+        let mut gesture = controls::EfxSelectGesture::default();
+        let events = [
+            // An ordinary short press.
+            (true, 100, 1, Action::None), (false, 250, 2, Action::SelectNext),
+            // The first release is lost; the next press starts afresh.
+            (true, 1000, 3, Action::None), (true, 3000, 5, Action::None),
+            (false, 3150, 6, Action::SelectNext),
+            // A lost release and following press cannot create a hold.
+            (true, 4000, 7, Action::None), (false, 6000, 10, Action::None),
+            (true, 7000, 11, Action::None), (false, 8500, 12, Action::ToggleInspector),
+            // An unassociated event cancels; tick and sequence can wrap.
+            (true, 9000, 13, Action::None), (false, 10000, 0, Action::None),
+            (true, u32::MAX - 99, u32::MAX, Action::None),
+            (false, 650, 1, Action::ToggleInspector),
+        ];
+        for (pressed, tick, sequence, expected) in events {
+            assert_eq!(gesture.sequenced_edge(pressed, tick, sequence, 750), expected,
+                "unexpected gesture for sequence {sequence}");
+        }
+        // Switching between tagged and untagged sources cannot reuse a press.
+        assert_eq!(gesture.sequenced_edge(true, 100, 2, 750), Action::None);
+        assert_eq!(gesture.edge(false, 1000, 750), Action::None);
+        assert_eq!(gesture.edge(true, 2000, 750), Action::None);
+        assert_eq!(gesture.sequenced_edge(false, 3000, 3, 750), Action::None);
+    }
+
+    #[test]
     fn panel_efx_decoder_requires_complete_matching_frames() {
         let mut decoder = controls::PanelEfxDecoder::default();
         let bytes = [0x91, 4, 6, 0x90, 4, 6, 0x91, 3, 6, 0x91, 4, 0xe1,
