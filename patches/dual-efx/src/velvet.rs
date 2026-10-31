@@ -12,6 +12,7 @@ use super::math::*;
 pub const SAMPLE_RATE: f32 = 48000.0;
 pub const MAX_DELAY_SAMPLES: usize = 4802; // Up to 100 ms at 48 kHz
 pub const MAX_TAPS: usize = 64; // Plenty for 30–60 taps
+const AMOUNT_FADE_SAMPLES: u32 = 64;
 
 #[cold]
 #[inline(never)]
@@ -200,6 +201,9 @@ pub struct VelvetDecorrelator {
     // A filter edit during a crossfade is applied after that crossfade ends.
     pub filter_update_pending: bool,
     pub active_transition_samples: usize,
+    amount_current: f32,
+    amount_step: f32,
+    amount_remaining: u32,
     build: BankBuild,
 }
 
@@ -228,6 +232,9 @@ impl VelvetDecorrelator {
             transitioning: false,
             filter_update_pending: false,
             active_transition_samples: 12000,
+            amount_current: 1.0,
+            amount_step: 0.0,
+            amount_remaining: 0,
             build: BankBuild::new(),
         }
     }
@@ -252,6 +259,10 @@ impl VelvetDecorrelator {
             || params.density != self.current.density
             || params.decay_db != self.current.decay_db
             || params.seed != self.current.seed;
+        if params.amount != self.current.amount {
+            self.amount_step = (params.amount - self.amount_current) / AMOUNT_FADE_SAMPLES as f32;
+            self.amount_remaining = AMOUNT_FADE_SAMPLES;
+        }
         let initialized = self.channels[0].banks[0].count != 0;
         self.current = params;
         self.current_tail_samples = clamp_usize(
@@ -285,6 +296,9 @@ impl VelvetDecorrelator {
     /// Clears history and rebuilds both banks for the current parameters.
     /// Bank generation is not suitable for a real-time audio callback.
     pub fn reset(&mut self) {
+        self.amount_current = self.current.amount;
+        self.amount_step = 0.0;
+        self.amount_remaining = 0;
         self.start_build(0, 0);
         while self.build.phase != 0 {
             self.build_step();
@@ -441,6 +455,7 @@ impl VelvetDecorrelator {
     /// Processes a single stereo frame (in_l, in_r) -> (out_l, out_r).
     #[inline(always)]
     pub fn process_sample(&mut self, in_l: f32, in_r: f32) -> (f32, f32) {
+        let amount = self.advance_amount();
         let (old_weight, new_weight) = self.transition_weights();
 
         let inputs = [
@@ -471,7 +486,7 @@ impl VelvetDecorrelator {
             };
 
             // In an Aux Send bus effect, return pure wet scaled by amount, soft-clipped to [-1.0, 1.0].
-            outputs[c] = soft_clip(wet * self.current.amount);
+            outputs[c] = soft_clip(wet * amount);
         }
 
         for c in 0..2 {
@@ -493,6 +508,7 @@ impl VelvetDecorrelator {
         in_a: f32,
         in_b: f32,
     ) -> ((f32, f32), (f32, f32)) {
+        let amount = self.advance_amount();
         let (old_weight, new_weight) = self.transition_weights();
         let input_a = audio_input(in_a);
         let input_b = audio_input(in_b);
@@ -515,13 +531,26 @@ impl VelvetDecorrelator {
                 wa = old_weight * wa + new_weight * na;
                 wb = old_weight * wb + new_weight * nb;
             }
-            out_a[c] = soft_clip(wa * self.current.amount);
-            out_b[c] = soft_clip(wb * self.current.amount);
+            out_a[c] = soft_clip(wa * amount);
+            out_b[c] = soft_clip(wb * amount);
             ca.write_position = if wp + 1 >= MAX_DELAY_SAMPLES { 0 } else { wp + 1 };
         }
         history.advance();
         self.advance_filter();
         ((out_a[0], out_a[1]), (out_b[0], out_b[1]))
+    }
+
+    #[inline(always)]
+    fn advance_amount(&mut self) -> f32 {
+        if self.amount_remaining != 0 {
+            self.amount_remaining -= 1;
+            if self.amount_remaining == 0 {
+                self.amount_current = self.current.amount;
+            } else {
+                self.amount_current += self.amount_step;
+            }
+        }
+        self.amount_current
     }
 
     // Progress a fade and prepare future taps without exposing a partial bank.
