@@ -1950,6 +1950,35 @@ recipe and result SHA-256 values were respectively
 `e349b82b688ccbd789de12e961a13e5d818f0c95a73297cccf5398ae895be388`, and
 `39222f2ef02dd4a0ab3550436df19e3ee2eedafd6f0c218bc0ac913aee3b31d6`.
 
+A follow-up inspected the modeled SAI1 transmit DMA after the same forced
+timeout. Channel 14's observed descriptor had source `0x2000a720`, 32-byte
+minor loops, current count 1 and initial count 128; this identifies the
+4,096-byte source block beginning at `0x20009740` for that snapshot. With
+continuous synthetic sends, captures of that block before, after and two
+guest seconds after timeout each contained 768 nonzero 32-bit words. A
+separate control forced the diagnostic callback output to zero after the
+timeout: its pre-timeout block also had 768 nonzero words, but both later
+captures contained only zero words. The subsequent press selected the stock
+effect in both runs. This supports propagation of the restored diagnostic
+effect to the modeled transmit buffer for this sequence; it does not prove
+physical jack routing, audible continuity, or correctness under other timing
+and failure conditions. Captures and the control alter emulator scheduling.
+
+The source-location probe's recipe and result SHA-256 values were
+`63f0808453c07a9f71a2a89ae1cef950bab0ac869e938bca5dab4508c858b895` and
+`8624abb19d4592d01bc300c416c3be46372a33fd7b215b4cbc3beb278f2b1358`.
+The nonzero capture used the preceding active-sends MAIN and ELF; its recipe
+and result hashes were
+`ddc63b8474e632197c9b2215e10187f4be6bcba5778a96262c755f793ae0bff9` and
+`3aae9d379aa2d073f9d4194a440942640495b06b700f18a91c11f7e31a510de5`.
+The silent control's callback, MAIN, ELF, recipe and result hashes were
+`e48c4b443140ab949b510f3bb7f40a73f9fd3fae2956ffb12f046c031098c764`,
+`8a576a3605837533fa783ba0e3999443768d8f3ab381048428fbdcc3f6abf0a5`,
+`14ab0f9a45a66709669defcf5bb06906a381c2e2196f262d96de575b4351b1fe`,
+`984122a6c5eb0c400c397263cfb2dfde5a89522dff91f35c24057c3045589e53`, and
+`0e46ae94ef7b8f37f172d85c1c136f8f231262a1aef8adca08703b96921b78ca`.
+Both captures used the preceding preparer, linker, stock MAIN, NOR and QEMU.
+
 The QEMU-only interrupt-timestamp hook now initializes its decoder and queue
 only on first installation. On subsequent custom selections, it preserves
 pending edges if both hook words and the veneer match; a mismatch marks the
