@@ -2569,6 +2569,20 @@ this is not a physical UI or renderer test. The extension remains unadopted:
 the cutoff and flag can race with the consumer or another transition, already
 published notifications are not canceled, and the extra scratch is unowned.
 
+The cutoff protocol has a concrete possible lost-clear interleaving. Suppose
+the UI reads head 1 and tail 0 and stores cutoff 1 while suppression is clear.
+If audio then consumes that event before the UI stores its flag, audio can
+publish the old notification and advance tail to 1. The UI can subsequently
+store the flag as set using its stale tail 0 observation. A later event starts
+at tail 1, advances it to 2, and cannot clear cutoff 1; its notification is
+suppressed. This is a source-level interleaving, not an observed hardware
+trace. The stock QEMU observations above put `Main` at priority 12 and
+`AudioProcess` at priority 30; the research catalog identifies DisplayCycle2
+at priority 14. That priority ordering is consistent with audio interrupting
+the UI transition and the display task running before Main resumes. A fix
+must synchronize notification validity and cancellation, not just sample two
+queue counters and publish a separate flag.
+
 The extended inspector, diagnostic MAIN, ELF, recipe and result SHA-256 values
 were `43dd1b397519d4de6a663c03ba4d075d1b7ed6a41c975176182c3fe314e53c32`,
 `3c1cdbce678f28d8d349f9b87ed83b0bffb585373206f1e8c3824af6a2a5601a`,
