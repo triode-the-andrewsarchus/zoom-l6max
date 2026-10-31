@@ -10,9 +10,13 @@ import numpy as np
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--tap-file', type=Path, help='optional channel, index, delay, gain text from the Rust generator')
+parser.add_argument('--partition', type=int, choices=(256, 512), default=256,
+                    help='tail partition size in frames (default: 256)')
+parser.add_argument('--build-ffts', type=int, choices=(1, 2), default=2,
+                    help='maximum bank-rebuild FFTs per callback (default: 2)')
 args = parser.parse_args()
 
-B = 256
+B = args.partition
 HEAD = 2 * B
 TAIL = 4560
 TAPS = 285
@@ -67,40 +71,44 @@ previous = np.zeros((2, B), np.float32)
 actual = np.zeros((2, 2, 2, N), np.float32)
 tail_ready = np.zeros((2, 2, 2, 2, B), np.float32)
 tail_epoch = np.zeros((2, 2, 2, 2), np.int32)
-edit_points = {(9, 1): 0, (11, 2): 1}
+edit_points = {(9, 1): 0, (9, 3): 1}
 epoch = 0
-build_part = None
+build_job = None
 completed_at = None
 published_at = None
+skipped_pending_outputs = 0
 for block in range(N // B):
     base = block * B
     # Publish only at a block boundary, after all four pending outputs for
     # this block were calculated against the complete latest spectrum.
     if completed_at is not None and published_at is None and np.all(tail_epoch[block % 2, 1] == epoch):
         published_at = base
-    for quarter in range(4):
-        begin = base + quarter * 64
+    slots = B // 64
+    for slot in range(slots):
+        begin = base + slot * 64
         end = begin + 64
-        if (block, quarter) in edit_points:
-            candidate = edit_points[block, quarter]
+        if (block, slot) in edit_points:
+            candidate = edit_points[block, slot]
             if candidate == 1:
-                assert build_part is not None and published_at is None
+                assert build_job is not None and published_at is None
             epoch += 1
-            build_part = 2
+            build_job = 0
             completed_at = None
-        if build_part is not None:
-            # One partition per channel per callback; an interrupted build
-            # is restarted and may not be published in its partially built state.
-            for ch in range(2):
+        if build_job is not None:
+            # An interrupted build is restarted and may not publish partial spectra.
+            for _ in range(args.build_ffts):
+                ch = build_job % 2
+                part = 2 + build_job // 2
                 window = np.zeros(2 * B, np.float32)
-                taps = replacements[candidate, ch, build_part*B:(build_part+1)*B]
+                taps = replacements[candidate, ch, part*B:(part+1)*B]
                 window[:len(taps)] = taps
-                freq[1, ch, build_part-2] = np.fft.rfft(window)
-            build_part += 1
-            if build_part == P:
-                kernels[1] = replacements[candidate]
-                build_part = None
-                completed_at = begin
+                freq[1, ch, part-2] = np.fft.rfft(window)
+                build_job += 1
+                if build_job == 2*(P-2):
+                    kernels[1] = replacements[candidate]
+                    build_job = None
+                    completed_at = begin
+                    break
         for bank in range(2):
             for ch in range(2):
                 head = kernels[bank, ch, :HEAD]
@@ -108,25 +116,32 @@ for block in range(N // B):
                     past = signals[bus, max(0, begin-HEAD+1):end]
                     head_full = np.convolve(past, head)
                     offset = begin - max(0, begin-HEAD+1)
-                    actual[bank, ch, bus, begin:end] = tail_ready[block % 2, bank, ch, bus, quarter*64:(quarter+1)*64] + head_full[offset:offset+64]
-        # Compute two full outputs per 64-frame callback. All required input
+                    actual[bank, ch, bus, begin:end] = tail_ready[block % 2, bank, ch, bus, slot*64:(slot+1)*64] + head_full[offset:offset+64]
+        # Spread all eight bank/channel/bus outputs across the callbacks. Input
         # spectra for block+1 are already available before this block starts.
         future = block + 1
-        for output_index in range(quarter*2, quarter*2+2):
+        for output_index in range(slot*8//slots, (slot+1)*8//slots):
             bank = output_index // 4
             ch = output_index // 2 % 2
             bus = output_index % 2
+            # An incomplete pending bank is inaudible and must not consume
+            # a transform slot or leave an apparently usable tail behind.
+            if bank == 1 and build_job is not None:
+                tail_epoch[future % 2, bank, ch, bus] = -1
+                skipped_pending_outputs += 1
+                continue
             accum = np.zeros(B + 1, dtype=np.complex64)
             for part in range(2, min(future, P-1) + 1):
                 accum += freq[bank, ch, part-2] * xhist[bus, (future-part) % (P-2)]
             tail_ready[future % 2, bank, ch, bus] = np.fft.irfft(accum, n=2*B)[B:]
-            tail_epoch[future % 2, bank, ch, bus] = epoch if bank == 1 and build_part is None else (-1 if bank == 1 else 0)
+            tail_epoch[future % 2, bank, ch, bus] = epoch if bank == 1 else 0
     for bus in range(2):
         xhist[bus, block % (P-2)] = np.fft.rfft(np.r_[previous[bus], signals[bus, base:base+B]])
         previous[bus] = signals[bus, base:base+B]
 
 assert epoch == 2 and completed_at is not None and published_at is not None
-assert published_at > completed_at >= 11*B + 2*64
+assert skipped_pending_outputs > 0
+assert published_at > completed_at >= 9*B + 3*64
 reference = np.empty_like(actual)
 for bank in range(2):
     for ch in range(2):
@@ -155,7 +170,8 @@ assert np.any(actual[0, :, :, 0] != 0)
 print(f'block={B} partitions={P} taps={TAPS} frames={N}')
 print('max_bank_error', float(np.max(error)), 'max_crossfade_error', float(np.max(np.abs(mixed-expected))))
 print('head_taps', [[int(np.count_nonzero(kernels[bank,ch,:HEAD])) for ch in range(2)] for bank in range(2)])
-print('complex_MAC_per_64', 2*(P-2)*(B+1))
-print('rebuild_forward_FFTs_per_64', 2)
+print('complex_MAC_per_64', (8//(B//64))*(P-2)*(B+1))
+print('max_rebuild_forward_FFTs_per_64', args.build_ffts)
+print('skipped_pending_outputs', skipped_pending_outputs)
 print('replacement_build_completed_frame', completed_at, 'published_frame', published_at)
 print('prototype_spectra_bytes', freq.nbytes, 'input_spectra_bytes', xhist.nbytes, 'tail_ready_bytes', tail_ready.nbytes)
