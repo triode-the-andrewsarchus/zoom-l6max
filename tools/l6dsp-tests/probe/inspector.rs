@@ -348,7 +348,7 @@ pub unsafe extern "C" fn inspector_knob(channel: u32, mode: u32, absolute: u32, 
 pub unsafe fn consume(processor: &mut routing::DualEfxProcessor) {
     unsafe {
         let Some(queue) = queue() else { return; };
-        let (head, mut tail) = queue.batch();
+        let Some((head, mut tail)) = queue.batch() else { return; };
         for _ in 0..8 {
             if tail == head { break; }
             let (item, generation) = queue.read(tail);

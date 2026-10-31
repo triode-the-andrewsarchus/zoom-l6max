@@ -3959,6 +3959,28 @@ effect ELF, popup ELF, recipe and result hashes were
 The same fixture and unattested QEMU identities apply. Full-queue edits are
 still dropped, and the target-side assumptions remain unqualified.
 
+The diagnostic consumer now rejects a head/tail distance greater than the
+64-entry capacity, rather than reading from an impossible batch. Host tests
+cover invalid indices, wrapped indices and a valid full ring. In a controlled
+QEMU test, writing head 65 with tail 0 left the guarded tail at 0; the earlier
+build advanced the tail to 65. After the test explicitly restored both indices
+to zero, a new encoder edit was consumed in both builds. This check cannot
+detect all corruption and does not repair the queue automatically. The guarded
+MAIN, effect ELF, popup ELF, recipe and result hashes were
+`d4bce9b4180e6adfc0789b9f13f91b048811d6b062a6848140b535974e34b8d6`,
+`e00ec41df4737fb4019ef196f05b6836f246ba47fa26786ebf49bfd98fd33996`,
+`1189474f6a8be0b1b413cab0fc08a1be2910633b7dccef247a8e137acd77d341`,
+`125ee1ea7844c1e9de1e44a122a41d2349c81e82f24be607e455e4e416069abf`, and
+`086c5a77bc1bf98e1a3f090f38356300a73bd99c03538df71ae29d0d0c68e697`.
+The prior MAIN, effect ELF, popup ELF, recipe and result hashes were
+`d2c4164ab2ba6ed624a78d79ab1631b48f0ba14bf9e60d5542b9a888332e961e`,
+`e86eb20212f113f2dd1581ee61c113d5374a130fe6b12e3b6178a2a9b5dcf1a4`,
+`1189474f6a8be0b1b413cab0fc08a1be2910633b7dccef247a8e137acd77d341`,
+`2250cb50ae57ed3efbac125115187f4cd6dbb64d1843d0f31112cb5f75e3465e`, and
+`301af1e9d6d64b0155bcafb7a004ebf607f4788b900e9741bb64f5212535181c`.
+Both tests used the preceding stock MAIN, NOR and unattested QEMU executable;
+debugger writes and stops make them controlled observations, not timing tests.
+
 The QEMU-only inspector now requests EFX mode through the stock mode handler
 when opened from another panel mode, and closes before another mode is
 selected. Nine observed direct calls to that handler are guarded and routed

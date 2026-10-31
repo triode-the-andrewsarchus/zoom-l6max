@@ -32,7 +32,7 @@ mod tests {
             assert_eq!(queue.push(n, || n ^ 0x55aa), Ok(start.wrapping_add(n + 1)));
         }
         assert_eq!(queue.push(999, || panic!("full queue requested generation")), Err(1));
-        let (head, mut tail) = queue.batch();
+        let (head, mut tail) = queue.batch().unwrap();
         for n in 0..CAPACITY {
             assert_ne!(tail, head);
             assert_eq!(queue.read(tail), (n, n ^ 0x55aa));
@@ -52,14 +52,31 @@ mod tests {
             [const { AtomicU32::new(0) }; HEADER_WORDS + CAPACITY as usize];
         let queue = Queue::new(&words, false);
         assert_eq!(queue.push(77, || panic!("standalone requested a generation")), Ok(1));
-        let (head, tail) = queue.batch();
+        let (head, tail) = queue.batch().unwrap();
         assert_eq!((head, tail), (1, 0));
         assert_eq!(queue.push(88, || 1), Ok(2));
         assert_eq!(queue.read(tail), (77, 0));
         queue.commit(tail + 1);
         assert_eq!(head, 1, "the original batch excludes the later event");
-        assert_eq!(queue.batch(), (2, 1));
+        assert_eq!(queue.batch(), Some((2, 1)));
         assert_eq!(queue.read(1), (88, 0));
+    }
+
+    #[test]
+    fn control_queue_rejects_impossible_indices_without_consuming() {
+        use core::sync::atomic::{AtomicU32, Ordering};
+        use event_queue::{Queue, CAPACITY, WORDS_WITH_GENERATIONS};
+        let words: [AtomicU32; WORDS_WITH_GENERATIONS] = [const { AtomicU32::new(0) }; WORDS_WITH_GENERATIONS];
+        let queue = Queue::new(&words, true);
+        for (head, tail) in [(65, 0), (0, 1), (u32::MAX, 0), (32, u32::MAX - 32)] {
+            words[0].store(head, Ordering::Relaxed);
+            words[1].store(tail, Ordering::Relaxed);
+            assert_eq!(queue.batch(), None, "head {head}, tail {tail}");
+            assert_eq!(words[1].load(Ordering::Relaxed), tail);
+        }
+        words[0].store(32, Ordering::Relaxed);
+        words[1].store(32u32.wrapping_sub(CAPACITY), Ordering::Relaxed);
+        assert_eq!(queue.batch(), Some((32, 32u32.wrapping_sub(CAPACITY))));
     }
 
     #[test]
@@ -77,7 +94,7 @@ mod tests {
             });
             let mut expected = 0u32;
             while expected < 100_000 {
-                let (head, mut tail) = queue.batch();
+                let (head, mut tail) = queue.batch().unwrap();
                 while tail != head {
                     let observed = queue.read(tail);
                     if observed != (expected, !expected) && mismatch.is_none() {
