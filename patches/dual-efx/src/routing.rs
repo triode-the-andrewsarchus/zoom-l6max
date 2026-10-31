@@ -8,6 +8,7 @@ use super::velvet::{MonoHistory, Parameters as VelvetParameters, VelvetDecorrela
 
 pub const MAX_CHANNELS: usize = 12; // Four mono strips and four paired strips.
 pub const BLOCK_SIZE: usize = 64; // Max block size processed per callback
+const CASCADE_FADE_SAMPLES: u32 = 64;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[repr(u8)]
@@ -118,6 +119,10 @@ pub struct DualEfxProcessor {
 
     // Global cascade amount (0.0 to 1.0) for SendAtoB channels
     pub cascade_gain: f32,
+    cascade_current: f32,
+    cascade_target: f32,
+    cascade_step: f32,
+    cascade_remaining: u32,
     // Effect return levels
     pub return_gain_a: f32,
     pub return_gain_b: f32,
@@ -135,6 +140,10 @@ impl DualEfxProcessor {
             channel_routing: [RoutingMode::Neither; MAX_CHANNELS],
             channel_send: [0.0; MAX_CHANNELS],
             cascade_gain: 1.0,
+            cascade_current: 1.0,
+            cascade_target: 1.0,
+            cascade_step: 0.0,
+            cascade_remaining: 0,
             return_gain_a: 1.0,
             return_gain_b: 1.0,
             pre_ainr_enabled: false,
@@ -163,6 +172,10 @@ impl DualEfxProcessor {
         self.channel_routing.fill(RoutingMode::Neither);
         self.channel_send.fill(0.0);
         self.cascade_gain = 1.0;
+        self.cascade_current = 1.0;
+        self.cascade_target = 1.0;
+        self.cascade_step = 0.0;
+        self.cascade_remaining = 0;
         self.return_gain_a = 1.0;
         self.return_gain_b = 1.0;
         self.pre_ainr_enabled = false;
@@ -206,6 +219,34 @@ impl DualEfxProcessor {
                 level
             };
         }
+    }
+
+    // Only live encoder edits request a fade. Direct field writes retain their
+    // existing immediate behavior, including initialization and restoration.
+    pub(crate) fn set_cascade_gain_smooth(&mut self, gain: f32) {
+        if gain == self.cascade_gain { return; }
+        if self.cascade_remaining == 0 || self.cascade_gain.to_bits() != self.cascade_target.to_bits() {
+            self.cascade_current = self.cascade_gain;
+        }
+        self.cascade_gain = gain;
+        self.cascade_target = gain;
+        self.cascade_step = (gain - self.cascade_current) / CASCADE_FADE_SAMPLES as f32;
+        self.cascade_remaining = CASCADE_FADE_SAMPLES;
+    }
+
+    #[inline(always)]
+    fn advance_cascade_gain(&mut self) -> f32 {
+        if self.cascade_remaining == 0 || self.cascade_gain.to_bits() != self.cascade_target.to_bits() {
+            self.cascade_remaining = 0;
+            return self.cascade_gain;
+        }
+        self.cascade_remaining -= 1;
+        if self.cascade_remaining == 0 {
+            self.cascade_current = self.cascade_target;
+        } else {
+            self.cascade_current += self.cascade_step;
+        }
+        self.cascade_current
     }
 
     /// Processes a block of audio frames.
@@ -292,14 +333,15 @@ impl DualEfxProcessor {
     /// interleaved with audio frames.
     #[inline(always)]
     pub fn process_bus_sample(&mut self, send_a: f32, send_b: f32, send_cascade: f32) -> (f32, f32) {
+        let cascade_gain = self.advance_cascade_gain();
         let ((a_l, a_r), (cascade_l, cascade_r)) = self.velvet
             .process_shared_mono(&mut self.cascade_history, send_a, send_cascade);
         // Reject a corrupt direct send before it can contaminate the separate
         // cascade contribution to the reverb.
         let send_b = super::math::audio_input(send_b);
         let (wet_b_l, wet_b_r) = self.plateau.process_sample(
-            send_b + cascade_l * self.cascade_gain,
-            send_b + cascade_r * self.cascade_gain,
+            send_b + cascade_l * cascade_gain,
+            send_b + cascade_r * cascade_gain,
         );
         (
             super::math::soft_clip((a_l + cascade_l) * self.return_gain_a + wet_b_l * self.return_gain_b),
@@ -324,6 +366,7 @@ impl DualEfxProcessor {
             return;
         }
         for i in 0..frames {
+            let cascade_gain = self.advance_cascade_gain();
             let in_l = super::math::audio_input(in_l[i]);
             let in_r = super::math::audio_input(in_r[i]);
             let (a_l, a_r) = self.velvet.process_sample(
@@ -334,12 +377,12 @@ impl DualEfxProcessor {
             // must continue advancing so a later bus switch cannot replay it.
             self.cascade_history.silence();
             let cascade_l = if enable_a {
-                a_l * self.cascade_gain
+                a_l * cascade_gain
             } else {
                 0.0
             };
             let cascade_r = if enable_a {
-                a_r * self.cascade_gain
+                a_r * cascade_gain
             } else {
                 0.0
             };

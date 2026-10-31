@@ -408,6 +408,67 @@ mod tests {
     }
 
     #[test]
+    fn cascade_encoder_edits_ramp_reverb_input() {
+        use parameters::{edit_encoder, ParameterBank};
+        let mut processor = Box::new(routing::DualEfxProcessor::new());
+        let configure = |p: &mut routing::DualEfxProcessor| {
+            p.init();
+            let mut params = p.velvet.current;
+            params.dynamic = false;
+            p.velvet.init(params);
+            for channel in &mut p.velvet.channels {
+                channel.banks[0].count = 1;
+                channel.banks[0].storage[0] = velvet::Tap { delay: 0, gain: 1.0 };
+            }
+        };
+        configure(&mut processor);
+        processor.process_bus_sample(0.0, 0.0, 0.5);
+        let last_predelay = |p: &routing::DualEfxProcessor| {
+            let d = &p.plateau.predelay;
+            d.buffer[(d.write_pos + d.buffer.len() - 1) % d.buffer.len()]
+        };
+        let mut previous = last_predelay(&processor);
+        assert!(previous > 0.4);
+        edit_encoder(&mut processor, ParameterBank::Velvet, 7, -10).unwrap();
+        for frame in 0..80 {
+            if frame == 20 {
+                edit_encoder(&mut processor, ParameterBank::Velvet, 7, 10).unwrap();
+            }
+            processor.process_bus_sample(0.0, 0.0, 0.5);
+            let next = last_predelay(&processor);
+            assert!((next - previous).abs() < 0.02, "frame {frame}: {previous} -> {next}");
+            previous = next;
+        }
+        assert!(previous > 0.4);
+        edit_encoder(&mut processor, ParameterBank::Velvet, 7, -10).unwrap();
+        for frame in 0..64 {
+            processor.process_bus_sample(0.0, 0.0, 0.5);
+            let next = last_predelay(&processor);
+            assert!(next <= previous && previous - next < 0.02, "fade-out frame {frame}");
+            previous = next;
+        }
+        assert_eq!(previous, 0.0);
+
+        // The stereo-send path shares the ramp, and an explicit direct write
+        // still takes effect immediately even if it interrupts an encoder edit.
+        configure(&mut processor);
+        let mut left = [0.0];
+        let mut right = [0.0];
+        processor.process_stereo_send(&[0.5], &[0.5], &mut left, &mut right, true, true);
+        previous = last_predelay(&processor);
+        edit_encoder(&mut processor, ParameterBank::Velvet, 7, -10).unwrap();
+        for frame in 0..8 {
+            processor.process_stereo_send(&[0.5], &[0.5], &mut left, &mut right, true, true);
+            let next = last_predelay(&processor);
+            assert!((next - previous).abs() < 0.02, "stereo frame {frame}");
+            previous = next;
+        }
+        processor.cascade_gain = 0.25;
+        processor.process_stereo_send(&[0.5], &[0.5], &mut left, &mut right, true, true);
+        assert!((last_predelay(&processor) - (0.5 + math::soft_clip(0.5) * 0.25)).abs() < 1e-6);
+    }
+
+    #[test]
     fn shared_velvet_handles_different_history_positions() {
         let mut shared = Box::new(velvet::VelvetDecorrelator::new());
         let mut history = Box::new(velvet::MonoHistory::new());

@@ -112,7 +112,7 @@ pub fn edit_encoder(
                 5 => { p.dynamic = delta > 0; VndMode }
                 6 => { p.transition_ms += step * 25.0; VndTransition }
                 _ => {
-                    processor.cascade_gain = clamp(processor.cascade_gain + step * 0.1, 0.0, 1.0);
+                    processor.set_cascade_gain_smooth(clamp(processor.cascade_gain + step * 0.1, 0.0, 1.0));
                     return Some(GlobalCascade);
                 }
             };
