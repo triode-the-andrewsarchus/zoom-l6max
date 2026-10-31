@@ -9,6 +9,7 @@ unsafe extern "C" {
     fn inspector_cancel_hook();
     fn inspector_defer_cancel_hook();
     fn inspector_handoff_hook() -> u32;
+    fn inspector_routes_hook() -> u32;
 }
 
 const QUEUE: usize = 0x83e00200;
@@ -27,6 +28,46 @@ unsafe fn saved_parameters() -> *mut parameters::ParameterHandoff {
     { unsafe { inspector_handoff_hook() as *mut _ } }
     #[cfg(not(knob_inspector))]
     { SAVED_PARAMETERS as *mut _ }
+}
+// Functional routes are heap-backed in the combined experiment; the old
+// scratch words remain a QEMU-only observation mirror.
+pub unsafe fn routes_ptr() -> *mut AtomicU32 {
+    #[cfg(knob_inspector)]
+    { unsafe { inspector_routes_hook() as *mut _ } }
+    #[cfg(not(knob_inspector))]
+    { core::ptr::null_mut() }
+}
+
+pub unsafe fn route_read(routes: *mut AtomicU32, slot: usize, fallback: u32) -> u32 {
+    unsafe {
+        #[cfg(not(knob_inspector))]
+        if routes.is_null() { return core::ptr::read_volatile((0x83e00100 as *const u32).add(slot)); }
+        if routes.is_null() { return fallback; }
+        let value = (*routes.add(slot)).load(Ordering::Acquire);
+        if value == u32::MAX { fallback } else { value }
+    }
+}
+
+pub unsafe fn route_write(routes: *mut AtomicU32, slot: usize, value: u32) {
+    unsafe {
+        if !routes.is_null() { (*routes.add(slot)).store(value, Ordering::Release); }
+        core::ptr::write_volatile((0x83e00100 as *mut u32).add(slot), value);
+    }
+}
+
+#[cfg(knob_inspector)]
+pub unsafe fn initialize_routes(processor: &mut routing::DualEfxProcessor, entry: usize) {
+    unsafe {
+        let default = if entry == 0x2028b8dc { 2u32 } else { 1u32 };
+        processor.channel_routing.fill(routing::RoutingMode::from_u8(default as u8));
+        let routes = routes_ptr();
+        for slot in 0..12 {
+            let fallback = processor.channel_routing[slot] as u32;
+            let value = route_read(routes, slot, fallback);
+            route_write(routes, slot, value);
+            processor.channel_routing[slot] = routing::RoutingMode::from_u8(if value <= 3 { value as u8 } else { 0 });
+        }
+    }
 }
 const CAPACITY: u32 = 64;
 const MAGIC: u32 = 0x47535431;
@@ -299,13 +340,14 @@ pub unsafe fn consume(processor: &mut routing::DualEfxProcessor) {
             let generation = core::ptr::read_volatile((QUEUE_GENERATIONS + ((tail % CAPACITY) as usize) * 4) as *const u32);
             if item & 0x80 != 0 {
                 let strip = (item & 0x7f) as usize;
+                let routes = routes_ptr();
                 for slot in 0..12 {
-                    let route = core::ptr::read_volatile((0x83e00100 as *const u32).add(slot));
+                    let route = route_read(routes, slot, processor.channel_routing[slot] as u32);
                     processor.channel_routing[slot] = routing::RoutingMode::from_u8(if route <= 3 { route as u8 } else { 0 });
                 }
                 if let Some(mode) = processor.cycle_strip_routing(strip, delta) {
                     for slot in 0..12 {
-                        core::ptr::write_volatile((0x83e00100 as *mut u32).add(slot), processor.channel_routing[slot] as u32);
+                        route_write(routes, slot, processor.channel_routing[slot] as u32);
                     }
                     #[cfg(knob_inspector)]
                     inspector_edit_hook(16 + strip as u32, (mode as u8 as f32).to_bits(), generation);

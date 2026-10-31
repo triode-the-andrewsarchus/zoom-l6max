@@ -180,12 +180,14 @@ This avoids relying on a separately published queue cutoff, but scratch
 ownership, all transition interleavings, generation wrap, and real-time
 effects of the popup synchronization remain unqualified.
 
-The combined experiment keeps its 16 saved parameter words in an extra 64
-bytes of the popup manager's heap sidecar. If that sidecar is unavailable,
-the inspector defers to the normal button and encoder handlers. The pointer
-is recorded at QEMU-only scratch `0x83e07e00` for observation; the queue,
-routing, gesture state and other diagnostic words still use unowned scratch.
-The standalone inspector continues to use its scratch parameter mailbox.
+The combined experiment keeps its 16 saved parameter words and 12 route
+words in the popup manager's heap sidecar. If that sidecar is unavailable,
+the inspector defers to normal button and encoder handlers and the selected
+effect uses its default routes. Pointers are recorded at QEMU-only scratch
+`0x83e07e00` and `0x83e07e04`; the route words at `0x83e00100` are only an
+observation mirror for this experiment. The queue, gesture state and other
+diagnostic words still use unowned scratch. The standalone inspector continues
+to use its scratch parameter and route mailboxes.
 This does not qualify allocation lifetime, reset, exhaustion, concurrent
 selection, callback ownership, or the remaining scratch addresses on hardware.
 

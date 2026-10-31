@@ -3848,10 +3848,65 @@ the scratch-trace counterparts were
 `0359ba9e18212dc38da697199ce7d516ea3d3fc1aed799f42c0396c3edf31e21`,
 `65c08cbef02effd49641dc81845a435fdc197d9e07e87507408ae414d3ea0d21`, and
 `25c449df60ecbe880083c44ff2eb2c669989bb68a7f0213584de37a65a70fb8a`.
-The handoff allocation, queue, gesture state, routes, callback ownership,
-failure recovery, target timing and physical memory remain unqualified; only
-the parameter words moved out of scratch. All runs used the stock MAIN, NOR
+At that stage the handoff allocation, queue, gesture state, routes, callback
+ownership, failure recovery, target timing and physical memory remained
+unqualified. All runs used the stock MAIN, NOR
 and unattested QEMU executable identified in the preceding section.
+
+The combined diagnostic now also puts its 12 route words in the popup heap
+sidecar. The scratch route array is an observation mirror; the standalone
+diagnostic still uses it as the functional mailbox. In a matched perturbation,
+forcing the mirror to zero before a reverse turn changed the heap-backed
+route from 3 to 2, while the earlier scratch-backed diagnostic changed it
+from 0 to 3. Those disposable MAIN images were
+`fff3873de384c2d332e6277a0d81c0ea6ec7f559c64e67fff3a414b694e6bc16` and
+`daa570ce115b75394ca9de616be3ffcdf4057a9cbabee6712094d3d32c7f8e50`;
+their recipe hashes were
+`8c47d210dc24c18ea65ea745177f97a21c10d923f18c11121873488785e1066a` and
+`076656902d59dca2b6e8f1cb2864223b8e0bc9d6f132f6b0e8d48ffce93f4ff2`, and
+their result hashes were
+`444fe2fc031aa6050fac4ad832e6536eaea1428792a16d2cb7a6242cced11e20` and
+`0d5eccfadf63ec7d0fe91e0c4ec933d3ee732b83782b682e5a4161372d223a80`.
+The effect ELFs were `cf27c91630f24104c68ffc8d866d51cc6a663885ca53e64d77ccd832f6ff5e12`
+and `a6a367aa9279b9ab966f8a55cbeb1f329a4d68d0201246778d34fc4ec215d803`;
+the popup ELFs were `4e5868d0f8f258d7ae6f7bea85c294f74cff0eaaecaa30e84a363179093cbe7f`
+and `968c17b6b85952a914061b17abb9aacb303283da4eb48adf58026c09b438ac72`.
+
+In another matched instrumented callback, a constant test input reached bus B
+at 0.125 in every captured sample with the heap route set to B and its scratch
+mirror forced off. The previous scratch-backed variant produced zero on bus B.
+The respective MAIN hashes were
+`5783605f58903bd2024f27f41fe8d749004b76aea855002e5aaa7d07c8ae81c4` and
+`dab8c2b44afd99ec172e39882f6db461775125650b7dcb2c42d792e64e29c8b6`,
+recipe hashes `fecd60aa6f02783411da579c6cf6ca7c8b8bd9ad575718914b34371720376f5f`
+and `1fff827abbba910fb4284e490bb655cadbbce42b3fa5b129094e8a3a17950d12`,
+and result hashes `dd39aa6e53ee8c0fa696a3c491dafaf6d8f082c098d399d1987fcf43357be478`
+and `7fb1c71b93b6291b5923eeb46c1cf5e698928c95dfd3b452bc36eb397fd9abb9`.
+The effect ELFs were `47aaa492302c9229f39d1e5b4ae23acb58228a25bd5d33c14260dad59a388f05`
+and `b3c651dcb87a9bf3dcc659ad8b5fe876ef9d70dc4f18ba7048b306376d9eb43c`;
+the popup ELFs matched the preceding pair.
+These synthetic inputs and forced writes do not validate physical routing.
+With forced sidecar allocation failure, the inspector stayed closed, a normal
+mixer turn changed 42 to 86, and Spring's fallback routes were all A. The MAIN,
+recipe and result hashes were
+`8604ffd504c4b733502072fd56eafbb07725e987f3efe967e8ae094d92b1f7b8`,
+`40c55d6fbcd164db5c54a137cfb3d4db7016e50e3c3b2787c8eb5da432dd3562`, and
+`fadf95df00ad764996f28592f80327821eab8d11bc205432c5abbf70e028fc25`.
+The effect and popup ELFs were
+`5a2740970c8bede2a645afb60cd3cfe06c54453e377bd28208362c0da8f06a71` and
+`88ca3d12cb98695886fbcb99b748f9bef99d9edf079cc4aceeffe892ce622072`.
+In the maintained build, a stock-effect cycle preserved the edited routes
+`[2, 2, 2, 2, 3, 3, 2, 2, 2, 2, 2, 2]` in the heap sidecar. The inspector
+reopened in EFX mode, edited the restored parameter, and returned the LEVEL
+encoder to normal operation. The MAIN, effect ELF, popup ELF, recipe and
+result hashes were
+`33e6b78bef5abb475c7aac257784426d2dd99a20024bb93e19d09ec0a508fe03`,
+`455a9da7a0858a2ccdeb7be9764cf508e87ba94670c29ad8f3d8a8e1e8852f29`,
+`4e5868d0f8f258d7ae6f7bea85c294f74cff0eaaecaa30e84a363179093cbe7f`,
+`6b64eb621b08b736dff5a1bb5ad8eb938f60cb8ce6941ff5972b4adf8a456e94`, and
+`2dc9c187f662f65582de1fdef9987c779071bf9d50da6b5e9c773d15e23c40df`.
+Sidecar lifetime and failure recovery, the event queue, gesture state,
+callback ownership, target timing and physical memory remain unqualified.
 
 The QEMU-only inspector now requests EFX mode through the stock mode handler
 when opened from another panel mode, and closes before another mode is
