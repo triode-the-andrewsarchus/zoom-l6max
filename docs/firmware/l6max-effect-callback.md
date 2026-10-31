@@ -3841,6 +3841,35 @@ MAIN, effect ELF, popup ELF, recipe and result SHA-256 values were
 `5df3bcba809dc81d326b4eecf54cdf1cc8891bd49b4fd636c015fca3a724e162`.
 This silent-input UI sequence does not establish active-audio responsiveness.
 
+One 2% size edit during a host-rendered 250 Hz, 0.1-amplitude input produced
+a 0.664 full-scale sample step in the previous reverb; an unchanged control
+had a maximum step of 0.018 over the same 64 frames. A 64-sample transition
+from the preceding reverb output reduced the observed edited step to 0.011.
+It restarts from the latest output on repeated size edits, and is applied
+before the wet control. A host test exercises the edit, repeated edits and
+immediate wet mute; a separate comparison matched the previous engine bit
+for bit at four unchanged sizes, including freeze transitions. These bounded
+signals do not prove click-free operation for arbitrary material. During a
+separate series of edits eight samples apart, the maximum observed step over
+the edits and following settling interval was 0.126; the transition is not a
+substitute for target timing or broader live-audio tests.
+
+For the new diagnostic, the QEMU-only impulse MAIN, ELF, recipe and result
+SHA-256 values were
+`c5ef90fad2f5c85619c4c59fd01dd006b1be1554930879a87e9bfdc84caab8e8`,
+`de57e4eeb1fa9bc723afa642dd732cc35cf4a7181ef6d7f42d542853b5614b8b`,
+`c9531a8425e93e7c81f48a860340f6a198b7a2ec49cdfc8f6f04fb7399e29651`, and
+`a3bc2950faaa050321f8bbef4e6990b46f1e0f429ad2c234839f693d01114a28`.
+The separate combined UI MAIN, effect ELF, popup ELF, recipe and result were
+`40d29a043b1e046962cb9dc10b0470f58d6455483bfb4a2e34678e4f95e21b12`,
+`a197b06af908d2d71758317d46304ff5058e4563d5ec2ae688fd12ba78647a5c`,
+`3361d999fb0fd09fd2cb9b2c211940e5734040ff8e203cda48a1b0097782695a`,
+`65e4b786ab9bb8b9d7712a21bc9517724b10f7374129367b4ac0da20077cfc64`, and
+`2311665d35ab426712ef4cc9c7893837ec3153eba748440e56bfa89d390c4747`.
+The impulse peaks matched those above; the UI sequence observed route edits,
+drained queues and mixer control after close. Both used the preceding stock
+MAIN, NOR and QEMU identities. Neither run qualifies hardware behavior.
+
 A later control-path change applies Plateau decay, modulation-depth and
 freeze encoder edits without recalculating unrelated delay lengths or filter
 coefficients in the audio task. A host comparison exercised repeated edits

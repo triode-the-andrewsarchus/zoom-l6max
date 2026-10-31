@@ -11,6 +11,7 @@
 use super::math::*;
 
 pub const SAMPLE_RATE: f32 = 48000.0;
+const RESIZE_FADE_SAMPLES: u32 = 64;
 const DATTORRO_SR: f32 = 29761.0;
 const SR_SCALE: f32 = SAMPLE_RATE / DATTORRO_SR; // ~1.61285
 
@@ -307,6 +308,10 @@ pub struct PlateauReverb {
     pub out_hp_l: OnePoleHP,
     pub out_hp_r: OnePoleHP,
 
+    // Short output transition masks discontinuities when delay taps move.
+    resize_remaining: u32,
+    resize_anchor: [f32; 2],
+    previous_output: [f32; 2],
     pub params: PlateauParameters,
 }
 
@@ -344,6 +349,9 @@ impl PlateauReverb {
             out_hp_l: OnePoleHP::new(),
             out_hp_r: OnePoleHP::new(),
 
+            resize_remaining: 0,
+            resize_anchor: [0.0; 2],
+            previous_output: [0.0; 2],
             params: PlateauParameters {
                 predelay_ms: 10.0,
                 size: 1.0,
@@ -409,6 +417,9 @@ impl PlateauReverb {
 
         self.out_hp_l.clear();
         self.out_hp_r.clear();
+        self.resize_remaining = 0;
+        self.resize_anchor = [0.0; 2];
+        self.previous_output = [0.0; 2];
     }
 
     pub fn set_parameters(&mut self, mut params: PlateauParameters) {
@@ -423,6 +434,10 @@ impl PlateauReverb {
         params.low_cut_hz = clamp(params.low_cut_hz, 20.0, SAMPLE_RATE * 0.49);
         params.high_cut_hz = clamp(params.high_cut_hz, 20.0, SAMPLE_RATE * 0.49);
 
+        if self.params.size != params.size {
+            self.resize_anchor = self.previous_output;
+            self.resize_remaining = RESIZE_FADE_SAMPLES;
+        }
         self.params = params;
         self.predelay_samples = ((params.predelay_ms / 1000.0) * SAMPLE_RATE) as usize;
 
@@ -561,10 +576,17 @@ impl PlateauReverb {
         out_r = self.out_hp_r.process(out_r * 0.6);
 
         // Continuous cubic soft clipper to prevent harsh digital clipping
-        out_l = soft_clip(out_l) * self.params.wet;
-        out_r = soft_clip(out_r) * self.params.wet;
-
-        (out_l, out_r)
+        out_l = soft_clip(out_l);
+        out_r = soft_clip(out_r);
+        if self.resize_remaining != 0 {
+            let fade = (RESIZE_FADE_SAMPLES - self.resize_remaining + 1) as f32
+                / RESIZE_FADE_SAMPLES as f32;
+            out_l = self.resize_anchor[0] * (1.0 - fade) + out_l * fade;
+            out_r = self.resize_anchor[1] * (1.0 - fade) + out_r * fade;
+            self.resize_remaining -= 1;
+        }
+        self.previous_output = [out_l, out_r];
+        (out_l * self.params.wet, out_r * self.params.wet)
     }
 
     // The caller must guarantee all histories and filter state are zero and
@@ -595,6 +617,7 @@ impl PlateauReverb {
         advance!(self.r_del2);
         self.lfo1.step();
         self.lfo2.step();
+        self.resize_remaining = self.resize_remaining.saturating_sub(1);
     }
 
     pub fn process_block(&mut self, left: &mut [f32], right: &mut [f32]) {
