@@ -4700,7 +4700,7 @@ The `l6dbg` executable was
 `9a7f882911b7e44c76ddd1c28a226f3f5507878899fc5dd78f616eb10cb360da`.
 
 
-The diagnostic now replaces the observed ring-buffer range at offsets
+An earlier diagnostic replaced the observed ring-buffer range at offsets
 `0x2ff8..0xb94c` in the clone with zeroes, so it reads 68,544 source bytes
 instead of the full 103,700-byte prefix. It still writes the full prefix and
 does not prove ownership, complete state coverage or target timing. Two
@@ -4743,6 +4743,47 @@ the handoff with nonzero sampled sends. Its recipe and result hashes were
 `d3c499a85a8c13adc63a55eacd1d7dc5ce7363291a29746af459bb19a519ca22` and
 `828170313d437624cb6be7b42a0ed722bbbb6d50c9e92dd74ff9e20ad9b542fb`;
 its QEMU executable was the `53504c7b...` binary identified above.
+
+The current diagnostic packs only offsets `0xb94c..0x19514`, allocating
+56,264 bytes and reconstructing zero-filled prefix and suffix regions when
+installing each clone. Two 96-block learned-state comparisons, using
+independent signals and filling the entire excluded prefix with either zero
+or `0.25`, matched stock output and sampled state. Their observer source
+hashes were `62bfbec44223b6c33c669d2c4444088255c39915068d3fc858e5ea90fb0fe3b4`
+and `304b0af439db706921eb4864faa389c862a77f7f209afc6ebd6eb1746f7b2`;
+result hashes were `cdf60e920ac8dfec93ed29d87609cfd9bed1fe4830fdc63276641cf36753f5b9`
+and `f35359b44a8fad01c16765dcdc9eaa10899d10ad1802dd9ef7ba7bf3f33c9675`.
+These comparisons used the stock fixture and QEMU identified above and
+observer recipe `45233d0c29dc9947da9353f8a78eb1e26788b80958fed6dd31f1cff11cbc51db`.
+
+An uninstrumented packed handoff completed with three matching sampled
+descriptors, zeroes in sampled clone prefix and suffix regions, and nonzero
+sampled sends. Observed free heap after allocation was 103,728 bytes, versus
+56,296 in an earlier full-prefix observation. The pause began and ended in
+the same reported tick; this does not establish a physical time bound.
+MAIN and ELF hashes were
+`ae22657e854fcd35d3cb838dd9d00ecaf70fe6d0aa57f5466dd016b5420f341c` and
+`3e24c9476c69fb412bc51e1ab11d46f9123a51f5b481936c71a2165a38274468`;
+initial NOR, recipe and result hashes were
+`ca943ad4a708b7315d96c3a7c430cd8570fe2a294e9c00a0be2e21685f3e0aae`,
+`1f058cc3b31c7b2d40041db1ba9487f740c3c7e12e9d0a346c3c30da575296aa` and
+`9c7aee775ad1ce9ec1da802c81fac556433e3842fa7a0c9cbf651f991b64871a`.
+The panel state and QEMU binary matched those identified above.
+
+A separate plugin-assisted packed run completed and recorded no CPU writes
+to the retained source range between pause acknowledgment and closure. It
+cannot rule out DMA, other schedules or unobserved paths. Its MAIN, ELF,
+initial NOR and panel state matched the uninstrumented run; plugin-enabled
+QEMU matched the earlier trace. Plugin source, binary, wrapper, recipe,
+trace and result hashes were
+`98895bd75d082b87249fdc6d2847fbe562e5a90c877db82953d7cc25a79416cb`,
+`6a329ecd26097f0107e1bb2046e686854d381ba6ca1a17369d33b093ea47e4be`,
+`c9bf645e850e3165eda6d92362683fba753907503449d2be55d4ffd23280b961`,
+`5b116f6e2575743eb53d081646ee974e4e0ec7031ff43a7b7d3db493b12f8755`,
+`38f505ad56b8ee7ba1d12edc9951874eca81df8569572fbdc13e753252e29b40` and
+`617c1b1901efca7c149dc511c2e30465393fef6e54220d2169a0382259b1cab4`.
+The state footprint, ownership, callback ABI and target timing remain
+unqualified; the production builder remains disabled.
 
 
 A later forced-interleaving test invalidated the pause immediately after the

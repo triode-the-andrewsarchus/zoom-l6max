@@ -365,19 +365,19 @@ selector has no proven audio-task quiescence or deadline guarantee.
 Alternatively, `--boundary-handoff` (with `--channel0-prefix`, excluding
 `--hybrid-handoff`) tests an earlier, observed panel selection call. It asks
 the AINR hook to bypass indices 0 and 1, waits up to 20 firmware ticks for an
-index-0 acknowledgment, and copies the prefix on the selector task, replacing
-the observed stock ring-buffer range `0x2ff8..0xb94c` with zeroes in the
-snapshot. Status 3
+index-0 acknowledgment, and copies the candidate channel-0 tail at
+`0xb94c..0x19514` on the selector task. The heap snapshot holds only those
+56,264 bytes; installation zeroes each clone's prefix and suffix. Status 3
 means a candidate is waiting; `boundary_handoff` records the pause word, wait
 count, outcome and two bypass counters. `--boundary-noise` injects a
 deterministic nonzero signal into the stock AINR input for this experiment.
 After copying, the diagnostic closes the acknowledged pause atomically before
 publishing the snapshot claim; an unexpected index that invalidates that pause
 before closure prevents publication. This does not synchronize unobserved users.
-An earlier full-prefix run observed stock writes inside that excluded range
+An earlier full-prefix run observed stock writes inside the excluded range
 while the pause was acknowledged and the copy was in progress. The exclusion
-is a candidate based on limited comparisons, not a proven AINR footprint. A
-successful handoff does not establish a coherent snapshot; see the
+and packed tail are candidates based on limited comparisons, not a proven
+AINR footprint. A successful handoff does not establish a coherent snapshot; see the
 [boundary investigation](../../../docs/firmware/l6max-effect-callback.md#selector-side-boundary-handoff-diagnostic).
 The pointer ownership, call ordering, 64-frame bypass and return ABI,
 other selector paths, timeout recovery, audio continuity, and target timing

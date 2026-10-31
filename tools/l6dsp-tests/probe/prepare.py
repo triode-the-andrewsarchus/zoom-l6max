@@ -418,7 +418,8 @@ if args.pre_ainr:
                 "auto_handoff": args.auto_handoff,
                 "passthrough_unready": args.passthrough_unready}
     if args.auto_handoff:
-        metadata["snapshot_bytes"] = 0x19514 if args.channel0_prefix else 0x20000
+        metadata["snapshot_bytes"] = (0x19514 - 0xb94c if args.boundary_handoff
+                                      else 0x19514 if args.channel0_prefix else 0x20000)
         metadata["hybrid_handoff"] = args.hybrid_handoff
         if args.boundary_handoff:
             metadata["boundary_handoff"] = True
