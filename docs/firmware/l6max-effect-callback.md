@@ -4493,6 +4493,30 @@ source, recipe, result and `l6dbg` executable SHA-256 values were
 The diagnostic used a hash-guarded write to unowned emulator scratch; never
 install it on hardware.
 
+A later paired diagnostic ran the replacement DSP with three constant nonzero
+synthetic sends. The two initial settings states differed only in the Sub-Mix
+return flag, as decoded by `l6nor diff`; both held the modeled Sub-Mix switch.
+At two snapshots each, slots 6–7 were zero with the return off and matched
+nonzero slots 4–5 with it on. Callback counts advanced from 2,972 to 5,792
+and from 2,967 to 5,784 over the respective five-guest-second intervals. This
+is below the modeled 750 calls per second, and does not qualify real input,
+physical output, USB Mix Minus, controls under load, or target timing.
+
+The paired QEMU-only diagnostic MAIN, ELF and recipe SHA-256 values were
+`a8866b438a462023b5e8e952c41c6cb55a01e05ebeead0c8c0ea51b6aa68af8c`,
+`9f7ab7213fd2c22d0725bce9a03fb1c251bb637768122a4871f950ae7395b7af`, and
+`3f754e2aa97f09828fafe4862f4d3b6a879f9abb05348b32d14f997384f7c0ab`.
+The off/on initial NOR hashes were
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a` and
+`fece3d78e455aeddad1e2cb4865a3a41d6a9ceca92f6f1fa138e6f1c1ced579b`;
+the off/on result hashes were
+`e551cab0bd6b0e8f84ba14b4a7d9051b04a8e4639f7837cb1387892370d74d08` and
+`e93d83f6f54196117d044a70b7c9b73483356a35184a9b20fb84a5aa8a14a98d`.
+The comparison script SHA-256 was
+`ee9b7a3ff1b553c0fb2da6697566c552fdcfb5c71b148761802237de8a7c79ec`.
+Stock MAIN, QEMU, `l6dbg` and `l6nor` identities match the preceding runs;
+the external QEMU binary's source remains unattested.
+
 ### Selector-side boundary handoff diagnostic
 
 An opt-in diagnostic now requests a pause at the observed AINR audio hook
