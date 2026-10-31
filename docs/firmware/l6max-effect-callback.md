@@ -2524,6 +2524,35 @@ SHA-256 values for this run were respectively
 `fd48780147d7d7dc493ba32aace41572b1661cac1638f44608ed04f841f556d5`.
 Stock MAIN, NOR and QEMU identities matched the preceding comparison.
 
+A combined-popup-path probe replaced the notification hook with a QEMU-only
+counter. After a synthetic pending edit survived the stock round trip, it
+recorded one notification for Velvet amount 98% even though the inspector
+open flag was zero. This demonstrates an unwanted stale notification request,
+not a rendered popup. A disposable selection-boundary variant suppressed that
+request while still applying the edit in the same sequence. It has not been
+adopted: normal new edits, repeated selection, close/reopen races, concurrent
+producer/consumer behavior and ownership of its two additional scratch words
+remain untested. Suppressing a notification at consume time also does not by
+itself cancel a notification already published before the inspector closed.
+
+The shared callback, preparer and linker SHA-256 values were
+`cdb66cb544f9776d4b6b5513752b71259874bc9ba703baa4e8e25e4557a62f94`,
+`24999952bfc0be07ada482839b70596f68abd4f90acbd62b913b44adb1db87b6`, and
+`b0a558813276bc9b6105b7348dc5e0b23b244922b9a47e7d553d8390a97a3a1f`.
+The baseline inspector, MAIN, ELF, recipe and result hashes were
+`ed9f00c4c5a0c81edc784579f824af5f78bdc86d9c4485ada7a1164c9cc6aaf5`,
+`b01603d8bc6778629e99a909324cdd6390c331e6edd45008d36f515521181095`,
+`b140e0dcc07aed9d974fde129b9dc58eed3c6fd35b17d5005339c78921e8c36e`,
+`de89d3b110301097579080340e3b9b608e51bbc036a474533afd48f29b181dcc`, and
+`6ff807237909337c25a4aae3300e076e642f7c35b002ebb6135f86df70ed663e`;
+the suppression variant's corresponding hashes were
+`f29ca3f2e29bb52b0b306e55c422a33c92f6f4471986a4554e267fba4b59aed8`,
+`c21571f70e3154f45dbf60a374288fcc501346052bca48dfee5fa33727d930e5`,
+`e2ea4296475c7f433ebe1a6db0ffbd8fe3eb51c57afdeb8cf02f5aeda9e65aec`,
+`0bfac5beac506a0afb186938c32242f67b0daf494f0a9d7050ccc5731595682b`, and
+`f6860a880992f8f94751cbe5095400b7265a28e9ec3dd2d4413db4bcdfe10832`.
+Both used the stock MAIN, NOR and QEMU identities recorded below.
+
 The inspector diagnostic now records each applied parameter value in a
 QEMU-only atomic mailbox and restores the observed values before publishing a
 new custom callback. Values are stored in their native units; the diagnostic

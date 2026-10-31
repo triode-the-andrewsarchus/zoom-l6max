@@ -143,8 +143,9 @@ While the inspector is open, a short EFX SEL press switches the parameter
 bank without changing the selected stock effect; pressing EFX changes between
 parameter and routing pages. Turning a strip encoder on the routing page cycles that strip
 through off, A, B and A-to-B. This experiment does not draw an OLED popup.
-Effect changes reinitialize the DSP and queue, so pending edits and tails can
-be lost. Applied inspector values and routes are retained in QEMU-only
+Effect changes can reinitialize the DSP, so tails can be lost. The queue is
+retained within the modeled session, but overflow or reset can still lose
+pending edits. Applied inspector values and routes are retained in QEMU-only
 mailboxes across effect selections within the session. The parameter values
 are read individually, not as a transaction with concurrent edits; mailbox
 ownership, callback lifetime and reset behavior are not qualified.
