@@ -1,7 +1,7 @@
 """Guard checks for disposable L6max diagnostic image preparation."""
 import unittest
 
-from fixture import MODE_CALL_SITES, install_ainr_selector_veneer, install_boundary_hook, install_mode_hooks
+from fixture import MODE_CALL_SITES, install_ainr_selector_veneer, install_boundary_hook, install_mode_hooks, install_panel_receive_hooks
 from thumb_branch import branch
 
 
@@ -76,6 +76,30 @@ class BoundaryHookGuardTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             install_boundary_hook(image, 0x80109000)
         self.assertEqual(image, before)
+
+
+class PanelReceiveHookGuardTests(unittest.TestCase):
+    def test_all_sites_are_checked_before_any_redirect(self):
+        sites = ((0x4cf14, "45f098f8"), (0x4cf4e, "45f07bf8"),
+                 (0x4d090, "44f0daff"), (0x4d0e2, "44f0b1ff"))
+        original = bytearray(0x4d0e6)
+        for offset, encoded in sites:
+            original[offset:offset + 4] = bytes.fromhex(encoded)
+        for offset, _ in sites:
+            image = original[:]
+            image[offset] ^= 1
+            before = image[:]
+            with self.subTest(offset=hex(offset)), self.assertRaises(ValueError):
+                install_panel_receive_hooks(image, 0x80109000)
+            self.assertEqual(image, before)
+        for target in (None, 0x80109001, 0x80001000, 0x801a2ff8):
+            image = original[:]
+            with self.subTest(target=target), self.assertRaises(ValueError):
+                install_panel_receive_hooks(image, target)
+            self.assertEqual(image, original)
+        install_panel_receive_hooks(original, 0x80109000)
+        for offset, _ in sites:
+            self.assertEqual(original[offset:offset + 4], branch(0x80000000 + offset, 0x80109000))
 
 
 if __name__ == "__main__":

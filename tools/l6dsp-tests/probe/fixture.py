@@ -43,6 +43,19 @@ def install_boundary_hook(image, target):
     image[offset:offset + 4] = branch(0x8005435c, target)
 
 
+def install_panel_receive_hooks(image, target):
+    """Redirect the four observed L6max 1.10 panel byte reads in QEMU only."""
+    sites = ((0x4cf14, "45f098f8"), (0x4cf4e, "45f07bf8"),
+             (0x4d090, "44f0daff"), (0x4d0e2, "44f0b1ff"))
+    if target is None or target & 1 or not 0x80108000 <= target < 0x801a2ff8:
+        raise ValueError("invalid diagnostic panel receive target")
+    for offset, expected in sites:
+        if image[offset:offset + 4] != bytes.fromhex(expected):
+            raise ValueError(f"panel receive call site mismatch at {offset:#x}")
+    for offset, _ in sites:
+        image[offset:offset + 4] = branch(0x80000000 + offset, target)
+
+
 def checked_inputs(parser, firmware, state, output):
     out = output.resolve()
     if not out.is_relative_to(Path(tempfile.gettempdir()).resolve()) or out.exists():

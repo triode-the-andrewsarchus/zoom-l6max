@@ -44,6 +44,8 @@ pub unsafe fn install() {
         if expected {
             for i in 0..69 { write(TRACE.add(i), 0); }
             core::ptr::write(DECODER, crate::controls::PanelEfxDecoder::default());
+            #[cfg(ring_timing)]
+            crate::ring_timing::initialize();
             #[cfg(irq_timing)]
             {
                 core::ptr::write(QUEUE as *mut AtomicU32, AtomicU32::new(0));
@@ -69,8 +71,12 @@ pub unsafe fn install() {
 pub unsafe extern "C" fn inspector_irq_byte(port: u32, raw: u32) {
     if port != 0 { return; }
     unsafe {
+        #[cfg(ring_timing)]
+        crate::ring_timing::observe_byte();
         if let Some(pressed) = (*DECODER).feed(raw as u8) {
             let tick = read(0x8020ab4c as *const u32);
+            #[cfg(ring_timing)]
+            crate::ring_timing::observe_edge(pressed, tick);
             let count = read(TRACE.add(4));
             if count < 32 {
                 write(TRACE.add(5 + count as usize * 2), pressed as u32);

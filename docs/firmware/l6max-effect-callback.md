@@ -3689,7 +3689,8 @@ ring had 8,192 byte slots. The prototype hooks four observed panel receive
 calls, uses unowned scratch memory, briefly masks interrupts around the stock
 one-byte read, and latches faults rather than attempting overflow recovery.
 These hooks, event-word changes, memory and timing are not qualified on the
-target, and the tracked diagnostic does not implement this prototype.
+target. The tracked diagnostic can now reproduce this approach and inject lost
+selector events; it remains isolated from the installable patch builder.
 
 In a forced-loss pair of runs, the prototype dropped a complete short press
 after reception and then delivered a long hold. Slot-associated ticks opened
@@ -3728,6 +3729,66 @@ left the inspector closed. Its diagnostic MAIN, ELF, recipe and result were
 `6ee00ea201b198211a8c7ceec88743c87a2f86967911f37834acf7ed6e22b0c4`,
 `6fefc7cf9108881fc5c21c271f5998536a3ec6f1c7fd52c98ba6f3d0965bcb6f`, and
 `dbe01c4ff3bbc206157ba95b968add32b93a2a9bc385374098d8a6a59a44760f`.
+
+An integrated ring-timing run with nonzero synthetic sends and ten bank edits
+did not open the inspector. At its later snapshot, the interrupt-side record
+queue was `(head, tail, fault) = (25, 0, 0)`; the diagnostic output was finite
+and nonzero. None of those selector records was matched to a consumed ring
+slot. The counters do not distinguish a delayed consumer from a desynchronized
+association, cover every possible stock receive path, or establish physical
+scheduling. The diagnostic MAIN, ELF, recipe and
+result SHA-256 were
+`242504b930212e350f9f1e63ba4e4a713b48361a84ea825335de318cc548e335`,
+`f1b282623c3cec40110e251a2defac1191a418798be0c2077c7c18134fc8997d`,
+`3b6997650d9d19fc7afa329897143e81f1dbf4307ac6b0094bd0ebaeb9f0d9b8`, and
+`5a5fbbc03d8d91768de95d35abe254bb57e1d2b94fb0bd6c5043f3be6b7bba1d`.
+
+A second, separately instrumented active-send run counted calls to the four
+redirected panel-read sites after timing-hook initialization. The count was
+zero while 25 selector records accumulated and no ring fault was reported.
+This narrows that modeled run to delayed or bypassed instrumented reads, but
+the extra counters perturb timing and do not rule out indirect consumers or
+establish physical behavior. Its MAIN, ELF, recipe and result SHA-256 were
+`a35196e2caf64159b48d1ca91d7e9ea85b9e919cf31f913deaef89ba00ac0517`,
+`89f088fc82536a0f2d40684af63ccd1649a1f61e0e0bc123f53971a56027a0bc`,
+`101dc56678f177078952d9a5637b0b476e5eb7fd421d79691b07ddc5a431a9e3`, and
+`4bd648a8d9ddc74e9894152c14fff9869140be0c953f278ee403d2bf3ac4bded`.
+
+In a separate forced stale-slot run, the diagnostic deliberately recorded an
+index behind the current ring consumer. Its unread-range check latched fault 7,
+left the inspector closed and retained Room. This tests one injected stale
+record in QEMU, not every alternate consumer, wraparound, or hardware race. The
+diagnostic MAIN, ELF, recipe and result SHA-256 were
+`30e508d5c8d8ca447fc2caa2fa4106b4a671aeaf3f11e1eb26199f069ce78f60`,
+`c83456dea9552022c8fa03402d6d2d381f734b6f8cdfcf55482c304df18a9136`,
+`2eae08d7366b0c2405174156cf0c3326582279dcf4c409f0deca77e57044fa37`, and
+`e7f6df3f962f14899ff66cf3cd398d197deb488f4b98873b9b738eb805c36dc2`.
+
+With the tracked `--ring-drop pair` diagnostic, the injected pair was lost,
+the following long hold opened the inspector, Room remained selected, and the
+record queue drained without a fault. Its MAIN, ELF, recipe and result SHA-256
+were `d2a9d756593bbc0d14c1c781b546a27aab15a3f69d2afb04b063dbd59763da86`,
+`e70556a59b3d572435ac503737dbdc94bdb3a324effc1eb35bb6f7a2cd1ae270`,
+`a205b7ed80d50065170acce6a02bf11c61bbb4800527d96634b74ac68284bbae`, and
+`e30084be7a7094ea445f21d44e2dc2a872c95c7e5297a04494aad77ad4330e7c`.
+The tracked `--ring-drop release` case selected Spring on the following short
+press, kept the inspector closed, and drained the queue without a fault. Its
+MAIN, ELF, recipe and result were
+`88d03068c48a7e361b9b8dec49a74dfe924e131116d843fa89d4b13ba5836813`,
+`58d5ac94386fc8097418fd7b1fae93a1942cbb77c88274c7fc48b3d41ab0f8b5`,
+`124ea7417026f6e67cd100c1443ad1dc16976d37b18a8a284312c058cc6afa14`, and
+`58b1ff2bc2237cbf8c249b0ccd23ad042655a0d9e3255f50de3f0050bcb24a0e`.
+In a separate silent-input combined popup run, the inspector opened and closed,
+the observed routing edits persisted across bank changes, the ordinary mixer
+value stayed fixed during editing and changed after close, and the timing
+records drained without a fault. OLED snapshots were captured, but these
+checks do not establish physical display or audio behavior. The diagnostic
+MAIN, effect ELF, popup ELF, recipe and result were
+`2d7213fc68f81c43fae767bebedfdf83370d86d9e88c5f959f5af5385e5b6447`,
+`e59c3e20986b039962d0df4b0e0009cb5be44aef6552aece8b4cae4dd33e1147`,
+`b22eb39c1ffb970f375a01345e6bfc68e3a179e19321560c2e46f5b7fe465d62`,
+`9ce56f0fa8511f18f4386315ec055f5389be5c5b82cfb068bd2e8b18763dd828`, and
+`10358df6082ee1b5e7994639fe30e9d569f5f9216b156cca1651c47802ceb7c7`.
 
 The ten-edit MAIN, ELF, recipe and result hashes were
 `77813ae76b328e71ac9bfa7c025f041c0eb75b06caf14a879ed3a36abb76fec0`,

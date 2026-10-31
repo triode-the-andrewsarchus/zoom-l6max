@@ -9,7 +9,7 @@ import shlex
 import struct
 import subprocess
 from thumb_branch import branch
-from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_boundary_hook, install_mode_hooks
+from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_boundary_hook, install_mode_hooks, install_panel_receive_hooks
 
 ROOT = Path(__file__).resolve().parents[3]
 PROBE = Path(__file__).resolve().parent
@@ -29,6 +29,8 @@ parser.add_argument("--gesture-trace", action="store_true", help="record selecto
 parser.add_argument("--enqueue-trace", action="store_true", help="record panel events before enqueue (perturbs timing)")
 parser.add_argument("--irq-trace", action="store_true", help="trace panel bytes in a QEMU-only IRQ hook")
 parser.add_argument("--irq-timing", action="store_true", help="use QEMU-only IRQ timestamps for selector gestures")
+parser.add_argument("--ring-timing", action="store_true", help="use QEMU-only receive-slot selector timestamps and sequences")
+parser.add_argument("--ring-drop", choices=("pair", "release"), help="QEMU-only forced selector-event loss case")
 parser.add_argument("--timing-control", action="store_true", help="bypass effects in a QEMU timing comparison")
 parser.add_argument("--active-sends", action="store_true", help="inject nonzero QEMU-only effect buses")
 parser.add_argument("--submix-return", action="store_true", help="capture active DSP output with the modeled Sub-Mix switch held")
@@ -60,6 +62,10 @@ if args.irq_trace and not args.inspector:
     parser.error("--irq-trace requires --inspector")
 if args.irq_timing and not args.inspector:
     parser.error("--irq-timing requires --inspector")
+if args.ring_timing and (not args.inspector or args.irq_timing):
+    parser.error("--ring-timing requires --inspector and excludes --irq-timing")
+if args.ring_drop and (not args.ring_timing or args.bank_stress or args.submix_return):
+    parser.error("--ring-drop requires --ring-timing and excludes --bank-stress and --submix-return")
 if args.timing_control and not args.inspector:
     parser.error("--timing-control requires --inspector")
 if args.active_sends and not args.inspector:
@@ -68,10 +74,10 @@ if args.active_sends and args.timing_control:
     parser.error("--active-sends cannot be combined with --timing-control")
 if args.submix_return and (not args.active_sends or not args.inspector or args.pre_ainr
                            or args.bank_stress or args.retain_custom_state or args.irq_trace
-                           or args.irq_timing or args.gesture_trace or args.enqueue_trace):
+                           or args.irq_timing or args.ring_timing or args.gesture_trace or args.enqueue_trace):
     parser.error("--submix-return requires --callback --inspector --active-sends without other diagnostic variants")
 if args.pre_ainr and (not args.active_sends or not args.inspector or args.bank_stress or args.irq_trace
-                      or args.irq_timing or args.gesture_trace or args.enqueue_trace):
+                      or args.irq_timing or args.ring_timing or args.gesture_trace or args.enqueue_trace):
     parser.error("--pre-ainr requires --inspector --active-sends and no other trace or stress options")
 if args.effect_buffer and not args.pre_ainr:
     parser.error("--effect-buffer requires --pre-ainr")
@@ -114,10 +120,14 @@ if args.gesture_trace:
     rustc += ["--cfg", "gesture_trace"]
 if args.enqueue_trace:
     rustc += ["--cfg", "enqueue_trace"]
-if args.irq_trace or args.irq_timing:
+if args.irq_trace or args.irq_timing or args.ring_timing:
     rustc += ["--cfg", "irq_trace"]
 if args.irq_timing:
     rustc += ["--cfg", "irq_timing"]
+if args.ring_timing:
+    rustc += ["--cfg", "ring_timing"]
+if args.ring_drop:
+    rustc += ["--cfg", f"ring_drop_{args.ring_drop}"]
 if args.timing_control:
     rustc += ["--cfg", "timing_control"]
 if args.active_sends:
@@ -153,21 +163,23 @@ if args.inspector:
     symbols = {}
     for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines():
         parts = line.split()
-        if len(parts) == 3 and parts[2] in ("inspector_select", "inspector_knob", "inspector_mode", "inspector_enqueue", "ainr_selector_veneer", "before_ainr_disable"):
+        if len(parts) == 3 and parts[2] in ("inspector_select", "inspector_tag_veneer", "inspector_rx_read", "inspector_knob", "inspector_mode", "inspector_enqueue", "ainr_selector_veneer", "before_ainr_disable"):
             symbols[parts[2]] = int(parts[0], 16) & ~1
     hooks = [
-        (0x36f28, bytes.fromhex("1df0bef9"), "inspector_select"),
+        (0x36f28, bytes.fromhex("1df0bef9"), "inspector_tag_veneer" if args.ring_timing else "inspector_select"),
         (0x36c74, bytes.fromhex("1cf058ff"), "inspector_knob"),
     ]
     for offset, expected, symbol in hooks:
         if image[offset:offset + 4] != expected or symbol not in symbols:
             raise ValueError(f"inspector call site or symbol mismatch: {symbol}")
         image[offset:offset + 4] = branch(0x80000000 + offset, symbols[symbol])
+    if args.ring_timing:
+        install_panel_receive_hooks(image, symbols.get("inspector_rx_read"))
     install_mode_hooks(image, symbols.get("inspector_mode"))
     install_ainr_selector_veneer(image, symbols)
     if args.boundary_handoff:
         install_boundary_hook(image, symbols.get("before_ainr_disable"))
-    if args.enqueue_trace:
+    if args.enqueue_trace or args.ring_timing:
         offset = 0x4c606
         if image[offset:offset + 4] != bytes.fromhex("dbf73ffd") or "inspector_enqueue" not in symbols:
             raise ValueError("panel enqueue call site or symbol mismatch")
@@ -337,10 +349,12 @@ wall_timeout_s = 300
         memory("gesture_trace", 0x83e00500, 244)
     if args.enqueue_trace:
         memory("enqueue_trace", 0x83e00600, 260)
-    if args.irq_trace or args.irq_timing:
+    if args.irq_trace or args.irq_timing or args.ring_timing:
         memory("irq_trace", 0x83e00900, 276)
     if args.irq_timing:
         memory("irq_queue", 0x83e00b00, 12)
+    if args.ring_timing:
+        memory("ring_timing", 0x83e02800, 40)
     if args.active_sends:
         memory("active_audio", 0x83e00800, 16)
     press(40)  # Outside the inspector, EFX SEL still selects Spring.
@@ -349,6 +363,25 @@ wall_timeout_s = 300
     else:
         memory("active_spring", 0x202a6f20, 4)
     memory("selected_after_close", 0x83e00004, 4)
+    if args.ring_drop:
+        # Isolated failure case: lose a short edge/pair after selecting Room,
+        # then classify another press and capture both state and injection.
+        recipe = f'version = 1\nmodel = "l6max"\nmain_sha256 = "{image_sha}"\nwall_timeout_s = 300\n'
+        wait(45000)
+        press(40)  # Hall -> Room
+        press(40)  # Forced missing pair or release.
+        press(40, 1500 if args.ring_drop == "pair" else 150)
+        memory("loss_ui", 0x83e00400, 32)
+        memory("loss_selected", 0x83e00004, 4)
+        memory("loss_injected", 0x83e02c80, 4)
+        memory("ring_timing", 0x83e02800, 40)
+        memory("irq_trace", 0x83e00900, 276)
+        if args.gesture_trace:
+            memory("gesture_trace", 0x83e00500, 244)
+        if args.enqueue_trace:
+            memory("enqueue_trace", 0x83e00600, 260)
+        if args.active_sends:
+            memory("active_audio", 0x83e00800, 16)
     if args.submix_return:
         recipe = f'version = 1\nmodel = "l6max"\nmain_sha256 = "{image_sha}"\nwall_timeout_s = 360\n'
         wait(45000)
