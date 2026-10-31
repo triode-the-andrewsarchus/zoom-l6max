@@ -2143,6 +2143,34 @@ the repeat's were
 `acb1601d165c640dca5107e1e59f78464ed3726e92e6c17d63681f1b43b05061`.
 The stock MAIN, NOR and QEMU identities matched the preceding experiments.
 
+The separate research checkout identifies `0x80050bd8` as the priority-18
+DIN MIDI transmit task. In a debugger snapshot with the Spring packet pending,
+the observed `UartMidiSendMsg` TCB was at `0x808e2860`, priority 18. Its saved
+stack contained `0x800911a2` in the stock semaphore-take routine and return
+address `0x80050c3b`, corresponding to the wait at `0x80050c36`. The queue
+indices were still `(9, 6)`. This is one perturbed snapshot, not proof that
+the task never ran or that a specific wakeup was lost. Static inspection
+shows that the task checks a byte at `0x805e5d56` before servicing the second
+ring. A separate recipe sampled that byte and the parser byte at `0x805e5d46`
+as zero before and after the failed selection and after the longer wait; the
+second-ring indices remained `(9, 6)`. Neither byte alone explains the
+pending packet. Wakeup and ring-check ordering require further investigation.
+
+The task snapshot used the preceding queue-trace MAIN and ELF. Its recipe,
+result, debugger script and debugger log SHA-256 values were
+`22fcdc106ad657438a85470617fd088a6d36ffb8753272ce8459ade227f764f0`,
+`15e157c17866b96fe031782df326cb1bb37d4496e2011009fc77f634e053e7a5`,
+`0039e77072ca6a1801290def6066b428d8460e6a23c91bab5a08be7f30b95cbb`, and
+`b699cbc34203252389a0406d77847d2f8d1b4a2ffdfe601a509e046e206f8a38`.
+The flag recipe, result and engine trace hashes were
+`cc9476834a11c5ba026da016c2a5dd3d1505ce81a7c2d270132fdc558925ba43`,
+`89d952db8838bf0254be577fd37514b204eeb26d496afbbf8230313b535555c4`, and
+`bdbd826f2e7236f1ac86e481581656070c94c15604ed18dafd09d1ae2a342466`.
+The research priority and DIN MIDI documents had hashes
+`a5d60eb9403eb06ba3b9da60a64b8d91f077bbc4e0c742d7d3de3554a0eff644` and
+`da7ec6079b6e72812969f68b532e99e6a3765bf42ed6e5a8e32f940a1f595bca`.
+Stock MAIN, NOR and QEMU identities matched the preceding experiments.
+
 The QEMU-only interrupt-timestamp hook now initializes its decoder and queue
 only on first installation. On subsequent custom selections, it preserves
 pending edges if both hook words and the veneer match; a mismatch marks the
