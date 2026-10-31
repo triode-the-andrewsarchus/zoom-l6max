@@ -7,6 +7,7 @@ unsafe extern "C" {
     fn inspector_generation_hook() -> u32;
     fn inspector_edit_hook(id: u32, bits: u32, generation: u32);
     fn inspector_cancel_hook();
+    fn inspector_defer_cancel_hook();
 }
 
 const QUEUE: usize = 0x83e00200;
@@ -40,7 +41,7 @@ pub unsafe fn close_for_selection() {
         let ui = INSPECTOR as *mut UiState;
         if core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) == MAGIC {
             #[cfg(knob_inspector)]
-            if (*ui).active { inspector_cancel_hook(); }
+            if (*ui).active { inspector_defer_cancel_hook(); }
             (*ui).active = false;
             (*ui).routing_page = false;
         }
