@@ -2474,14 +2474,42 @@ The diagnostic MAIN, ELF, recipe and result hashes were
 It used the same stock MAIN, initial NOR and unattested QEMU executable as the
 experiments above.
 
+The inspector diagnostic now preserves its queue during a later custom
+selection even when a stock effect has cleared the processor. In matched
+disposable post-fade-handshake runs, a synthetic Velvet amount decrement was
+inserted into an empty queue after quiescence and before selecting Delay. The
+baseline returned to Room with queue `(0, 0, 0)` and no saved amount. With
+the queue preserved, it returned with `(1, 1, 0)`, one applied edit, and a
+saved amount of 98%. This proves only that forced interleaving in the modeled
+session: the handshake and memory remain experimental, and it does not
+qualify reset, concurrent callbacks, overflow or physical event delivery.
+
+The shared callback, preparer and linker SHA-256 values were
+`c13dba918605c9b87ba20dbef379eb73ea874470c17d49bbafdb85bd2f1a928e`,
+`405efeb201ecefebc118423839508fb49d09e74188ee1c854b0e3932b3a0a2ad`, and
+`b0a558813276bc9b6105b7348dc5e0b23b244922b9a47e7d553d8390a97a3a1f`.
+The baseline inspector, MAIN, ELF, recipe and result hashes were
+`c0787d4731a24981097eb521ec6a17673600770d7a0cf99336a0280d0d323300`,
+`f90dad3de996e9a01876404a153583528b46ea05f614427ff74eb776fbc432ee`,
+`5cab3077407add1f5ca416596583774c4380513d670f22103fba06f75233082a`,
+`aca0893fff15dd69a0f4cdd5d44251daa9015ecd75dd0cc9a0c9638b08773421`, and
+`f2da459f6f57884d9d3a8e4182e02c36c29357f5fe0ad07b88f2352396cc4862`;
+the preserved-queue variant's corresponding hashes were
+`5ab62545e4ee49b1a8250f55f1e794d1d89799210e19b7aac125122d365a7437`,
+`77956b2116b2fedbe1b6eb10e854e581fe41288bf5aecb79fbc7d277d7e43e4a`,
+`394c52e6cb609f1d054fcc9c31f90b84111e351d0742756fca2df1f2e944ee33`,
+`c50f00d45f499584049bfd4fb01e93c8dd71e1959665a14862ad29f6bda5bab9`, and
+`a221f456fcd67168ccd8dc10124994f79bd0c022102401ef4e992f13831fc6cb`.
+Both used the stock MAIN, NOR and QEMU identities recorded below.
+
 The inspector diagnostic now records each applied parameter value in a
 QEMU-only atomic mailbox and restores the observed values before publishing a
 new custom callback. Values are stored in their native units; the diagnostic
 rebuilds the saved Velvet filter on selection instead of crossfading from a
 fresh default. Individual atomic words avoid reading live DSP state from the
 selector, but they do not provide a transactional snapshot of edits racing a
-selection. The mailbox is unowned scratch memory, pending queue events can
-still be lost, and DSP histories and tails are still cleared. Initialization
+selection. The mailbox is unowned scratch memory, queue overflow and reset
+can still lose events, and DSP histories and tails are still cleared. Initialization
 and filter generation add selection-time work. None of this qualifies a
 hardware allocation, callback lifetime, reset, or deadline.
 
