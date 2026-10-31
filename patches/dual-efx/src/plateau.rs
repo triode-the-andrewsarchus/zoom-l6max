@@ -526,8 +526,12 @@ impl PlateauReverb {
         // 3. Modulations
         let lfo1_val = self.lfo1.step();
         let lfo2_val = self.lfo2.step();
-        let l_mod = self.l_apf1.delay_time as f32 + lfo1_val * self.params.mod_depth;
-        let r_mod = self.r_apf1.delay_time as f32 + lfo2_val * self.params.mod_depth;
+        // Interpolating a moving delay dissipates energy in the feedback
+        // loop. Hold it at an integer delay during freeze while advancing the
+        // LFOs, so the tank sustains and modulation resumes on release.
+        let depth = if self.params.freeze { 0.0 } else { self.params.mod_depth };
+        let l_mod = self.l_apf1.delay_time as f32 + lfo1_val * depth;
+        let r_mod = self.r_apf1.delay_time as f32 + lfo2_val * depth;
 
         let decay = if self.params.freeze { 1.0 } else { self.params.decay };
 

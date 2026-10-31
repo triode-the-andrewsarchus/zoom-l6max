@@ -94,6 +94,10 @@ damping filters during freeze to avoid replaying stale filter state when
 unfrozen; its added freeze-time work has not been measured on the target.
 Generic emulator boot, panel, and audio-callback checks do not qualify effects
 audio, controls, or behavior on a physical device.
+Plateau now holds its tank modulation delays fixed during freeze: a host test
+at maximum modulation checks tank-energy stability across four sizes and
+verifies that modulation resumes on release. This does not establish physical
+audio behavior, freeze-transition quality or target timing.
 Earlier diagnostics using the always-on L6max SAI receive compatibility mode
 observed roughly 188 callbacks per second. The nominal 48 kHz, 64-frame audio
 path requires 750 callbacks per second; those earlier runs therefore do not

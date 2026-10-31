@@ -1378,6 +1378,73 @@ mod tests {
     }
 
     #[test]
+    fn plateau_freeze_preserves_tank_energy_with_maximum_modulation() {
+        for size in [0.2, 0.6, 1.0, 1.2] {
+            let mut reverb = Box::new(plateau::PlateauReverb::new());
+            let mut params = plateau::PlateauParameters::default();
+            params.size = size;
+            params.decay = 0.999;
+            params.mod_depth = 16.0;
+            reverb.init(params);
+            let mut random = 7u32;
+            for _ in 0..240_000 {
+                random = random.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                let input = random as i32 as f32 * (0.25 / 2_147_483_648.0);
+                reverb.process_sample(input, input);
+            }
+            params.freeze = true;
+            reverb.set_parameters(params);
+            let mut energy = [0.0f64; 2];
+            for window in &mut energy {
+                for _ in 0..960_000 {
+                    reverb.process_sample(0.0, 0.0);
+                    let (l, r) = (reverb.l_sum as f64, reverb.r_sum as f64);
+                    *window += l * l + r * r;
+                }
+            }
+            assert!(energy[0] > 1.0, "tank must be energized for size {size}");
+            assert!(energy[1] > energy[0] * 0.85 && energy[1] < energy[0] * 1.15,
+                "frozen tank energy changed excessively for size {size}: {energy:?}");
+        }
+    }
+
+    #[test]
+    fn plateau_freeze_holds_modulation_then_resumes_it() {
+        let mut modulated = Box::new(plateau::PlateauReverb::new());
+        let mut fixed = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        params.mod_depth = 16.0;
+        modulated.init(params);
+        fixed.init(params);
+        for frame in 0..48_000 {
+            let input = (frame as f32 * 0.031).sin() * 0.2;
+            assert_eq!(modulated.process_sample(input, input), fixed.process_sample(input, input));
+        }
+        params.freeze = true;
+        modulated.set_parameters(params);
+        params.mod_depth = 0.0;
+        fixed.set_parameters(params);
+        let phase_before = modulated.lfo1.phase;
+        for frame in 0..20_000 {
+            assert_eq!(modulated.process_sample(0.0, 0.0), fixed.process_sample(0.0, 0.0),
+                "modulation affected frozen output at frame {frame}");
+        }
+        assert_ne!(modulated.lfo1.phase, phase_before, "LFO must continue advancing");
+        params.freeze = false;
+        fixed.set_parameters(params);
+        params.mod_depth = 16.0;
+        modulated.set_parameters(params);
+        let mut difference = 0.0f32;
+        for frame in 0..20_000 {
+            let input = (frame as f32 * 0.043).sin() * 0.1;
+            let a = modulated.process_sample(input, input);
+            let b = fixed.process_sample(input, input);
+            difference = difference.max((a.0 - b.0).abs()).max((a.1 - b.1).abs());
+        }
+        assert!(difference > 1e-4, "modulation did not resume after freeze");
+    }
+
+    #[test]
     fn plateau_freeze_blocks_buffered_diffuser_signal_from_tank() {
         let mut reverb = Box::new(plateau::PlateauReverb::new());
         let mut params = plateau::PlateauParameters::default();
