@@ -2086,6 +2086,36 @@ engine trace SHA-256 values were respectively
 `56410c9ecb7cc8bdfd7978436c0263f73e3fb191333b3e6fa30038684dab5cc0`.
 The stock MAIN, NOR and QEMU identities matched the preceding experiment.
 
+Further disposable tracing recorded the arguments at the stock MIDI sender
+and the return values of its two output gates. The sender received internal
+controller `0x5c` with values `0x2b`, `0x2b`, and `0x40`; both gates returned
+zero on all three calls. The modeled LPUART3 trace still contained only the
+two `b0 75 2b` messages. Thus the missing Spring bytes were not explained by
+the observed sender arguments or either gate result in this run. The result
+does not identify whether the later enqueue, UART path, or instrumentation
+timing caused the absence.
+
+The sender-only variant's callback, preparer, linker, MAIN, ELF, recipe,
+result and trace SHA-256 values were respectively
+`692061f5644a2dc256de22641b708ef0e63dcf5f03f8820c6077e824ba2e0492`,
+`4f288aa5957c1f5c004603a1bee3ca6c3029ae9d69694fe9f362facf9d7dda06`,
+`793296aaad37b0c4adabdf558b21d8fa37216cf86a5a116d25fdb654e7ef066c`,
+`ad0e29f9a9e77bb18a95feef665d55631addb2456204dedac398e55fe8206cb9`,
+`195bb76c67c0cfb643df1d31013d3d9ed89c328203dd539de90ad37259e216c7`,
+`5b6cbf8a0ae3a805f87e5d5b9e52a599080efbcc74b341e1ed6e492358c9696e`,
+`b181060a6b572af7b3a9468d4a02cfed8073b59c7645d1f8e94fa8102317b51c`, and
+`501388106078a6e14d3f0d5a225c12c4346c65c6169120255d89cc08611ed401`.
+The gate-traced variant's corresponding hashes were
+`d80cbe7dc4a3e3d3219d0d6dc198dca945ca4943a0c1f0ca8d01b4625d1497b1`,
+`62f87386e8a0d0fcb0e8be9280890fb4bbbb5854a959d2a1c6341c83ef7864bd`,
+`e45fca2ff4054a10d3ff4e229537232614ab6a70d66fe39c10e0800475b7b14b`,
+`960e57c15b84adaab566acf22b9851b772aad17d08eb7569e6ad7f6bdc6a27c9`,
+`a7b1a80a5887d1c2983900f3f965cdf97ff6dafbc57c3dc4cd27de8b49b7c3f2`,
+`cf2fe605a67f2e9a34c6337ec1e223a0a2765e66595754aaf6978f7fa451a3a5`,
+`71b35ff08be6f629c1dbaf2bf9e6f6b2ebb9345ab511224fcd2b560efefa4253`, and
+`ef41a8e78ae50690ee7af42dea4e2ceed4df7cd740c3b755ba0abe630cab2335`.
+Both used the preceding stock MAIN, NOR and QEMU identities.
+
 The QEMU-only interrupt-timestamp hook now initializes its decoder and queue
 only on first installation. On subsequent custom selections, it preserves
 pending edges if both hook words and the veneer match; a mismatch marks the
