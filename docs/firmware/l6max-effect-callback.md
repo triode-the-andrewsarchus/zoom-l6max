@@ -3981,6 +3981,31 @@ The prior MAIN, effect ELF, popup ELF, recipe and result hashes were
 Both tests used the preceding stock MAIN, NOR and unattested QEMU executable;
 debugger writes and stops make them controlled observations, not timing tests.
 
+Velvet amount edits now ramp the wet gain over 64 samples on both the direct
+and cascade histories. A host test with a fixed unity tap and constant 0.5
+input measured a 0.481 full-scale step when the old amount changed from zero
+to one; the ramp keeps successive output steps below 0.02 in that test. It
+also checks a direction reversal during the ramp and reset to the requested
+amount. This bounded test does not establish click-free behavior for arbitrary
+signals. A separate QEMU impulse diagnostic retained the observed Velvet and
+Plateau peaks of 0.30966336 and 0.03750144 and marker `0x46585031`; its MAIN,
+effect ELF, recipe and result hashes were
+`92d19eedaf6f1c76b876906e2041133445c589c7dbd18e2eb8a93113eaceb74c`,
+`630a95e76d4be8304ba1f32d89cdd4d801043a1139b46f4ca8ae38a2dcafae29`,
+`4a00332500e7140f8cd151252367fddedd7e7920d23e9b8dc02ce3083cadbb4e`, and
+`ad1760ba333533894e66df0a86361a2d2f96a8b97aae43299be296d6929fd260`.
+It used the preceding stock MAIN, NOR and unattested QEMU executable and did
+not exercise live edits or target timing.
+The separate combined UI run recorded the expected route edits, consumed 21
+events and returned the mixer control after closing the inspector. Its MAIN,
+effect ELF, popup ELF, recipe and result hashes were
+`5f6d5645635dd84ac0776897b5ca543cdd0478786a458479dfe4f14884d2e560`,
+`179ac33118a8f9188f2b77841354db8647ab9ed973a3448b34ace23ec7447e33`,
+`1189474f6a8be0b1b413cab0fc08a1be2910633b7dccef247a8e137acd77d341`,
+`53cebabc7f1cc568a4e976e8f55a319f7bbccd4ee6cd394627e485b24533178f`, and
+`0fbb69ab6352658880eaf0bb0d8e4da5c09982bc781ccc09c105a92e944d491b`.
+This was a silent-input UI test, not a live-audio or hardware qualification.
+
 The QEMU-only inspector now requests EFX mode through the stock mode handler
 when opened from another panel mode, and closes before another mode is
 selected. Nine observed direct calls to that handler are guarded and routed

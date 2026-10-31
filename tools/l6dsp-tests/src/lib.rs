@@ -167,6 +167,65 @@ mod tests {
     }
 
     #[test]
+    fn velvet_amount_edits_fade_both_shared_histories() {
+        let mut direct = Box::new(velvet::VelvetDecorrelator::new());
+        let mut shared = Box::new(velvet::VelvetDecorrelator::new());
+        let mut history = Box::new(velvet::MonoHistory::new());
+        let mut params = velvet::Parameters::default();
+        params.dynamic = false;
+        params.amount = 0.0;
+        for engine in [&mut direct, &mut shared] {
+            engine.init(params);
+            for channel in &mut engine.channels {
+                channel.banks[0].count = 1;
+                channel.banks[0].storage[0] = velvet::Tap { delay: 0, gain: 1.0 };
+            }
+        }
+        for _ in 0..100 {
+            assert_eq!(direct.process_sample(0.5, 0.5), (0.0, 0.0));
+            assert_eq!(shared.process_shared_mono(&mut history, 0.5, 0.5), ((0.0, 0.0), (0.0, 0.0)));
+        }
+        params.amount = 1.0;
+        direct.set_parameters(params);
+        shared.set_parameters(params);
+        let mut previous = 0.0f32;
+        for frame in 0..64 {
+            let stereo = direct.process_sample(0.5, 0.5);
+            let (a, cascade) = shared.process_shared_mono(&mut history, 0.5, 0.5);
+            assert_eq!(stereo, a);
+            assert_eq!(a, cascade);
+            assert!(stereo.0 >= previous && stereo.0 - previous < 0.02, "frame {frame}: {previous} -> {}", stereo.0);
+            previous = stereo.0;
+        }
+        assert!(previous > 0.4);
+        params.amount = 0.0;
+        direct.set_parameters(params);
+        shared.set_parameters(params);
+        for frame in 0..72 {
+            if frame == 8 {
+                params.amount = 1.0;
+                direct.set_parameters(params);
+                shared.set_parameters(params);
+            }
+            let stereo = direct.process_sample(0.5, 0.5);
+            let (a, cascade) = shared.process_shared_mono(&mut history, 0.5, 0.5);
+            assert_eq!(stereo, a);
+            assert_eq!(a, cascade);
+            assert!((stereo.0 - previous).abs() < 0.02, "frame {frame}: {previous} -> {}", stereo.0);
+            previous = stereo.0;
+        }
+        assert!(previous > 0.4);
+        params.amount = 0.0;
+        direct.set_parameters(params);
+        direct.reset();
+        for channel in &mut direct.channels {
+            channel.banks[0].count = 1;
+            channel.banks[0].storage[0] = velvet::Tap { delay: 0, gain: 1.0 };
+        }
+        assert_eq!(direct.process_sample(0.5, 0.5), (0.0, 0.0));
+    }
+
+    #[test]
     fn shared_velvet_handles_different_history_positions() {
         let mut shared = Box::new(velvet::VelvetDecorrelator::new());
         let mut history = Box::new(velvet::MonoHistory::new());
