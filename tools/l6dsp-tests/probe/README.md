@@ -369,6 +369,9 @@ index-0 acknowledgment, and copies the prefix on the selector task. Status 3
 means a candidate is waiting; `boundary_handoff` records the pause word, wait
 count, outcome and two bypass counters. `--boundary-noise` injects a
 deterministic nonzero signal into the stock AINR input for this experiment.
+After copying, the diagnostic closes the acknowledged pause atomically before
+publishing the snapshot claim; an unexpected index that invalidates that pause
+before closure prevents publication. This does not synchronize unobserved users.
 The pointer ownership, call ordering, 64-frame bypass and return ABI,
 other selector paths, timeout recovery, audio continuity, and target timing
 are not established. The code uses unowned scratch and flash. **Never install

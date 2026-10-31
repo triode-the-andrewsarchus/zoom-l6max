@@ -221,7 +221,7 @@ pub unsafe fn capture_boundary() {
             core::ptr::copy_nonoverlapping(0x20280000 as *const u8, ptr, CAPTURE_BYTES);
             core::ptr::write_volatile(0x83e0310c as *mut u32, core::ptr::read_volatile(0x8020ab4c as *const u32));
             let still_valid = boundary_selection_valid(status, &pause, request);
-            if still_valid { capture.finish(claim, 15, true) }
+            if still_valid { pause.publish_capture(request, &capture, claim) }
             else { capture.finish(claim, 0, false); false }
         } else {
             capture.finish(claim, 0, false);
