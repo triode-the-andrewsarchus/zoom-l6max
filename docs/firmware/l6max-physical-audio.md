@@ -87,3 +87,13 @@ The send WAV, sixteen-channel return WAV and harness report SHA-256 values
 were `fc7b4a3416f8157515d91c4250e60ef74ffc6874c4843cbda91f31f289b4bc98`,
 `2ceb67945ff40e1ae0baba3846abdc2337d01f8eb908fed4f21030eb6f25cd5a`, and
 `b08c21357b0786de7e423df7c313eb8090417beee7dc2a8014de93400fb6cefa`.
+
+Zoom's [operation manual](https://zoomcorp.com/manuals/l6max-en/) specifies
+the multitrack USB order as CH1–4, CH5 L/R through CH8 L/R, then MASTER L/R.
+Assuming that order is preserved in the host ports, the observed pairs are
+CH5 L and MASTER L for send 0, and CH5 R and MASTER R for send 1. Over this
+capture, each master channel was proportional to the matching CH5 channel at
+gain about 0.210175, with residual RMS about `1.1e-9`; cross-channel
+correlations were about 0.005. This supports the signal reaching the device's
+master USB stream in this setup. It does not exclude a separate direct-monitor
+contribution on the AudioFuse analog returns or establish general routing.
