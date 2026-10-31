@@ -4389,6 +4389,36 @@ The instrumented diagnostic's corresponding identities were
 `a3635b713db17dd26dc2097f2715cd657eb585f23c0a917491a4cea9d2af9f62`.
 Both used the same stock MAIN, NOR and unattested QEMU binary identified above.
 
+The hybrid diagnostic now claims the completed snapshot during installation;
+resetting it while the copy is in progress delays reuse until the installer
+retires. Readiness is tied to the completed generation, and a disable clears
+the pending publication. In a normal QEMU run, learning completed, all three
+installed descriptors matched, and the pre-AINR callback counter advanced
+from 2,452 to 4,782. Temporary instrumentation forced a reset during the
+installation claim: a competing capture was rejected and pre-AINR processing
+remained inactive. A separate forced disable after the copy but before ready
+publication left the ready token zero and processing inactive. These are
+forced orderings, not observed target scheduling; destination-buffer
+quiescence, snapshot coherence, target deadlines and physical safety remain
+unqualified.
+
+The normal MAIN, ELF, recipe and result SHA-256 values were
+`305d4cd874d4f40c2daa6097339dda877814bb4f13da0751bbc4546522099d21`,
+`238a53fcce7c757c8317a0495b841c6052dea5c6cd0cc9d4c6ef87a8d1252319`,
+`d4a628f24bb198d9d4a4724a0ca9792a772de9e04e5724aa82bf4c269d3a7850`, and
+`9f23d8a4e76561321849a1edb87594eef94231dc42f3caacdb24c4259d5d8525`.
+The forced reset identities were
+`848c667e585bb8451f4b70b8c09c389cac624d26e5fc71bced0b0c18f60eebe2`,
+`cc22b300365c39615bb03923914d13f8977089adc222a7f462475633d4d6bc8a`,
+`94188f0bac0dbef6054ae9f617d8404c46562c68a1fb3ad10da886acd97a172b`, and
+`007897f7aae5133482bd40d6aec0e2e19f15571237f69e9863827e60efd19cbd`.
+The forced disable identities were
+`aea3be17296eabb550b17f4ccdff3c2e42d86cb82b79630924b43f0c248ddf9d`,
+`ffe59aaa0df45144c9b28a80a0511b4f2682d0dbc0dac91e32de023fe6e05001`,
+`fed7f795d40d5bbdbf91fad25725ce877e90829eca7f1b9689ad6f101a757c99`, and
+`a41b55de1a902fbe3c7ff22c1cf4f03983ea216d7f8a108de2e3c26c89b4dab7`.
+They used the same stock MAIN, NOR and unattested QEMU binary identified above.
+
 - QEMU binary SHA-256:
   `9724d60a31400becad8f1e98d6fd67bb9456c8dfbdeebe833e7636ed8e9cf536`.
   The `l6test` runner records its source provenance as unattested.

@@ -19,10 +19,20 @@ pub struct CaptureProtocol<'a>(pub &'a AtomicU32);
 impl CaptureProtocol<'_> {
     pub fn claim(&self) -> Option<(u32, usize)> {
         let state = self.0.load(Ordering::Acquire);
-        if state & PHASE != WAIT { return None; }
+        // Step 15 is reserved for an installer reading a completed snapshot.
+        if state & PHASE != WAIT || state & STEP_MASK == STEP_MASK { return None; }
         let claim = state | COPYING;
         self.0.compare_exchange(state, claim, Ordering::AcqRel, Ordering::Acquire).ok()?;
         Some((claim, ((state & STEP_MASK) >> 2) as usize))
+    }
+
+    /// Hold a completed snapshot against reuse while installation copies it.
+    pub fn claim_install(&self) -> Option<u32> {
+        let state = self.0.load(Ordering::Acquire);
+        if state & (PHASE | STEP_MASK) != DONE | STEP_MASK { return None; }
+        let claim = (state & !PHASE) | COPYING;
+        self.0.compare_exchange(state, claim, Ordering::AcqRel, Ordering::Acquire).ok()?;
+        Some(claim)
     }
 
     pub fn finish(&self, claim: u32, next_step: usize, complete: bool) -> bool {
@@ -77,6 +87,10 @@ impl CaptureProtocol<'_> {
     }
 
     pub fn done(&self) -> bool { self.0.load(Ordering::Acquire) & PHASE == DONE }
+
+    pub fn current_done(&self, token: u32) -> bool {
+        token & (PHASE | STEP_MASK) == DONE | STEP_MASK && self.0.load(Ordering::Acquire) == token
+    }
 
     pub fn needs_reset(&self) -> bool {
         self.0.load(Ordering::Acquire) & (PHASE | STEP_MASK) != WAIT

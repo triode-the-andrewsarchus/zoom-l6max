@@ -333,8 +333,11 @@ publication by a cancelled capture, including after rearming; progress is only
 diagnostic telemetry. In this mode the completed claim, not the later status
 word, authorizes installation. Cancellation holds the buffer claim until an
 in-flight writer retires; an early rearm request waits for that retirement.
-This does not establish quiescence between snapshot installation and other
-users of the buffer. This is an unqualified experiment: the inferred span may
+Installation also claims the completed snapshot while copying it. Its ready
+token is tied to the completed capture generation and is published only if
+the installation has not been cancelled or disabled. This does not establish
+quiescence for the destination effect buffer or other stock users. This is an
+unqualified experiment: the inferred span may
 miss mutable state, the last callback still copies at least 44 KiB, and the
 selector has no proven audio-task quiescence or deadline guarantee.
 Add `--passthrough-unready` to keep synthetic sends active without AINR while

@@ -40,7 +40,13 @@ pub unsafe fn arm() {
 }
 
 pub fn ready() -> bool {
-    unsafe { word(READY).load(Ordering::Acquire) == 0x41494e52 }
+    unsafe {
+        let token = word(READY).load(Ordering::Acquire);
+        #[cfg(hybrid_ainr_probe)]
+        { crate::handoff_protocol::CaptureProtocol(word(CONTROL)).current_done(token) }
+        #[cfg(not(hybrid_ainr_probe))]
+        { token == 0x41494e52 }
+    }
 }
 
 /// Diagnostic only: retain one snapshot allocation for the test session.
@@ -149,7 +155,9 @@ pub unsafe fn install() {
         // In the hybrid path, DONE is the release/acquire publication of the
         // snapshot. STATUS is written later and is not an installation gate.
         #[cfg(hybrid_ainr_probe)]
-        if !crate::handoff_protocol::CaptureProtocol(word(CONTROL)).done() { return; }
+        let Some(claim) = crate::handoff_protocol::CaptureProtocol(word(CONTROL)).claim_install() else { return; };
+        #[cfg(hybrid_ainr_probe)]
+        word(READY).store(1, Ordering::Release);
         #[cfg(not(hybrid_ainr_probe))]
         if word(STATUS).load(Ordering::Acquire) != 1 { return; }
         for index in 0..3 {
@@ -161,6 +169,15 @@ pub unsafe fn install() {
         core::ptr::write_volatile(0x83e03110 as *mut u32, core::ptr::read_volatile(ptr.add(0xba4c) as *const u32));
         core::ptr::write_volatile(0x83e03114 as *mut u32, core::ptr::read_volatile(0x80d5ba4c as *const u32));
         core::ptr::write_volatile(0x83e00140 as *mut u32, 1);
+        #[cfg(hybrid_ainr_probe)]
+        {
+            let protocol = crate::handoff_protocol::CaptureProtocol(word(CONTROL));
+            if protocol.finish(claim, 15, true) {
+                // Restore the completed phase in the claim's generation token.
+                let _ = word(READY).compare_exchange(1, (claim & !3) | 2, Ordering::AcqRel, Ordering::Acquire);
+            }
+        }
+        #[cfg(not(hybrid_ainr_probe))]
         word(READY).store(0x41494e52, Ordering::Release);
     }
 }
