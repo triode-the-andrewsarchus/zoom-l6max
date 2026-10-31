@@ -127,6 +127,26 @@ it is not an effect implementation. Both options alter the diagnostic image.
 `--active-sends` replaces the three reconstructed buses with constant nonzero
 test signals and records the latest output samples at `0x83e00800`. It tests
 active DSP workload rather than the physical input or mixer routing path.
+
+For a paired Sub-Mix observation, copy the same Hall-selected 1.10 state to
+two disposable directories and use `l6nor set` to set
+`mixer.current.efx_return_submix=1` in the second. Verify with `l6nor diff`
+that this is the only decoded settings difference and that Mix Minus is off
+in both. Prepare each with `--callback`, `--inspector`, `--active-sends` and
+`--submix-return`, then run each generated recipe with `l6dbg` and the same
+hash-pinned QEMU. Compare their `diagnostic.json` files:
+
+```sh
+python3 tools/l6dsp-tests/probe/submix_return.py OFF_RESULT ON_RESULT
+```
+
+The check requires the observed Room callback, progressing counts, finite
+nonzero sampled DSP output, the two setting flags, and the observed SAI slot
+relationship. Verify the initial state, recipe, QEMU and executable hashes
+separately: the comparison does not attest them. It does not qualify physical
+routing, actual mixer inputs, USB Mix Minus, control responsiveness or target
+timing, and the generated images must never be installed on hardware.
+
 `--irq-trace` additionally installs a guarded UART receive interrupt probe in
 the disposable guest and records matching key edges at `0x83e00900`. It uses
 an unowned low-memory veneer, changes interrupt execution, and is QEMU-only;

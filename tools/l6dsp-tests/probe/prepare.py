@@ -31,6 +31,7 @@ parser.add_argument("--irq-trace", action="store_true", help="trace panel bytes 
 parser.add_argument("--irq-timing", action="store_true", help="use QEMU-only IRQ timestamps for selector gestures")
 parser.add_argument("--timing-control", action="store_true", help="bypass effects in a QEMU timing comparison")
 parser.add_argument("--active-sends", action="store_true", help="inject nonzero QEMU-only effect buses")
+parser.add_argument("--submix-return", action="store_true", help="capture active DSP output with the modeled Sub-Mix switch held")
 parser.add_argument("--retain-custom-state", action="store_true", help="experimentally retain state across adjacent custom effects")
 parser.add_argument("--pre-ainr", action="store_true", help="run a debugger-installed AINR copy on each test send")
 parser.add_argument("--effect-buffer", action="store_true", help="place test states in the observed stock effect buffer")
@@ -65,6 +66,10 @@ if args.active_sends and not args.inspector:
     parser.error("--active-sends requires --inspector")
 if args.active_sends and args.timing_control:
     parser.error("--active-sends cannot be combined with --timing-control")
+if args.submix_return and (not args.active_sends or not args.inspector or args.pre_ainr
+                           or args.bank_stress or args.retain_custom_state or args.irq_trace
+                           or args.irq_timing or args.gesture_trace or args.enqueue_trace):
+    parser.error("--submix-return requires --callback --inspector --active-sends without other diagnostic variants")
 if args.pre_ainr and (not args.active_sends or not args.inspector or args.bank_stress or args.irq_trace
                       or args.irq_timing or args.gesture_trace or args.enqueue_trace):
     parser.error("--pre-ainr requires --inspector --active-sends and no other trace or stress options")
@@ -263,7 +268,10 @@ wall_timeout_s = 300
         global recipe
         recipe += '[[step]]\naction = "' + action + '"\n'
         for key, value in fields.items():
-            recipe += f'{key} = "{value}"\n' if isinstance(value, str) else f'{key} = {value}\n'
+            if isinstance(value, bool):
+                recipe += f'{key} = {str(value).lower()}\n'
+            else:
+                recipe += f'{key} = "{value}"\n' if isinstance(value, str) else f'{key} = {value}\n'
 
     def wait(ms=2000):
         add("wait", guest_ms=ms)
@@ -341,6 +349,21 @@ wall_timeout_s = 300
     else:
         memory("active_spring", 0x202a6f20, 4)
     memory("selected_after_close", 0x83e00004, 4)
+    if args.submix_return:
+        recipe = f'version = 1\nmodel = "l6max"\nmain_sha256 = "{image_sha}"\nwall_timeout_s = 360\n'
+        wait(45000)
+        add("button", target=47, pressed=True)
+        wait(2000)
+        add("press", target=40, hold_ms=150)  # Hall -> Room
+        wait(5000)
+        memory("return_flags", 0x804600dd, 2)
+        for suffix in ("initial", "final"):
+            if suffix == "final":
+                wait(5000)
+            memory(f"effect_{suffix}", 0x83e00000, 12)
+            memory(f"audio_{suffix}", 0x83e00800, 16)
+            memory(f"tx_{suffix}", 0x20009740, 4096)
+        add("button", target=47, pressed=False)
 if args.pre_ainr:
     # The observer or auto-handoff prototype installs learned AINR copies.
     recipe = f'''version = 1
