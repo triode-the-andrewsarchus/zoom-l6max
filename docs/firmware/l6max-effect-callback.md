@@ -2037,6 +2037,33 @@ result hashes were respectively
 `814c58d8060b0506c56af9a8bb6167cf6fc6354ab3152edb4594a17df10d2193`.
 Both used the preceding stock MAIN, NOR and QEMU identities.
 
+The stock panel path also calls `0x8000ccf8` before the selector, which emits
+an effect-selection MIDI message through the modeled LPUART3 path. In the
+preceding rollback run the recorded bytes were `b0 75 2b`, `b0 75 40`,
+`b0 75 40`: the failed Spring request was reported even though the callback
+and stock fields were restored to Room. A further disposable variant moved
+that call until after the handler-specific rollback. Its trace recorded
+`b0 75 2b`, `b0 75 2b`, aligning the timeout notification with Room, but did
+not record a third Spring message after the later successful selection, even
+though both stock type fields became 2. The cause is unresolved; a successful
+recipe only means its observations completed. This moved-call experiment is
+not a valid fix and does not establish notification timing or ordering for
+other paths.
+
+The original rollback engine trace SHA-256 was
+`49c7bba6d1aabda81c6bc9c3beab2237ccca5bd15ee05fef085f09aa6cadd5d5`.
+The moved-call variant's callback, preparer, linker, MAIN, ELF, recipe,
+result and engine trace hashes were respectively
+`55f287916ba45b1fd9f5bb970da292e5948f6179a06246110ad1a0fed32a6745`,
+`8fcff94654db5787b3b1bc0d253f2cb077e25214b6a6c5ed10fdfa523149e706`,
+`a57f22f6ac5f974a45b5460b5e2315451558365fbe0208546ac99e24702d3653`,
+`5104abc9e6eb6829aa57a21207833d0ac6cf4c7c12620cf1c0cd8fb2b030e041`,
+`8bec6d04b8100498ca41fd4d22becf84e209eccda0ad3261bec2e67a0318ce50`,
+`8c4aae75bf09e19e88145cd1ad020ba14c845a4b77724a01d5dcd48f9a25bb01`,
+`181ef9ad2f268c91af85d2e6fce3880598c1672fa12bf118324d4c08f0581e16`, and
+`7152ee8e138b883010b2a3fa5dcf3f66bd5454d3fe99259b53c2c5558cce094f`.
+The stock MAIN, NOR and QEMU identities matched the preceding experiment.
+
 The QEMU-only interrupt-timestamp hook now initializes its decoder and queue
 only on first installation. On subsequent custom selections, it preserves
 pending edges if both hook words and the veneer match; a mismatch marks the
