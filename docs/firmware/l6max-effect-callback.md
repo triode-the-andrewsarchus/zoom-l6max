@@ -1818,6 +1818,52 @@ The guarded variant's corresponding hashes were
 `c3da19598daae4f4afb639b2588e1ef69ffacb5ac699683fca684efed60ce855`, and
 `cd6257b46294f3c4bd2a062fd1dc385ce14293427652a682786b8e604cf746b9`.
 
+The diagnostic now skips a channel's per-frame reconstruction when its
+fixed gain is zero and its per-frame ramp is inactive. An instrumented
+active-sends run found all 12 fixed gains zero in this fixture and counted
+2,831 callbacks over five guest seconds, compared with 2,729 in the guarded
+run above. The instrumentation adds writes and the synthetic sends overwrite
+the reconstructed buses; the result does not predict performance with real
+active input, establish physical timing, or by itself resolve the UI stall.
+The instrumented callback, MAIN, ELF, recipe and result hashes were
+`838516f4cb5e1dfe42ebd0cf11614d29f7a98bc7b33639467c0f3604a989a8d9`,
+`a921594289e1e62af81cdafc4ca9a962150e8b5431882c9c68aeb2d24536e040`,
+`9c36dbe88d5f281810e793b2b526011dcac8562d9c6ee2cfc571760cce721fb3`,
+`4fa0e9af10030c3cf08629b10934d77ed812e4bd5ed131c3ccd0ee91f88fb941`, and
+`3ece9448007521754e7e5100e339659fcde15ebe21c9ffe5e26adfe3d34dbfae`.
+
+In matched instrumented runs with controlled fixed and ramped gains,
+including zero, negative zero, NaN and infinity, the three captured 64-frame
+send blocks matched byte for byte with and without the shortcut, with combined
+SHA-256 `b6dac7ae4b3eb2e519f7476abfe8f6c9bbf45d79e458bc6924d04d5d51de66a4`.
+This is a bounded input comparison, not proof for every floating-point state
+or concurrent mixer update. The reference callback, MAIN, ELF, recipe and
+result hashes were
+`de1701d4610aab2e552c1c31d16ecad8009e230a171e10587c0a2470c0565f7b`,
+`f55baf0a86912dd20ef248f794bd010f0a403aa6eca438118da2ba1bee7ec52c`,
+`d325aa01ae42ebc1b9923fc40b8e2ee5a4cd420887b16e417d4902bc691ca710`,
+`ced66a3944b91119d37ffcac12e49d426d6398705584c5f8529f03811ed20797`, and
+`e4c0887186a9f12104b81e4903861c14cb063116c9c4c7922f63a9503ac892fd`.
+The shortcut variant's corresponding hashes were
+`0e005f2bb1487852f1502c78771cddba228fe00ff18f4aeed9386e78d7472bbb`,
+`8ec7b76be30e1ad5c6ca52d8452800cb52e80101f6ff79f1e0364ab08eb56758`,
+`a09281c5b2b16536402e8eee0b60898032aa8c1499fbbe37fddab88fabc2da9f`,
+`c3e8aa7a5af79370ccaf9dbb7c6f69542c2640a5b44aaa9f4aa09ee0303a0404`, and
+`653f2a4ffda75137b95d689255cb2bfdafff98536b863eadf94141ca207ae354`.
+Both used the same stock MAIN, NOR and unattested QEMU executable as above.
+
+In a separate active-sends ten-edit run of a disposable shortcut variant,
+the inspector remained closed, none of the ten edits was recorded, and the
+selected descriptor remained Room after the final short press. The callback
+continued to report finite nonzero output. The runner's successful completion
+is therefore not an interaction pass. The callback, MAIN, ELF, recipe and
+result hashes were
+`d32011b1d94f78f30ce4ca6031380ace33e2de2e927e4e0ec2c8b032c08261cc`,
+`16508b75cb98cab82bcc83b001b7cf7ccbc7d81dab9721af6a5077942c7c4df6`,
+`f605907f14d0e2f28a400a19da8dbee8b659f929455b665a63996aa9b1e6cea6`,
+`a6258e21ea852ef27f40535974e7cb9bac7d4d136f5c2163c046b10d0913a011`, and
+`acb0bb1e98bbf932b6900a1a7aea4a5304ade05229755d24c745ec3d663ba151`.
+
 A disposable experiment tested retaining the initialized processor when
 switching directly from Room to Spring, instead of clearing the stock effect
 buffer and rebuilding the processor. It injected a single impulse into bus B
