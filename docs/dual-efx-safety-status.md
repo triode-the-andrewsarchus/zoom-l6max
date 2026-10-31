@@ -36,6 +36,10 @@ The blocking findings for L6max MAIN 1.10
   callback stopped EFX SEL cycling because it did not advance the stock
   control stream. The diagnostic now advances it and the tested six-press
   sequence progresses, but the production firmware integration is unfinished.
+- L6max 1.10 also supports stock effect returns to Sub-Mix and Mix Minus. A
+  fixed-output QEMU callback reached modeled Sub-Mix transmit slots when
+  enabled, but the replacement DSP, USB Mix Minus, physical output mapping,
+  and behavior across effect changes have not been qualified.
 - Shared mutable state and interrupt masking have not been proven safe. There
   are no measured target deadline, stack, memory-ownership, or output bounds.
   A forced emulator interleaving has shown that audio can reach a newly
