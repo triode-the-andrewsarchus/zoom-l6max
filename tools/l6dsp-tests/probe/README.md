@@ -331,7 +331,9 @@ the observed selection or learning-reset paths. The recipe records progress
 at `0x83e03130` after learning and selection. A versioned atomic claim rejects
 publication by a cancelled capture, including after rearming; progress is only
 diagnostic telemetry. In this mode the completed claim, not the later status
-word, authorizes installation. Cancellation holds the buffer claim until an
+word, authorizes installation. The status word can also be stale across a
+reset, so its captured value does not block a rearmed hybrid claim; invalid
+status values still fail closed. Cancellation holds the buffer claim until an
 in-flight writer retires; an early rearm request waits for that retirement.
 Installation also claims the completed snapshot while copying it. Its ready
 token is tied to the completed capture generation and is published only if

@@ -4419,6 +4419,33 @@ The forced disable identities were
 `a41b55de1a902fbe3c7ff22c1cf4f03983ea216d7f8a108de2e3c26c89b4dab7`.
 They used the same stock MAIN, NOR and unattested QEMU binary identified above.
 
+The hybrid capture gate now treats status 1 as telemetry rather than proof
+that the current generation is complete. In a forced QEMU ordering, reset
+and rearm occurred after a capture completed but before its status write. The
+old gate left the new control word waiting and never started pre-AINR
+processing. With the revised gate, the new generation completed and installed
+three matching descriptors; its processing counter advanced from 2,450 to
+4,777. A normal run likewise completed capture and processing. Status values
+outside 0 and 1 remain rejected when a hybrid capture is attempted. The forced
+ordering does not establish target scheduling, snapshot coherence or timing.
+
+The forced before MAIN, ELF, recipe and result SHA-256 values were
+`67c21e5475efbf29d6082b6a466d6295907843af38d01be26a2f4494313af0ed`,
+`8a6a7a44eb33b4a5b6eef6c96449835edf31210b3447c8bb48f527f4ece2d111`,
+`798021437685cfb835ad6bf631f11c66b27fe670101f4647594c8d1300cba970`, and
+`ce8b1d463247096bb84ba741819b520ea6143448b4a05d4c09028be2c4d59db9`.
+The forced after identities were
+`7d4f8a66bd551a6820ed5bbaa95f62dfd3b8237461966d77df4785174c72455e`,
+`b214e5fd6d21e847d8a9210f2570752d700ece0cb2c809ab18c423383064a6a0`,
+`15ae115bd2a5f5cd24073aadebb03cc367db61ea485d0eb291f3f92887d4122a`, and
+`67bdf1eabfac824970f522c9ee7f9eea7eb63f47d1db2af49fc5ee0f55dfbd22`.
+The normal identities were
+`de44394d5b8b4f83579f503e02c5abd7af202ebeb17ddb2646e0db50c7447b63`,
+`7a4031ad64002b77312ee03ce9da994a2eec20a784ddceeba11a60c8b31edc11`,
+`ee54c79386709ab1c52225a19af6a303673cae66fa0863eb9222dabb00156a93`, and
+`fb8fa2eab10f914e60a784d9b1e5bebfb1291965110792ab100a16ad431cc7be`.
+They used the same stock MAIN, NOR and unattested QEMU binary identified above.
+
 - QEMU binary SHA-256:
   `9724d60a31400becad8f1e98d6fd67bb9456c8dfbdeebe833e7636ed8e9cf536`.
   The `l6test` runner records its source provenance as unattested.
