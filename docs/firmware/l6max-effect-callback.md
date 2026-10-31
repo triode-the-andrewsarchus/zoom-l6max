@@ -4080,12 +4080,32 @@ Initial panel flash, options and RTC were respectively
 `024cc8ce91d39a4ea9c34b7373b0dc2cd5581ee4bcb1ab45593ee8475ef9440f`;
 `l6dbg` was `9a7f882911b7e44c76ddd1c28a226f3f5507878899fc5dd78f616eb10cb360da`.
 
-The Velvet density model now displays the target limited by the 64-tap bank
-while preserving the requested density in the parameter handoff. At 95 ms,
-a request for 3,000 pps is displayed as 673.7 pps; shortening the spread can
-make the stored request effective. The display describes a target, not a
-measurement of the current bank during a crossfade. This does not remove
-the tap limit or establish that the full requested range can meet deadlines.
+The Velvet density model displays the target derived from the rounded,
+bounded tap count and the sample-quantized spread, while preserving the
+requested density in the parameter handoff. At 95 ms, a request for 3,000
+pps is displayed as 673.7 pps; shortening the spread can make the stored
+request effective. At very short spreads, the two-tap minimum and rounding
+can instead produce a target above the request. The display describes a
+target, not a measurement of the current bank during a crossfade. This does
+not remove the tap limit or establish that the full requested range can meet
+deadlines.
+
+In a silent-input combined QEMU inspector run, modeled encoders set a
+1.5625 ms spread and requested 3,000 pps; the popup context contained 3,200
+pps. At 1 ms with a 100 pps request it contained 2,000 pps. The saved
+parameter words retained the respective requests and both observed event
+queues drained with no overflow. The OLED snapshots were available, but the
+downsampled previews do not verify their characters. MAIN, effect ELF, popup
+ELF, recipe and result SHA-256 values were
+`a0b950b1b0abb97f6949e899d1bdb1c677411b4f51633eca7e0f0b58ec8f1c15`,
+`055b9788fce568aa21168f08825fa1fc108899ea244bb96e5f8e25a9874a7c50`,
+`b22eb39c1ffb970f375a01345e6bfc68e3a179e19321560c2e46f5b7fe465d62`,
+`0b927fe94ba41b7e1731fd3ea348903268d4e4d6995ec7716b214852bb2ef189`, and
+`e057bfb75d91afd4cd94e342381ed4fe198973de702aa836dc13eeaa3736c8e9`.
+The initial diagnostic NOR reconstructed from the stock fixture and MAIN
+had SHA-256 `7ed113dd07c6711cb6aa56abbca7510f22f5a4bccc7c22f179becc54c169fb8f`;
+the stock fixture, initial panel state, QEMU and `l6dbg` matched the preceding
+observations. This does not qualify active audio or physical controls.
 
 An ARM/QEMU-only model diagnostic restored that request and emitted the
 formatted value `673.7 pps`, the stored float `3000.0`, and marker

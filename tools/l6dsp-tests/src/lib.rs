@@ -567,6 +567,29 @@ mod tests {
     }
 
     #[test]
+    fn velvet_density_display_tracks_the_generated_tap_count() {
+        use parameters::{snapshot_parameter, EfxParamId, ParameterSnapshot};
+        let mut processor = Box::new(routing::DualEfxProcessor::new());
+        processor.init();
+        for (spread, requested, expected_taps, expected_density) in [
+            (1.0, 100.0, 2, 2000.0),
+            (1.2, 3000.0, 4, 192_000.0 / 57.0),
+            (10.0, 440.0, 4, 400.0),
+            (95.0, 3000.0, 64, 64_000.0 / 95.0),
+        ] {
+            let mut params = processor.velvet.current;
+            params.length_ms = spread;
+            params.density = requested;
+            processor.velvet.init(params);
+            assert_eq!(processor.velvet.channels[0].banks[0].count, expected_taps);
+            let snapshot = snapshot_parameter(EfxParamId::VndDensity, &processor);
+            assert!((snapshot.value - expected_density).abs() < 0.01);
+            assert_eq!(processor.velvet.current.density, requested);
+            assert!(ParameterSnapshot::from_words(EfxParamId::VndDensity as u32, snapshot.value.to_bits()).is_some());
+        }
+    }
+
+    #[test]
     fn efx_select_defers_short_press_and_distinguishes_hold() {
         use controls::EfxSelectAction as Action;
         let mut gesture = controls::EfxSelectGesture::default();
@@ -655,7 +678,7 @@ mod tests {
         use parameter_view::{EfxParamId as Id, ParameterSnapshot};
         let ranges: [(Id, f32, f32); 14] = [
             (Id::VndAmount, 0.0, 100.0), (Id::VndTimeSpread, 1.0, 95.0),
-            (Id::VndDensity, 10.0, 3000.0), (Id::VndDecay, -120.0, 0.0),
+            (Id::VndDensity, 10.0, 3500.0), (Id::VndDecay, -120.0, 0.0),
             (Id::VndRefresh, 0.1, 60.0), (Id::VndTransition, 1.0, 54000.0),
             (Id::PlatPreDelay, 0.0, 190.0), (Id::PlatSize, 0.2 * 100.0, 1.2 * 100.0),
             (Id::PlatDecay, 0.1 * 100.0, 0.999 * 100.0),

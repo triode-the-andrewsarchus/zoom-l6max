@@ -59,7 +59,9 @@ impl ParameterSnapshot {
         let (min, max) = match id {
             VndAmount | PlatDiffusion | GlobalCascade => (0.0, 100.0),
             VndTimeSpread => (1.0, 95.0),
-            VndDensity => (10.0, 3000.0),
+            // Rounding a valid 3000 pps request to whole taps can yield a
+            // slightly higher effective density at short spreads.
+            VndDensity => (10.0, 3500.0),
             VndDecay => (-120.0, 0.0),
             VndRefresh => (0.1, 60.0),
             VndTransition => (1.0, 54000.0),
