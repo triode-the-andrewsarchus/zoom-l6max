@@ -2064,6 +2064,28 @@ result and engine trace hashes were respectively
 `7152ee8e138b883010b2a3fa5dcf3f66bd5454d3fe99259b53c2c5558cce094f`.
 The stock MAIN, NOR and QEMU identities matched the preceding experiment.
 
+A trace variant of the moved-call experiment recorded the requested type and
+panel-handler mode on entry to the deferred call. It recorded `(1, 0)`,
+`(2, 0)`, `(2, 0)` for Room, the failed Spring attempt, and the subsequent
+Spring selection. The two stock type fields ended at 2. Even with an extra
+three-guest-second wait, the LPUART3 trace contained only `b0 75 2b` twice.
+The handler was therefore reached with the expected mode for the third
+selection, but the trace does not establish why the Spring message was not
+transmitted. Instrumentation and the changed call order affect scheduling;
+the result does not prove a particular queue or hardware failure.
+
+The trace variant's callback, preparer, linker, MAIN, ELF, recipe, result and
+engine trace SHA-256 values were respectively
+`29f4154e567431900d2bfdd1351da4caee41eb471a36cd0facf2127cb85e017c`,
+`8fcff94654db5787b3b1bc0d253f2cb077e25214b6a6c5ed10fdfa523149e706`,
+`a57f22f6ac5f974a45b5460b5e2315451558365fbe0208546ac99e24702d3653`,
+`3d2fc212c0547c0886316ea971aabb4695367e9e1b84ef91b897628e26145086`,
+`a999b27816f29486f215550f9c3826f276dfec9bbcd01ba8681469f5169391af`,
+`079c632e81949773a2cac2ada1491ec2e8efbc6f1ca02835e8b132d071e5bb0e`,
+`0278b8ff7bee4fe1dd50d98a418f90d78beeb44e2cfdd17843e236f89931469e`, and
+`56410c9ecb7cc8bdfd7978436c0263f73e3fb191333b3e6fa30038684dab5cc0`.
+The stock MAIN, NOR and QEMU identities matched the preceding experiment.
+
 The QEMU-only interrupt-timestamp hook now initializes its decoder and queue
 only on first installation. On subsequent custom selections, it preserves
 pending edges if both hook words and the veneer match; a mismatch marks the
