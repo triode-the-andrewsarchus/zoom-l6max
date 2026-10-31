@@ -906,9 +906,10 @@ mod tests {
         let mut params = plateau::PlateauParameters::default();
         plat.init(params);
 
-        // Feed audio
-        for i in 0..1000 {
-            let s = ((i as f32) * 0.1).sin();
+        // Fill the tank before freezing; a short input mostly exercises its
+        // initial transient rather than sustained feedback.
+        for i in 0..96_000 {
+            let s = ((i as f32) * 0.057595866).sin() * 0.25;
             plat.process_sample(s, s);
         }
 
@@ -916,15 +917,22 @@ mod tests {
         params.freeze = true;
         plat.set_parameters(params);
 
-        // Let it run for 20,000 samples in silence
-        let mut mid_energy = 0.0f32;
-        for _ in 0..20000 {
-            let (l, r) = plat.process_sample(0.0, 0.0);
-            mid_energy += l * l + r * r;
+        // Compare successive five-second windows rather than relying on one
+        // short energy measurement, and check the output remains bounded.
+        let mut energy = [0.0f64; 2];
+        for window in &mut energy {
+            for _ in 0..240_000 {
+                let (l, r) = plat.process_sample(0.0, 0.0);
+                assert!(l.is_finite() && r.is_finite());
+                assert!(l.abs() <= 1.0 && r.abs() <= 1.0);
+                *window += (l as f64) * (l as f64) + (r as f64) * (r as f64);
+            }
         }
-
-        // Energy should remain strong because it's frozen
-        assert!(mid_energy > 1.0, "Frozen reverb lost energy: {mid_energy}");
+        assert!(energy[0] > 1.0, "frozen tank was not energized");
+        assert!(
+            energy[1] > energy[0] * 0.5 && energy[1] < energy[0] * 2.0,
+            "frozen energy changed excessively: {energy:?}"
+        );
     }
 
     #[test]
