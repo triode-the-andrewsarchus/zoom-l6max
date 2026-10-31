@@ -82,7 +82,9 @@ The blocking findings for L6max MAIN 1.10
   between the start and end of the copy while the pause was acknowledged;
   nevertheless the diagnostic published and installed the snapshot. The
   current experiment excludes those observed stock rings, but it has not
-  established the complete AINR footprint or excluded all other writers.
+  established the complete AINR footprint or excluded all other writers. Its
+  packed heap snapshot now holds only a candidate 56,264-byte channel-0 tail;
+  selection still reconstructs three copies in unqualified effect storage.
   The pause therefore does not establish a coherent snapshot.
 
 Some standalone DSP defects have been fixed and tested on the host. Those

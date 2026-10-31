@@ -7,19 +7,29 @@ const REQUESTED: u32 = 1;
 const PAUSED: u32 = 2;
 const EPOCH: u32 = !PHASE;
 
-// QEMU-only candidate: stock ring buffers occupy this part of the prefix.
-// The exclusion is not a complete AINR state-footprint or ownership proof.
-pub const SNAPSHOT_BYTES: usize = 0x19514;
-const RINGS_START: usize = 0x2ff8;
-const RINGS_END: usize = 0xb94c;
+// QEMU-only candidate, based on limited learned-state comparisons. These
+// ranges are not a complete AINR state-footprint or ownership proof.
+pub const SNAPSHOT_START: usize = 0xb94c;
+pub const SNAPSHOT_END: usize = 0x19514;
+pub const CAPTURE_BYTES: usize = SNAPSHOT_END - SNAPSHOT_START;
+pub const CLONE_BYTES: usize = 0x20000;
+pub const DESCRIPTOR_OFFSET: usize = 0xba4c - SNAPSHOT_START;
 
-/// Copy a disjoint channel-0 prefix while replacing the observed stock rings
-/// with silence. Both regions must be valid for SNAPSHOT_BYTES bytes.
+/// Copy the candidate state tail into a disjoint packed snapshot.
+/// Source must cover SNAPSHOT_END bytes; destination must cover CAPTURE_BYTES.
 pub unsafe fn copy_snapshot(source: *const u8, dest: *mut u8) {
     unsafe {
-        core::ptr::copy_nonoverlapping(source, dest, RINGS_START);
-        core::ptr::write_bytes(dest.add(RINGS_START), 0, RINGS_END - RINGS_START);
-        core::ptr::copy_nonoverlapping(source.add(RINGS_END), dest.add(RINGS_END), SNAPSHOT_BYTES - RINGS_END);
+        core::ptr::copy_nonoverlapping(source.add(SNAPSHOT_START), dest, CAPTURE_BYTES);
+    }
+}
+
+/// Reconstruct one disjoint clone, clearing the unobserved prefix and suffix.
+/// Source must cover CAPTURE_BYTES; destination must cover CLONE_BYTES.
+pub unsafe fn install_snapshot(source: *const u8, dest: *mut u8) {
+    unsafe {
+        core::ptr::write_bytes(dest, 0, SNAPSHOT_START);
+        core::ptr::copy_nonoverlapping(source, dest.add(SNAPSHOT_START), CAPTURE_BYTES);
+        core::ptr::write_bytes(dest.add(SNAPSHOT_END), 0, CLONE_BYTES - SNAPSHOT_END);
     }
 }
 

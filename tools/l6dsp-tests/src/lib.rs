@@ -52,14 +52,24 @@ mod tests {
     }
 
     #[test]
-    fn ainr_boundary_snapshot_excludes_observed_stock_rings() {
-        let size = boundary_pause::SNAPSHOT_BYTES;
-        let source: Vec<u8> = (0..size).map(|i| (i.wrapping_mul(37) & 255) as u8).collect();
-        let mut dest = vec![0xa5; size];
-        unsafe { boundary_pause::copy_snapshot(source.as_ptr(), dest.as_mut_ptr()); }
-        assert_eq!(&dest[..0x2ff8], &source[..0x2ff8]);
-        assert!(dest[0x2ff8..0xb94c].iter().all(|&byte| byte == 0));
-        assert_eq!(&dest[0xb94c..], &source[0xb94c..]);
+    fn ainr_boundary_snapshot_packs_and_reconstructs_the_candidate_tail() {
+        use boundary_pause::{CAPTURE_BYTES, CLONE_BYTES, DESCRIPTOR_OFFSET, SNAPSHOT_END, SNAPSHOT_START};
+        let source: Vec<u8> = (0..SNAPSHOT_END).map(|i| (i.wrapping_mul(37) & 255) as u8).collect();
+        let mut packed = vec![0xa5; CAPTURE_BYTES + 2];
+        unsafe { boundary_pause::copy_snapshot(source.as_ptr(), packed.as_mut_ptr().add(1)); }
+        assert_eq!(packed[0], 0xa5);
+        assert_eq!(packed[CAPTURE_BYTES + 1], 0xa5);
+        assert_eq!(&packed[1..=CAPTURE_BYTES], &source[SNAPSHOT_START..SNAPSHOT_END]);
+        assert_eq!(&packed[1 + DESCRIPTOR_OFFSET..1 + DESCRIPTOR_OFFSET + 4], &source[0xba4c..0xba50]);
+
+        let mut clone = vec![0xa5; CLONE_BYTES + 2];
+        unsafe { boundary_pause::install_snapshot(packed.as_ptr().add(1), clone.as_mut_ptr().add(1)); }
+        assert_eq!(clone[0], 0xa5);
+        assert_eq!(clone[CLONE_BYTES + 1], 0xa5);
+        let clone = &clone[1..=CLONE_BYTES];
+        assert!(clone[..SNAPSHOT_START].iter().all(|&byte| byte == 0));
+        assert_eq!(&clone[SNAPSHOT_START..SNAPSHOT_END], &source[SNAPSHOT_START..SNAPSHOT_END]);
+        assert!(clone[SNAPSHOT_END..].iter().all(|&byte| byte == 0));
     }
 
     #[test]

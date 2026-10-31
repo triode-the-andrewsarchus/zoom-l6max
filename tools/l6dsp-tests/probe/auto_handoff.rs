@@ -20,10 +20,14 @@ const PROGRESS: usize = 0x83e03130;
 const CONTROL: usize = 0x83e03134;
 #[cfg(boundary_ainr_probe)]
 const PAUSE: usize = 0x83e03138;
-#[cfg(compact_ainr_probe)]
+#[cfg(boundary_ainr_probe)]
+const CAPTURE_BYTES: usize = crate::boundary_pause::CAPTURE_BYTES;
+#[cfg(all(compact_ainr_probe, not(boundary_ainr_probe)))]
 const CAPTURE_BYTES: usize = 0x19514;
 #[cfg(boundary_ainr_probe)]
-const _: () = assert!(CAPTURE_BYTES == crate::boundary_pause::SNAPSHOT_BYTES);
+const _: () = assert!(STATE_STRIDE == crate::boundary_pause::CLONE_BYTES
+    && crate::boundary_pause::DESCRIPTOR_OFFSET % 4 == 0
+    && crate::boundary_pause::DESCRIPTOR_OFFSET + 4 <= CAPTURE_BYTES);
 #[cfg(not(compact_ainr_probe))]
 const CAPTURE_BYTES: usize = STATE_STRIDE;
 
@@ -279,11 +283,18 @@ pub unsafe fn install() {
         if word(STATUS).load(Ordering::Acquire) != 1 { return; }
         for index in 0..3 {
             let dest = (0x80d50000usize + index * STATE_STRIDE) as *mut u8;
+            #[cfg(boundary_ainr_probe)]
+            crate::boundary_pause::install_snapshot(ptr, dest);
+            #[cfg(not(boundary_ainr_probe))]
             core::ptr::copy_nonoverlapping(ptr, dest, CAPTURE_BYTES);
-            #[cfg(compact_ainr_probe)]
+            #[cfg(all(compact_ainr_probe, not(boundary_ainr_probe)))]
             core::ptr::write_bytes(dest.add(CAPTURE_BYTES), 0, STATE_STRIDE - CAPTURE_BYTES);
         }
-        core::ptr::write_volatile(0x83e03110 as *mut u32, core::ptr::read_volatile(ptr.add(0xba4c) as *const u32));
+        #[cfg(boundary_ainr_probe)]
+        let descriptor_offset = crate::boundary_pause::DESCRIPTOR_OFFSET;
+        #[cfg(not(boundary_ainr_probe))]
+        let descriptor_offset = 0xba4c;
+        core::ptr::write_volatile(0x83e03110 as *mut u32, core::ptr::read_volatile(ptr.add(descriptor_offset) as *const u32));
         core::ptr::write_volatile(0x83e03114 as *mut u32, core::ptr::read_volatile(0x80d5ba4c as *const u32));
         core::ptr::write_volatile(0x83e00140 as *mut u32, 1);
         #[cfg(any(hybrid_ainr_probe, boundary_ainr_probe))]
