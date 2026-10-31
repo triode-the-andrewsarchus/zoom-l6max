@@ -27,6 +27,8 @@ mod event_queue;
 mod irq;
 #[cfg(auto_handoff_probe)]
 mod auto_handoff;
+#[cfg(hybrid_ainr_probe)]
+mod handoff_protocol;
 #[cfg(effect_buffer_probe)]
 const _: () = assert!(core::mem::size_of::<routing::DualEfxProcessor>() <= 0x50000);
 
@@ -61,7 +63,11 @@ ainr_selector_veneer:
 #[cfg(inspector_probe)]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn ainr_selection_close() {
-    unsafe { inspector::close_for_selection(); }
+    unsafe {
+        inspector::close_for_selection();
+        #[cfg(hybrid_ainr_probe)]
+        auto_handoff::arm();
+    }
 }
 
 #[unsafe(no_mangle)]

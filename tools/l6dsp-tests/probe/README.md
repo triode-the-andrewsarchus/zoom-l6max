@@ -325,9 +325,11 @@ With that option, `--hybrid-handoff` additionally copies the observed outer
 pages in 4 KiB chunks, then copies the `0xb000..0x16000` span together. It
 publishes only after all pieces are copied, and resets incomplete progress on
 the observed selection or learning-reset paths. The recipe records progress
-at `0x83e03130` after learning and selection. This is an unqualified
-experiment: the inferred span may miss mutable state, the last callback still
-copies about 44 KiB, and cancellation racing an active callback is unproven.
+at `0x83e03130` after learning and selection. A versioned atomic claim rejects
+publication by a cancelled capture, including after rearming; progress is only
+diagnostic telemetry. This is an unqualified experiment: the inferred span may
+miss mutable state, the last callback still copies at least 44 KiB, and the
+selector has no proven audio-task quiescence or deadline guarantee.
 Add `--passthrough-unready` to keep synthetic sends active without AINR while
 the snapshot is unavailable, including after a diagnostic allocation failure.
 The resulting extra work can prevent the selection sequence from reaching

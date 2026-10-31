@@ -351,6 +351,7 @@ wall_timeout_s = 420
         memory("heap_learned", 0x8020ab1c, 4)
         if args.hybrid_handoff:
             memory("hybrid_progress_learned", 0x83e03130, 4)
+            memory("hybrid_control_learned", 0x83e03134, 4)
     add("snapshot", name="learned_ready")
     wait(3000)
     for _ in range(2):
@@ -363,6 +364,7 @@ wall_timeout_s = 420
         memory("heap_selected", 0x8020ab1c, 4)
         if args.hybrid_handoff:
             memory("hybrid_progress_selected", 0x83e03130, 4)
+            memory("hybrid_control_selected", 0x83e03134, 4)
     memory("ainr_sends_1", 0x83e03000, 28)
     wait(5000)
     memory("ainr_sends_2", 0x83e03000, 28)
