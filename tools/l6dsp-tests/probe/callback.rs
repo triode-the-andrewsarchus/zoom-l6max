@@ -184,7 +184,7 @@ pub unsafe extern "C" fn diagnostic_audio(_context: u32, descriptor: u32) {
             for i in 0..64 {
                 let sample = unsafe { core::ptr::read_volatile(input.add(i)) } * (1.0 / 2147483648.0);
                 let factor = if ramped { unsafe { core::ptr::read_volatile(ramp.add(i)) } } else { gain };
-                sends[(route - 1) as usize][i] += (sample * factor) * smoothed;
+                sends[(route - 1) as usize][i] += math::audio_input((sample * factor) * smoothed);
             }
         }
         // QEMU-only worst-case control: keep all three effect buses active.
