@@ -152,8 +152,10 @@ the disposable guest and records matching key edges at `0x83e00900`. It uses
 an unowned low-memory veneer, changes interrupt execution, and is QEMU-only;
 it is not a safe target hook.
 `--irq-timing` uses that same experimental hook and a bounded single-producer
-queue to time selector gestures from the interrupt. A missing, mismatched or
-overflowed event cancels the gesture. The queue counters are captured at
+queue to time selector gestures from the interrupt. An empty queue, a polarity
+mismatch or an overflow cancels the gesture, but a whole lost press/release
+pair is undetectable: later events can consume stale timestamps and produce the
+wrong gesture. The queue counters are captured at
 `0x83e00b00`. A verified existing hook retains its decoder, queued edges and
 bounded trace across effect selections; overflow recovery remains unresolved.
 Neither this experiment nor its scratch memory is target-safe.

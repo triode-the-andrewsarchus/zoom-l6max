@@ -3636,9 +3636,10 @@ The traced diagnostic MAIN, ELF, recipe and result hashes were
 `9d7178a68d6548c9f2121b8c42910a64af29843b2ffa350fe850b5f9a687058d`.
 
 An optional QEMU-only gesture prototype now decodes the observed panel key
-frames in that interrupt and queues their ticks for the selector. A missing,
-mismatched or overflowed edge cancels the gesture rather than guessing its
-duration. With active synthetic sends, one ten-edit run measured the hold at
+frames in that interrupt and queues their ticks for the selector. An empty
+queue, polarity mismatch or overflow cancels the gesture, but matching by
+polarity cannot detect an entire lost press/release pair; the later experiment
+below demonstrates a wrong gesture. With active synthetic sends, one ten-edit run measured the hold at
 1,504 interrupt ticks versus 550 ticks at the later enqueue, closed the
 inspector and selected Spring; the queue reported `(head, tail, overflow) =
 (25, 25, 0)`. A separate 40-edit run crossed the 64-entry queue boundary,
@@ -3646,6 +3647,40 @@ observed all 40 expected bank IDs, reported `(85, 85, 0)`, closed the
 inspector and selected Spring. Its sampled output was finite and nonzero.
 These are diagnostic observations with a modified interrupt, not tests of
 physical input timing, lost frames, queue overflow recovery, or hardware.
+
+A later forced-loss experiment inserted a stale press and release into the
+interrupt queue after the initial selector release and before a 1,500 ms hold.
+This models a complete pair recorded by the interrupt but absent from the
+stock selector path; it does not establish how often that occurs naturally.
+The injection marker confirmed execution, and the queue was `(5, 3, 0)`
+after the hold. The inspector remained closed and the selected effect was
+Spring, whereas the no-injection control opened the inspector and retained
+Room. Thus matching polarity can silently associate both events with the
+wrong timestamps. The prototype must not be treated as a reliable timing
+solution; an event identity must survive the entire relevant path or a
+different design must demonstrate equivalent failure handling.
+
+The forced run's diagnostic MAIN, probe ELF, recipe and result SHA-256 were
+`99025a781ad08d738d771d65bdf42af8b65359018b004b6084f22aa2f62cc0de`,
+`bf498a0a52749c1b906ab281edb45aa1a1fd4c53a8f2bb5183a34c884c4bc056`,
+`bee3595f38dfc312afaca49cf9791e428a64762f4320a1e962dbbdb56da4b7a6`, and
+`858ddb192823d366e0a84863de921ab027032b94ceb70b539996253b07604353`.
+The control used MAIN
+`cff82fe15e9515d8f64c2e2803e4d0b365c3038ddcb5e1b7e16f3ed4c88374fa`
+and result `afb66aef84e416bc9ad1bf915b59d77eca29df2dae0a81572c19f39dece03b2f`.
+Both used QEMU binary
+`53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`
+and `l6dbg` `9a7f882911b7e44c76ddd1c28a226f3f5507878899fc5dd78f616eb10cb360da`;
+the QEMU source provenance is unattested.
+
+Another disposable experiment replaced one word in each observed selector
+event with a marker at the stock enqueue call. In one normal modeled sequence
+the corresponding markers reached the selector handler. This suggests a way
+to carry identity beyond enqueue, but neither proves the word is safe to
+modify on hardware nor connects the interrupt edge to the stock parser. It
+does not address a pair lost before enqueue. Its diagnostic MAIN and result
+hashes were `6abb5ff46ba7843151572cbdabbf303b2876b40ddbd8a686798a4a3d4ae496e0`
+and `54a7c0e52e7b05cb96edc84eda237634682734bad4f069f18bb3ad4bdfe7f93b`.
 
 The ten-edit MAIN, ELF, recipe and result hashes were
 `77813ae76b328e71ac9bfa7c025f041c0eb75b06caf14a879ed3a36abb76fec0`,
