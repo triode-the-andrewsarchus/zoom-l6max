@@ -2545,6 +2545,23 @@ recipe and diagnostic result SHA-256 values were
 `b6ed03210b53295a6235a573382efd1e028d5dc3c94aaec36ba8f4f26515f228`;
 the diagnostic MAIN, ELF and fixtures matched the suppression variant below.
 
+A separate forced-batch variant injected nine old Velvet amount decrements
+before the selection boundary and a synthetic Plateau size decrement after it,
+before the callback resumed. The queue drained from ten pending edits to zero
+across the eight-event callback limit. All ten edits were applied, and the
+counter recorded one notification for the later size edit at 98%; the nine
+old notifications were suppressed. The later edit was injected while the
+inspector was closed, so this tests boundary accounting, not a valid physical
+UI gesture or popup rendering. The modified callback, diagnostic MAIN, ELF,
+recipe and result SHA-256 values were
+`6eecd1f2d9f2f56253b0ef5b87e91d5487f96595fd2b726a71a286f008b3238c`,
+`4019af27f43dfaef2d02d44cb72e1197cd859333d946b25b21cfb76c8faea2e7`,
+`e6f138292d56ea603d6433c5ae778259ce2530b94c6b65d20aa5bf2e98f34a01`,
+`e76dde9669f31d4ede003ec78b494687462cae10581bfa726a07527d48b75ee1` and
+`abbf0d92750981408f2b6f5816bb1c26852f7b19ce6a113260efabbb4ddf9658`.
+The inspector, preparer, linker and input identities matched the suppression
+variant below; this deliberately forced sequence does not establish race safety.
+
 The shared callback, preparer and linker SHA-256 values were
 `cdb66cb544f9776d4b6b5513752b71259874bc9ba703baa4e8e25e4557a62f94`,
 `24999952bfc0be07ada482839b70596f68abd4f90acbd62b913b44adb1db87b6`, and
