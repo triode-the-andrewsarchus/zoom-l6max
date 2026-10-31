@@ -29,6 +29,7 @@ out, main, nor = checked_inputs(parser, args.firmware, args.state, args.output)
 for name, expected in (
     ("payload.rs", "9034539aefa64cad6797570ad8de9da9dbe4d51718a81fa774da1ad478441488"),
     ("notification_hooks.rs", "4da2027cf38a3b5a7a6689abf711db553b8e0b8feb77dc75a6cfb05d43efb729"),
+    ("synchronization.rs", "4fd5025ac9961f8b3db03f862001505486ad5e0149c71848f56eb28653fc4baa"),
 ):
     source = ROOT / "patches/knob-dialog/src" / name
     if hashlib.sha256(source.read_bytes()).hexdigest() != expected:
@@ -96,6 +97,8 @@ probe_args = [
     "-C", "panic=abort", "-C", "relocation-model=static",
     "-C", f"link-arg=--defsym=PROBE_BASE={probe_base:#x}",
     "-C", f"link-arg=--defsym=inspector_notify_hook={knob_symbols['inspector_notify_hook'] | 1:#x}",
+    *[arg for name in ("inspector_generation_hook", "inspector_edit_hook", "inspector_cancel_hook")
+      for arg in ("-C", f"link-arg=--defsym={name}={knob_symbols[name] | 1:#x}")],
     "-C", f"link-arg=-T{PROBE / 'link.ld'}", "-o", str(probe_elf),
 ]
 if args.irq_timing:

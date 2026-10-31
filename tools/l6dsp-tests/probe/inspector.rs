@@ -2,10 +2,17 @@
 use core::sync::atomic::{AtomicU32, Ordering};
 use crate::{controls, parameters, routing};
 #[cfg(knob_inspector)]
-unsafe extern "C" { fn inspector_notify_hook(id: u32, bits: u32); }
+unsafe extern "C" {
+    fn inspector_notify_hook(id: u32, bits: u32);
+    fn inspector_generation_hook() -> u32;
+    fn inspector_edit_hook(id: u32, bits: u32, generation: u32);
+    fn inspector_cancel_hook();
+}
 
 const QUEUE: usize = 0x83e00200;
 const INSPECTOR: usize = 0x83e00340;
+#[cfg(knob_inspector)]
+const QUEUE_GENERATIONS: usize = 0x83e02400;
 const SUMMARY: usize = 0x83e00400;
 const SAVED_PARAMETERS: usize = 0x83e03800;
 const CAPACITY: u32 = 64;
@@ -59,6 +66,8 @@ pub unsafe fn initialize(entry: u32, processor: *mut routing::DualEfxProcessor, 
         // state until the selector event returns to its caller.
         let ui = INSPECTOR as *mut UiState;
         if core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) == MAGIC {
+            #[cfg(knob_inspector)]
+            if (*ui).active { inspector_cancel_hook(); }
             (*ui).active = false;
             (*ui).routing_page = false;
             (*ui).velvet_bank = entry != 0x2028b8dc;
@@ -147,6 +156,8 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
             #[cfg(irq_timing)]
             if event <= 1 { let _ = crate::irq::take(event == 1); }
             s.gesture.cancel();
+            #[cfg(knob_inspector)]
+            if s.active { inspector_cancel_hook(); }
             s.active = false;
             s.routing_page = false;
             core::ptr::write_volatile((SUMMARY + 28) as *mut u32, 0);
@@ -164,6 +175,8 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
             controls::EfxSelectAction::None => 0,
             controls::EfxSelectAction::SelectNext => {
                 if s.active {
+                    #[cfg(knob_inspector)]
+                    inspector_cancel_hook();
                     s.velvet_bank = !s.velvet_bank;
                     s.routing_page = false;
                     #[cfg(knob_inspector)]
@@ -176,6 +189,8 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
                 stock(s.arg0, s.arg1, 1)
             }
             controls::EfxSelectAction::ToggleInspector => {
+                #[cfg(knob_inspector)]
+                if s.active { inspector_cancel_hook(); }
                 s.active = !s.active;
                 s.routing_page = false;
                 core::ptr::write_volatile((SUMMARY + 28) as *mut u32, s.active as u32);
@@ -196,6 +211,8 @@ pub unsafe extern "C" fn inspector_mode(mode: u32, event: u32) {
         let ui = INSPECTOR as *mut UiState;
         if mode == 6 && event == 1 && recorder_active() && custom_active()
             && core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) == MAGIC && (*ui).active {
+            #[cfg(knob_inspector)]
+            inspector_cancel_hook();
             (*ui).routing_page = !(*ui).routing_page;
             #[cfg(knob_inspector)]
             inspector_notify_hook(24, (if (*ui).routing_page { 1.0f32 } else if (*ui).velvet_bank { 2.0f32 } else { 0.0f32 }).to_bits());
@@ -228,6 +245,8 @@ pub unsafe extern "C" fn inspector_knob(channel: u32, mode: u32, absolute: u32, 
         }
         let signed = delta.clamp(-8_388_608, 8_388_607) as u32 & 0x00ff_ffff;
         let encoded_channel = channel | if (*ui).routing_page { 0x80 } else if (*ui).velvet_bank { 0x40 } else { 0 };
+        #[cfg(knob_inspector)]
+        core::ptr::write_volatile((QUEUE_GENERATIONS + ((head % CAPACITY) as usize) * 4) as *mut u32, inspector_generation_hook());
         core::ptr::write_volatile((QUEUE + 16 + ((head % CAPACITY) as usize) * 4) as *mut u32, (signed << 8) | encoded_channel);
         atomic(QUEUE).store(head.wrapping_add(1), Ordering::Release);
     }
@@ -242,6 +261,8 @@ pub unsafe fn consume(processor: &mut routing::DualEfxProcessor) {
             if tail == head { break; }
             let item = core::ptr::read_volatile((QUEUE + 16 + ((tail % CAPACITY) as usize) * 4) as *const u32);
             let delta = (item as i32) >> 8;
+            #[cfg(knob_inspector)]
+            let generation = core::ptr::read_volatile((QUEUE_GENERATIONS + ((tail % CAPACITY) as usize) * 4) as *const u32);
             if item & 0x80 != 0 {
                 let strip = (item & 0x7f) as usize;
                 for slot in 0..12 {
@@ -253,7 +274,7 @@ pub unsafe fn consume(processor: &mut routing::DualEfxProcessor) {
                         core::ptr::write_volatile((0x83e00100 as *mut u32).add(slot), processor.channel_routing[slot] as u32);
                     }
                     #[cfg(knob_inspector)]
-                    inspector_notify_hook(16 + strip as u32, (mode as u8 as f32).to_bits());
+                    inspector_edit_hook(16 + strip as u32, (mode as u8 as f32).to_bits(), generation);
                     #[cfg(not(knob_inspector))]
                     {
                         let value = crate::parameter_view::format_display(crate::parameter_view::DisplaySnapshot::from_words(16 + strip as u32, (mode as u8 as f32).to_bits()).unwrap());
@@ -271,7 +292,7 @@ pub unsafe fn consume(processor: &mut routing::DualEfxProcessor) {
                 #[cfg(knob_inspector)]
                 {
                     let value = parameters::snapshot_parameter(id, processor);
-                    inspector_notify_hook(id as u32, value.value.to_bits());
+                    inspector_edit_hook(id as u32, value.value.to_bits(), generation);
                 }
                 #[cfg(not(knob_inspector))]
                 {

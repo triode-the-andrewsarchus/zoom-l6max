@@ -2591,6 +2591,42 @@ were `43dd1b397519d4de6a663c03ba4d075d1b7ed6a41c975176182c3fe314e53c32`,
 `f4dcf7a4245a8b6c059544afb86c0f2a23886973839ebab3ba2fd5e7aa4e3f7c`.
 Its callback, preparer, linker and input identities matched the close probe.
 
+The maintained combined QEMU diagnostic now instead tags each queued edit
+with the popup manager generation and compares that tag while publishing under
+the same critical section as cancellation. Closing the inspector or changing
+its page cancels pending popup work and removes its current popup; the audio
+task still applies queued DSP changes. In one forced-close build, an injected
+old edit was applied at 98% without being published, the closed OLED snapshot
+showed the normal screen, and a fresh edit after reopening published 8.0 ms.
+The force-injection build added diagnostic counters and perturbed timing. A
+separate run from the maintained builder exercised normal bank and routing
+edits: the queue drained without overflow, the mixer control stayed at 42
+while editing, and it changed after closing. The route changes and paired
+strip update matched the requested turns. Those captures do not prove all
+interleavings or valid physical event delivery.
+
+The maintained MAIN, effect ELF, popup ELF, recipe and result SHA-256 values
+were `4bac61ea0435ddb3b3a13ffa800884e59699840b68ec080dd2d15423579781b0`,
+`04aaed0cceba256f3c4a0ca1663a59f32fc319256436cc96003abec3fb613313`,
+`be47cda2c3cfc74d0e0761853e257b0f64bacb1b0a4269b32e1f0582f72bc85b`,
+`4796f8ec2d0b0c039b40a5b7205138f5e736ea66e43381c419918f15463f8c10`, and
+`ca5afbe5800d26e10bc286f88da7d8b2695b338f303057d60216242396f10cdc`.
+The forced-build MAIN, effect ELF, popup ELF, recipe and result hashes were
+`8c8a17e46d6cc13332e904c89bdad7dbf27fce77b101110c51a58d1b0d3822e5`,
+`38dbd8957a534e6e9f799db6228cdae2c3821f7575e27f03d2502e7642d5ee2a`,
+`8402eb6e4473cd870f2fa54e09bc127f12fd4c27dfd3ed35cd574b1cf2000989`,
+`14eabf722be6faa68205b3d5431ae40b7feaa257c1d22019640ba8572152734c`, and
+`0c7382d18fc50b10348d20db50d329c7034b015310d8f666405a9cd082fd5f32`.
+Its modified inspector, popup patch and builder hashes were
+`f2790d09332fb71537be8f813bf1b50923ea1eac711e6d9207dfda9ae7a86a19`,
+`63317a66b9ed0c1deece4a76610e3ff00e524f614ce4927f262c1a40bbb281f6`, and
+`d45801cc4f3153de5828d24648468d44e6b3402462da0197d5a850cc07c24fc0`.
+The stock MAIN, initial NOR and QEMU executable match the earlier probe.
+The generation words remain unowned QEMU scratch; wrap, unrelated popup
+cancellation, direct effect changes, overflow, callback lifetime, the cost
+of critical sections on audio, and physical timing remain unqualified. This is
+not an installable firmware fix.
+
 In a further run of the suppression variant, the old edit was applied without
 a notification; opening the inspector then generated its page notification,
 and a fresh encoder edit generated a notification for Room predelay at 8 ms.

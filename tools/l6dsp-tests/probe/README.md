@@ -162,6 +162,15 @@ knob-dialog source is not modified. Its standard patch builder creates an
 intermediate knob-only package, which the script removes; no combined update
 package is created.
 
+The combined experiment tags queued edits with the popup manager's current
+generation in QEMU-only scratch at `0x83e02400`. Closing or changing the
+inspector page cancels pending popup work; the audio callback applies an old
+edit but only publishes its notification if its generation still matches.
+The comparison and publication use the popup manager's critical section.
+This avoids relying on a separately published queue cutoff, but scratch
+ownership, all transition interleavings, generation wrap, and real-time
+effects of the popup synchronization remain unqualified.
+
 ```sh
 python3 tools/l6dsp-tests/probe/prepare_ui.py UNPACKED_DIR STOCK_STATE_DIR /tmp/l6-ui-probe
 cargo run --offline --locked -p l6dbg -- /tmp/l6-ui-probe/recipe.toml \
