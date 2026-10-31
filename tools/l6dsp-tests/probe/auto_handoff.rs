@@ -141,9 +141,13 @@ unsafe fn capture_hybrid(ptr: *mut u8, now: u32) -> bool {
 pub unsafe fn install() {
     unsafe {
         let ptr = word(POINTER).load(Ordering::Acquire) as *const u8;
-        if ptr.is_null() || word(STATUS).load(Ordering::Acquire) != 1 { return; }
+        if ptr.is_null() { return; }
+        // In the hybrid path, DONE is the release/acquire publication of the
+        // snapshot. STATUS is written later and is not an installation gate.
         #[cfg(hybrid_ainr_probe)]
         if !crate::handoff_protocol::CaptureProtocol(word(CONTROL)).done() { return; }
+        #[cfg(not(hybrid_ainr_probe))]
+        if word(STATUS).load(Ordering::Acquire) != 1 { return; }
         for index in 0..3 {
             let dest = (0x80d50000usize + index * STATE_STRIDE) as *mut u8;
             core::ptr::copy_nonoverlapping(ptr, dest, CAPTURE_BYTES);
