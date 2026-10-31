@@ -4318,6 +4318,55 @@ The diagnostic MAIN, ELF, modified recipe and result SHA-256 values were
 The stock MAIN, NOR and QEMU executable match the automatic AINR experiment
 above; the QEMU executable's source provenance remains unattested.
 
+An isolated combined-inspector experiment forced a close after an encoder had
+passed its open check and before it enqueued a single edit. Before the change,
+the edit drained and displayed Plateau pre-delay `12.0` after the inspector
+closed. Capturing the popup generation before the open check and clearing the
+open flag before cancellation left the popup closed in the same forced
+ordering, although the already-queued edit still applied. The forced calls are
+temporary instrumentation, not a naturally observed scheduler interleaving.
+The UI fields' cross-task synchronization, other page transitions, target timing
+and physical safety remain unqualified.
+
+The before MAIN, effect ELF, popup ELF, modified recipe and result SHA-256
+values were
+`03cb116c845538fe22b2d074105e67089d711d41c5fb132bd2bdf00ed9e79776`,
+`597fda814c863df4806ef9f54168e9e590e9f6f1d946e00c8f5d9992dc001a5d`,
+`1189474f6a8be0b1b413cab0fc08a1be2910633b7dccef247a8e137acd77d341`,
+`4bde01b527623dff457a7ab3f8b446fbf08523491f9374a30f8f0803d2b9a1fc`, and
+`17643eb5935538d5b59ba09f6ccf030dde13387b80d2aa189591173407385f02`.
+The corresponding after identities were
+`8c27e8a570a1b24669b08b5e35644d24b8cc27fe1c13f302c8502b4cbe5f5567`,
+`1a953434b055b623db16ebdb719950af4b3e9b4202002b610f0c245da3e9b60c`,
+`1189474f6a8be0b1b413cab0fc08a1be2910633b7dccef247a8e137acd77d341`,
+`5f5d789d9bbc3e59e75bfc4aacc03076abf9c44cb0553ce994b53ab439debafc`, and
+`f28115d780260e894d7c58c3e10095e1bc40b2df3d6d46eb52ddb5e6f983602f`.
+Both used stock MAIN SHA-256
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+NOR SHA-256 `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+and QEMU executable SHA-256
+`53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`
+with unattested source provenance.
+
+An uninstrumented combined diagnostic then exercised routing edits, bank
+changes, closure and a mixer turn. The two observed queues drained at 11/11
+and 19/19 with no drops; routing retained the edited paired-strip values and
+the mixer value changed from 42 to 86 after closure. Its MAIN, effect ELF,
+popup ELF, recipe and result SHA-256 values were
+`749b79e579f1f9f930557af0b0b268f1d511d581154671573a961fcc9d24b7d2`,
+`23c5c7acae0b6bc1b05b5e98f58f770d0a3d7c4c996ecfc2a399d0030cceeb13`,
+`1189474f6a8be0b1b413cab0fc08a1be2910633b7dccef247a8e137acd77d341`,
+`c82ac01b1e693f9f19de46dcc342206bedc98e841efc590537ffe4a17ee61d6c`, and
+`afbe6a76b3b7d13c1bacb1889da924a5901d684130f0925216371d4b2686ba13`.
+It used the same stock MAIN, NOR and unattested QEMU binary as the forced run.
+With those same binaries and fixture, a longer mode-switch sequence reopened
+the inspector, changed saved pre-delay from 28 to 30, and drained the queue
+at 22/22. Switching to LEVEL closed the inspector; a subsequent encoder turn
+changed the stock level from 0 to 1 without changing the inspector queue or
+saved value. Its recipe and result SHA-256 values were
+`990e1d383a4cec986e262432174261da689b0389264bd1efac565d27781e0e1d` and
+`22c683d5e0c95071f2f327810e7b53f5e09de56ab3d6f59b070589b34beed94b`.
+
 - QEMU binary SHA-256:
   `9724d60a31400becad8f1e98d6fd67bb9456c8dfbdeebe833e7636ed8e9cf536`.
   The `l6test` runner records its source provenance as unattested.

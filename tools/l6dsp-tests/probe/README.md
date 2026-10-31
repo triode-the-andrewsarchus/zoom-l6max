@@ -176,9 +176,12 @@ generation. Closing or changing the
 inspector page cancels pending popup work; the audio callback applies an old
 edit but only publishes its notification if its generation still matches.
 The comparison and publication use the popup manager's critical section.
+An encoder captures its generation before testing whether the inspector is
+open, and close paths clear the open flag before invalidating that generation.
+This suppresses a stale notification in a forced close-after-check experiment.
 This avoids relying on a separately published queue cutoff, but all transition
-interleavings, generation wrap, and real-time effects of popup synchronization
-remain unqualified.
+interleavings, cross-task access to the UI fields, generation wrap, and
+real-time effects of popup synchronization remain unqualified.
 
 The combined experiment keeps its 16 saved parameter words, 12 route words,
 and 64-entry event queue with notification generations in the popup manager's

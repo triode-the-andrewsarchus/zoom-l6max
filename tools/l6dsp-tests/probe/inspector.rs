@@ -104,9 +104,11 @@ pub unsafe fn close_for_selection() {
         let ui = INSPECTOR as *mut UiState;
         if core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) == MAGIC {
             #[cfg(knob_inspector)]
-            if (*ui).active { inspector_defer_cancel_hook(); }
+            let was_active = (*ui).active;
             (*ui).active = false;
             (*ui).routing_page = false;
+            #[cfg(knob_inspector)]
+            if was_active { inspector_defer_cancel_hook(); }
         }
         core::ptr::write_volatile((SUMMARY + 28) as *mut u32, 0);
     }
@@ -234,9 +236,11 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
             if event <= 1 { let _ = crate::irq::take(event == 1); }
             s.gesture.cancel();
             #[cfg(knob_inspector)]
-            if s.active { inspector_cancel_hook(); }
+            let was_active = s.active;
             s.active = false;
             s.routing_page = false;
+            #[cfg(knob_inspector)]
+            if was_active { inspector_cancel_hook(); }
             core::ptr::write_volatile((SUMMARY + 28) as *mut u32, 0);
             return stock(arg0, arg1, event);
         }
@@ -272,10 +276,11 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
                     stock_mode(6, 0);
                     if core::ptr::read_volatile(0x80462d2c as *const u8) != 6 { return 0; }
                 }
-                #[cfg(knob_inspector)]
-                if s.active { inspector_cancel_hook(); }
-                s.active = !s.active;
+                let was_active = s.active;
+                s.active = !was_active;
                 s.routing_page = false;
+                #[cfg(knob_inspector)]
+                if was_active { inspector_cancel_hook(); }
                 core::ptr::write_volatile((SUMMARY + 28) as *mut u32, s.active as u32);
                 #[cfg(knob_inspector)]
                 if s.active { inspector_notify_hook(24, (if s.velvet_bank { 2.0f32 } else { 0.0f32 }).to_bits()); }
@@ -317,8 +322,14 @@ pub unsafe extern "C" fn inspector_knob(channel: u32, mode: u32, absolute: u32, 
         #[cfg(enqueue_trace)]
         trace_encoder(0x83e02200, channel, delta as u32);
         let ui = INSPECTOR as *const UiState;
-        if channel >= 8 || mode != 6 || delta == 0 || !recorder_active() || !custom_active() || saved_parameters().is_null()
-            || core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) != MAGIC || !(*ui).active {
+        if channel >= 8 || mode != 6 || delta == 0 || !recorder_active() || !custom_active() || saved_parameters().is_null() {
+            stock(channel, mode, absolute, delta, value);
+            return;
+        }
+        // Capture before checking the inspector: a close invalidates this generation.
+        #[cfg(knob_inspector)]
+        let generation = inspector_generation_hook();
+        if core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) != MAGIC || !(*ui).active {
             stock(channel, mode, absolute, delta, value);
             return;
         }
@@ -330,7 +341,7 @@ pub unsafe extern "C" fn inspector_knob(channel: u32, mode: u32, absolute: u32, 
         let encoded_channel = channel | if (*ui).routing_page { 0x80 } else if (*ui).velvet_bank { 0x40 } else { 0 };
         let result = queue.push((signed << 8) | encoded_channel, || {
             #[cfg(knob_inspector)]
-            { inspector_generation_hook() }
+            { generation }
             #[cfg(not(knob_inspector))]
             { 0 }
         });
