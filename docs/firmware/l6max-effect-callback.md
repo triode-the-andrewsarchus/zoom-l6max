@@ -2116,6 +2116,33 @@ The gate-traced variant's corresponding hashes were
 `ef41a8e78ae50690ee7af42dea4e2ceed4df7cd740c3b755ba0abe630cab2335`.
 Both used the preceding stock MAIN, NOR and QEMU identities.
 
+A disposable trace around the later stock enqueue call recorded all three
+packets. The first two were `b0 75 2b`; the third was `b0 75 40`. In the
+third call the observed write index advanced from 6 to 9 and the read index
+was 6 in a 2,048-byte ring. After an additional fifteen guest seconds in a
+repeat, the indices were still `(9, 6)`, and bytes at ring offsets 6–8 were
+`b0 75 40`. The UART trace still contained only the first two messages. Thus
+the Spring packet was pending in this modeled queue rather than absent from
+the enqueue call. This does not establish why it was not drained, or whether
+the behavior occurs without the modified priorities, DSP workload, moved
+call, and tracing.
+
+The queue trace's callback, preparer, linker, MAIN and ELF SHA-256 values were
+`b7f547e9f518189a7d71bef27e6bc3ea629cecc40023bde45f269affb78fae5b`,
+`74ce6243b32c278743a3926a55a8bd28610e6b247f1c582cf22ad12954c1e6f2`,
+`0b07e9ac9ccb7ddfaff6980cac90e40426e4bcb7463bc21c3d07f778f83ee487`,
+`58011193c9a4c7ce11380e50dac9118a58aeff0ce5414f8b65e2c51239b40148`, and
+`13c9d03ea1ac9f7e7c772856a03eabda8f59a0c4b4a338f6addad09b315b770f`.
+The first recipe, result and trace hashes were
+`3fc002155a56e22663270641eae0816f7fbc3e13f470d121417bddba69b3fb17`,
+`f7e9beee019a1928eaf2da50f420db807fb7e2298f0ad786e0fbc3564174dcd2`, and
+`db3d726c8f6df17534fdeed6d275c3726a53c8663c3f383966228c65e5774a6f`;
+the repeat's were
+`105d9061a58e98ba6979e11f7b65fe8add00f786b0daf79c725be7d2c867c5d3`,
+`0d04c6e95d5addd8d4e09e2c449df6508af885b55bf460a7b77396e0c3f1fdee`, and
+`acb1601d165c640dca5107e1e59f78464ed3726e92e6c17d63681f1b43b05061`.
+The stock MAIN, NOR and QEMU identities matched the preceding experiments.
+
 The QEMU-only interrupt-timestamp hook now initializes its decoder and queue
 only on first installation. On subsequent custom selections, it preserves
 pending edges if both hook words and the veneer match; a mismatch marks the
