@@ -30,6 +30,7 @@ parser.add_argument("--irq-trace", action="store_true", help="trace panel bytes 
 parser.add_argument("--irq-timing", action="store_true", help="use QEMU-only IRQ timestamps for selector gestures")
 parser.add_argument("--timing-control", action="store_true", help="bypass effects in a QEMU timing comparison")
 parser.add_argument("--active-sends", action="store_true", help="inject nonzero QEMU-only effect buses")
+parser.add_argument("--retain-custom-state", action="store_true", help="experimentally retain state across adjacent custom effects")
 parser.add_argument("--pre-ainr", action="store_true", help="run a debugger-installed AINR copy on each test send")
 parser.add_argument("--effect-buffer", action="store_true", help="place test states in the observed stock effect buffer")
 parser.add_argument("--auto-handoff", action="store_true", help="capture and restore AINR state inside the QEMU guest")
@@ -37,6 +38,8 @@ parser.add_argument("--passthrough-unready", action="store_true", help="keep syn
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
 parser.add_argument("--bank-stress-count", type=int, default=10, help="number of bank changes (1..64)")
 args = parser.parse_args()
+if args.retain_custom_state and (not args.inspector or args.pre_ainr):
+    parser.error("--retain-custom-state requires --inspector and cannot be combined with --pre-ainr")
 if args.switches and not args.callback:
     parser.error("--switches requires --callback")
 if args.inspector and not args.callback:
@@ -101,6 +104,8 @@ if args.timing_control:
     rustc += ["--cfg", "timing_control"]
 if args.active_sends:
     rustc += ["--cfg", "active_sends"]
+if args.retain_custom_state:
+    rustc += ["--cfg", "retain_custom_state"]
 if args.pre_ainr:
     rustc += ["--cfg", "pre_ainr_probe"]
 if args.effect_buffer:

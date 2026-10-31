@@ -30,22 +30,32 @@ const _: () = assert!(core::mem::size_of::<routing::DualEfxProcessor>() <= 0x500
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".text.probe")]
 pub unsafe extern "C" fn probe(entry: *mut u32) {
-    #[cfg(auto_handoff_probe)]
-    unsafe { auto_handoff::disable(); }
-    let clear: unsafe extern "C" fn() = unsafe { core::mem::transmute(0x80024679usize) };
-    unsafe { clear() };
-    if entry as usize == 0x2028b8dc || entry as usize == 0x2028b8f8 {
+    let custom = entry as usize == 0x2028b8dc || entry as usize == 0x2028b8f8;
+    // This unowned marker is only for disposable QEMU experiments. It does
+    // not establish buffer ownership or synchronization on the device.
+    let reuse = cfg!(retain_custom_state) && custom
+        && unsafe { core::ptr::read_volatile(0x83e00148 as *const u32) } == 0x52455553;
+    if !reuse {
+        #[cfg(retain_custom_state)]
+        unsafe { core::ptr::write_volatile(0x83e00148 as *mut u32, 0); }
+        #[cfg(auto_handoff_probe)]
+        unsafe { auto_handoff::disable(); }
+        let clear: unsafe extern "C" fn() = unsafe { core::mem::transmute(0x80024679usize) };
+        unsafe { clear() };
+    }
+    if custom {
         #[cfg(auto_handoff_probe)]
         unsafe { auto_handoff::allocate(); }
-        let storage =
-            unsafe { &mut *(0x80d00000 as *mut core::mem::MaybeUninit<routing::DualEfxProcessor>) };
-        let _processor = routing::DualEfxProcessor::initialize_in_place(storage);
+        let storage = 0x80d00000 as *mut core::mem::MaybeUninit<routing::DualEfxProcessor>;
+        if !reuse {
+            routing::DualEfxProcessor::initialize_in_place(unsafe { &mut *storage });
+        }
         unsafe {
             // The route mailbox is outside the stock effect buffer. Keep it
             // across selections within this disposable emulator session.
             let routes_initialized = core::ptr::read_volatile(0x83e00000 as *const u32) == 0x494e4954;
             #[cfg(inspector_probe)]
-            inspector::initialize(entry as u32, _processor, routes_initialized);
+            inspector::initialize(entry as u32, storage.cast(), routes_initialized, reuse);
             #[cfg(irq_trace)]
             irq::install();
             core::ptr::write_volatile(0x83e00000 as *mut u32, 0x494e4954);
@@ -69,10 +79,12 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
                 core::ptr::write_volatile(0x83e0080c as *mut u32, 0);
             }
             #[cfg(auto_handoff_probe)]
-            auto_handoff::install();
+            if !reuse { auto_handoff::install(); }
             // Prevent the copied stock effect-specific post-callback routine from
             // touching the diagnostic state after callback publication.
             core::ptr::write_volatile(0x202a6f28 as *mut u32, 0);
+            #[cfg(retain_custom_state)]
+            core::ptr::write_volatile(0x83e00148 as *mut u32, 0x52455553);
             core::ptr::write_volatile(entry, diagnostic_audio as *const () as usize as u32);
         }
     }
