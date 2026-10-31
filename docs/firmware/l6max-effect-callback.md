@@ -4528,6 +4528,40 @@ the scratch locations, 64-frame bypass ABI and return value, all state users,
 selection paths, timeout recovery, click-free behavior and target timing
 remain unqualified. The production builder remains disabled.
 
+A later memory trace disproved quiescence of the copied range in the modeled
+schedule. The stock initializer at `0x80016670` assigns 18 pointers
+within `0x20282ff8..0x2028b980`; a stock emulator run confirmed those pointer
+values with AINR selected and its learned flag set. A plugin-assisted run of
+the boundary diagnostic then observed the pause state change to 2, the copy
+begin, writes by stock instructions `0x20226660..0x202266cc` to addresses
+including `0x20284478`, and the copy end before the pause state changed to 4.
+The diagnostic nonetheless reported completion and installed a ready token
+`0x7e`. This establishes writes to the source range during the copy in that
+instrumented run; it does not establish which changed bytes the snapshot read,
+the writers' complete call paths, DMA activity, or behavior on hardware. The
+boundary pause cannot by itself authorize a coherent snapshot.
+
+The traced diagnostic MAIN and ELF SHA-256 values were
+`d098b5ab2ddaafb95fbee1a56a78fe4fb34df085dce343b4f02ce78f6f13f9c1` and
+`5cbe77729ce3a533212aabb2f26aa8251bbf3795ff5b286eeb9c98e4b179d1ff`.
+The initial MAIN NOR, panel flash, panel options and panel RTC hashes were
+`ae5d0381c6f75bf2f967e90fca4b8bf1abe986f4420fb7c44cc6008b5a68559a`,
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`024cc8ce91d39a4ea9c34b7373b0dc2cd5581ee4bcb1ab45593ee8475ef9440f`.
+The plugin-enabled QEMU executable hash was
+`e5acb1abd30c50ed0413c6a6bf8bd1e99b39780bc0bf80a39f3a11a99c530e25`
+(source provenance unattested). Plugin source, binary, wrapper, recipe,
+trace and diagnostic JSON hashes, respectively, were
+`e92dd5ebfbf7990bdedb76db5fae87df75c3ba425e755089afd7c462e916282e`,
+`35f3523fd31a55740d5d54cf38dfa6b7f13f4af21e38fbfcee096f70476ddf2d`,
+`fc42c6944b24d9f209a684b4958d731d658588fbe6eed79c67987e4c4249112f`,
+`91b4560fcbc5a37c73e3d29672460658b7b370b9c514cf318f9e2aedef8b7c84`,
+`f794960f0704ff7049982460565568b2c1a2212bed9c02cde27eff493bbd3294`, and
+`77630448231f6a445bba915b8d98eaa7c2d91d647691e88fed678a2cdabd74fc`.
+The `l6dbg` executable was
+`9a7f882911b7e44c76ddd1c28a226f3f5507878899fc5dd78f616eb10cb360da`.
+
 A later forced-interleaving test invalidated the pause immediately after the
 selector's last validity check. The old diagnostic nevertheless marked the
 snapshot ready and installed it; the revised diagnostic atomically closes an

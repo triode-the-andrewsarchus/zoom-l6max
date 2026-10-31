@@ -372,6 +372,10 @@ deterministic nonzero signal into the stock AINR input for this experiment.
 After copying, the diagnostic closes the acknowledged pause atomically before
 publishing the snapshot claim; an unexpected index that invalidates that pause
 before closure prevents publication. This does not synchronize unobserved users.
+An instrumented emulator run observed stock writes inside the source range
+while the pause was acknowledged and the copy was in progress. A successful
+handoff therefore does not establish a coherent snapshot; see the
+[boundary investigation](../../../docs/firmware/l6max-effect-callback.md#selector-side-boundary-handoff-diagnostic).
 The pointer ownership, call ordering, 64-frame bypass and return ABI,
 other selector paths, timeout recovery, audio continuity, and target timing
 are not established. The code uses unowned scratch and flash. **Never install

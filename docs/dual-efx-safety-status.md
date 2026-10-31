@@ -77,7 +77,11 @@ The blocking findings for L6max MAIN 1.10
   not establish ownership, all selection paths, the bypass ABI, audio continuity,
   or target timing. Under active dry fallback, a paced run still failed to
   reach AINR; a faster instruction-clock model completed a forced retry. This
-  is not a physical timing measurement or an installable integration.
+  is not a physical timing measurement or an installable integration. A later
+  trace observed stock CPU writes into the copied range between the start and
+  end of the copy while the pause was acknowledged; nevertheless the diagnostic
+  published and installed the snapshot. The pause therefore does not establish
+  a coherent snapshot, even in the exercised emulator schedule.
 
 Some standalone DSP defects have been fixed and tested on the host. Those
 tests do not exercise the firmware bindings or establish hardware safety.
