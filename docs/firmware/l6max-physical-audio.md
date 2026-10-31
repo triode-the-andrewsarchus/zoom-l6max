@@ -48,3 +48,24 @@ were `289d77cd9df0e3ca717425bda93a95a82ec2333030636d0dcf6d4b6dc2ba69d6`,
 The emulator's build source provenance was not independently attested. The
 stock firmware package used in QEMU had SHA-256
 `4e20f92c9c5131ed082c0feec2b2d7d0445fb576296f11f6dace56a4fc0c9b47`.
+
+After the operator changed the cable and removed an ADuM USB isolator, the
+device enumerated at 480 Mbit/s with five interfaces. Linux exposed the three
+L6max MIDI ports and a USB audio device. A universal identity request on the
+editor port returned `F0 7E 00 06 02 52 72 00 0D 00 30 31 30 30 F7`, which
+identifies the model as L6max and reports system version 1.00. This reply does
+not identify the installed MAIN binary by hash; the emulator experiments and
+patch addresses in the callback investigation are scoped to 1.10. The identity
+request starts an editor protocol session; no settings or firmware were written.
+
+The same -25 dBFS audio probe after this change again found send 0 on return 0
+and send 1 on return 1, with correlations of 0.590 and 0.586 and no reported
+xruns or clipping. The first 0.4 seconds had RMS levels about 0.000090 on
+each return versus 0.000053 in the earlier run. The machine was restarted and
+other conditions may have changed, so this does not measure the isolator's
+effect or establish the source of the noise. The same monitoring-path and
+unknown mixer-state limitations apply. The send WAV, return WAV and report
+SHA-256 values were
+`e22113986f3ea5fc897c1df58cbd73639ebcb65b5abd6d04d98cf048cb59efe3`,
+`7b9051222e3c1dde7a85ff9b60e3fe167c17c9883aea7fcc0fcdfb4da0872ba9`, and
+`2f13f0051cb306f2ada3acc5108181eb19dad009cb7d867d60bf1bfacf23c66f`.
