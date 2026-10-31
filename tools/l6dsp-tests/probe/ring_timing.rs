@@ -137,3 +137,7 @@ pub unsafe fn usable() -> bool {
 pub unsafe fn reject_unexpected_event() {
     unsafe { if read(STATE) == MAGIC { write(STATE.add(1), 6); } }
 }
+
+pub unsafe fn reject_uart_data() {
+    unsafe { if read(STATE) == MAGIC && read(STATE.add(1)) == 0 { write(STATE.add(1), 9); } }
+}

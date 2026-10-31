@@ -3809,6 +3809,45 @@ The temporary injection source was
 The stock MAIN, initial NOR, panel state, `l6dbg` and unattested QEMU binary
 match the preceding sequence tests.
 
+A further synthetic test dropped both a release and the following press before
+timing assignment, while forcing a parity-indication bit in the observed UART
+DATA word. The old diagnostic opened the inspector without a fault; the revised
+diagnostic latched fault 9 and left it closed. Both injection markers confirmed
+the intended losses. The guard uses the DATA bit definitions in the pinned
+[NXP RT1042 header](https://github.com/nxp-mcuxpresso/legacy-mcux-sdk/blob/8a289764d763ad06e0c3a05c885644ed98b970af/devices/MIMXRT1042/MIMXRT1042.h),
+but the L6max processor is unidentified and QEMU does not model receive errors.
+This is a forced flag, not a demonstrated physical error response; the guard
+does not read the separate overrun status and cannot detect an unindicated loss.
+The original data word is preserved for stock firmware.
+
+In MAIN, ELF, recipe and result order, the old test hashes were
+`6b3749ed4de1baa599732eab730a9efcd69a6b891c774880c865ce0f8d08a672`,
+`44c48fec085fde09d67d9badc648cc3f7c47af7445dafb2af3a62ec2a2eb3bd6`,
+`f499e6fc63a572cd8c102c62d1f503732e24db0cd0db09a1beae385ff77d4749`, and
+`c4e85aac2c5dabf89d8e9cbe49d4f3d91efb0763057487e36d92accfbbacaa3c`;
+the revised test hashes were
+`79862d90e277913c4e79d11ee01c47899330c64f5187c48bcb38b0b14ef7a6c5`,
+`acdf0029f94ec2222ed2c071c100f7a55411b3c48c235955e01af14ce7e1f4ff`,
+`41a022a177136439371393ca253329fa9d630d973275b9e69aa4f6a5ba224a51`, and
+`43241d19c8591e323854851d3faa99083f55cc7b2ce56734b6d8d79dd7154b53`.
+These used stock MAIN `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+panel flash `6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+options `bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`,
+RTC `024cc8ce91d39a4ea9c34b7373b0dc2cd5581ee4bcb1ab45593ee8475ef9440f`,
+`l6dbg` `9a7f882911b7e44c76ddd1c28a226f3f5507878899fc5dd78f616eb10cb360da`,
+and QEMU `53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`
+with unattested source provenance.
+
+With the same fixture and executables, the revised diagnostic without the
+synthetic UART flag selected Spring after the tracked dropped-release case,
+kept the inspector closed, and drained its timing records with no fault. Its
+MAIN, ELF, recipe and result hashes were
+`72765e79b82ed107659bb4ff6af26a79c8ca89d6e419db706347fcd39d24fa90`,
+`67e8895004b41dc1ecfdb2ae8fcdfa0019e7048ac1e9612f6ee2a405e261a63c`,
+`b4e8a71bfde5fe38023c1cc0d7d9cc12926ca991d8383372a4ba78beba904d44`, and
+`3cfc567a7ef487ca3883b8935b2e1352c48ba01d92e2ba86b31a40f494711034`.
+
 In a separate silent-input combined popup run, the inspector opened and closed,
 the observed routing edits persisted across bank changes, the ordinary mixer
 value stayed fixed during editing and changed after close, and the timing
