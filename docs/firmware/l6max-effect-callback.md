@@ -3944,6 +3944,21 @@ assumption, overflow recovery, callback synchronization, target deadlines, or
 physical memory ownership. They used the stock MAIN, NOR and unattested QEMU
 executable identified above.
 
+The queue operations are now shared with host tests covering full capacity,
+32-bit index wrap, FIFO order, a standalone queue without generations, and
+100,000 event/generation pairs exchanged between one producer and one consumer.
+In a combined emulator run of that implementation, 21 edits were consumed,
+the queue ended at `(21, 21, 0)`, the route edits matched the earlier run, and
+the normal mixer value changed from 43 to 87 after inspector close. The MAIN,
+effect ELF, popup ELF, recipe and result hashes were
+`d2c4164ab2ba6ed624a78d79ab1631b48f0ba14bf9e60d5542b9a888332e961e`,
+`e86eb20212f113f2dd1581ee61c113d5374a130fe6b12e3b6178a2a9b5dcf1a4`,
+`1189474f6a8be0b1b413cab0fc08a1be2910633b7dccef247a8e137acd77d341`,
+`264e7f0e1458b6fc940c057bf0354b75add47b05a1623847bcbc6b5ac5528233`, and
+`b8d1a883bdada6b6c3d17734ad3b60173b52b047775a1aeb0d69d1b72befbd19`.
+The same fixture and unattested QEMU identities apply. Full-queue edits are
+still dropped, and the target-side assumptions remain unqualified.
+
 The QEMU-only inspector now requests EFX mode through the stock mode handler
 when opened from another panel mode, and closes before another mode is
 selected. Nine observed direct calls to that handler are guarded and routed

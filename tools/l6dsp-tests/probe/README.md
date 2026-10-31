@@ -192,6 +192,11 @@ unowned scratch. The standalone inspector continues to use its scratch
 parameter, route, and event mailboxes.
 This does not qualify allocation lifetime, reset, exhaustion, concurrent
 selection, callback ownership, or the remaining scratch addresses on hardware.
+The bounded event queue drops a new edit when full; it does not recover that
+edit. Host tests in `l6dsp-tests` exercise FIFO ordering, counter wrap, full
+capacity, standalone storage, and a two-thread producer/consumer exchange.
+They assume one producer, one consumer and stable storage; they do not prove
+those assumptions for the firmware.
 
 ```sh
 python3 tools/l6dsp-tests/probe/prepare_ui.py UNPACKED_DIR STOCK_STATE_DIR /tmp/l6-ui-probe
