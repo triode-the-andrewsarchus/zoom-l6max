@@ -101,7 +101,14 @@ pub unsafe extern "C" fn ainr_capture(input: *mut f32, output: *mut f32, index: 
             return result;
         }
         let ptr = word(POINTER).load(Ordering::Acquire) as *mut u8;
-        if ptr.is_null() || status.load(Ordering::Acquire) != 0
+        let observed_status = status.load(Ordering::Acquire);
+        // Hybrid completion is governed by the versioned claim. A late
+        // status write from an old capture must not block a rearmed claim.
+        #[cfg(hybrid_ainr_probe)]
+        let status_allows_capture = matches!(observed_status, 0 | 1);
+        #[cfg(not(hybrid_ainr_probe))]
+        let status_allows_capture = observed_status == 0;
+        if ptr.is_null() || !status_allows_capture
             || core::ptr::read_volatile(0x2028ba4c as *const u32) != 1 { return result; }
         let now = core::ptr::read_volatile(0x8020ab4c as *const u32);
         let start = word(START).load(Ordering::Acquire);
