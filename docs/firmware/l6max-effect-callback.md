@@ -943,18 +943,38 @@ therefore cannot preserve the observed stock allocation footprint. This does
 not rule out a smaller state, a different allocator, or another owned region,
 and does not establish behavior in other device configurations.
 
-For perspective on reducing that deficit, the thirteen Plateau delay arrays
-currently hold 59,408 `f32` samples. A preliminary capacity calculation for
-the existing maximum `size` of 1.2, 190 ms predelay, 16-sample modulation,
-and output taps gives candidate array capacities, in source order, of 9,121;
-274, 209, 735, 538; 1,332, 8,620, 3,704, 7,201; and 1,790, 8,163,
-5,142, 6,123 samples. These total 52,952 samples, saving 25,824 bytes in raw
-arrays. Even if that reduction carried over exactly to the payload, the
-preceding snapshot would still exceed the stock pool by 133,384 bytes before
-allocation overhead. These capacities are an unimplemented estimate, not a
-verified bit-identical replacement: history during size and modulation edits,
-interpolated reads, and output taps would need comparison across their full
-ranges. They do not establish ownership or make that heap sufficient.
+The thirteen Plateau delay arrays were subsequently reduced from 59,408 to
+52,952 `f32` samples, saving 25,824 raw bytes. A host boundary test checks
+maximum configured delay lengths, 190 ms predelay, 16-sample modulation and
+the largest output tap in each affected line. A 300,000-frame host render
+with size, predelay, modulation and freeze edits, changing input and silence
+matched the previous implementation byte for byte (output SHA-256
+`7b0db01be53b66322d8cb850decb17a5a9ff0245666426c2dd03d74779ab8d6b`).
+This limited host comparison does not establish equivalence for every signal
+or target timing. A separate `thumbv7em-none-eabihf` size query on the current
+processor type reports 297,960 bytes before and 272,136 bytes after the
+reduction. Its before and after assembly SHA-256 values were
+`9604d8e37e913c8df32229f8f08721109180548221f7b2085f4ec3fa834deb74` and
+`0847d5462be805662bdc3cae09a19c99840e6e5e02d1e64a3460dfc6d57e0e69`;
+Rust was `1.99.0-nightly (1ed2df61a 2026-08-04)`. The reduced processor alone
+still exceeds the observed largest free block by 112,128 bytes, before
+allocation overhead. This does not establish ownership or make that heap
+sufficient.
+
+A QEMU-only silent-input inspector diagnostic using the reduced buffers
+completed with the expected 26/28 ms and 84/86% edits, drained queues with
+no observed overflow, and selected Spring after closing the inspector. Its
+MAIN, ELF, recipe and result SHA-256 values were
+`ef660f5e876d3f2ba27d1fef6164dbdf104ae0148398fd421c30d85388c1301f`,
+`f60d8d06f3df1cfad82dc339651fd605c11f0b9e8a175b3ee999911c04bff609`,
+`be38c9ec6c4f5e72923203d33bc77cb98673ca7d454d3b4a505276e9ee785e8a`, and
+`e89941838d793e78368da6ce1884b16032147facef2d111a1f42c46649a38181`.
+It used stock MAIN `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+QEMU `53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`
+(source unattested) and `l6dbg`
+`9a7f882911b7e44c76ddd1c28a226f3f5507878899fc5dd78f616eb10cb360da`.
+This does not qualify active audio, physical controls, or target timing.
 
 The heap recipe, traversal script and log SHA-256 values were
 `a23dd43d67d045af4d2bf8492c9bb9d80f5cf4be880d31a10a0b7136cdfcae48`,
@@ -4755,6 +4775,15 @@ result hashes were `cdf60e920ac8dfec93ed29d87609cfd9bed1fe4830fdc63276641cf36753
 and `f35359b44a8fad01c16765dcdc9eaa10899d10ad1802dd9ef7ba7bf3f33c9675`.
 These comparisons used the stock fixture and QEMU identified above and
 observer recipe `45233d0c29dc9947da9353f8a78eb1e26788b80958fed6dd31f1cff11cbc51db`.
+Another disposable comparison used two changing signals, including separate
+silence intervals, for 256 blocks; both copies matched their stock references
+and sampled state at eight checkpoints. Its observer, recipe and result
+SHA-256 values were
+`b7ff231b0b90e8e9820a4b75935b867da85d6473ee93efa19e6b4bea0f23e179`,
+`676a24b9c120d67010f95d5a01f303d8ab5dc92c6aaa4797be928315b25994a4` and
+`a5d39a17d07bcc7822f024ee4847e71c0e21ac3cba3cf3842d2d3872fa220177`.
+It used the same stock fixture and unattested QEMU binary. The sampled states
+and signals do not establish complete state coverage or source ownership.
 
 An uninstrumented packed handoff completed with three matching sampled
 descriptors, zeroes in sampled clone prefix and suffix regions, and nonzero
