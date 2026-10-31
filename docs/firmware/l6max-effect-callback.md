@@ -1837,6 +1837,55 @@ initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`
 and QEMU executable `53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`,
 whose source provenance is unattested.
 
+A full-cycle probe exposed a gap in that barrier: the selector's special
+AINR branch at `0x202805d4` bypasses the `0x20280648` hook. Across seven
+presses, the earlier hook counted six transitions, omitting AINR. Returning
+to Room after stock effects reused the shared buffer produced no retained
+impulse tail in the sampled diagnostic output. This is one instrumented
+signal sequence, not a general measurement of tail behavior.
+
+Moving the barrier to selector entry or immediately after the stock semaphore
+acquisition stalled the observed selection. A debugger snapshot showed Main
+in the delay loop at `0x8002e98e`, called from the selector's fade operation
+at `0x202805c6`, after the experimental hook had cleared the active callback.
+The semaphore is a stock counting semaphore, and static inspection found
+multiple selector call sites; neither observation proves all possible callers
+or priority interactions. A timeout that leaves the callback disabled still
+needs a recovery design.
+
+A further disposable variant placed the acknowledgment after the fade and
+before the normal/AINR branch, under the stock selector semaphore. It assigned
+a different request value on each selection. In one full-cycle run, startup
+and all seven requested selections, including AINR, produced eight recorded
+acknowledgments from the observed AudioProcess task. One transition began
+with the custom in-flight marker set and acknowledged with it clear. Three
+sampled words of the shared buffer were zero after the recorded stock clear;
+this does not establish the contents of the whole buffer. Room's sampled
+tail remained lost after the stock effects. The artificial workload and
+raised priorities alter scheduling, and this result does not establish target
+memory ownership, ordering, deadlines, timeout recovery or safety on hardware.
+The variant remains emulator-only and the production builder remains disabled.
+
+The original full-cycle probe's callback, preparer, MAIN, ELF, recipe and
+result SHA-256 values were respectively
+`808b3d3564ca2e7a0c1d0bcf0f34a59c875ac28115def9218f642875f867abb1`,
+`12f4f76830963c807e9a5c7809b6b6876bda14f13ddf4b4e6872c10e353fb4ca`,
+`8f73b5fffa4dda0f31ef38d1bc532c4d4e225a287b57361e7c6eb62a5cd06f31`,
+`6435208b1e84399b9126075c2d4557a567639eadb30b67dc49a555fa0ee56736`,
+`58800cf5c9f0329f2e11e212bfe1ab186bb1229f0029c80024bc01e0417c0e33`, and
+`cc51768d4c6aa45a51d031efea6b625555dc446511db9e30349c7afea4465bad`.
+The post-fade variant's corresponding hashes were
+`3864070e8c9aa81af34a06436c5602b982281ad25f25be2de741e43971ca8752`,
+`405efeb201ecefebc118423839508fb49d09e74188ee1c854b0e3932b3a0a2ad`,
+`46c196d92ca468a171e25c4ccf105c68efae47205c2e70bd00d6819307fad5b6`,
+`806ef1ff43326e7f7a213397ea2ac9056ccc2f70511721c99bcbbaf2d97b49dc`,
+`2d1543f979039b454e72878a21a0e7da261505ea97d19555f76b3934faa09728`, and
+`03efb4c14f60c63c820f0b7a84161eccc52f033bdafb030ed11f233425e5b984`.
+Both used the preceding linker script, stock MAIN, initial NOR and QEMU
+executable. The debugger script and snapshot hashes were
+`5acfe8f4f5516bb39d859f780345e8ce958c318f670035b9dd39b93926a87245` and
+`757067e45f53969b746a3b685a12f0a6dd336559aa3fefb370ef0300e0805e07`.
+
 The QEMU-only interrupt-timestamp hook now initializes its decoder and queue
 only on first installation. On subsequent custom selections, it preserves
 pending edges if both hook words and the veneer match; a mismatch marks the
