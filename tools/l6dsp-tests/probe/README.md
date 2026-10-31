@@ -327,7 +327,8 @@ publishes only after all pieces are copied, and resets incomplete progress on
 the observed selection or learning-reset paths. The recipe records progress
 at `0x83e03130` after learning and selection. A versioned atomic claim rejects
 publication by a cancelled capture, including after rearming; progress is only
-diagnostic telemetry. This is an unqualified experiment: the inferred span may
+diagnostic telemetry. In this mode the completed claim, not the later status
+word, authorizes installation. This is an unqualified experiment: the inferred span may
 miss mutable state, the last callback still copies at least 44 KiB, and the
 selector has no proven audio-task quiescence or deadline guarantee.
 Add `--passthrough-unready` to keep synthetic sends active without AINR while

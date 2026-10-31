@@ -3919,6 +3919,31 @@ The earlier compact diagnostic without this option rebuilt byte-for-byte
 unchanged. The capture range, target timing, memory ownership and callback
 lifetime remain unqualified.
 
+The hybrid installer now uses the completed atomic claim as its publication
+check; the status word used for capture bookkeeping is written later. In a forced QEMU
+ordering, the completed claim was visible while status was still 0. The
+previous installer skipped it; the revised installer set its ready marker.
+The forced variants deliberately called installation from the audio callback
+to reproduce that ordering, adding substantial work and changing timing.
+The revised and previous MAIN hashes were
+`3da4e06a4a8a5131d26c1a42817af69b86f27b008b88d8be8c488722cd5b01a8` and
+`ae188bf0e38c9d37e95120a490ac6c8cd72b10bfdb6147116e83a4819dd380b5`,
+their ELFs `98e710b7899288d5055fe0d7327ca01a5d95edd2363ba54c293753319ee73212`
+and `66308a3c084257b8a2dfb068492a7bcd8b24af7c4d510bfbbe84f48d5bb3508d`,
+recipes `1c30066d4b218ebe28a61935d790c88c8f523ac5cdcfe8b03fb2a9c75dc813f0`
+and `844761387b2a150eb3d753788c46260f05d94413b9453c240d804a06f9599a51`,
+and results `6f0cd32f9e86950231411412304d820239de795e6fc8b6e20d4d3f4a7f49aa79`
+and `cbdf6fe59e8bb9367fa1d1fe89fae9e9484e6b7fd62a107114dda1fb08fb61ba`.
+The uninstrumented hybrid run captured and installed the state after learning;
+its MAIN, ELF, recipe and result hashes were
+`7e4cdd13b167e7cebed856caa378e7e1421fecb0d5c5fccbefa0d732c17d5746`,
+`0855bef5bdb1364852cac138147d7a2a22423ae997a2cd9b85c0f2cba800babe`,
+`5d2d318b95289f7d02f460c9f9d35a3e6275180524d657341ffa65921035e06b`, and
+`4b9549167d13448383846fc680ed95bab63f97034c5a6f10587b119fb261b3cb`.
+These runs used the stock MAIN, NOR and unattested QEMU executable identified
+below. They do not establish audio-task quiescence, safe memory ownership,
+snapshot coherence or target deadlines.
+
 Both runs used stock MAIN SHA-256
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
 initial NOR SHA-256
