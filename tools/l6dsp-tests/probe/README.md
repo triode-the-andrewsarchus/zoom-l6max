@@ -308,6 +308,9 @@ records `heap_before`, `handoff_learned`, `heap_learned`, `handoff_selected`,
 handoff words are allocation pointer, status (0 waiting, 1 captured, 2 failed),
 capture start/end ticks, source and first-copy state words, and learning-start
 tick. Inspect these observations; recipe completion alone is not a pass.
+A failed snapshot allocation is retried on a later custom-effect selection;
+a successful retry returns the capture status to waiting. It does not
+recover a previously missed learning capture automatically.
 Add `--passthrough-unready` to keep synthetic sends active without AINR while
 the snapshot is unavailable, including after a diagnostic allocation failure.
 The resulting extra work can prevent the selection sequence from reaching

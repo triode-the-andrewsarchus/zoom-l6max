@@ -25,11 +25,15 @@ pub unsafe fn allocate() {
     unsafe {
         let slot = word(POINTER);
         let status = word(STATUS);
-        if slot.load(Ordering::Acquire) != 0 || status.load(Ordering::Acquire) != 0 { return; }
+        if slot.load(Ordering::Acquire) != 0 { return; }
+        // A transient failure must not disable later learning attempts for
+        // the rest of this diagnostic session. Unknown states stay closed.
+        if !matches!(status.load(Ordering::Acquire), 0 | 2) { return; }
         let alloc: unsafe extern "C" fn(usize) -> *mut u8 = core::mem::transmute(0x80085479usize);
         let ptr = alloc(CAPTURE_BYTES) as usize;
         if ptr >= 0x808a4148 && ptr % 8 == 0
             && ptr.checked_add(CAPTURE_BYTES).is_some_and(|end| end <= 0x80921148) {
+            status.store(0, Ordering::Release);
             slot.store(ptr as u32, Ordering::Release);
         } else {
             if ptr != 0 {
