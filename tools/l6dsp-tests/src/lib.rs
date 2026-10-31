@@ -492,7 +492,7 @@ mod tests {
 
     #[test]
     fn parameter_handoff_restores_each_latest_applied_value() {
-        use parameters::{edit_encoder, snapshot_parameter, ParameterBank, ParameterHandoff};
+        use parameters::{edit_encoder, format_parameter, snapshot_parameter, EfxParamId as Id, ParameterBank, ParameterHandoff};
         let mut source = Box::new(routing::DualEfxProcessor::new());
         let mut restored = Box::new(routing::DualEfxProcessor::new());
         source.init();
@@ -533,6 +533,27 @@ mod tests {
         assert_eq!(source.velvet.current.transition_ms, 450.0);
         assert_eq!(restored.velvet.current.refresh_seconds, source.velvet.current.refresh_seconds);
         assert_eq!(restored.velvet.current.transition_ms, source.velvet.current.transition_ms);
+
+        // Display the tap-limited target without discarding the request.
+        source.init();
+        restored.init();
+        let mut params = source.velvet.current;
+        params.length_ms = 95.0;
+        params.density = 3000.0;
+        source.velvet.set_parameters(params);
+        let displayed = snapshot_parameter(Id::VndDensity, &source);
+        assert!((displayed.value - 64_000.0 / 95.0).abs() < 0.01);
+        let formatted = format_parameter(Id::VndDensity, &source);
+        assert_eq!(&formatted.value_str[..formatted.value_len], b"673.7 pps");
+        let handoff = ParameterHandoff::new();
+        handoff.record(Id::VndTimeSpread, &source);
+        handoff.record(Id::VndDensity, &source);
+        handoff.restore(&mut restored);
+        assert_eq!(restored.velvet.current.density, 3000.0);
+        let mut shorter = restored.velvet.current;
+        shorter.length_ms = 10.0;
+        restored.velvet.set_parameters(shorter);
+        assert_eq!(snapshot_parameter(Id::VndDensity, &restored).value, 3000.0);
     }
 
     #[test]
@@ -2122,7 +2143,7 @@ mod tests {
         for (id, expected) in [
             (Id::VndAmount, "100.0 %"),
             (Id::VndTimeSpread, "95.0 ms"),
-            (Id::VndDensity, "1088.4 pps"),
+            (Id::VndDensity, "673.7 pps"),
             (Id::VndDecay, "-0.5 dB"),
             (Id::VndRefresh, "5.0 s"),
             (Id::VndTransition, "17.5 ms"),
