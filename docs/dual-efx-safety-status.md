@@ -96,6 +96,12 @@ The blocking findings for L6max MAIN 1.10
 
 Some standalone DSP defects have been fixed and tested on the host. Those
 tests do not exercise the firmware bindings or establish hardware safety.
+The Velvet crossfade now calculates its phase step once per transition;
+host tests compare its weights with the previous calculation. In a disposable
+ARM diagnostic build, the former per-sample divide moved to transition start
+(old and new ELF SHA-256 values `a58c0d242fafc5bbd5f61b8fc4aecd46a4fe1f55022a82b69e45e9c09a96d398`
+and `197bafc27f9023b26c1b1a73a53c8d9150577343e6a53dd2d15ebc60b44cc5da`).
+This instruction inspection does not measure workload or establish a deadline.
 Velvet's 64-tap limit prevents the full requested density range at long
 spreads; its minimum of two taps and integer rounding also constrain short
 spreads. The parameter model displays the resulting target density while

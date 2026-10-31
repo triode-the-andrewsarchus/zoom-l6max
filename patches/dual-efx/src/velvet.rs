@@ -201,6 +201,7 @@ pub struct VelvetDecorrelator {
     // A filter edit during a crossfade is applied after that crossfade ends.
     pub filter_update_pending: bool,
     pub active_transition_samples: usize,
+    transition_phase_step: f32,
     amount_current: f32,
     amount_step: f32,
     amount_remaining: u32,
@@ -232,6 +233,7 @@ impl VelvetDecorrelator {
             transitioning: false,
             filter_update_pending: false,
             active_transition_samples: 12000,
+            transition_phase_step: 0.0,
             amount_current: 1.0,
             amount_step: 0.0,
             amount_remaining: 0,
@@ -320,6 +322,7 @@ impl VelvetDecorrelator {
         self.pending_bank = 1;
         self.filter_update_pending = false;
         self.active_transition_samples = self.transition_samples;
+        self.transition_phase_step = 0.0;
     }
 
     pub(crate) fn tap_count(&self, density: f32) -> usize {
@@ -419,7 +422,7 @@ impl VelvetDecorrelator {
             let phase = if self.active_transition_samples <= 1 {
                 PI_2
             } else {
-                PI_2 * self.transition_position as f32 / (self.active_transition_samples - 1) as f32
+                self.transition_position as f32 * self.transition_phase_step
             };
             (cos(phase), sin(phase))
         } else {
@@ -576,6 +579,10 @@ impl VelvetDecorrelator {
                 self.transitioning = true;
                 self.transition_position = 0;
                 self.active_transition_samples = self.transition_samples;
+                // Compute once per fade, with a nonzero divisor even if a
+                // future caller allows a one-sample transition.
+                self.transition_phase_step = PI_2
+                    / self.active_transition_samples.saturating_sub(1).max(1) as f32;
             }
         }
 
@@ -606,6 +613,40 @@ impl VelvetDecorrelator {
             let (out_l, out_r) = self.process_sample(left[i], right[i]);
             left[i] = out_l;
             right[i] = out_r;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn crossfade_phase_matches_division_and_keeps_its_duration_during_edits() {
+        for duration_ms in [1.0, 250.0, 54_000.0] {
+            let mut effect = Box::new(VelvetDecorrelator::new());
+            let mut params = Parameters { dynamic: false, refresh_seconds: 60.0,
+                transition_ms: duration_ms, ..Parameters::default() };
+            effect.init(params);
+            params.length_ms += 1.0;
+            effect.set_parameters(params);
+            for _ in 0..(2 * MAX_TAPS + 2) {
+                if effect.transitioning { break; }
+                effect.advance_filter();
+            }
+            assert!(effect.transitioning);
+            let length = effect.active_transition_samples;
+            params.transition_ms = 5.0;
+            effect.set_parameters(params);
+            assert_eq!(effect.active_transition_samples, length);
+            for step in 0..=1024 {
+                let position = (length - 1) * step / 1024;
+                effect.transition_position = position;
+                let phase = PI_2 * position as f32 / (length - 1) as f32;
+                let (old, new) = effect.transition_weights();
+                assert!((old - cos(phase)).abs() < 2e-6, "duration={duration_ms} position={position}");
+                assert!((new - sin(phase)).abs() < 2e-6, "duration={duration_ms} position={position}");
+            }
         }
     }
 }
