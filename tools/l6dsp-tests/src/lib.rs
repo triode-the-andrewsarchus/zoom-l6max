@@ -735,6 +735,15 @@ mod tests {
         assert_eq!(processor.velvet.current.density, 3000.0);
         edit_encoder(&mut processor, Bank::Plateau, 0, i32::MIN);
         assert_eq!(processor.plateau.params.predelay_ms, 0.0);
+        let mut plateau = processor.plateau.params;
+        plateau.predelay_ms = 190.0;
+        processor.plateau.set_parameters(plateau);
+        edit_encoder(&mut processor, Bank::Plateau, 0, -1);
+        assert_eq!(processor.plateau.params.predelay_ms, 188.0);
+        let displayed = format_parameter(Id::PlatPreDelay, &processor);
+        assert_eq!(&displayed.value_str[..displayed.value_len], b"188.0 ms");
+        edit_encoder(&mut processor, Bank::Plateau, 0, i32::MAX);
+        assert_eq!(processor.plateau.params.predelay_ms, 190.0);
     }
 
     #[test]
