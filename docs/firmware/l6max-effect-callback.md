@@ -4562,6 +4562,52 @@ trace and diagnostic JSON hashes, respectively, were
 The `l6dbg` executable was
 `9a7f882911b7e44c76ddd1c28a226f3f5507878899fc5dd78f616eb10cb360da`.
 
+
+The diagnostic now replaces the observed ring-buffer range at offsets
+`0x2ff8..0xb94c` in the clone with zeroes, so it reads 68,544 source bytes
+instead of the full 103,700-byte prefix. It still writes the full prefix and
+does not prove ownership, complete state coverage or target timing. Two
+debugger-controlled comparisons each ran 96 blocks with independent signals
+through two copies and stock references. In one, the excluded range was zero;
+in the other it held `0.25` floats. Both copies matched their corresponding
+stock outputs and sampled state checkpoints. These fixed signals and learned
+state do not establish all possible AINR behavior or that zero is valid for
+every state. The zero-filled and nonzero-filled observer source hashes were
+`2c285c3eadba80638fc2988fdd3921820f63c17d5b9b94c9c7470349a1a1b786` and
+`ca4d53818b2dc07352bd0a95d5ab576121494b10d56fd17a0d6d2b08758026e2`;
+their result hashes were
+`cdf60e920ac8dfec93ed29d87609cfd9bed1fe4830fdc63276641cf36753f5b9` and
+`e733fded2da4df04f45375e8a3e8b1961b9b7e0c646bed01169d12ffa8d295f2`.
+The observer recipe and stock fixture were those recorded in the prefix
+comparison above; QEMU executable
+`53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`
+has unattested source provenance.
+
+In one plugin-assisted run, the narrower handoff completed, produced nonzero
+sampled sends, and two sampled parts of the excluded clone region were zero.
+The trace recorded no CPU write to the retained source ranges between the
+pause acknowledgment and closure. It omits DMA and unexecuted paths, and
+instrumentation affects scheduling, so the result does not establish
+quiescence. Diagnostic MAIN, ELF, trace recipe, trace and result hashes were
+`471d4e3391dab661d5d51dfc6e22c7b6da41780a4b2132cf426b480ab0949561`,
+`29b9bccfb411793e5171f44c522bddf9a95504ba1dac6b679dc469303dca2b1a`,
+`53c39fa20624281fbcdfe625a47f818071ecbdfda6cff40c766265882ca24016`,
+`872b5251b2cafba8cb5075942af45d4906a72959dfc4af106b18682e5a641360`, and
+`4451f13225d66f25bc5390adf3b868317e424028dd4c16429e0ce283b8798f45`.
+The initial diagnostic NOR hash was
+`5b73dc5c477333f565b5e36bb1a7caa968377e6f27da2a6bd0276bfcb7de78d9`;
+panel state matched the preceding trace. Plugin source, binary and wrapper
+hashes were `1f12b0cad7de9db0ae3f8f8e45e1ac6c85350ac1bdc74c21082480950b1e1ee0`,
+`7bf5b1a545609031b0fc592aa9a6ff628defcecc8077076a24a7ae1454cae467`, and
+`70fd875c31ef583a96f8b153f5d66fa26aa2d3e322afa2061d3349b423615cf5`;
+the plugin-enabled QEMU executable matched the preceding trace.
+An uninstrumented run of the same MAIN, ELF and initial state also completed
+the handoff with nonzero sampled sends. Its recipe and result hashes were
+`d3c499a85a8c13adc63a55eacd1d7dc5ce7363291a29746af459bb19a519ca22` and
+`828170313d437624cb6be7b42a0ed722bbbb6d50c9e92dd74ff9e20ad9b542fb`;
+its QEMU executable was the `53504c7b...` binary identified above.
+
+
 A later forced-interleaving test invalidated the pause immediately after the
 selector's last validity check. The old diagnostic nevertheless marked the
 snapshot ready and installed it; the revised diagnostic atomically closes an

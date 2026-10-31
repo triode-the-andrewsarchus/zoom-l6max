@@ -52,6 +52,17 @@ mod tests {
     }
 
     #[test]
+    fn ainr_boundary_snapshot_excludes_observed_stock_rings() {
+        let size = boundary_pause::SNAPSHOT_BYTES;
+        let source: Vec<u8> = (0..size).map(|i| (i.wrapping_mul(37) & 255) as u8).collect();
+        let mut dest = vec![0xa5; size];
+        unsafe { boundary_pause::copy_snapshot(source.as_ptr(), dest.as_mut_ptr()); }
+        assert_eq!(&dest[..0x2ff8], &source[..0x2ff8]);
+        assert!(dest[0x2ff8..0xb94c].iter().all(|&byte| byte == 0));
+        assert_eq!(&dest[0xb94c..], &source[0xb94c..]);
+    }
+
+    #[test]
     fn ainr_boundary_cannot_publish_after_pause_invalidation() {
         use core::sync::atomic::AtomicU32;
         let pause_word = AtomicU32::new(0);
