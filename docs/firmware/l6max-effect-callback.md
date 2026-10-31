@@ -2502,6 +2502,28 @@ the preserved-queue variant's corresponding hashes were
 `a221f456fcd67168ccd8dc10124994f79bd0c022102401ef4e992f13831fc6cb`.
 Both used the stock MAIN, NOR and QEMU identities recorded below.
 
+A further forced interleaving inserted nine queued edits before the stock
+transition, with empty queue counters set to `0xfffffffc` so both counters
+wrapped. After returning to Room, the queue was `(5, 5, 0)` and the applied
+count was nine. Three Velvet amount decrements followed by three increments
+left the saved amount at 100%; three routing increments moved strip 1 from B
+to A. The count exceeds the eight edits consumed per callback. These final
+values are consistent with the requested sequence, but do not independently
+trace every intermediate edit or qualify physical input, concurrency, reset
+or overflow.
+
+The callback, inspector, preparer, linker, MAIN, ELF, recipe and result
+SHA-256 values for this run were respectively
+`4c16484271523afb3c53a39c782108c7198c12818edbd00ba9927f7cc20681ba`,
+`ed9f00c4c5a0c81edc784579f824af5f78bdc86d9c4485ada7a1164c9cc6aaf5`,
+`405efeb201ecefebc118423839508fb49d09e74188ee1c854b0e3932b3a0a2ad`,
+`b0a558813276bc9b6105b7348dc5e0b23b244922b9a47e7d553d8390a97a3a1f`,
+`372a0755d30a230de83646813b1f813385453189f9a8d833b5548613455d2519`,
+`d3e3659273343aafacfd7b530ff9507efa7a14f906e321ef37daedd38e88e320`,
+`49aa4269c4dd20cca2f94069f37738d9a5355397830a2268e8a541dc01c607c2`, and
+`fd48780147d7d7dc493ba32aace41572b1661cac1638f44608ed04f841f556d5`.
+Stock MAIN, NOR and QEMU identities matched the preceding comparison.
+
 The inspector diagnostic now records each applied parameter value in a
 QEMU-only atomic mailbox and restores the observed values before publishing a
 new custom callback. Values are stored in their native units; the diagnostic
