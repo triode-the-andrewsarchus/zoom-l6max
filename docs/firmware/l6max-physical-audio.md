@@ -69,3 +69,21 @@ SHA-256 values were
 `e22113986f3ea5fc897c1df58cbd73639ebcb65b5abd6d04d98cf048cb59efe3`,
 `7b9051222e3c1dde7a85ff9b60e3fe167c17c9883aea7fcc0fcdfb4da0872ba9`, and
 `2f13f0051cb306f2ada3acc5108181eb19dad009cb7d867d60bf1bfacf23c66f`.
+
+With USB audio enabled, the same -25 dBFS separated bursts were recorded
+simultaneously on the two AudioFuse return ports and all fourteen L6max USB
+capture ports. In five 50 ms windows per burst, the largest absolute
+correlations on L6max zero-based capture ports 4 and 12 for send 0 ranged
+from 0.207 to 0.260; on ports 5 and 13 for send 1 they ranged from 0.179 to
+0.264. This is evidence of the probe in the L6max USB stream, not a verified
+physical left/right label or a calibrated transfer function. The analog
+returns remained correlated with their matching sends. The full-capture
+correlations on USB were lower, and host/interface timing and independently
+clocked streams have not been calibrated. There were no reported xruns,
+nonfinite samples or clipping. The mixer setting and installed MAIN hash remain
+unknown; the user-reported connection and version reply are above.
+
+The send WAV, sixteen-channel return WAV and harness report SHA-256 values
+were `fc7b4a3416f8157515d91c4250e60ef74ffc6874c4843cbda91f31f289b4bc98`,
+`2ceb67945ff40e1ae0baba3846abdc2337d01f8eb908fed4f21030eb6f25cd5a`, and
+`b08c21357b0786de7e423df7c313eb8090417beee7dc2a8014de93400fb6cefa`.
