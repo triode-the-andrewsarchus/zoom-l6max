@@ -915,6 +915,59 @@ mod tests {
     }
 
     #[test]
+    fn plateau_live_size_edit_transitions_without_an_output_step() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        reverb.init(params);
+        let mut previous = (0.0f32, 0.0f32);
+        let mut max_step = 0.0f32;
+        for frame in 0..96_064 {
+            if frame == 96_000 {
+                params.size += 0.02;
+                reverb.set_parameters(params);
+            }
+            let input = (frame as f32 * std::f32::consts::TAU * 250.0 / 48_000.0).sin() * 0.1;
+            let output = reverb.process_sample(input, input);
+            if frame >= 96_000 {
+                max_step = max_step.max((output.0 - previous.0).abs())
+                    .max((output.1 - previous.1).abs());
+            }
+            previous = output;
+        }
+        assert!(
+            max_step < 0.04,
+            "size edit produced a large output step: {max_step}"
+        );
+
+        for frame in 0..64 {
+            let editing = frame % 8 == 0;
+            if editing {
+                params.size = if params.size < 1.01 { 1.02 } else { 1.0 };
+                reverb.set_parameters(params);
+            }
+            let output = reverb.process_sample(0.1, 0.1);
+            if editing {
+                assert!((output.0 - previous.0).abs() <= 0.032);
+                assert!((output.1 - previous.1).abs() <= 0.032);
+            }
+            previous = output;
+        }
+
+        // The wet control must take effect immediately, including when a
+        // further size edit restarts an in-progress transition.
+        params.size -= 0.02;
+        params.wet = 0.0;
+        reverb.set_parameters(params);
+        for frame in 0..16 {
+            if frame == 8 {
+                params.size += 0.02;
+                reverb.set_parameters(params);
+            }
+            assert_eq!(reverb.process_sample(0.1, 0.1), (0.0, 0.0));
+        }
+    }
+
+    #[test]
     fn test_plateau_reverb_decay() {
         let mut plat = plateau::PlateauReverb::new();
         plat.init(plateau::PlateauParameters::default());
