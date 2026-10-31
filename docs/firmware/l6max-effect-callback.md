@@ -2634,7 +2634,8 @@ With the close operation applied at the observed stock selector hook, the
 same forced sequence left the stock callback active and the inspector closed.
 The selection was injected in a QEMU-only UI hook; it does not establish
 physical MIDI behavior or every path into the selector. In particular, the
-AINR branch bypasses that hook and remains unresolved.
+AINR branch bypasses that hook; the later diagnostic veneer below addresses
+that observed branch only.
 
 The baseline MAIN, effect ELF, recipe and result SHA-256 values were
 `c3e75af0812687a3abf9a2a2b2206f0e8a4b73dbe080e9b376f9a1dce571c69b`,
@@ -2664,6 +2665,55 @@ MAIN, effect ELF, recipe and result hashes were
 `c5a753ba3b83ab2d8f55ddc18ba940ce509a82936150ee9a9dceed7fa271099a`, and
 `e80003704b8897cf70509af76047b583e1e3e69bac36e7b9332730587132eba1`;
 its popup ELF matched the two forced runs.
+
+A follow-up forced selection of AINR while the inspector was open. The
+baseline left the inspector open after the AINR callback was published. A
+QEMU-only post-fade veneer closed the inspector and preserved that callback
+in the matched run. The aligned redirect replays the displaced register move
+and call, restores the comparison flags, and returns to the original branch.
+An earlier redirect at the halfword-aligned call site failed even the normal
+selection sequence; that unsuccessful variant was discarded.
+
+The maintained standalone diagnostic then cycled through both custom effects,
+Delay, Echo, AINR, Hall and back to Room; the sampled callbacks followed that
+sequence. The combined diagnostic completed its ordinary inspector sequence,
+including its route changes and drained queues. These are individual emulator
+observations, not proofs of all calling conventions or interleavings. The
+selector holds a stock semaphore at the new hook; popup lock ordering,
+callback lifetime, memory ownership and physical timing remain unqualified.
+
+The AINR baseline MAIN, effect ELF, recipe and result hashes were
+`2d4ac7499248ac50bb628c69dcc12440d96146434cdcb24842e3b972a4c243a5`,
+`6b359f204bf00dec3bc2136a21b33319423bb8129c52d870ca8c027c41d20b3a`,
+`3daf50564349ec83d75cd0d37b02484dc301d530a7a9386511151c4f5e970aa5`, and
+`e9a014faac802f9219c28a579dd62d46564c291e833d84ce2bb66e3ff0c3d629`;
+the forced fixed build's corresponding hashes were
+`c8c427a54bfd8b3aa72d4829a878f57422b4831f7d5acbfc6e9b043a9de248c6`,
+`f9c163f95a2caba33c377f8ff77c89c1d8220512430d3a2819fa239e2759148d`,
+`0b681a21a84fe92b285961610d4fe82215879c6bbeb644c2a0d5e17636777c99`, and
+`cd9d6a5a42611a8c5897689569588a648b6224968a300e89b383649593311002`.
+Both popup ELFs were
+`be47cda2c3cfc74d0e0761853e257b0f64bacb1b0a4269b32e1f0582f72bc85b`.
+The baseline callback and builder sources were
+`2bce608eab780235328b401512f0195c32debf2e19470626bdab2454d18e9681` and
+`4a95fe9acd42e3eea8afba8a132b9b8b0e3dfde082f35daf2f4ef881a1106a26`;
+the forced fixed callback, builder and linker sources were
+`5c363b29da0631cbc9fca9325eb8ec34a7277c3d8bf93d6ca864933c3f28d159`,
+`70205bd937400e8d52a811564f66dc691b9e85d2a63775b7bdfec7de52e409cc`, and
+`537a04275854c4be32c77f3c180d818b6d4c927f88a9481f7550b22e0b072be3`.
+The injected inspector source was shared by the two forced builds:
+`c025e224234cca6a16f75d7e679e2b95bcd79b40d002cc00f5742ce0ab5fcb4f`.
+The maintained cycle MAIN, ELF, recipe and result hashes were
+`20abbc72830d0ea3175b9566cd898ccb40d0b072ba07740a3884f431e47a3167`,
+`c36cc0fef8b3597fbb25a31ab5e70dcd406a08b5f3494cb4bce5a374f65e1b53`,
+`149fd5f42d2649abc2b5dee473fde6ef27da39574ffc9824ea76c5a649428a2a`, and
+`185f4e1d8b976f8370bd15aa7ee9929412ae4fd9a5963e6fe5661b2e6992319a`.
+The maintained combined MAIN, effect ELF, recipe and result hashes were
+`dab8ce314aaf3407f46e0776665682381aec8396e2b3c9df38d4681208afa2cd`,
+`38e75941e9e6ddf467c708b7dbd4928b5d620ea4d724d1b1045c7dfffd3c5cc7`,
+`760f1f4918081c9710b86b805b83b67d24c61eef93e78b5ed9dc91d17f81bcf2`, and
+`c8d84bff3499ca51a5c3ff97ab21dd138290dcf1c021ac301b96dbee14736763`;
+its popup ELF and stock input identities matched the earlier runs.
 
 In a further run of the suppression variant, the old edit was applied without
 a notification; opening the inspector then generated its page notification,

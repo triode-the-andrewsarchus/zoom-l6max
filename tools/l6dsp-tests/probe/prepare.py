@@ -6,9 +6,10 @@ import json
 from pathlib import Path
 import shutil
 import shlex
+import struct
 import subprocess
 from thumb_branch import branch
-from fixture import MAIN_SHA, checked_inputs
+from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer
 
 ROOT = Path(__file__).resolve().parents[3]
 PROBE = Path(__file__).resolve().parent
@@ -127,7 +128,7 @@ if args.inspector:
     symbols = {}
     for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines():
         parts = line.split()
-        if len(parts) == 3 and parts[2] in ("inspector_select", "inspector_knob", "inspector_mode", "inspector_enqueue"):
+        if len(parts) == 3 and parts[2] in ("inspector_select", "inspector_knob", "inspector_mode", "inspector_enqueue", "ainr_selector_veneer"):
             symbols[parts[2]] = int(parts[0], 16) & ~1
     for offset, expected, symbol in (
         (0x36f28, bytes.fromhex("1df0bef9"), "inspector_select"),
@@ -137,13 +138,13 @@ if args.inspector:
         if image[offset:offset + 4] != expected or symbol not in symbols:
             raise ValueError(f"inspector call site or symbol mismatch: {symbol}")
         image[offset:offset + 4] = branch(0x80000000 + offset, symbols[symbol])
+    install_ainr_selector_veneer(image, symbols)
     if args.enqueue_trace:
         offset = 0x4c606
         if image[offset:offset + 4] != bytes.fromhex("dbf73ffd") or "inspector_enqueue" not in symbols:
             raise ValueError("panel enqueue call site or symbol mismatch")
         image[offset:offset + 4] = branch(0x80000000 + offset, symbols["inspector_enqueue"])
 if args.auto_handoff:
-    import struct
     matches = [line.split() for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines()
                if line.endswith(" ainr_capture")]
     if len(matches) != 1 or image[0x104de4:0x104dee] != bytes.fromhex("40f2817cc0f2000c6047"):

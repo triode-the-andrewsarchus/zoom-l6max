@@ -27,6 +27,41 @@ mod irq;
 mod auto_handoff;
 #[cfg(effect_buffer_probe)]
 const _: () = assert!(core::mem::size_of::<routing::DualEfxProcessor>() <= 0x50000);
+
+// QEMU-only selector veneer. The aligned redirect replaces `mov r1, r4`,
+// the stock call and `cmp r6, #4`; the original conditional branch remains.
+// Replay the call, close the inspector on the special AINR path, then restore
+// the comparison flags before returning to that branch.
+#[cfg(inspector_probe)]
+core::arch::global_asm!(r#"
+    .syntax unified
+    .thumb
+    .section .text.ainr_selector_veneer,"ax",%progbits
+    .global ainr_selector_veneer
+    .thumb_func
+ainr_selector_veneer:
+    mov r1, r4
+    ldr.w r12, .Loriginal_select_call
+    blx r12
+    cmp r6, #4
+    bls .Lresume_selector
+    push.w {r0, r1, r2, r3, r12, lr}
+    bl ainr_selection_close
+    pop.w {r0, r1, r2, r3, r12, lr}
+.Lresume_selector:
+    cmp r6, #4
+    ldr.w pc, .Lselector_branch
+    .align 2
+.Loriginal_select_call: .word 0x20282f6d
+.Lselector_branch: .word 0x202805d5
+"#, options(raw));
+
+#[cfg(inspector_probe)]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn ainr_selection_close() {
+    unsafe { inspector::close_for_selection(); }
+}
+
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".text.probe")]
 pub unsafe extern "C" fn probe(entry: *mut u32) {

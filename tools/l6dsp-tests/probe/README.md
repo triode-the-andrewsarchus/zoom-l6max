@@ -97,8 +97,10 @@ memory at `0x83e00400` contains parameter ID, value length, 16 text bytes,
 consumed-event count and inspector-open flag. Queue head, tail and overflow
 count are captured at `0x83e00200`.
 The observed selector hook also closes the inspector when it reaches a stock
-effect, including a direct selection outside the inspector button path. This
-does not cover the stock AINR branch, which bypasses the hooked clear veneer.
+effect, including a direct selection outside the inspector button path. A
+separately guarded post-fade veneer covers the AINR branch, which bypasses the
+clear veneer. The selector holds a stock semaphore there; lock ordering and
+timing with the popup manager remain unqualified.
 Add `--retain-custom-state` to investigate direct Room-to-Spring transitions
 without clearing the processor or resetting its event queue. This opt-in uses
 an unowned QEMU-only marker at `0x83e00148`; it cannot be combined with
