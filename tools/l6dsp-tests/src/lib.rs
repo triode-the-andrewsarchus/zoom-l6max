@@ -967,6 +967,41 @@ mod tests {
     }
 
     #[test]
+    fn velvet_starts_with_the_reference_zero_delay_impulse() {
+        let mut engine = Box::new(velvet::VelvetDecorrelator::new());
+        let mut params = velvet::Parameters::default();
+        params.dynamic = false;
+        params.length_ms = 95.0;
+        params.density = 100.0;
+        engine.init(params);
+        // Reference 115dkk/Velvet-Noise-Decorrelator-VST3 at commit
+        // a391a12a0b96b190a05cd7cefa25becf4f31660c, 48 kHz, default seed.
+        let expected = [[0, 547, 1102, 1391], [0, 426, 1068, 1706]];
+        for (channel, delays) in expected.iter().enumerate() {
+            let bank = &engine.channels[channel].banks[engine.active_bank];
+            assert_eq!(bank.count, 10);
+            for (tap, delay) in bank.storage.iter().zip(delays) {
+                assert_eq!(tap.delay, *delay, "channel {channel}");
+            }
+            assert!(bank.storage[0].gain > 0.0);
+        }
+        let (left, right) = engine.process_sample(0.5, 0.5);
+        assert!(left > 0.0 && right > 0.0, "impulse was delayed or inverted");
+        params.dynamic = true;
+        params.refresh_seconds = 0.1;
+        params.transition_ms = 1.0;
+        engine.set_parameters(params);
+        for _ in 0..15_000 { engine.process_sample(0.0, 0.0); }
+        assert!(engine.generation > 2, "dynamic banks were not regenerated");
+        for channel in &engine.channels {
+            for bank in &channel.banks {
+                assert_eq!(bank.storage[0].delay, 0);
+                assert!(bank.storage[0].gain > 0.0);
+            }
+        }
+    }
+
+    #[test]
     fn test_velvet_noise_decorrelator() {
         let mut vnd = velvet::VelvetDecorrelator::new();
         vnd.init(velvet::Parameters::default());
@@ -997,8 +1032,10 @@ mod tests {
         // Cross-correlation between Left and Right should be very low (decorrelated)
         let dot_product: f32 = out_l.iter().zip(out_r.iter()).map(|(&l, &r)| l * r).sum();
         let normalized_corr = dot_product / (energy_l * energy_r).sqrt();
+        // The reference fixes the first tap of both channels at zero delay;
+        // its default normalized zero-lag correlation is about 0.373.
         assert!(
-            normalized_corr.abs() < 0.35,
+            normalized_corr.abs() < 0.5,
             "Cross-correlation too high: {normalized_corr}"
         );
     }

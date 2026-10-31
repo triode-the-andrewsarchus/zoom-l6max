@@ -347,22 +347,24 @@ impl VelvetDecorrelator {
         let i = build.index;
         if build.phase == 1 {
             for c in 0..2 {
-                let centre = build.grid * (i as f32 + 0.5);
-                let jitter = uniform_signed(&mut build.random[c]) * build.grid * 0.45;
-                let lower = build.previous[c] + if i == 0 { 0 } else { 1 };
-                let upper = (build.tail - (build.count - 1 - i)) as u32;
-                let proposed = (centre + jitter + 0.5) as i32;
-                let delay = if proposed < lower as i32 {
-                    lower
-                } else if proposed > upper as i32 {
-                    upper
+                // The reference starts with a positive impulse at zero delay.
+                // It consumes no random numbers for that impulse.
+                let delay = if i == 0 {
+                    0
                 } else {
-                    proposed as u32
+                    let centre = build.grid * i as f32;
+                    let jitter = uniform_signed(&mut build.random[c]) * build.grid * 0.45;
+                    let lower = build.previous[c] + 1;
+                    let upper = (build.tail - (build.count - 1 - i)) as u32;
+                    let proposed = (centre + jitter + 0.5) as i32;
+                    if proposed < lower as i32 { lower }
+                    else if proposed > upper as i32 { upper }
+                    else { proposed as u32 }
                 };
                 build.previous[c] = delay;
                 let progress = delay as f32 / build.tail as f32;
                 let envelope = pow10(build.decay_db * progress / 20.0);
-                let sign = if splitmix64(&mut build.random[c]) & 1 != 0 {
+                let sign = if i == 0 || splitmix64(&mut build.random[c]) & 1 != 0 {
                     1.0
                 } else {
                     -1.0

@@ -4186,6 +4186,39 @@ effect ELF, recipe and result hashes were
 `ad1760ba333533894e66df0a86361a2d2f96a8b97aae43299be296d6929fd260`.
 It used the preceding stock MAIN, NOR and unattested QEMU executable and did
 not exercise live edits or target timing.
+
+The Velvet generator now starts each bank with the positive zero-delay tap
+used by its reference implementation at commit
+`a391a12a0b96b190a05cd7cefa25becf4f31660c`. The former generator randomized
+the first tap's delay and sign; at 95 ms and density 100, the initial delays
+were 293 and 173 samples. A host test now matches the first four reference
+delays on each channel and checks regeneration. The shared first tap increases
+zero-lag correlation: the reference's default is about 0.373, and the port's
+impulse test measures about 0.356 after its output clipper. The port remains
+wet-only, single precision and limited to 64 taps; this is not full reference
+equivalence.
+
+In a disposable ARM/QEMU impulse diagnostic at those settings, an input of
+0.5 produced first-frame outputs of 0.43467 and 0.42226 and completion marker
+`0x564e4431`. This tests DSP execution, not the firmware audio binding or
+hardware. The diagnostic MAIN, ELF, recipe, result and temporary payload
+source hashes were
+`62ce4915a990f6796a0233897361ed8eb61cccf2162702997747dba8ac7b29ae`,
+`7945fe1d8eaa34da09d431944bf22d1f2b9f98ccc18ee201ad3b8c8071b182f8`,
+`9f5205a56e9a3f93c7fb3b9ff31787b677a7344399b4bf8f65ddcb33a4689aea`,
+`5d51a6f17da4b9d30f7d027cf37b2686bb923c0a972c30cb406db38258bf244d`, and
+`f41be30b3fc53f563ae11c2b6639d43308924246aea92cef1e1efea82576e8a2`.
+Its initial diagnostic NOR was
+`034447a423ac532d5f179817fb69a593c5198b48a420be62b517381b93d5450c`;
+the stock MAIN and initial NOR were those above. Initial panel flash, options,
+and RTC hashes were
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`024cc8ce91d39a4ea9c34b7373b0dc2cd5581ee4bcb1ab45593ee8475ef9440f`.
+The QEMU executable was
+`53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`
+with unattested source provenance; `l6dbg` was
+`9a7f882911b7e44c76ddd1c28a226f3f5507878899fc5dd78f616eb10cb360da`.
 The separate combined UI run recorded the expected route edits, consumed 21
 events and returned the mixer control after closing the inspector. Its MAIN,
 effect ELF, popup ELF, recipe and result hashes were
