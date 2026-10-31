@@ -1062,6 +1062,57 @@ mod tests {
     }
 
     #[test]
+    fn velvet_density_edits_rebuild_only_when_the_tap_count_changes() {
+        let mut edited = Box::new(velvet::VelvetDecorrelator::new());
+        let mut reference = Box::new(velvet::VelvetDecorrelator::new());
+        let mut params = velvet::Parameters::default();
+        params.dynamic = false;
+        params.length_ms = 95.0;
+        params.density = 1000.0;
+        edited.init(params);
+        reference.init(params);
+        assert_eq!(edited.channels[0].banks[edited.active_bank].count, 64);
+        params.density = 3000.0;
+        edited.set_parameters(params);
+        assert_eq!(edited.current.density, 3000.0);
+        assert_eq!(edited.generation, reference.generation, "unchanged count rebuilt a bank");
+        for frame in 0..16_000 {
+            let sample = (frame as f32 * 0.031).sin() * 0.2;
+            assert_eq!(edited.process_sample(sample, sample), reference.process_sample(sample, sample),
+                "capped density edit changed audio at frame {frame}");
+        }
+        // A spread change still rebuilds even when both counts are capped.
+        params.length_ms = 90.0;
+        let before = edited.generation;
+        edited.set_parameters(params);
+        assert_ne!(edited.generation, before);
+        for _ in 0..13_000 { edited.process_sample(0.0, 0.0); }
+        params.density = 100.0;
+        let before = edited.generation;
+        edited.set_parameters(params);
+        assert_ne!(edited.generation, before, "changed count did not rebuild");
+        for _ in 0..13_000 { edited.process_sample(0.0, 0.0); }
+        assert_eq!(edited.channels[0].banks[edited.active_bank].count, 9);
+
+        // Rounding can also make two uncapped density requests equivalent.
+        params.length_ms = 25.0;
+        params.density = 400.0;
+        edited.init(params);
+        let before = edited.generation;
+        params.density = 401.0;
+        edited.set_parameters(params);
+        assert_eq!(edited.generation, before);
+        params.density = 440.0;
+        edited.set_parameters(params);
+        assert_ne!(edited.generation, before);
+        for _ in 0..10 { edited.process_sample(0.0, 0.0); }
+        let building = edited.generation;
+        params.density = 441.0;
+        edited.set_parameters(params);
+        assert_eq!(edited.generation, building, "equivalent edit restarted a pending build");
+    }
+
+    #[test]
     fn test_velvet_dynamic_crossfade() {
         let mut vnd = velvet::VelvetDecorrelator::new();
         let mut params = velvet::Parameters::default();

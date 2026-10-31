@@ -64,7 +64,9 @@ Plateau holds its tank modulation delays fixed while frozen to preserve the
 tail, and resumes modulation when freeze is released.
 The density display reports the target limited by the 64-tap bank; the
 requested setting is retained and can become effective if the spread is
-shortened. The audible bank may still be transitioning to that target.
+shortened. Density edits that leave the rounded tap count unchanged do not
+regenerate the filter. The audible bank may still be transitioning to the
+target.
 
 ## Build & Test
 

@@ -4000,6 +4000,66 @@ hardware; the production dual-effect builder remains disabled.
 
 ## Evidence and limits
 
+The Velvet generator now retains the requested density without rebuilding a
+bank when the rounded, capped tap count is unchanged. Length changes still
+rebuild because they change tap positions; changes that alter the count also
+rebuild. A host regression compares the output against an unedited processor
+and exercises both capped and rounded uncapped edits, including an edit while
+a bank is being built.
+
+In two disposable ARM/QEMU model runs, the old code's generation counters
+were `2, 3, 4, 5` across the initial state, equivalent capped-density edit,
+spread edit, and count-changing density edit. The revised code reported
+`2, 2, 3, 4`; both reported marker `0x444e5332`. These tests do not exercise
+the physical controls or audio path. The old and revised MAIN hashes were
+`18f826f19fc725b39aabaa5852de90b484cc39daa6161509d666c6455dfaf418` and
+`4787357e4732a0fcfeed0c3bddaf0bec30c8704443637d8b2e55e3e11b8c8cbe`, the
+ELFs were `eeeb9f05f20ec2c5beeb338f12e7844c0749f1855d7cd73d123773dd00b41001`
+and `0fea43e230a7560f1e48e77d4b2b91b14731221ad260250daf73c6c43bc577cd`,
+recipes were `c50530e4884a585a9fa8309c52901f0c712b82f5c860f61e193ffbb68c61de41`
+and `9961fefcb494ccc1f34efe6df75775a6b61250bd428baf0454fabe34ebce7b7e`,
+and results were `c955dbacd1eedea6778d2f65465d031cad9a3b86b4fc477397536dc73a80215f`
+and `698986d35b41a10f540eb205952116a6f7508c0e2482ee108da3e5ad6d4eb1d1`.
+Their initial diagnostic NOR hashes were
+`8c7e9646c8ad546d5f0522ec667e568e82df625c062d2eb112e62e8f904605a5` and
+`1a3a315fe09de256b4aa339ecb39f8c15af7b7b4e4d42da3cd8b33c889a8557e`.
+The temporary payload source was
+`e7603a5c0b205220220ab62e1eab9260c3d2cc83ae9440a6c0df160f799338d9`.
+
+A separate 285-tap prototype tested the full 95 ms / 3,000 pps setting. Its
+570 positions across two channels matched the reference's initial banks at
+commit `a391a12a0b96b190a05cd7cefa25becf4f31660c`; the largest gain difference
+was approximately 0.0000173. In matched active-sends QEMU runs without
+pre-AINR, the 64- and 285-tap builds averaged approximately 451 and 202
+callbacks per guest second over 15 seconds, respectively, against a nominal
+750. Their ARM processor sizes were 297,960 and 305,032 bytes. These are
+individual modeled observations with instrumentation, not physical CPU,
+deadline or memory-ownership measurements. The 285-tap prototype was not
+adopted as a solution to the unresolved full-range workload.
+
+The 64- and 285-tap diagnostic MAIN hashes were
+`eada2c2061eb7f2804279be04880595c96e75b2e03f068afffa6189b9c4290c6` and
+`96d51c8852043db24db79634cf8ec512a8c285328533ab0aa1e1d4da411fa484`, ELFs
+`6602bad24a96eba5b1a90a1bb4fe73e85bab23aee7b8fff3608be7c44bf38f7f` and
+`974b929eebc2af6e94ce5981ba0339c73e57bde71359a47134180f65e228d9a9`, recipes
+`cd72541a9eaf2d4d9333ff29f892c137b85bdae7a97ae4aee7481ba7fd5b80d3` and
+`5b8ee97a8222e9aa51a90192e736834aeed9796d26ecc498ef90f902ebd1fe67`, and
+results `3b86c10b9e1222e8925098ee97632e521daa5fa7c833767cb1e23219e89f7f43`
+and `5a843c7accf7d4da128ce1df03aa634ad311421bbd806ec76db5209bad3d033b`.
+Their initial diagnostic NOR hashes were
+`bc8cef23297bc6765afab8de07de53252896b713a35d57b2110881f8bb7a9feb` and
+`fc098e0021ced64de11403b52760ebc3cf874be1a449094e666b82dfc78bc577`.
+Both comparisons used stock MAIN
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`, stock
+input NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+and the unattested QEMU executable
+`53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`.
+Initial panel flash, options and RTC were respectively
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`024cc8ce91d39a4ea9c34b7373b0dc2cd5581ee4bcb1ab45593ee8475ef9440f`;
+`l6dbg` was `9a7f882911b7e44c76ddd1c28a226f3f5507878899fc5dd78f616eb10cb360da`.
+
 The Velvet density model now displays the target limited by the 64-tap bank
 while preserving the requested density in the parameter handoff. At 95 ms,
 a request for 3,000 pps is displayed as 673.7 pps; shortening the spread can
