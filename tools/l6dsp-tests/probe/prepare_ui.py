@@ -12,7 +12,7 @@ import struct
 import subprocess
 import tomllib
 from thumb_branch import branch
-from fixture import MAIN_SHA, checked_inputs
+from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer
 
 ROOT = Path(__file__).resolve().parents[3]
 PROBE = Path(__file__).resolve().parent
@@ -135,6 +135,7 @@ for address, expected, target in hooks:
 if image[0x107de6:0x107df0] != main[0x107de6:0x107df0]:
     raise ValueError("relocated veneer changed unexpectedly")
 image[0x107de6:0x107df0] = bytes.fromhex("2046dff800f0") + struct.pack("<I", probe_base | 1)
+install_ainr_selector_veneer(image, probe_symbols)
 
 firmware = out / "firmware"
 firmware.mkdir()

@@ -7,6 +7,16 @@ MAIN_SHA = "980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461"
 VENEER_SHA = "c366ef222fb2b2b87302d6eae469b721f11ba6b41dd79d4b7fe16a582e332c13"
 
 
+def install_ainr_selector_veneer(image, symbols):
+    """Redirect the revision-guarded, aligned selector site in a disposable image."""
+    offset = 0x10543c
+    target = symbols.get("ainr_selector_veneer")
+    if (image[offset:offset + 8] != bytes.fromhex("214602f0cdfc042e")
+            or target is None or target & 1 or not 0x80108000 <= target < 0x801a2ff8):
+        raise ValueError("AINR selection site or veneer mismatch")
+    image[offset:offset + 8] = bytes.fromhex("dff800f0") + (target | 1).to_bytes(4, "little")
+
+
 def checked_inputs(parser, firmware, state, output):
     out = output.resolve()
     if not out.is_relative_to(Path(tempfile.gettempdir()).resolve()) or out.exists():
