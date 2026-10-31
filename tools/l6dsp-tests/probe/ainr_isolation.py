@@ -111,7 +111,7 @@ class Remote:
             self.expect(f'M{address + i:x},{len(part):x}:{part.hex()}')
 
 
-def compare(g, code, independent=False):
+def compare(g, code, independent=False, channel0_prefix=False):
     g.expect('Hg1')
     g.expect('Z0,20228d86,2')
     g.packet('c')
@@ -119,7 +119,9 @@ def compare(g, code, independent=False):
         raise RuntimeError('unexpected stock AINR calling convention')
     if struct.unpack('<I', g.read(0x2028ba4c, 4))[0] != 1:
         raise RuntimeError('AINR processor is not learned')
-    source = g.read(0x20280000, 0x20000)
+    original_source = g.read(0x20280000, 0x20000)
+    source = (original_source[:0x19514] + bytes(0x20000 - 0x19514)
+              if channel0_prefix else original_source)
     g.write(0x80e00000, source)
     g.write(0x80f00000, code)
     if g.read(0x80e00000, len(source)) != source or g.read(0x80f00000, len(code)) != code:
@@ -128,7 +130,7 @@ def compare(g, code, independent=False):
     other_code = prepare_second_clone(g, source, code) if independent else None
     other_waveform = (struct.pack('<64f', *(0.125 * math.sin(2 * math.pi * i / 11) for i in range(64)))
                       if independent else None)
-    reference_state = source
+    reference_state = original_source
     outputs = bytearray()
     other_outputs = bytearray()
     checkpoints = {0, 15, 31, 63, 95}
@@ -256,6 +258,7 @@ def main():
     parser.add_argument('output', type=Path, help='new directory under the system temp directory')
     parser.add_argument('--qemu', required=True, type=Path, help='QEMU executable')
     parser.add_argument('--independent', action='store_true', help='compare a second clone using a different signal')
+    parser.add_argument('--channel0-prefix', action='store_true', help='zero the unobserved state suffix in the copied states')
     args = parser.parse_args()
     out, main_image, nor = checked_inputs(parser, args.firmware, args.state, args.output)
     code = cloned_code(main_image)
@@ -296,7 +299,8 @@ def main():
                 if time.monotonic() >= deadline:
                     raise TimeoutError('learned snapshot not produced in 300 seconds')
                 time.sleep(.1)
-            result = compare(Remote(socket_path), code, args.independent)
+            result = compare(Remote(socket_path), code, args.independent, args.channel0_prefix)
+            result['snapshot_bytes'] = 0x19514 if args.channel0_prefix else 0x20000
             process.wait(timeout=180)
             if process.returncode:
                 raise RuntimeError(f'l6dbg exited {process.returncode}')
