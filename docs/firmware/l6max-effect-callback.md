@@ -3682,6 +3682,53 @@ does not address a pair lost before enqueue. Its diagnostic MAIN and result
 hashes were `6abb5ff46ba7843151572cbdabbf303b2876b40ddbd8a686798a4a3d4ae496e0`
 and `54a7c0e52e7b05cb96edc84eda237634682734bad4f069f18bb3ad4bdfe7f93b`.
 
+A further disposable prototype associates a selector frame's interrupt tick
+and sequence with the position of its final byte in the stock panel receive
+ring, then carries both through two words of the stock UI event. The observed
+ring had 8,192 byte slots. The prototype hooks four observed panel receive
+calls, uses unowned scratch memory, briefly masks interrupts around the stock
+one-byte read, and latches faults rather than attempting overflow recovery.
+These hooks, event-word changes, memory and timing are not qualified on the
+target, and the tracked diagnostic does not implement this prototype.
+
+In a forced-loss pair of runs, the prototype dropped a complete short press
+after reception and then delivered a long hold. Slot-associated ticks opened
+the inspector and retained Room; the polarity-only control selected Spring.
+In another matched pair, the prototype dropped a release and then delivered a
+short press. Sequence-gap handling discarded the pending press and selected
+Spring; without gap handling, the stale press caused the inspector to open.
+The standalone gesture state machine now supports nonzero receive sequences
+and cancels a pending gesture on a gap or an unassociated event. Its host
+tests cover gaps, mode changes, and tick and sequence wrap. This does not
+establish how to detect bytes lost before the interrupt, complete parser and
+ring ownership, or safe and responsive hardware behavior.
+
+For the dropped-pair run, diagnostic MAIN and result SHA-256 were
+`8cc13a58f01dc1286f83a410ce8cdb8de6a3a2432eb8183693333ad12148319d`
+and `488dcfb474621bf10fc9f95382f922d4b847a2bf0fa77a93086e1f1321f71869`;
+the polarity-only control used MAIN
+`18384ff2470cda9526da31994ecc171c97967c07e9e5e0d3a355db36c53d14d2`
+and result `4529a5e1b23574efd8d0b697d716ac7d2aa09650888e1268120f550a938242a6`.
+For the dropped-release run, the sequence prototype used MAIN
+`bad8b455e2e3c2070c032db27334f99750daa1d5910d893bc4449c948cdbd6ec`
+and result `8cc2e38759e41a5573f8a9f353d08485d7ab528357946312320defceacefb82d`;
+the no-gap-check control used MAIN
+`aeb3ac4035c5ab89f561259fa11639441b7e9d974fc203273aaf6a194319954c`
+and result `dbbcc273318edccba90ed1fca356a4c6b497e256a2c46a06dcf7383f84780aba`.
+Both pairs used the QEMU and `l6dbg` binaries identified above, and an initial
+MAIN NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`;
+the initial panel flash, options and RTC SHA-256 were
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`024cc8ce91d39a4ea9c34b7373b0dc2cd5581ee4bcb1ab45593ee8475ef9440f`.
+The same dropped-release scenario also used the tracked gesture implementation
+with a full-width timestamp in a disposable prototype; it selected Spring and
+left the inspector closed. Its diagnostic MAIN, ELF, recipe and result were
+`10bb0de6de4bb6b7ac615a3aaaa7558dc3d5b672282742d6be98f37489adfe66`,
+`6ee00ea201b198211a8c7ceec88743c87a2f86967911f37834acf7ed6e22b0c4`,
+`6fefc7cf9108881fc5c21c271f5998536a3ec6f1c7fd52c98ba6f3d0965bcb6f`, and
+`dbe01c4ff3bbc206157ba95b968add32b93a2a9bc385374098d8a6a59a44760f`.
+
 The ten-edit MAIN, ELF, recipe and result hashes were
 `77813ae76b328e71ac9bfa7c025f041c0eb75b06caf14a879ed3a36abb76fec0`,
 `c3dbc2cca4e6c96db7a4f54ef63eceb2fbe559cebea882b66a127e01e2ba0070`,
