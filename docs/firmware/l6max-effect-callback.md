@@ -1773,6 +1773,51 @@ It used the same stock MAIN, NOR and isolated QEMU as the preceding run.
 
 ## QEMU routing controls
 
+The diagnostic's mixer reconstruction now rejects each invalid or extreme
+weighted channel contribution before adding it to a send, using the same
+guard as the weighted-channel DSP path. Previously, a single NaN contribution
+could contaminate the accumulated send, causing its later input guard to
+discard valid channels on that bus too.
+
+In matched disposable QEMU variants, two instrumented channel contributions
+on bus B supplied `0.5` and NaN at the same frame. The original summation
+captured NaN; applying the per-contribution guard captured `0.5`. Both reached
+the Room callback. The injection substitutes contributions in the diagnostic
+and is not evidence of physical mixer behavior or hardware safety. The stock
+MAIN, initial NOR and unattested QEMU executable match the parameter-mailbox
+run below. The original callback, diagnostic MAIN, ELF, recipe and result
+SHA-256 values were
+`1171d611cee8276ad6a7d9807affe31a8de94016f4235bf156b49475ced9c588`,
+`5b4f2a4c1d5d9510e84d7b10e9fb34b93e66d9e73f7a5f5102d50d6e073eac13`,
+`217957a9be105f08e1eafd87408006df943b60ef8e4c84e60156f5545038a058`,
+`eabf7ea1ab026a6f3ec1dfc85d41e21cee1d082ae60abe21e6a3534951a385bc`, and
+`3cf1de026ebc5288735739ccdf4a3c1b88383107a0a64d174c706507f44c1a4e`.
+The guarded variant's corresponding values were
+`767df427983e892823609ab0d338029d36b7b66a8ded545ed71fbb86ae9d7417`,
+`cbe25c9ca86c28fa9d5376e7368f49c0022599c881a83e820a5cbcfacc208edb`,
+`d4b4ab40ec36f90e305199061ef96effec4f68c42ffc97717de12c6d45af6aaf`,
+`dbc26aa997f2057c63cc44b1c00f7293e34e9b79ca43f4125b12ab2f70a4ef0d`, and
+`dd38fdf2b8317a9208dada2ef51db923e935de76cb18ebfc2ca22e414bbae1df`.
+
+In separate five-guest-second active-sends observations, the unguarded build
+counted 2,755 callbacks and the guarded build 2,729. Both selected Room and
+reported finite nonzero final samples. These single observations include the
+diagnostic's mixer reconstruction before its synthetic buses overwrite the
+results; they do not establish physical execution time or the control
+latency, and both rates remain below nominal modeled cadence. The unguarded
+callback, MAIN, ELF, recipe and result hashes were
+`94ad859a426051163917a86430a07227a48fa33f088bcecb9d64d45e74e22a76`,
+`879060f60abf307feaee256bd5628a996a7541ab87fc2c3bd6c7db3fd7b8dc09`,
+`14ccccccddf070842cdc6a6e0c3895ebd6cb53aeff4d1947b7b65f83ed5132d7`,
+`c1953d64bca19a5c4dae6daf97e7b9cff4027a34ebc163c29b9416a2778388cd`, and
+`efcf895ab56f1f93347725159258865975a3a482b7bd8a5144f6f9d8fb70a471`.
+The guarded variant's corresponding hashes were
+`a8faf6592a959799d959547946b0793ed84e66872594bd98ed92d9b343b78c27`,
+`113a4145031f8adca102082890934cc6338d7921f4c5756baabce3155b7e639d`,
+`d552ce02dfa458263c9d4c8063eb5894f166616fef6cf9c598d5b88d17849882`,
+`c3da19598daae4f4afb639b2588e1ef69ffacb5ac699683fca684efed60ce855`, and
+`cd6257b46294f3c4bd2a062fd1dc385ce14293427652a682786b8e604cf746b9`.
+
 A disposable experiment tested retaining the initialized processor when
 switching directly from Room to Spring, instead of clearing the stock effect
 buffer and rebuilding the processor. It injected a single impulse into bus B
