@@ -5,7 +5,11 @@ const POINTER: usize = 0x83e03100;
 const STATUS: usize = 0x83e03104; // 0 waiting, 1 captured, 2 allocation failed
 const START: usize = 0x83e03118;
 const READY: usize = 0x83e00144;
-const CAPTURE_BYTES: usize = 0x20000;
+const STATE_STRIDE: usize = 0x20000;
+#[cfg(compact_ainr_probe)]
+const CAPTURE_BYTES: usize = 0x19514;
+#[cfg(not(compact_ainr_probe))]
+const CAPTURE_BYTES: usize = STATE_STRIDE;
 
 unsafe fn word(address: usize) -> &'static AtomicU32 {
     unsafe { &*(address as *const AtomicU32) }
@@ -84,7 +88,10 @@ pub unsafe fn install() {
         let ptr = word(POINTER).load(Ordering::Acquire) as *const u8;
         if ptr.is_null() || word(STATUS).load(Ordering::Acquire) != 1 { return; }
         for index in 0..3 {
-            core::ptr::copy_nonoverlapping(ptr, (0x80d50000usize + index * CAPTURE_BYTES) as *mut u8, CAPTURE_BYTES);
+            let dest = (0x80d50000usize + index * STATE_STRIDE) as *mut u8;
+            core::ptr::copy_nonoverlapping(ptr, dest, CAPTURE_BYTES);
+            #[cfg(compact_ainr_probe)]
+            core::ptr::write_bytes(dest.add(CAPTURE_BYTES), 0, STATE_STRIDE - CAPTURE_BYTES);
         }
         core::ptr::write_volatile(0x83e03110 as *mut u32, core::ptr::read_volatile(ptr.add(0xba4c) as *const u32));
         core::ptr::write_volatile(0x83e03114 as *mut u32, core::ptr::read_volatile(0x80d5ba4c as *const u32));

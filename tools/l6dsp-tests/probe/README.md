@@ -246,6 +246,11 @@ and first-copy ranges unchanged. The debugger swaps 128 KiB of stock state
 for every block, so this mode takes longer. It does not verify denoising
 quality, all memory accesses or execution without debugger stops.
 
+Add `--channel0-prefix` to zero the copied state after offset `0x19514`
+before those comparisons. The stock reference retains the full state. This
+tests one candidate boundary for channel 0; it does not prove the omitted
+region is unused for other inputs, learning states, or execution paths.
+
 This diagnostic modifies emulated execution and uses memory whose ownership on
 hardware is unknown. It does not establish complete relocation coverage,
 concurrent isolation, timing, pre-AINR integration, or physical safety, and
@@ -311,13 +316,18 @@ tick. Inspect these observations; recipe completion alone is not a pass.
 A failed snapshot allocation is retried on a later custom-effect selection;
 a successful retry returns the capture status to waiting. It does not
 recover a previously missed learning capture automatically.
+Add `--channel0-prefix` with `--auto-handoff` to allocate and copy only the
+first 103,700 snapshot bytes, then zero each copied state's remaining bytes
+at selection. The default remains the full 128 KiB. The prefix is experimental
+and still copies a large amount on the audio callback; neither configuration
+is safe for hardware installation.
 Add `--passthrough-unready` to keep synthetic sends active without AINR while
 the snapshot is unavailable, including after a diagnostic allocation failure.
 The resulting extra work can prevent the selection sequence from reaching
 AINR in QEMU; inspect the selected callback and learned flag. This tests
 passthrough in the probe; it does not implement a firmware fallback.
 
-This prototype retains a large heap allocation, copies 128 KiB on the audio
-task, uses unowned control words, and assumes an experimental settling delay.
+This prototype retains a large heap allocation, copies at least 103,700 bytes
+on the audio task, uses unowned control words, and assumes an experimental settling delay.
 It does not establish snapshot coherence, stock coexistence, deadline safety,
 reset behavior or a usable learning workflow. Never install it on hardware.

@@ -3816,6 +3816,34 @@ their result hashes were
 They used the stock MAIN, NOR and unattested QEMU executable identified below.
 The modified source, binaries and runtime artifacts remain local.
 
+A separate opt-in QEMU experiment tested copying only the first `0x19514`
+bytes of the AINR snapshot, through the observed end of channel 0's working
+buffer, and zeroing the rest of each copied state. With two independent
+forced inputs, both copies matched their corresponding full-state stock
+references for 96 blocks and the sampled state checkpoints. The observer,
+recipe, result and diagnostic hashes were
+`444d0d78a3f16c5ee5816f25dbfbd88498309ff19061492ecedbaeab88584f04`,
+`45233d0c29dc9947da9353f8a78eb1e26788b80958fed6dd31f1cff11cbc51db`,
+`cdf60e920ac8dfec93ed29d87609cfd9bed1fe4830fdc63276641cf36753f5b9`, and
+`4d4764459d8af444ff0bbdd72381fbec1d3cde331d64a0aa5381ae6a3091a993`.
+The stock MAIN, NOR, cloned code and unattested QEMU identities are those
+recorded in the isolation investigation above.
+
+In a separate automatic-handoff run using this prefix, the snapshot
+allocation retained 56,296 bytes of the observed heap, versus 28,920 bytes
+in the preceding full-snapshot fixture. It selected Room and changed two
+of the three sampled synthetic sends. The MAIN, effect ELF, recipe and
+result hashes were
+`ad2a4fbca2f1757b760b4166e55831881b56a8993d2bbcbe107eaf166587b38b`,
+`21b9a83071d2db1232518bf42538be23d09f81dd5424c842ab5dc953a5229ab0`,
+`a5e3517186ea9cfbadad94c25c8c099b5f911357af82f750928c454a089b5392`, and
+`0e47cf3d2fafacf554c5b1810d9faa3fca7b258308bbfcfe3d1620e310dc43c8`.
+The default full-snapshot diagnostic rebuilt byte-for-byte unchanged. The
+prefix reduces the copied bytes by 27,372 but still copies 103,700 bytes on
+the audio task. These bounded runs do not establish the complete state
+footprint, denoising quality, capture coherence, target timing or safe heap
+headroom; the prefix is not enabled in installable firmware.
+
 Both runs used stock MAIN SHA-256
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
 initial NOR SHA-256

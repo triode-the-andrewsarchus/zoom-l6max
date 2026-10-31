@@ -35,6 +35,7 @@ parser.add_argument("--retain-custom-state", action="store_true", help="experime
 parser.add_argument("--pre-ainr", action="store_true", help="run a debugger-installed AINR copy on each test send")
 parser.add_argument("--effect-buffer", action="store_true", help="place test states in the observed stock effect buffer")
 parser.add_argument("--auto-handoff", action="store_true", help="capture and restore AINR state inside the QEMU guest")
+parser.add_argument("--channel0-prefix", action="store_true", help="experimentally snapshot only the observed channel-0 state prefix")
 parser.add_argument("--passthrough-unready", action="store_true", help="keep synthetic sends active when AINR is unavailable")
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
 parser.add_argument("--bank-stress-count", type=int, default=10, help="number of bank changes (1..64)")
@@ -68,6 +69,8 @@ if args.effect_buffer and not args.pre_ainr:
     parser.error("--effect-buffer requires --pre-ainr")
 if args.auto_handoff and not args.effect_buffer:
     parser.error("--auto-handoff requires --effect-buffer")
+if args.channel0_prefix and not args.auto_handoff:
+    parser.error("--channel0-prefix requires --auto-handoff")
 if args.passthrough_unready and not args.pre_ainr:
     parser.error("--passthrough-unready requires --pre-ainr")
 if args.bank_stress and not args.inspector:
@@ -113,6 +116,8 @@ if args.effect_buffer:
     rustc += ["--cfg", "effect_buffer_probe"]
 if args.auto_handoff:
     rustc += ["--cfg", "auto_handoff_probe"]
+if args.channel0_prefix:
+    rustc += ["--cfg", "compact_ainr_probe"]
 if args.passthrough_unready:
     rustc += ["--cfg", "unready_passthrough_probe"]
 subprocess.run(rustc, cwd=ROOT, check=True)
@@ -364,6 +369,8 @@ if args.pre_ainr:
                 "layout": "effect-buffer" if args.effect_buffer else "scratch",
                 "auto_handoff": args.auto_handoff,
                 "passthrough_unready": args.passthrough_unready}
+    if args.auto_handoff:
+        metadata["snapshot_bytes"] = 0x19514 if args.channel0_prefix else 0x20000
     if args.effect_buffer:
         matches = [line.split() for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines()
                    if line.endswith(" diagnostic_audio")]
