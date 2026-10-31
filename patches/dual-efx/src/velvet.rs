@@ -256,7 +256,7 @@ impl VelvetDecorrelator {
         params.decay_db = clamp(params.decay_db, -120.0, 0.0);
 
         let filter_changed = params.length_ms != self.current.length_ms
-            || params.density != self.current.density
+            || self.tap_count(params.density) != self.tap_count(self.current.density)
             || params.decay_db != self.current.decay_db
             || params.seed != self.current.seed;
         if params.amount != self.current.amount {
@@ -322,12 +322,16 @@ impl VelvetDecorrelator {
         self.active_transition_samples = self.transition_samples;
     }
 
-    fn start_build(&mut self, bank: usize, generation: u64) {
-        let count = clamp_usize(
-            (self.current.length_ms / 1000.0 * self.current.density + 0.5) as usize,
+    fn tap_count(&self, density: f32) -> usize {
+        clamp_usize(
+            (self.current.length_ms / 1000.0 * density + 0.5) as usize,
             2,
             MAX_TAPS.min(self.current_tail_samples + 1),
-        );
+        )
+    }
+
+    fn start_build(&mut self, bank: usize, generation: u64) {
+        let count = self.tap_count(self.current.density);
         self.build = BankBuild {
             bank, count, index: 0, tail: self.current_tail_samples, phase: 1,
             random: [mixed_seed(self.current.seed, 0, generation),
