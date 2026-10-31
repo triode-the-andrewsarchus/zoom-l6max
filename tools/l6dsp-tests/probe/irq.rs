@@ -39,7 +39,9 @@ pub unsafe fn install() {
         let second = read(HOOK.add(1));
         let expected = first == 0x0412f006 && second == 0x027ff003;
         let installed = first == PATCH && second == 0x8000f3af;
-        if expected || installed {
+        // Re-selection must not discard edges already queued by this hook.
+        // An installed hook is accepted only if its veneer still matches.
+        if expected {
             for i in 0..69 { write(TRACE.add(i), 0); }
             core::ptr::write(DECODER, crate::controls::PanelEfxDecoder::default());
             #[cfg(irq_timing)]
@@ -54,7 +56,8 @@ pub unsafe fn install() {
             write(HOOK.add(1), 0x8000f3af); // NOP.W
             core::arch::asm!("dsb sy", "isb sy", options(nostack));
             write(TRACE, 0x49525154);
-        } else {
+        } else if !installed || read(VENEER) != 0xf000f8df
+            || read(VENEER.add(1)) != (inspector_irq_trampoline as *const () as usize as u32 | 1) {
             write(TRACE, 0x42414421);
         }
         if mask == 0 { core::arch::asm!("cpsie i", options(nostack)); }
