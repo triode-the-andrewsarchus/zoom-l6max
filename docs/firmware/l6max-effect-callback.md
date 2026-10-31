@@ -4446,6 +4446,38 @@ The normal identities were
 `fb8fa2eab10f914e60a784d9b1e5bebfb1291965110792ab100a16ad431cc7be`.
 They used the same stock MAIN, NOR and unattested QEMU binary identified above.
 
+### Modeled Sub-Mix effect return
+
+A disposable 1.10 diagnostic replaced the selected effect callback's output
+with constant left/right values `0.125` and `-0.1875`, without running the
+replacement DSP. With the modeled MASTER/SUB-MIX switch held in the Sub-Mix
+position and both Effect Return settings initially off, SAI transmit slots 6
+and 7 were zero. Enabling Mix Minus alone left them zero; enabling Sub-Mix
+then made them match slots 4 and 5. Releasing the switch retained that slot
+pattern. Silencing the diagnostic callback made every captured slot zero.
+Menu snapshots and live reads showed `0x804600de` changing from 0 to 1 for
+Mix Minus and `0x804600dd` changing from 0 to 1 for Sub-Mix in this sequence.
+These single-byte observations are revision-scoped; other users and persistence
+of the fields are not established.
+
+This supports the stock modeled mixer's ability to route the callback return
+to those SAI slots. It does not establish physical jack mapping, USB Mix Minus,
+real signal input, replacement DSP behavior, or safe switching and timing.
+The disposable diagnostic used stock MAIN
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+and QEMU executable `53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`
+(source provenance unattested). The diagnostic MAIN, ELF, modified callback
+source, recipe, result and `l6dbg` executable SHA-256 values were
+`e97c8bf24bde16a6addb53dc3c3d825afefefe602e1af399c9b304fdd3146115`,
+`f6d698da7311722008e0d057f58fb7e8d79bf877f07b4bcd0586a91a4fd2c320`,
+`28e0d5ff8a82a2b5cd5f7226dc1ca1ba05536b4bb39d80603faea3a83201285c`,
+`b7289b5a98d90c55f3b1981c3a969dd55b70a83370fe019f1a43be338a1272d1`,
+`a800961c64214e94112372b15b0705c10404f6b965f55b409daa3631aa75bd6b`, and
+`9a7f882911b7e44c76ddd1c28a226f3f5507878899fc5dd78f616eb10cb360da`.
+The diagnostic used a hash-guarded write to unowned emulator scratch; never
+install it on hardware.
+
 ### Selector-side boundary handoff diagnostic
 
 An opt-in diagnostic now requests a pause at the observed AINR audio hook
