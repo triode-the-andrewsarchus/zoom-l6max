@@ -321,6 +321,13 @@ first 103,700 snapshot bytes, then zero each copied state's remaining bytes
 at selection. The default remains the full 128 KiB. The prefix is experimental
 and still copies a large amount on the audio callback; neither configuration
 is safe for hardware installation.
+With that option, `--hybrid-handoff` additionally copies the observed outer
+pages in 4 KiB chunks, then copies the `0xb000..0x16000` span together. It
+publishes only after all pieces are copied, and resets incomplete progress on
+the observed selection or learning-reset paths. The recipe records progress
+at `0x83e03130` after learning and selection. This is an unqualified
+experiment: the inferred span may miss mutable state, the last callback still
+copies about 44 KiB, and cancellation racing an active callback is unproven.
 Add `--passthrough-unready` to keep synthetic sends active without AINR while
 the snapshot is unavailable, including after a diagnostic allocation failure.
 The resulting extra work can prevent the selection sequence from reaching
