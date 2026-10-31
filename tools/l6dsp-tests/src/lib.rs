@@ -1358,6 +1358,52 @@ mod tests {
     }
 
     #[test]
+    fn plateau_maximum_settings_fit_delay_histories_and_output_taps() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        params.size = 1.2;
+        params.predelay_ms = 190.0;
+        params.mod_depth = 16.0;
+        reverb.init(params);
+        let scale = (48_000.0f32 / 29_761.0) * params.size;
+        let samples = |value: f32| (value * scale) as usize;
+        assert_eq!(reverb.predelay_samples, 9_120);
+        assert!(reverb.predelay_samples < reverb.predelay.buffer.len());
+        for (actual, expected) in [
+            (reverb.in_apf1.delay_time, samples(141.0)),
+            (reverb.in_apf2.delay_time, samples(107.0)),
+            (reverb.in_apf3.delay_time, samples(379.0)),
+            (reverb.in_apf4.delay_time, samples(277.0)),
+            (reverb.l_apf1.delay_time, samples(672.0)),
+            (reverb.l_apf2.delay_time, samples(1800.0)),
+            (reverb.r_apf1.delay_time, samples(908.0)),
+            (reverb.r_apf2.delay_time, samples(2656.0)),
+            (reverb.l_del1.length, samples(4453.0)),
+            (reverb.l_del2.length, samples(3720.0)),
+            (reverb.r_del1.length, samples(4217.0)),
+            (reverb.r_del2.length, samples(3163.0)),
+        ] {
+            assert_eq!(actual, expected, "maximum delay was clamped");
+        }
+        for (delay, capacity) in [
+            (reverb.l_apf1.delay_time, reverb.l_apf1.delay.buffer.len()),
+            (reverb.r_apf1.delay_time, reverb.r_apf1.delay.buffer.len()),
+        ] {
+            assert!(delay + params.mod_depth as usize <= capacity - 2);
+        }
+        for (tap, capacity) in [
+            (2974.0, reverb.l_del1.length),
+            (1913.0, reverb.l_apf2.delay.length),
+            (1996.0, reverb.l_del2.length),
+            (3627.0, reverb.r_del1.length),
+            (1228.0, reverb.r_apf2.delay.length),
+            (2673.0, reverb.r_del2.length),
+        ] {
+            assert!(samples(tap) < capacity, "maximum output tap was clamped");
+        }
+    }
+
+    #[test]
     fn plateau_live_size_edit_transitions_without_an_output_step() {
         let mut reverb = Box::new(plateau::PlateauReverb::new());
         let mut params = plateau::PlateauParameters::default();

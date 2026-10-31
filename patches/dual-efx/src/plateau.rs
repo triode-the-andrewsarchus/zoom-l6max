@@ -15,22 +15,23 @@ const OUTPUT_FADE_SAMPLES: u32 = 64;
 const DATTORRO_SR: f32 = 29761.0;
 const SR_SCALE: f32 = SAMPLE_RATE / DATTORRO_SR; // ~1.61285
 
-// Buffer sizes sized for 48 kHz with time scale up to 1.25x
-const PREDELAY_MAX: usize = 9600; // 200 ms predelay
-const IN_APF1_MAX: usize = 384;   // 141 * scale * 1.25
-const IN_APF2_MAX: usize = 288;   // 107 * scale * 1.25
-const IN_APF3_MAX: usize = 1024;  // 379 * scale * 1.25
-const IN_APF4_MAX: usize = 768;   // 277 * scale * 1.25
+// Cover the supported maximum size (1.2), 190 ms predelay, modulation,
+// and output tap offsets. Rings retain their entire usable history across edits.
+const PREDELAY_MAX: usize = 9121;
+const IN_APF1_MAX: usize = 274;
+const IN_APF2_MAX: usize = 209;
+const IN_APF3_MAX: usize = 735;
+const IN_APF4_MAX: usize = 538;
 
-const L_APF1_MAX: usize = 1600;   // 672 * scale + lfo
-const L_DEL1_MAX: usize = 9600;   // 4453 * scale * 1.25
-const L_APF2_MAX: usize = 4096;   // 1800 * scale * 1.25
-const L_DEL2_MAX: usize = 8000;   // 3720 * scale * 1.25
+const L_APF1_MAX: usize = 1332;
+const L_DEL1_MAX: usize = 8620;
+const L_APF2_MAX: usize = 3704; // Includes the 1913-sample output tap.
+const L_DEL2_MAX: usize = 7201;
 
-const R_APF1_MAX: usize = 2048;   // 908 * scale + lfo
-const R_DEL1_MAX: usize = 9200;   // 4217 * scale * 1.25
-const R_APF2_MAX: usize = 5800;   // 2656 * scale * 1.25
-const R_DEL2_MAX: usize = 7000;   // 3163 * scale * 1.25
+const R_APF1_MAX: usize = 1790;
+const R_DEL1_MAX: usize = 8163;
+const R_APF2_MAX: usize = 5142;
+const R_DEL2_MAX: usize = 6123;
 
 #[derive(Clone, Copy)]
 pub struct Delay<const N: usize> {

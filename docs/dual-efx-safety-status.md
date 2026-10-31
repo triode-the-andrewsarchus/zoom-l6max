@@ -15,7 +15,10 @@ The blocking findings for L6max MAIN 1.10
   establish ownership or ensure the magic value is invalidated on every reset. In one settled
   emulator run the largest stock-heap free block was 160,008 bytes, less than
   the then-current payload state of 319,216 bytes; see the
-  [callback investigation](firmware/l6max-effect-callback.md). Stock code
+  [callback investigation](firmware/l6max-effect-callback.md). The current
+  processor type measures 272,136 bytes for the ARM target after a 25,824-byte
+  reduction in raw Plateau delay arrays; it still exceeds that free block.
+  Stock code
   also references several regions well above that heap; a high SDRAM address
   cannot be treated as reserved merely because it is distant from the heap.
 - The hook at `0x8000277c` is in a routine containing file-output and card-error
