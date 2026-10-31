@@ -2,7 +2,7 @@
 """Host-only full-density convolution experiment; not production DSP.
 
 Requires NumPy. This checks mathematical output and a proposed order of work,
-not embedded timing, memory ownership, or incremental bank construction.
+not embedded timing, memory ownership, or target-side implementation.
 """
 import argparse
 from pathlib import Path
@@ -19,16 +19,19 @@ TAPS = 285
 N = B * 40
 rng = np.random.default_rng(0x16ef)
 signals = rng.uniform(-0.25, 0.25, (2, N)).astype(np.float32)
-# Two filter banks, each with left and right independent channels. Preserve
-# the real generator's zero-delay impulse and strictly increasing delays.
-kernels = np.zeros((2, 2, TAIL + 1), dtype=np.float32)
-for bank in range(2):
+# Each bank has independent stereo channels. Preserve the real generator's
+# zero-delay impulse and strictly increasing delays.
+def make_bank():
+    bank = np.zeros((2, TAIL + 1), dtype=np.float32)
     for ch in range(2):
         delays = np.r_[0, np.sort(rng.choice(np.arange(1, TAIL + 1), TAPS - 1, replace=False))]
         gains = rng.choice(np.array([-1, 1], np.float32), len(delays)) * np.exp(-3 * delays / TAIL).astype(np.float32)
         gains[0] = 1.0
         gains /= np.linalg.norm(gains)
-        kernels[bank, ch, delays] = gains
+        bank[ch, delays] = gains
+    return bank
+
+kernels = np.stack([make_bank(), make_bank()])
 
 # Optionally compare against a locally generated Rust bank. Firmware and
 # generated test artifacts must not be committed to the repository.
@@ -42,16 +45,10 @@ if args.tap_file is not None:
     if any(np.count_nonzero(kernels[0, ch]) != TAPS for ch in range(2)):
         raise ValueError('each channel must contain 285 distinct nonzero taps')
 
-# Edit begins mid-block 9. Its completed bank is published at block 10;
-# the fade is deferred to block 11 when its new tail is ready. This models
-# publication order only: spectrum construction itself is not scheduled.
+# The second edit interrupts the first. Both are queued while bank 0 is
+# active; the experiment does not model editing an already audible bank.
 old_bank1 = kernels[1].copy()
-replacement = np.zeros_like(old_bank1)
-for ch in range(2):
-    delays = np.r_[0, np.sort(rng.choice(np.arange(1, TAIL + 1), TAPS - 1, replace=False))]
-    gains = rng.choice(np.array([-1, 1], np.float32), len(delays)) * np.exp(-3 * delays / TAIL).astype(np.float32)
-    gains[0] = 1.0
-    replacement[ch, delays] = gains / np.linalg.norm(gains)
+replacements = np.stack([make_bank(), make_bank()])
 
 P = (TAIL + B) // B
 freq = np.zeros((2, 2, P - 2, B + 1), dtype=np.complex64)
@@ -69,19 +66,41 @@ xhist = np.zeros((2, P - 2, B + 1), dtype=np.complex64)
 previous = np.zeros((2, B), np.float32)
 actual = np.zeros((2, 2, 2, N), np.float32)
 tail_ready = np.zeros((2, 2, 2, 2, B), np.float32)
+tail_epoch = np.zeros((2, 2, 2, 2), np.int32)
+edit_points = {(9, 1): 0, (11, 2): 1}
+epoch = 0
+build_part = None
+completed_at = None
+published_at = None
 for block in range(N // B):
     base = block * B
-    if block == 10:
-        kernels[1] = replacement
-        for ch in range(2):
-            for part in range(2, P):
-                window = np.zeros(2 * B, np.float32)
-                taps = replacement[ch, part*B:(part+1)*B]
-                window[:len(taps)] = taps
-                freq[1, ch, part-2] = np.fft.rfft(window)
+    # Publish only at a block boundary, after all four pending outputs for
+    # this block were calculated against the complete latest spectrum.
+    if completed_at is not None and published_at is None and np.all(tail_epoch[block % 2, 1] == epoch):
+        published_at = base
     for quarter in range(4):
         begin = base + quarter * 64
         end = begin + 64
+        if (block, quarter) in edit_points:
+            candidate = edit_points[block, quarter]
+            if candidate == 1:
+                assert build_part is not None and published_at is None
+            epoch += 1
+            build_part = 2
+            completed_at = None
+        if build_part is not None:
+            # One partition per channel per callback; an interrupted build
+            # is restarted and may not be published in its partially built state.
+            for ch in range(2):
+                window = np.zeros(2 * B, np.float32)
+                taps = replacements[candidate, ch, build_part*B:(build_part+1)*B]
+                window[:len(taps)] = taps
+                freq[1, ch, build_part-2] = np.fft.rfft(window)
+            build_part += 1
+            if build_part == P:
+                kernels[1] = replacements[candidate]
+                build_part = None
+                completed_at = begin
         for bank in range(2):
             for ch in range(2):
                 head = kernels[bank, ch, :HEAD]
@@ -101,25 +120,30 @@ for block in range(N // B):
             for part in range(2, min(future, P-1) + 1):
                 accum += freq[bank, ch, part-2] * xhist[bus, (future-part) % (P-2)]
             tail_ready[future % 2, bank, ch, bus] = np.fft.irfft(accum, n=2*B)[B:]
+            tail_epoch[future % 2, bank, ch, bus] = epoch if bank == 1 and build_part is None else (-1 if bank == 1 else 0)
     for bus in range(2):
         xhist[bus, block % (P-2)] = np.fft.rfft(np.r_[previous[bus], signals[bus, base:base+B]])
         previous[bus] = signals[bus, base:base+B]
 
+assert epoch == 2 and completed_at is not None and published_at is not None
+assert published_at > completed_at >= 11*B + 2*64
 reference = np.empty_like(actual)
 for bank in range(2):
     for ch in range(2):
         for bus in range(2):
             reference[bank,ch,bus] = np.convolve(signals[bus], kernels[bank,ch])[:N]
             if bank == 1:
-                reference[bank,ch,bus,:10*B] = np.convolve(signals[bus], old_bank1[ch])[:10*B]
-# During block 10 the new head and old tail intentionally coexist. The
-# pending bank is not audible until block 11; exclude that unpublished block.
+                first_edit = 9*B + 64
+                reference[bank,ch,bus,:first_edit] = np.convolve(signals[bus], old_bank1[ch])[:first_edit]
+# A rebuilding pending bank can contain mixed generations. It is inaudible
+# until publication; bank 0 must remain correct over the entire interval.
+assert np.max(np.abs(actual[0] - reference[0])) < 2e-6
 mask = np.ones(N, bool)
-mask[10*B:11*B] = False
+mask[first_edit:published_at] = False
 error = np.abs(actual[...,mask] - reference[...,mask])
 assert np.max(error) < 2e-6, (np.max(error), np.unravel_index(np.argmax(error), error.shape))
 weights = np.zeros(N, np.float32)
-start = 11*B + 37
+start = published_at + 37
 weights[start:start+1200] = np.linspace(0, 1, 1200, dtype=np.float32)
 weights[start+1200:] = 1
 mixed = actual[0] * (1-weights) + actual[1] * weights
@@ -132,4 +156,6 @@ print(f'block={B} partitions={P} taps={TAPS} frames={N}')
 print('max_bank_error', float(np.max(error)), 'max_crossfade_error', float(np.max(np.abs(mixed-expected))))
 print('head_taps', [[int(np.count_nonzero(kernels[bank,ch,:HEAD])) for ch in range(2)] for bank in range(2)])
 print('complex_MAC_per_64', 2*(P-2)*(B+1))
+print('rebuild_forward_FFTs_per_64', 2)
+print('replacement_build_completed_frame', completed_at, 'published_frame', published_at)
 print('prototype_spectra_bytes', freq.nbytes, 'input_spectra_bytes', xhist.nbytes, 'tail_ready_bytes', tail_ready.nbytes)
