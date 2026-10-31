@@ -1773,6 +1773,41 @@ It used the same stock MAIN, NOR and isolated QEMU as the preceding run.
 
 ## QEMU routing controls
 
+A disposable experiment tested retaining the initialized processor when
+switching directly from Room to Spring, instead of clearing the stock effect
+buffer and rebuilding the processor. It injected a single impulse into bus B
+and then silence. With both `Main` and `SubMcuRX` temporarily raised to 31,
+the Room peak was 0.0417875 and the post-switch Spring peak was 0.000886481.
+An otherwise matched reset control had the same Room peak and zero Spring
+peak. Peaks were attributed to the effect selected when each callback began;
+this distinguishes a callback that straddles a selection from a subsequent
+Spring callback. The experiment supports retaining history as an approach to
+adjacent custom-effect tails, but is not a hardware qualification.
+
+Both runs observed one callback whose selection changed between entry and
+exit. The raised-priority selector can therefore run while audio is active,
+and its access to the same processor storage can overlap the callback. This
+invalidates the temporary priority intervention and state-reuse prototype as
+safe implementations; avoiding a clear alone does not establish exclusive
+ownership, safe publication or deadline behavior. A transition to a stock
+effect still clears and reuses the stock effect buffer. Neither experimental
+variant is included in the firmware builder.
+
+The stock MAIN, initial NOR and QEMU identities were the same as in the
+parameter-mailbox run below. The state-reuse callback, MAIN, ELF, recipe and
+result SHA-256 values were respectively
+`34310fbbd2447e1161b44b9b0787e5c385291f02956f7b10c2d0eed70ba14478`,
+`c0637b237fbc4434b7e325274732559db8f0e3ca17f00043813a15f614f8a833`,
+`71eacbb8d61d1667fa15ed13425eb05aa75e233b3d6e75b6e693a47eefdeefd2`,
+`5f12776631fb36f59d3f5598c2edc45e5694ee664b67e39086f80b808792e877`, and
+`dbe290db34eb7f1991ed589ebc323ec36c44aad0cbf30ae2b2b02d88fedca758`.
+The reset control's corresponding hashes were
+`cfcf5274ee8cd4605303e4b52ab87eb25913c0620764de17a68bfeec2a3c3fc4`,
+`131eb14ff9cb7a7f2cd2dc16e19bcce559613070259b37349a122cd2f4fe9441`,
+`0aae3400b50801c8eafef1d2ee3b74cc541f598bff677c5bf6ea5ae65ac100d3`,
+`80d2666c449d13f15f388d592dd748ed6f4f74fb06e1b943456c40b86c140869`, and
+`20d0e45a69211fc8d1e84e11e63fd3f7bc5902a12b90ea994ed7af86a84e6124`.
+
 The inspector diagnostic now records each applied parameter value in a
 QEMU-only atomic mailbox and restores the observed values before publishing a
 new custom callback. Values are stored in their native units; the diagnostic
