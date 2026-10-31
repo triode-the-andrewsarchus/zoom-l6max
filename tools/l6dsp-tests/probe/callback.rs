@@ -98,7 +98,13 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
             core::ptr::write_volatile(0x83e00000 as *mut u32, 0x494e4954);
             core::ptr::write_volatile(0x83e00004 as *mut u32, entry as u32);
             core::ptr::write_volatile(0x83e00008 as *mut u32, 0);
-            // Room starts on B and Spring on A only on the first selection.
+            // In the combined diagnostic, retain functional routes in the
+            // heap sidecar. Null sidecar falls back to this effect's default.
+            #[cfg(knob_inspector)]
+            if !reuse {
+                inspector::initialize_routes(&mut *storage.cast(), entry as usize);
+            }
+            #[cfg(not(knob_inspector))]
             if !routes_initialized {
                 let route = if entry as usize == 0x2028b8dc { 2u32 } else { 1u32 };
                 for slot in 0..12 {
@@ -205,7 +211,12 @@ pub unsafe extern "C" fn diagnostic_audio(_context: u32, descriptor: u32) {
         // Reconstruct the three mono sends from the observed mixer slots. This is
         // a diagnostic hypothesis, not an ownership or lifetime guarantee.
         let mut sends = [[0.0f32; 64]; 3];
+        #[cfg(knob_inspector)]
+        let routes = unsafe { inspector::routes_ptr() };
         for slot in 0..12 {
+            #[cfg(knob_inspector)]
+            let route = unsafe { inspector::route_read(routes, slot, state.channel_routing[slot] as u32) };
+            #[cfg(not(knob_inspector))]
             let route = unsafe { core::ptr::read_volatile((0x83e00100 as *const u32).add(slot)) };
             if !(1..=3).contains(&route) { continue; }
             let input = (0x2000e410usize + 256 * slot) as *const f32;
