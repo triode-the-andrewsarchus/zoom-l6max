@@ -952,14 +952,18 @@ matched the previous implementation byte for byte (output SHA-256
 `7b0db01be53b66322d8cb850decb17a5a9ff0245666426c2dd03d74779ab8d6b`).
 This limited host comparison does not establish equivalence for every signal
 or target timing. A separate `thumbv7em-none-eabihf` size query on the current
-processor type reports 297,960 bytes before and 272,136 bytes after the
+processor type at that point reports 297,960 bytes before and 272,136 bytes after the
 reduction. Its before and after assembly SHA-256 values were
 `9604d8e37e913c8df32229f8f08721109180548221f7b2085f4ec3fa834deb74` and
 `0847d5462be805662bdc3cae09a19c99840e6e5e02d1e64a3460dfc6d57e0e69`;
 Rust was `1.99.0-nightly (1ed2df61a 2026-08-04)`. The reduced processor alone
-still exceeds the observed largest free block by 112,128 bytes, before
+then exceeded the observed largest free block by 112,128 bytes, before
 allocation overhead. This does not establish ownership or make that heap
-sufficient.
+sufficient. After the subsequent cascade-control state addition, the same
+target layout query reports 272,152 bytes with 8-byte alignment. Its query
+source and assembly SHA-256 values were
+`8cbee49fa54555244558bc72a8398a9ceb1a6ff93846739a6181dcb4e677619f` and
+`07cc9a5f68ff1661326b582ddff68474f166c57d068c5926541c9e93ac02baa1`.
 
 A QEMU-only silent-input inspector diagnostic using the reduced buffers
 completed with the expected 26/28 ms and 84/86% edits, drained queues with
@@ -4213,6 +4217,48 @@ callbacks per guest second over 15 seconds, respectively, against a nominal
 individual modeled observations with instrumentation, not physical CPU,
 deadline or memory-ownership measurements. The 285-tap prototype was not
 adopted as a solution to the unresolved full-range workload.
+
+A later disposable workload explored partitioned convolution with a direct
+512-sample head and 256-frame tail partitions. The host model compared two
+inputs, stereo banks, an interrupted bank rebuild and a crossfade against
+direct convolution. A simple target-compiled real-input FFT matched a
+NumPy reference in QEMU: the maximum forward difference on one deterministic
+512-sample input was `3.82e-6`, and the round-trip difference was `1.50e-7`.
+
+Matched QEMU diagnostics then bypassed the effect DSP and ran synthetic FFT
+and spectral multiply work in its place. Over five guest seconds, the bypass
+control counted 3,750 callbacks, the FFT workload during a bank rebuild
+counted 1,711, and the version without rebuild transforms counted 2,049:
+approximately 750, 342 and 410 callbacks per second. Both FFT workloads
+performed 8,224 complex multiply-accumulates per callback with finite,
+nonzero operands. The rebuilding variant also performed two real forward
+transforms and two inverse transforms each callback; both variants performed
+one additional forward and inverse transform every fourth callback. These
+are single instrumented model runs, using a straightforward FFT and scratch
+memory that is not owned by the patch. They omit the direct head, Plateau,
+pre-AINR, and actual frequency-domain scheduling. They do not establish
+physical execution time or rule out a better implementation, but this
+candidate is not an adequate full-density solution.
+
+The rebuild and steady-state diagnostic MAIN hashes were
+`36cab63dddbbc17fcdc5667a8b5764c617b01dad498dc96b2e3c06e11345ca91` and
+`a666235178c8e1aaf7a11f8bca321f08fb6bdd4a0187e532f805fa7252e10429`, ELFs
+`f542387bec9748066a02ff4140493527ee074ea3d5a6a771b7d3f4e9d4bc96f0` and
+`405bd55d8f6d6c003d4bdf3c20ff2f38d3cd8d8737f3af078f353cc95f5806ff`,
+recipes `0ad31b317a4fd6fa754c9b3d382942b58e6f9a2e9fb1201509bdaf1e27f85682`
+and `b03d193d6b14c27493f5c9af2b5dca9637d750ad6f9e19117e8ff44571023e10`,
+and results `77475d7a1d380ef227683777aaa67806fa770bac86cbbae0c39644913ed759a6`
+and `0a4b3d46728b8dc8a91f31f652e0ddbf3dc018ba87d00371892453d90d9e5ddb`.
+The respective temporary FFT workload sources hashed to
+`ce9c1e9bf0f62d4a0210b14764dc031075a79e46754d547ec14d25ca26bb44e4` and
+`c626dc32944a00dd7d87677020c860782eb71a9a095f77c85964f2e8faa8c2dc`.
+The control MAIN, ELF, recipe and result were
+`fe8d803978e3d396579f988869eebeec03ce475ecaec7bb142c76f9024061f07`,
+`2e889cb4a4fc3370ceeb9be121ae949a103a9498fb5ace0eeae17cfd3f73618a`,
+`dd5fa0727d47507a02fc2d03aaf2b9097190ad40facfc860d9c7f5cdac3e876c`, and
+`62dc16c7f60e0cfad62859720b3f87413e36e2b20405cc4fbe1f08ecfb5f0904`.
+Stock MAIN, initial NOR, panel state, `l6dbg` and the unattested QEMU binary
+match the identities in the following full-density comparison.
 
 The 64- and 285-tap diagnostic MAIN hashes were
 `eada2c2061eb7f2804279be04880595c96e75b2e03f068afffa6189b9c4290c6` and
