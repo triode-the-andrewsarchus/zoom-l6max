@@ -2003,6 +2003,40 @@ The repeat's settled OLED ASCII capture hash was
 Both runs used the preceding active-sends callback, MAIN, ELF, stock MAIN,
 NOR and QEMU identities.
 
+Static inspection of the observed panel path explains the skipped selection.
+In this MAIN, `0x800542b8` obtains a type through `0x8000b270`, calls the
+selector through `0x80054340`, updates the lamps, and then calls `0x8000bd78`.
+The getter reads the byte at `0x804600b2`; the later setter writes that byte
+and a word at `0x80462de8`. In a forced-timeout run, both fields progressed
+from Room (1) to Spring (2) although the Room callback was restored; the next
+press advanced both to Delay (3). This is scoped to the observed handler and
+does not identify every caller or all side effects.
+
+A disposable handler-specific rollback experiment substituted the previous
+type in the handler's stack argument after the forced timeout and before its
+lamp and setter calls. Its guard deliberately recognizes only the third
+request in this test, and the selector still restores the prior callback. In
+one run, the two type fields stayed at Room after the timeout, Room continued
+producing nonzero diagnostic samples, and the next press selected Spring
+(both fields became 2). The immediately sampled panel lamp still showed
+Room, so Spring's eventual indicator state was not established. The patch
+does not handle other callers, concurrent selection, arbitrary timeouts, or
+all effects and side effects; it uses unowned memory and is not installable.
+
+The unmodified-handler field-trace recipe and result SHA-256 values were
+`f6aa9d53f68d68ab9fbfa15d369b0c36de3bfcbdcf7985d5b1769bb545a11b1f` and
+`4593df8495e3cb204809b47762e2977608efddc6046ba56c4c0a25901484f5c3`.
+The rollback variant's callback, preparer, linker, MAIN, ELF, recipe and
+result hashes were respectively
+`01d82e6c6f2aaf5554f98ea6a40446a4e1691889a560868b5e4dfd61cfb2cf99`,
+`c6bfd30fcf616c8638de682501f022df182cf9c742c2bbf1d1fec07ff8b020a6`,
+`a57f22f6ac5f974a45b5460b5e2315451558365fbe0208546ac99e24702d3653`,
+`b821c93d96106d32faa9f6eec7089a93ea8b5392946ba68a98d0a072788a4f17`,
+`8682df1ea6662c064faac3d94e6e032399a0f973fcc9845abe9d96c44c04e9f2`,
+`1435915984093b4439da37189944ff430d6d7d1d5d5b604f32128686b6f5be66`, and
+`814c58d8060b0506c56af9a8bb6167cf6fc6354ab3152edb4594a17df10d2193`.
+Both used the preceding stock MAIN, NOR and QEMU identities.
+
 The QEMU-only interrupt-timestamp hook now initializes its decoder and queue
 only on first installation. On subsequent custom selections, it preserves
 pending edges if both hook words and the veneer match; a mismatch marks the
