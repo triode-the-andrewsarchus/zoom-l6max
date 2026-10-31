@@ -1,8 +1,6 @@
-diff --git a/patches/knob-dialog/src/notification_hooks.rs b/patches/knob-dialog/src/notification_hooks.rs
-index f2f8c09..268828b 100644
 --- a/patches/knob-dialog/src/notification_hooks.rs
 +++ b/patches/knob-dialog/src/notification_hooks.rs
-@@ -3,0 +4,9 @@ use core::ptr::read_volatile as read;
+@@ -3,0 +4,29 @@
 +// The diagnostic dual-effect payload sends copied words, never a DSP pointer.
 +#[cfg(dual_efx)]
 +#[unsafe(no_mangle)]
@@ -12,15 +10,33 @@ index f2f8c09..268828b 100644
 +        unsafe { sync::publish(16 + id, bits) };
 +    }
 +}
-diff --git a/patches/knob-dialog/src/payload.rs b/patches/knob-dialog/src/payload.rs
-index 9c8438c..af40878 100644
++#[cfg(dual_efx)]
++#[unsafe(no_mangle)]
++#[unsafe(link_section = ".text.inspector_generation_hook")]
++pub unsafe extern "C" fn inspector_generation_hook() -> u32 {
++    unsafe { sync::inspector_generation() }
++}
++#[cfg(dual_efx)]
++#[unsafe(no_mangle)]
++#[unsafe(link_section = ".text.inspector_edit_hook")]
++pub unsafe extern "C" fn inspector_edit_hook(id: u32, bits: u32, generation: u32) {
++    if crate::parameter_view::DisplaySnapshot::from_words(id, bits).is_some() {
++        unsafe { sync::publish_inspector(16 + id, bits, generation) };
++    }
++}
++#[cfg(dual_efx)]
++#[unsafe(no_mangle)]
++#[unsafe(link_section = ".text.inspector_cancel_hook")]
++pub unsafe extern "C" fn inspector_cancel_hook() {
++    unsafe { let _guard = sync::guard(); detach(); }
++}
 --- a/patches/knob-dialog/src/payload.rs
 +++ b/patches/knob-dialog/src/payload.rs
-@@ -9,0 +10,3 @@ mod values;
+@@ -9,0 +10,3 @@
 +#[cfg(dual_efx)]
 +#[path = "../../dual-efx/src/parameter_view.rs"]
 +mod parameter_view;
-@@ -164,0 +168,11 @@ unsafe fn present(mode: u32, raw: u32) {
+@@ -164,0 +168,11 @@
 +        #[cfg(dual_efx)]
 +        let inspector = if mode >= 16 {
 +            let Some(snapshot) = parameter_view::DisplaySnapshot::from_words(mode - 16, raw) else { return; };
@@ -32,7 +48,7 @@ index 9c8438c..af40878 100644
 +        // inspector event will replace its text below.
 +        #[cfg(dual_efx)]
 +        let (mode, raw) = if inspector.is_some() { (0, 0) } else { (mode, raw) };
-@@ -181,0 +196,10 @@ unsafe fn present(mode: u32, raw: u32) {
+@@ -181,0 +196,10 @@
 +        #[cfg(dual_efx)]
 +        let (title, value_text) = if let Some(formatted) = inspector {
 +            let mut title = [0u16; 24];
@@ -43,3 +59,37 @@ index 9c8438c..af40878 100644
 +        } else {
 +            (title, value_text)
 +        };
+--- a/patches/knob-dialog/src/synchronization.rs
++++ b/patches/knob-dialog/src/synchronization.rs
+@@ -210,0 +211,31 @@
++
++// Disposable dual-effect diagnostic: producer tags edits with this generation.
++#[cfg(dual_efx)]
++pub unsafe fn inspector_generation() -> u32 {
++    unsafe {
++        let c = context();
++        if c.is_null() { return u32::MAX; }
++        enter();
++        let generation = read(core::ptr::addr_of!((*c).generation));
++        exit();
++        generation
++    }
++}
++
++// Compare and publish under the same critical section used by cancel().
++#[cfg(dual_efx)]
++pub unsafe fn publish_inspector(mode: u32, raw: u32, generation: u32) {
++    unsafe {
++        let c = context();
++        if c.is_null() { return; }
++        enter();
++        if read(core::ptr::addr_of!((*c).blocked)) == 0
++            && read(core::ptr::addr_of!((*c).generation)) == generation {
++            write(core::ptr::addr_of_mut!((*c).mode), mode);
++            write(core::ptr::addr_of_mut!((*c).raw), raw);
++            write(core::ptr::addr_of_mut!((*c).event_generation), generation);
++            write(core::ptr::addr_of_mut!((*c).pending), 1);
++        }
++        exit();
++    }
++}
