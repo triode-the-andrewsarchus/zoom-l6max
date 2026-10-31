@@ -2538,6 +2538,27 @@ producer/consumer behavior and ownership of its two additional scratch words
 remain untested. Suppressing a notification at consume time also does not by
 itself cancel a notification already published before the inspector closed.
 
+A separate close-without-selection probe forced a queued Velvet amount edit
+at the point where a long press closed the inspector. After the queue drained,
+the saved amount was 98% and the open flag was zero, but the notification
+counter had advanced from the opening-page event to a second event for that
+amount. The edit was injected at close to force the ordering, and the hook was
+a counter rather than a renderer. This establishes a stale request in that
+synthetic path and shows that selection-boundary suppression alone would not
+cover closing the inspector without changing effects.
+
+The modified callback, inspector, preparer and linker SHA-256 values were
+`32edb0983e8b28b04889b4656d055e263914a03d4b5795d9dbeed8500f0160fc`,
+`d27ae3ba5c89b6d99f8b2f1d906b453a0464175b47e5d9f76bf8218562989958`,
+`f36f8d0d2a2f368c65aac46f925c72b85e8ff7566299b96910c56b3fae139690`, and
+`43354e222703266f199b05aa202e682f9d217df229967c1cb8e8440ad2799751`.
+The diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`362c583e53f750ac9a1e82a4e46a0b44a11237ae932f0a66869c5449510dbbd8`,
+`2ed03af77dded5efdad50a003de88cbaded6ee4e2783c05c3ef30a557113d0de`,
+`51a4e60ccfcba1a15de2ede10126e513b83b93dead674e4a786c19a61b377ef6`, and
+`571f3f6a66d2e87168494b4dc1ab69359182735e687b2964e2cfd971dfd77c19`.
+Stock MAIN, initial NOR and QEMU binary identities matched the earlier probe.
+
 In a further run of the suppression variant, the old edit was applied without
 a notification; opening the inspector then generated its page notification,
 and a fresh encoder edit generated a notification for Room predelay at 8 ms.
