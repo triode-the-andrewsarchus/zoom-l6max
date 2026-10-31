@@ -1773,6 +1773,70 @@ It used the same stock MAIN, NOR and isolated QEMU as the preceding run.
 
 ## QEMU routing controls
 
+### Exploratory audio-wrapper quiescence handshake
+
+Static Thumb disassembly of this MAIN's relocated wrapper shows the active
+callback loaded at `0x20280104` and called at `0x20280248`, with no explicit
+call in between. A flag set only on entry to the custom callback cannot cover
+the interval after that pointer load. The selector disables the active word
+at `0x2028064c`, but it calls a selected effect-specific routine at
+`0x20280670` before reaching the redirected clear at `0x20280672`. A barrier
+placed only at the clear is therefore too late to protect that earlier call.
+These are static observations, not proof of all task or interrupt behavior.
+The wrapper and selector byte excerpts had SHA-256
+`a7d776a2d712a81653dd7ff2117a3e2da0f93a46acb5d8fe6dafd4c33b8b57de` and
+`127b1f6f87d5ffdb0da9d28002c8d608e35649ac3232d8d00f33496ae3119007`.
+
+A disposable QEMU-only prototype inserted a wrapper-entry acknowledgment and
+an early selector barrier immediately after the active pointer was set to
+zero. The selector requested an acknowledgment and called the task-delay
+routine with a bounded wait; the wrapper acknowledged only from the observed
+`AudioProcess` task while the active pointer was zero. The separate research
+checkout, commit `a156b2f7d4243d434538f0681889cb57519e43cf`, identifies
+`0x8008e770` as a strong semantic match for `vTaskDelay` for this same stock
+MAIN, while explicitly leaving the exact FreeRTOS version unproven. Its
+function catalog and RTOS document hashes were
+`13dbe80c5044a92475083f59900f1758fe5c7f6640c9018b174c3030b21a0afa` and
+`458fd4561a6f5064446a15a58093877bf8e8453299b40b77d8b9069aca595e4c`.
+
+In one run with added work to lengthen the callback and both `Main` and
+`SubMcuRX` temporarily at priority 31, selection began with the diagnostic
+in-flight marker set. The acknowledgment reported it clear after one delay;
+Room switched to Spring, the callback entry/exit selection-overlap counter
+was zero, and a later Spring block retained a nonzero impulse tail. A separate
+forced-timeout variant withheld acknowledgment: after 20 waits, the observed
+active callback was zero and the diagnostic still reported Room. It branched
+to the stock selector's exit without reaching the redirected clear. This
+contains that particular failure in silence; it does not restore the prior
+effect or establish that earlier selector operations left every other state
+consistent. The artificial workload, markers and task priorities change
+scheduling; the instrumented flags, patch locations and memory are unowned.
+Other callers, callback lifetime across every path, timeout recovery,
+inter-task ordering, stack use, deadlines and physical behavior remain
+unqualified. No part of this prototype is enabled in an installable build.
+
+The busy variant's callback, preparer, linker script, MAIN, ELF, recipe and
+result hashes were
+`aa586c0be6f8906b0b1444cb1a969aa2f31d22c815b9cf2467f090d22099be6b`,
+`12f4f76830963c807e9a5c7809b6b6876bda14f13ddf4b4e6872c10e353fb4ca`,
+`b0a558813276bc9b6105b7348dc5e0b23b244922b9a47e7d553d8390a97a3a1f`,
+`f2532f4fc2c9262643622b0eef86a7e2693d8b59227c0f87ab1a7c7dcd3fe4f5`,
+`73b70ca2c99d19530c75afcfa1d738f11c3d5e1c6c0d8f3dfd5e0e59b8bf2859`,
+`68cd204cfe8af86ed58ebc7d2091de10f8ecc254f47c14c7e649bff036856b38`, and
+`46a5730fd9462fc7043d84d5d95c9b74fa733f5b64c6c53235407cccf7f92435`.
+The timeout variant used the same preparer and linker script; its callback,
+MAIN, ELF, recipe and result hashes were
+`2cee1c013900cf91fe49b46a607f90664ef64eaede30a37b0eebf29fbd133d37`,
+`73b8347e509651192161ce1655e2a3128cb24615adf4f25645401c969d5bc3af`,
+`ecf3e1a96f355a96708ca54d41b4e13751d7d81cfda3ae5e3bc71af22f61fa37`,
+`d550b29e994f3846dff4ea0e08d16e261b294a9bf1a545b594f0f2f5d76a5a56`, and
+`0cafd59b68f7f9967b3761c871a79fddd95f433bce105f0cf55d3fafbfd4c2c3`.
+Both used stock MAIN
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`
+and QEMU executable `53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`,
+whose source provenance is unattested.
+
 The QEMU-only interrupt-timestamp hook now initializes its decoder and queue
 only on first installation. On subsequent custom selections, it preserves
 pending edges if both hook words and the veneer match; a mismatch marks the
