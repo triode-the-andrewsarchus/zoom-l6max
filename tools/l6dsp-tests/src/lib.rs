@@ -62,6 +62,30 @@ mod tests {
     }
 
     #[test]
+    fn ainr_capture_waits_for_cancelled_writer_before_reusing_snapshot() {
+        use core::sync::atomic::AtomicU32;
+        let word = AtomicU32::new(0);
+        let protocol = handoff_protocol::CaptureProtocol(&word);
+        let (old, _) = protocol.claim().unwrap();
+        assert!(protocol.cancel(true));
+        protocol.arm();
+        assert!(protocol.claim().is_none());
+        assert!(!protocol.finish(old, 1, false));
+        let (new, step) = protocol.claim().unwrap();
+        assert_eq!(step, 0);
+        assert!(protocol.cancel(true));
+        protocol.arm();
+        // A second cancellation revokes the pending rearm request.
+        assert!(protocol.cancel(true));
+        assert!(!protocol.finish(old, 1, false));
+        assert!(protocol.claim().is_none());
+        assert!(!protocol.finish(new, 1, false));
+        assert!(protocol.claim().is_none());
+        protocol.arm();
+        assert_eq!(protocol.claim().unwrap().1, 0);
+    }
+
+    #[test]
     fn control_queue_preserves_fifo_at_capacity_and_counter_wrap() {
         use core::sync::atomic::{AtomicU32, Ordering};
         use event_queue::{Queue, CAPACITY, WORDS_WITH_GENERATIONS};

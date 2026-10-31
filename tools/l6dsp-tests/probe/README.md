@@ -331,7 +331,10 @@ the observed selection or learning-reset paths. The recipe records progress
 at `0x83e03130` after learning and selection. A versioned atomic claim rejects
 publication by a cancelled capture, including after rearming; progress is only
 diagnostic telemetry. In this mode the completed claim, not the later status
-word, authorizes installation. This is an unqualified experiment: the inferred span may
+word, authorizes installation. Cancellation holds the buffer claim until an
+in-flight writer retires; an early rearm request waits for that retirement.
+This does not establish quiescence between snapshot installation and other
+users of the buffer. This is an unqualified experiment: the inferred span may
 miss mutable state, the last callback still copies at least 44 KiB, and the
 selector has no proven audio-task quiescence or deadline guarantee.
 Add `--passthrough-unready` to keep synthetic sends active without AINR while
