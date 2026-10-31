@@ -2559,6 +2559,24 @@ The diagnostic MAIN, ELF, recipe and result SHA-256 values were
 `571f3f6a66d2e87168494b4dc1ab69359182735e687b2964e2cfd971dfd77c19`.
 Stock MAIN, initial NOR and QEMU binary identities matched the earlier probe.
 
+A disposable extension captured the queue boundary when the inspector closed
+as well as when an effect was selected. In one forced close sequence, the
+queued Velvet edit was applied at 98% without a stale notification; reopening
+the inspector emitted a page notification and an encoder edit emitted a new
+predelay notification at 8 ms. Both edits drained from the queue. The old edit
+was injected just before closure and the notification hook was a counter, so
+this is not a physical UI or renderer test. The extension remains unadopted:
+the cutoff and flag can race with the consumer or another transition, already
+published notifications are not canceled, and the extra scratch is unowned.
+
+The extended inspector, diagnostic MAIN, ELF, recipe and result SHA-256 values
+were `43dd1b397519d4de6a663c03ba4d075d1b7ed6a41c975176182c3fe314e53c32`,
+`3c1cdbce678f28d8d349f9b87ed83b0bffb585373206f1e8c3824af6a2a5601a`,
+`b71401cea7f71dc57a7d9ab03e6029dc8004b6dc11b75029548a7098dd37cc25`,
+`7f72704d58f8209ffb22a0471a5f0775eed69499dde15eb5c9efca0178e5a86f`, and
+`f4dcf7a4245a8b6c059544afb86c0f2a23886973839ebab3ba2fd5e7aa4e3f7c`.
+Its callback, preparer, linker and input identities matched the close probe.
+
 In a further run of the suppression variant, the old edit was applied without
 a notification; opening the inspector then generated its page notification,
 and a fresh encoder edit generated a notification for Room predelay at 8 ms.
