@@ -176,6 +176,9 @@ pub unsafe extern "C" fn diagnostic_audio(_context: u32, descriptor: u32) {
             let gain = unsafe { core::ptr::read_volatile((0x20016170usize + 8 * slot) as *const f32) };
             let ramp_desc = (0x200161d0usize + 16 * slot) as *const u32;
             let ramped = unsafe { core::ptr::read_volatile(ramp_desc) } != 0;
+            // A fixed zero contributes silence even for corrupt input; an
+            // active ramp can still contain nonzero per-frame gains.
+            if !ramped && gain == 0.0 { continue; }
             let ramp = if ramped {
                 unsafe { core::ptr::read_volatile(ramp_desc.add(1)) }.wrapping_sub(256) as *const f32
             } else {
