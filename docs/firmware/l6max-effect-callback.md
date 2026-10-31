@@ -4460,6 +4460,21 @@ Mix Minus and `0x804600dd` changing from 0 to 1 for Sub-Mix in this sequence.
 These single-byte observations are revision-scoped; other users and persistence
 of the fields are not established.
 
+The L6max 1.10 fixture catalog now names these two mixer-block bytes. The
+stock mixer validator compares offsets `0x159` and `0x15a` with 2 and resets
+out-of-range values to zero. A separately prepared NOR with both current
+fields set to 1 booted stock firmware and retained `[1, 1]` in the live mixer.
+The initial NOR, recipe, and result SHA-256 values were
+`75835672d03650e847f7494351ab64feb9dceb9849f04c085370384ae42181e3`,
+`e017ab86a22f35452b53689e1258da8c290d9db0b8851e3e92c121677901b1f5`, and
+`9cfc2c85a167716bb99983a66680bad6675e7e0e9471af6cfba32fb575158bc7`.
+The `l6nor` executable and catalog SHA-256 values were
+`a5ba61379056f25db88a3588e40812282026d60459387faa0faf560f15e048bc` and
+`e953064edd54f4a47ca0aef009acf545d612a018eed12643719cd025c2713a54`.
+This verifies loading in one modeled boot; scene save/recall and physical
+persistence were not tested. Stock MAIN, QEMU and `l6dbg` identities match
+those in the diagnostic described below.
+
 This supports the stock modeled mixer's ability to route the callback return
 to those SAI slots. It does not establish physical jack mapping, USB Mix Minus,
 real signal input, replacement DSP behavior, or safe switching and timing.
