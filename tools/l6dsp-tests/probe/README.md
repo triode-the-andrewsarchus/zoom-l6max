@@ -103,6 +103,11 @@ an unowned QEMU-only marker at `0x83e00148`; it cannot be combined with
 the inspector and processor lifetime across such a transition are not
 synchronized. The option does not qualify memory ownership, cold or warm
 reset, the stock clear's other effects, concurrency, deadlines, or hardware.
+The diagnostic inspector queue is initialized only on its first custom
+selection, so pending edits can remain queued while a stock effect is active.
+One forced QEMU interleaving demonstrated an edit surviving that round trip;
+queue overflow, reset, physical event delivery and callback synchronization
+are still unqualified. See the [callback investigation](../../../docs/firmware/l6max-effect-callback.md).
 With `--gesture-trace`, `0x83e00500` stores a count followed by up to
 20 triples of event, tick, and inspector-active flag, recorded at the selector
 hook. The trace adds work to that hook and can change timing.

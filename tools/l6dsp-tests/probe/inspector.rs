@@ -36,9 +36,13 @@ pub unsafe fn initialize(entry: u32, processor: *mut routing::DualEfxProcessor, 
             } else {
                 core::ptr::write(saved, parameters::ParameterHandoff::new());
             }
-            core::ptr::write(QUEUE as *mut AtomicU32, AtomicU32::new(0));
-            core::ptr::write((QUEUE + 4) as *mut AtomicU32, AtomicU32::new(0));
-            core::ptr::write_volatile((QUEUE + 8) as *mut u32, 0);
+            // The queue lives outside the stock effect buffer. Pending edits
+            // must survive a stock selection until a custom callback resumes.
+            if !initialized {
+                core::ptr::write(QUEUE as *mut AtomicU32, AtomicU32::new(0));
+                core::ptr::write((QUEUE + 4) as *mut AtomicU32, AtomicU32::new(0));
+                core::ptr::write_volatile((QUEUE + 8) as *mut u32, 0);
+            }
             core::ptr::write_volatile(SUMMARY as *mut u32, u32::MAX);
             core::ptr::write_volatile((SUMMARY + 24) as *mut u32, 0);
             core::ptr::write_volatile((SUMMARY + 28) as *mut u32, 0);
