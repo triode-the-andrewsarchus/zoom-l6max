@@ -150,10 +150,10 @@ pub fn snapshot_parameter(id: EfxParamId, processor: &super::routing::DualEfxPro
     let value = match id {
         VndAmount => velvet.amount * 100.0,
         VndTimeSpread => velvet.length_ms,
-        // A bounded bank cannot deliver more impulses than its tap count
-        // over the target spread. The currently audible bank may still be
-        // transitioning to this target.
-        VndDensity => velvet.density.min(super::velvet::MAX_TAPS as f32 * (1000.0 / velvet.length_ms)),
+        // The target count is rounded and bounded at both ends. The audible
+        // bank may still be transitioning; retain the request separately.
+        VndDensity => processor.velvet.tap_count(velvet.density) as f32
+            * (super::velvet::SAMPLE_RATE / processor.velvet.current_tail_samples as f32),
         VndDecay => velvet.decay_db,
         VndRefresh => velvet.refresh_seconds,
         VndTransition => velvet.transition_ms,

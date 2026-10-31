@@ -322,7 +322,7 @@ impl VelvetDecorrelator {
         self.active_transition_samples = self.transition_samples;
     }
 
-    fn tap_count(&self, density: f32) -> usize {
+    pub(crate) fn tap_count(&self, density: f32) -> usize {
         clamp_usize(
             (self.current.length_ms / 1000.0 * density + 0.5) as usize,
             2,

@@ -97,8 +97,10 @@ The blocking findings for L6max MAIN 1.10
 Some standalone DSP defects have been fixed and tested on the host. Those
 tests do not exercise the firmware bindings or establish hardware safety.
 Velvet's 64-tap limit prevents the full requested density range at long
-spreads; the parameter model displays the limited target while retaining the
-requested setting. Meeting the full range and its deadline remains unresolved.
+spreads; its minimum of two taps and integer rounding also constrain short
+spreads. The parameter model displays the resulting target density while
+retaining the requested setting. Meeting the full range and its deadline
+remains unresolved.
 An instrumented QEMU prototype with the 285 taps needed at 95 ms and 3,000
 pps ran substantially below the modeled nominal audio cadence. That result
 does not measure the target, but rules out treating a larger bank alone as a
