@@ -27,27 +27,29 @@ unsafe fn atomic(address: usize) -> &'static AtomicU32 {
 }
 
 /// Called while the stock effect callback is disabled during selection.
-pub unsafe fn initialize(entry: u32, processor: &mut routing::DualEfxProcessor, initialized: bool) {
+pub unsafe fn initialize(entry: u32, processor: *mut routing::DualEfxProcessor, initialized: bool, reuse: bool) {
     unsafe {
-        let saved = SAVED_PARAMETERS as *mut parameters::ParameterHandoff;
-        if initialized {
-            (*saved).restore(processor);
-        } else {
-            core::ptr::write(saved, parameters::ParameterHandoff::new());
-        }
-        core::ptr::write(QUEUE as *mut AtomicU32, AtomicU32::new(0));
-        core::ptr::write((QUEUE + 4) as *mut AtomicU32, AtomicU32::new(0));
-        core::ptr::write_volatile((QUEUE + 8) as *mut u32, 0);
-        core::ptr::write_volatile(SUMMARY as *mut u32, u32::MAX);
-        core::ptr::write_volatile((SUMMARY + 24) as *mut u32, 0);
-        core::ptr::write_volatile((SUMMARY + 28) as *mut u32, 0);
-        #[cfg(gesture_trace)]
-        core::ptr::write_volatile(0x83e00500 as *mut u32, 0);
-        #[cfg(enqueue_trace)]
-        {
-            core::ptr::write_volatile(0x83e00600 as *mut u32, 0);
-            core::ptr::write_volatile(0x83e02000 as *mut u32, 0);
-            core::ptr::write_volatile(0x83e02200 as *mut u32, 0);
+        if !reuse {
+            let saved = SAVED_PARAMETERS as *mut parameters::ParameterHandoff;
+            if initialized {
+                (*saved).restore(&mut *processor);
+            } else {
+                core::ptr::write(saved, parameters::ParameterHandoff::new());
+            }
+            core::ptr::write(QUEUE as *mut AtomicU32, AtomicU32::new(0));
+            core::ptr::write((QUEUE + 4) as *mut AtomicU32, AtomicU32::new(0));
+            core::ptr::write_volatile((QUEUE + 8) as *mut u32, 0);
+            core::ptr::write_volatile(SUMMARY as *mut u32, u32::MAX);
+            core::ptr::write_volatile((SUMMARY + 24) as *mut u32, 0);
+            core::ptr::write_volatile((SUMMARY + 28) as *mut u32, 0);
+            #[cfg(gesture_trace)]
+            core::ptr::write_volatile(0x83e00500 as *mut u32, 0);
+            #[cfg(enqueue_trace)]
+            {
+                core::ptr::write_volatile(0x83e00600 as *mut u32, 0);
+                core::ptr::write_volatile(0x83e02000 as *mut u32, 0);
+                core::ptr::write_volatile(0x83e02200 as *mut u32, 0);
+            }
         }
         // A selection closes the previous inspector, but preserves gesture
         // state until the selector event returns to its caller.

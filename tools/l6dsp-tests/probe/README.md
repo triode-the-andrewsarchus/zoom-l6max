@@ -86,6 +86,13 @@ real-time use. Summary
 memory at `0x83e00400` contains parameter ID, value length, 16 text bytes,
 consumed-event count and inspector-open flag. Queue head, tail and overflow
 count are captured at `0x83e00200`.
+Add `--retain-custom-state` to investigate direct Room-to-Spring transitions
+without clearing the processor or resetting its event queue. This opt-in uses
+an unowned QEMU-only marker at `0x83e00148`; it cannot be combined with
+`--pre-ainr`. A switch to a stock effect still clears the stock buffer, and
+the inspector and processor lifetime across such a transition are not
+synchronized. The option does not qualify memory ownership, cold or warm
+reset, the stock clear's other effects, concurrency, deadlines, or hardware.
 With `--gesture-trace`, `0x83e00500` stores a count followed by up to
 20 triples of event, tick, and inspector-active flag, recorded at the selector
 hook. The trace adds work to that hook and can change timing.

@@ -1808,6 +1808,49 @@ The reset control's corresponding hashes were
 `80d2666c449d13f15f388d592dd748ed6f4f74fb06e1b943456c40b86c140869`, and
 `20d0e45a69211fc8d1e84e11e63fd3f7bc5902a12b90ea994ed7af86a84e6124`.
 
+A follow-up disposable variant avoids borrowing the processor and avoids
+resetting the event queue during direct custom-to-custom selection. With the
+same temporary task priorities and impulse, it again observed a callback
+spanning the switch and a subsequent Spring peak of 0.000889120. A second
+variant inserted one encoded Velvet edit into an empty queue inside the
+selector, after the stock callback was disabled. After selection the queue was
+`(head, tail, overflow) = (1, 1, 0)` and the applied-edit count was one. This
+tests a synthetic pending edit, not physical encoder delivery. The experiment
+does not resolve safe entry from or exit to stock effects, scratch ownership,
+reset behavior, or the priority intervention. The opt-in
+`--retain-custom-state` QEMU diagnostic implements the direct-switch approach;
+it is not enabled in a hardware package.
+
+The first variant's callback, inspector, MAIN, ELF, recipe and result hashes
+were respectively
+`3ba1083c2bbed39fa280e0c18d6f2b08493f775535ca0efc3ef6587f8b30db1f`,
+`a31e928ed6dcc89327a0997ef704e9abbc0736bcbeb54c82def639beb67d3014`,
+`99ac580ded33b1e58579102a844cba089d9f9d9177330413993faf061470dd42`,
+`2cf13f231ba43fa4b3b73aff5e4843e348c5342ee2d7e40b2089dd9c3bc78f70`,
+`2a708a4d0c58d9f918ebe51805efd7b34a532050e118e23c6d04a504e13c82dc`, and
+`3a3b638ed160236d2a84949ad270ba3bc1c12eb339e219b1e0df1b5b80516cbc`.
+The second used the same inspector and had callback, MAIN, ELF, recipe and
+result hashes
+`6a452b3988429e180e25e4a60102179fc4140a29450c4f3bf81b0b85c9fd69e3`,
+`85b14eac06ff95bc34fa66e5f19c21f3ecf3f39c7a28469dac8e7b1f53b149b5`,
+`124e461bf7ccc8ea969575427fd13751b1dea48dbdbc30d09ae1a3ee161889cf`,
+`fb6c5494fa102bdd53fda0590ba920cb6b41293bfeea91a33b9b6e930d3df26e`, and
+`95fb990bf90feddcce8bf6af32368098083d5ef4f3872f58a4235f2d5f12b227`.
+
+In a separate silent-input run of the opt-in diagnostic at stock task
+priorities, the inspector edited Plateau pre-delay to 26 ms and Velvet amount
+to 84%, revisited them at 28 ms and 86%, closed, and selected Spring. The
+queue observations after the first two edits were `(8, 8, 0)` and `(16, 16,
+0)`; normal mixer input changed after closing the inspector. This checks the
+observed UI sequence and direct selection, not a tail or active-audio timing.
+The diagnostic MAIN, ELF, recipe and result hashes were
+`6ad3d47746928113fb74a2e3bcaff08400edc9b2e67bbb158754fb8dbe6edb97`,
+`2473a3f38576031c5c4d99c2f0fc15a82d46e36d41b472116f051f679df0a3c0`,
+`8d6b4028620531868b1098fa270eec2a22046a828d3a8c30140981724c4f296a`, and
+`3981d81db07a4064aa3bc4b86b6e4a60280064a1939a432c14278ea41fca5e6d`.
+It used the same stock MAIN, initial NOR and unattested QEMU executable as the
+experiments above.
+
 The inspector diagnostic now records each applied parameter value in a
 QEMU-only atomic mailbox and restores the observed values before publishing a
 new custom callback. Values are stored in their native units; the diagnostic
