@@ -51,7 +51,7 @@ and the third word is the callback count, which should be nonzero. This
 diagnostic replaces the selected stock callback and uses its effect buffer;
 it reconstructs three sends from candidate mixer slots and gains. A QEMU-only
 mailbox at `0x83e00100` contains 12 32-bit route values: 0 off, 1 A, 2 B,
-3 A-to-B. Each selection initializes the mailbox to B for Room or A for
+3 A-to-B. The first custom selection initializes the mailbox to B for Room or A for
 Spring. A debugger can change these values for controlled tests; this is not
 a device UI or persistent configuration. Writing a nonzero word to
 `0x83e00140` captures the three 64-float sends at `0x83e01000` for inspection.
@@ -119,7 +119,9 @@ While the inspector is open, a short EFX SEL press switches the parameter
 bank without changing the selected stock effect; pressing EFX changes between
 parameter and routing pages. Turning a strip encoder on the routing page cycles that strip
 through off, A, B and A-to-B. This experiment does not draw an OLED popup.
-Effect changes reinitialize the DSP and queue, so edits and tails can be lost.
+Effect changes reinitialize the DSP and queue, so parameter edits and tails can
+be lost. The QEMU-only route mailbox survives effect selection within the
+session; its memory ownership and reset behavior are not qualified.
 The queue can overflow, and synchronization, context changes, stock patch
 combinations, memory ownership and timing are not qualified. The scratch
 addresses are emulator-only. Never install the generated image.
