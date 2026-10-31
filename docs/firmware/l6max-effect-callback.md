@@ -2171,6 +2171,29 @@ The research priority and DIN MIDI documents had hashes
 `da7ec6079b6e72812969f68b532e99e6a3765bf42ed6e5a8e32f940a1f595bca`.
 Stock MAIN, NOR and QEMU identities matched the preceding experiments.
 
+A further QEMU-only intervention delayed 100 ticks after the third enqueue
+and attempted an extra `xQueueGenericSend` to the wake semaphore observed at
+`0x8020a86c`. The object pointer was `0x808df5d0`; the call returned zero,
+the ring remained `(9, 6)`, and no Spring UART bytes were recorded. A failed
+extra signal does not show that a wake was delivered, and is not a viable
+firmware remedy. Static disassembly places the prior saved task PC
+`0x800911a2` immediately after a scheduler-yield request inside the take
+routine. The saved PC alone does not prove whether the task was blocked or
+ready at the snapshot. These observations leave scheduling and semaphore
+state unresolved and do not establish behavior on hardware.
+
+The intervention's callback, preparer, linker, MAIN, ELF, recipe, result
+and engine trace SHA-256 values were respectively
+`f0b8046fe2894ca8da07132b3629b7c98ef89e9ccd4c627d0c400e8f5e7b2cc9`,
+`74ce6243b32c278743a3926a55a8bd28610e6b247f1c582cf22ad12954c1e6f2`,
+`0b07e9ac9ccb7ddfaff6980cac90e40426e4bcb7463bc21c3d07f778f83ee487`,
+`e27ac1720611fef64e9bad0a602a3cdc30b1a570ea915fd9862f0b6f7bf99fce`,
+`adade5d320eb50bc34bac8869c0f74804e1e887198b376e6ca36ac118169930a`,
+`1439e2abbe1584dfda1979f922e29c523cf7a3df46b86c0f1e0dcfeee48e2d82`,
+`b393fb4c8d49a38faeadef02343498b66d971999a98f851a3bc5fd9b8d71755d`, and
+`cb46e9fa510dc72f98922658b247bde06fd65826d74ac53cae55c097fb2d8776`.
+The stock MAIN, NOR and QEMU identities matched the preceding experiments.
+
 The QEMU-only interrupt-timestamp hook now initializes its decoder and queue
 only on first installation. On subsequent custom selections, it preserves
 pending edges if both hook words and the veneer match; a mismatch marks the
