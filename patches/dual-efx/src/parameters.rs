@@ -11,6 +11,7 @@ pub enum ParameterBank {
 /// Latest applied value for each inspector parameter. One audio task writes
 /// individual entries; selection can read them without borrowing DSP state.
 /// This does not reserve memory or synchronize callback lifetime.
+#[repr(C)]
 pub struct ParameterHandoff {
     values: [core::sync::atomic::AtomicU32; 16],
 }

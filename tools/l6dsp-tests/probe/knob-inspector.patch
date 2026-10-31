@@ -1,6 +1,19 @@
 --- a/patches/knob-dialog/src/notification_hooks.rs
 +++ b/patches/knob-dialog/src/notification_hooks.rs
-@@ -3,0 +4,35 @@
+@@ -3,0 +4,48 @@
++// Temporary QEMU-only test of heap-backed parameter handoff.
++#[cfg(dual_efx)]
++#[unsafe(no_mangle)]
++#[unsafe(link_section = ".text.inspector_handoff_hook")]
++pub unsafe extern "C" fn inspector_handoff_hook() -> u32 {
++    unsafe {
++        let c = sync::context();
++        if c.is_null() { return 0; }
++        let address = core::ptr::addr_of_mut!((*c).inspector_handoff) as u32;
++        core::ptr::write_volatile(0x83e07e00 as *mut u32, address);
++        address
++    }
++}
 +// The diagnostic dual-effect payload sends copied words, never a DSP pointer.
 +#[cfg(dual_efx)]
 +#[unsafe(no_mangle)]
@@ -36,13 +49,13 @@
 +pub unsafe extern "C" fn inspector_cancel_hook() {
 +    unsafe { let _guard = sync::guard(); detach(); }
 +}
-@@ -6,0 +42,5 @@
+@@ -6,0 +55,5 @@
 +        restore_and_pop();
 +    }
 +}
 +unsafe fn restore_and_pop() {
 +    unsafe {
-@@ -56,0 +97,7 @@
+@@ -56,0 +110,7 @@
 +            #[cfg(dual_efx)]
 +            if mode == sync::INSPECTOR_CLOSE {
 +                restore_and_pop();
@@ -81,7 +94,13 @@
 +        };
 --- a/patches/knob-dialog/src/synchronization.rs
 +++ b/patches/knob-dialog/src/synchronization.rs
-@@ -210,0 +211,50 @@
+@@ -18,0 +19,2 @@
++    #[cfg(dual_efx)]
++    pub inspector_handoff: [core::sync::atomic::AtomicU32; 16],
+@@ -49,0 +52,2 @@
++        #[cfg(dual_efx)]
++        core::ptr::write_bytes(core::ptr::addr_of_mut!((*c).inspector_handoff).cast::<u8>(), 0xff, 64);
+@@ -210,0 +215,50 @@
 +
 +// Disposable dual-effect diagnostic: producer tags edits with this generation.
 +#[cfg(dual_efx)]

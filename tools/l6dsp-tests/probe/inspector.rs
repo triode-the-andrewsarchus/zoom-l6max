@@ -8,6 +8,7 @@ unsafe extern "C" {
     fn inspector_edit_hook(id: u32, bits: u32, generation: u32);
     fn inspector_cancel_hook();
     fn inspector_defer_cancel_hook();
+    fn inspector_handoff_hook() -> u32;
 }
 
 const QUEUE: usize = 0x83e00200;
@@ -15,7 +16,18 @@ const INSPECTOR: usize = 0x83e00340;
 #[cfg(knob_inspector)]
 const QUEUE_GENERATIONS: usize = 0x83e02400;
 const SUMMARY: usize = 0x83e00400;
+#[cfg(not(knob_inspector))]
 const SAVED_PARAMETERS: usize = 0x83e03800;
+
+#[cfg(knob_inspector)]
+const _: () = assert!(core::mem::size_of::<parameters::ParameterHandoff>() == 64
+    && core::mem::align_of::<parameters::ParameterHandoff>() == 4);
+unsafe fn saved_parameters() -> *mut parameters::ParameterHandoff {
+    #[cfg(knob_inspector)]
+    { unsafe { inspector_handoff_hook() as *mut _ } }
+    #[cfg(not(knob_inspector))]
+    { SAVED_PARAMETERS as *mut _ }
+}
 const CAPACITY: u32 = 64;
 const MAGIC: u32 = 0x47535431;
 
@@ -53,11 +65,13 @@ pub unsafe fn close_for_selection() {
 pub unsafe fn initialize(entry: u32, processor: *mut routing::DualEfxProcessor, initialized: bool, reuse: bool) {
     unsafe {
         if !reuse {
-            let saved = SAVED_PARAMETERS as *mut parameters::ParameterHandoff;
-            if initialized {
-                (*saved).restore(&mut *processor);
-            } else {
-                core::ptr::write(saved, parameters::ParameterHandoff::new());
+            let saved = saved_parameters();
+            if !saved.is_null() {
+                if initialized {
+                    (*saved).restore(&mut *processor);
+                } else {
+                    core::ptr::write(saved, parameters::ParameterHandoff::new());
+                }
             }
             // The queue lives outside the stock effect buffer. Pending edits
             // must survive a stock selection until a custom callback resumes.
@@ -163,7 +177,7 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
                 core::ptr::write_volatile(0x83e00500 as *mut u32, count + 1);
             }
         }
-        if event > 1 || !custom_active() || !recorder_active() {
+        if event > 1 || !custom_active() || !recorder_active() || saved_parameters().is_null() {
             #[cfg(irq_timing)]
             if event <= 1 { let _ = crate::irq::take(event == 1); }
             s.gesture.cancel();
@@ -220,7 +234,7 @@ pub unsafe extern "C" fn inspector_mode(mode: u32, event: u32) {
     unsafe {
         stock(mode, event);
         let ui = INSPECTOR as *mut UiState;
-        if mode == 6 && event == 1 && recorder_active() && custom_active()
+        if mode == 6 && event == 1 && recorder_active() && custom_active() && !saved_parameters().is_null()
             && core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) == MAGIC && (*ui).active {
             #[cfg(knob_inspector)]
             inspector_cancel_hook();
@@ -242,7 +256,7 @@ pub unsafe extern "C" fn inspector_knob(channel: u32, mode: u32, absolute: u32, 
         #[cfg(enqueue_trace)]
         trace_encoder(0x83e02200, channel, delta as u32);
         let ui = INSPECTOR as *const UiState;
-        if channel >= 8 || mode != 6 || delta == 0 || !recorder_active() || !custom_active()
+        if channel >= 8 || mode != 6 || delta == 0 || !recorder_active() || !custom_active() || saved_parameters().is_null()
             || core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) != MAGIC || !(*ui).active {
             stock(channel, mode, absolute, delta, value);
             return;
@@ -299,7 +313,8 @@ pub unsafe fn consume(processor: &mut routing::DualEfxProcessor) {
             } else if let Some(id) = parameters::edit_encoder(processor,
                 if item & 0x40 != 0 { parameters::ParameterBank::Velvet } else { parameters::ParameterBank::Plateau },
                 (item & 0x3f) as usize, delta) {
-                (*(SAVED_PARAMETERS as *const parameters::ParameterHandoff)).record(id, processor);
+                let saved = saved_parameters();
+                if !saved.is_null() { (*saved).record(id, processor); }
                 #[cfg(knob_inspector)]
                 {
                     let value = parameters::snapshot_parameter(id, processor);
