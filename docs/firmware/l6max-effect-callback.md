@@ -4000,6 +4000,50 @@ hardware; the production dual-effect builder remains disabled.
 
 ## Evidence and limits
 
+The Velvet density model now displays the target limited by the 64-tap bank
+while preserving the requested density in the parameter handoff. At 95 ms,
+a request for 3,000 pps is displayed as 673.7 pps; shortening the spread can
+make the stored request effective. The display describes a target, not a
+measurement of the current bank during a crossfade. This does not remove
+the tap limit or establish that the full requested range can meet deadlines.
+
+An ARM/QEMU-only model diagnostic restored that request and emitted the
+formatted value `673.7 pps`, the stored float `3000.0`, and marker
+`0x44454e53`. It did not exercise the OLED or real controls. The diagnostic
+MAIN, ELF, recipe, result and temporary payload source hashes were
+`a9e3765337bc2bbf90fa91d7af3ba84811a63f7a3db30dd812c672ffd7e3255f`,
+`203b3f087d4b777e8ad0af102bd8bbea7dff2c7d2022820d5ae9af068da7400a`,
+`914e5bdc5a69a31fe62739ddc25e18f7e3ec60578d83339041df1f03e90e853d`,
+`26e2468a519e9ac523817d8cf73c167f837198c70dc417d37c332670077538b0`, and
+`be46c1054f7e3bd06618f115872009945e86077c13a94b597fac5110fcd8552f`.
+The initial diagnostic NOR was
+`03045c9cfdea35170c5398676099f495d9da965b12a7cf5e0d5aa974a5e4cd85`;
+the stock MAIN and input NOR matched those above. Initial panel flash, options
+and RTC were respectively
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`024cc8ce91d39a4ea9c34b7373b0dc2cd5581ee4bcb1ab45593ee8475ef9440f`.
+The QEMU executable was the unattested `53504c7b...` binary above, and
+`l6dbg` was `9a7f882911b7e44c76ddd1c28a226f3f5507878899fc5dd78f616eb10cb360da`.
+
+A separate silent-input combined inspector run used modeled encoder events to
+set a 95 ms spread and edit density. The saved request was approximately
+1,138.435 pps; the popup context recorded mode 18 (density) and raw value
+673.684 pps. The OLED snapshot was available, but its downsampled text preview
+does not independently verify the displayed characters. This does not qualify
+the controls under active audio or on hardware. The combined MAIN, effect ELF,
+popup ELF, recipe, result and density-preview hashes were
+`e8b0914ae0293bd2bf0d0d014033383fd03a4f6e66aa094fc5236bdbb202666d`,
+`afa29304be2366928c145a33489b8206ab0f20631cdc4f8cbec3c94944f29090`,
+`1189474f6a8be0b1b413cab0fc08a1be2910633b7dccef247a8e137acd77d341`,
+`e6ffab137aa42a857c53b0b878342c99e08a0091206cfea82fba9d811fdf4c31`,
+`ff2b9ef1f35899a9c30174d0401a4baea48b011186c35c047bb8fba693daab6`, and
+`cf2a12783bad0e47b6d1252267dee8f9d1cbde2f8af8bf8eb89c3a5a40882be8`.
+Its initial diagnostic NOR was
+`d9bd400b79c01609e80ae0a94bf9fb159fa63230f734b711f11f378ef75bb9db`;
+the stock fixture, initial panel state and executables matched the preceding
+model diagnostic.
+
 The combined QEMU-only inspector now stores its 16 saved parameter words in
 the popup manager's heap sidecar, instead of the unowned scratch mailbox used
 by the standalone inspector. In one run, the tagged context pointed to

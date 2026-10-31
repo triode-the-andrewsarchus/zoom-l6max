@@ -27,6 +27,9 @@ impl ParameterHandoff {
         // Store native units so restoring percentages does not round twice.
         let value = match id {
             VndAmount => processor.velvet.current.amount,
+            // The display can show the tap-limited target; preserve the
+            // requested value so shortening the spread can restore it.
+            VndDensity => processor.velvet.current.density,
             PlatSize => processor.plateau.params.size,
             PlatDecay => processor.plateau.params.decay,
             PlatDiffusion => processor.plateau.params.diffusion,
@@ -147,7 +150,10 @@ pub fn snapshot_parameter(id: EfxParamId, processor: &super::routing::DualEfxPro
     let value = match id {
         VndAmount => velvet.amount * 100.0,
         VndTimeSpread => velvet.length_ms,
-        VndDensity => velvet.density,
+        // A bounded bank cannot deliver more impulses than its tap count
+        // over the target spread. The currently audible bank may still be
+        // transitioning to this target.
+        VndDensity => velvet.density.min(super::velvet::MAX_TAPS as f32 * (1000.0 / velvet.length_ms)),
         VndDecay => velvet.decay_db,
         VndRefresh => velvet.refresh_seconds,
         VndTransition => velvet.transition_ms,
