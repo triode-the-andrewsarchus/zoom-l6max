@@ -5,6 +5,9 @@ This is a partial map for the L6max MAIN image with SHA-256
 It is not a specification for L6 or another firmware revision, and does not
 qualify a patch for hardware. The `dual-efx` builder remains disabled; see
 [safety status](../dual-efx-safety-status.md).
+Initial host-side physical rig discovery is recorded separately in
+[L6max physical audio observations](l6max-physical-audio.md); it does not
+establish the connected firmware revision or qualify this callback.
 
 ## Observed callback dispatch
 
