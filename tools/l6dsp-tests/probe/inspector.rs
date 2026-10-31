@@ -101,6 +101,8 @@ struct UiState {
     routing_page: bool,
     velvet_bank: bool,
 }
+// Probe recipes capture this entire diagnostic structure in 32 bytes.
+const _: () = assert!(core::mem::size_of::<UiState>() <= 32);
 
 unsafe fn queue() -> Option<crate::event_queue::Queue<'static>> {
     #[cfg(knob_inspector)]

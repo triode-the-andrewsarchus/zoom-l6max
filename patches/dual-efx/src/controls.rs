@@ -32,9 +32,17 @@ impl PanelEfxDecoder {
     }
 }
 
+#[derive(Clone, Copy, Default)]
+enum PressState {
+    #[default]
+    Idle,
+    Down(u32),
+    Ambiguous,
+}
+
 #[derive(Default)]
 pub struct EfxSelectGesture {
-    started_at: Option<u32>,
+    press: PressState,
     last_sequence: Option<u32>,
 }
 
@@ -43,7 +51,9 @@ impl EfxSelectGesture {
     /// inspector without also advancing the effect. The caller supplies a
     /// threshold in the same wrapping tick units as `now`.
     pub fn edge(&mut self, pressed: bool, now: u32, hold_ticks: u32) -> EfxSelectAction {
-        if self.last_sequence.take().is_some() { self.started_at = None; }
+        if self.last_sequence.take().is_some() {
+            self.press = PressState::Idle;
+        }
         self.classify_edge(pressed, now, hold_ticks)
     }
 
@@ -58,9 +68,11 @@ impl EfxSelectGesture {
         if let Some(previous) = self.last_sequence {
             let next = previous.wrapping_add(1);
             let expected = if next == 0 { 1 } else { next };
-            if sequence != expected { self.started_at = None; }
+            if sequence != expected {
+                self.press = PressState::Idle;
+            }
         } else {
-            self.started_at = None;
+            self.press = PressState::Idle;
         }
         self.last_sequence = Some(sequence);
         self.classify_edge(pressed, now, hold_ticks)
@@ -68,21 +80,24 @@ impl EfxSelectGesture {
 
     fn classify_edge(&mut self, pressed: bool, now: u32, hold_ticks: u32) -> EfxSelectAction {
         if pressed {
-            if self.started_at.is_none() {
-                self.started_at = Some(now);
-            }
+            // A repeated press may mean a release was lost before sequence
+            // assignment. Discard the ambiguous gesture until a release.
+            self.press = match self.press {
+                PressState::Idle => PressState::Down(now),
+                PressState::Down(_) | PressState::Ambiguous => PressState::Ambiguous,
+            };
             return EfxSelectAction::None;
         }
-        match self.started_at.take() {
-            None => EfxSelectAction::None,
-            Some(start) if now.wrapping_sub(start) >= hold_ticks => EfxSelectAction::ToggleInspector,
-            Some(_) => EfxSelectAction::SelectNext,
+        match core::mem::take(&mut self.press) {
+            PressState::Idle | PressState::Ambiguous => EfxSelectAction::None,
+            PressState::Down(start) if now.wrapping_sub(start) >= hold_ticks => EfxSelectAction::ToggleInspector,
+            PressState::Down(_) => EfxSelectAction::SelectNext,
         }
     }
 
     /// Discards a pending press when its window or control context is lost.
     pub fn cancel(&mut self) {
-        self.started_at = None;
+        self.press = PressState::Idle;
         self.last_sequence = None;
     }
 }

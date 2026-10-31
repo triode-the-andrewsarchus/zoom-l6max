@@ -3782,6 +3782,33 @@ MAIN, ELF, recipe and result were
 `58d5ac94386fc8097418fd7b1fae93a1942cbb77c88274c7fc48b3d41ab0f8b5`,
 `124ea7417026f6e67cd100c1443ad1dc16976d37b18a8a284312c058cc6afa14`, and
 `58b1ff2bc2237cbf8c249b0ccd23ad042655a0d9e3255f50de3f0050bcb24a0e`.
+Another forced-loss pair suppressed a release's timing record before
+sequence assignment and dropped the corresponding downstream enqueue. The
+next short press therefore had consecutive sequence numbers despite following
+an unmatched press. In the old diagnostic, that short press opened the
+inspector; a further short press left Room selected. The revised gesture state
+discarded the ambiguous sequence through its release, kept the inspector
+closed, and allowed the following clean short press to select Spring. Both
+record queues drained without a reported fault, and both injection markers
+were set. This tests one simulated loss, not a physical UART overrun or every
+loss pattern. In particular, a release and following press both lost before
+sequence assignment can still leave a later release indistinguishable from a
+long hold. The timing hooks and their memory remain QEMU-only.
+
+The old and revised diagnostic MAIN hashes were
+`ae0bfb9113a6dcaeb7401666b2120f1e8e62a6a7fbc196c1282360ead6eb6c7d` and
+`b1019e3d85dbd0711cea1ad066c80903b00d7df8a88127a0143a135593557ed7`, ELFs
+`3e5684fd215908c49564fde24ab1fee72a6d131b8a2d28dace2f3e3ecf6bd8aa` and
+`21c131e4a35d65c6edb2d7ca56ddb80ea6bca2ec7a7e9b73127e7e07fa7377b1`, recipes
+`0890717fc93176a50aad0f207e72530091c7dec3086a7398b31757f78a642ca3` and
+`9cc12317955f5f83f0b5316e91693bed813a314781db432d2b068c3a8d7151c4`, and
+results `8c9f6cd59d60b03f70719c4bba14e59c79a383b4a0a04bba2904b9ec0d420cbd`
+and `bc5762284286f418aff367748b094e6d737255c0c129751f17c67da2b3dc14d6`.
+The temporary injection source was
+`5a1d9ce12cb8b83436a05a3a5c07fb30b9b7edd5c4f74645bfef08d1fadad37f`.
+The stock MAIN, initial NOR, panel state, `l6dbg` and unattested QEMU binary
+match the preceding sequence tests.
+
 In a separate silent-input combined popup run, the inspector opened and closed,
 the observed routing edits persisted across bank changes, the ordinary mixer
 value stayed fixed during editing and changed after close, and the timing
