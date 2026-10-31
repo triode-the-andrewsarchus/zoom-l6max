@@ -214,6 +214,12 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
                 stock(s.arg0, s.arg1, 1)
             }
             controls::EfxSelectAction::ToggleInspector => {
+                if !s.active && core::ptr::read_volatile(0x80462d2c as *const u8) != 6 {
+                    let stock_mode: unsafe extern "C" fn(u32, u32) = core::mem::transmute(0x80053bb1usize);
+                    stock_mode(6, 1);
+                    stock_mode(6, 0);
+                    if core::ptr::read_volatile(0x80462d2c as *const u8) != 6 { return 0; }
+                }
                 #[cfg(knob_inspector)]
                 if s.active { inspector_cancel_hook(); }
                 s.active = !s.active;
@@ -232,8 +238,11 @@ pub unsafe extern "C" fn inspector_select(arg0: u32, arg1: u32, event: u32) -> u
 pub unsafe extern "C" fn inspector_mode(mode: u32, event: u32) {
     let stock: unsafe extern "C" fn(u32, u32) = unsafe { core::mem::transmute(0x80053bb1usize) };
     unsafe {
-        stock(mode, event);
         let ui = INSPECTOR as *mut UiState;
+        if mode < 10 && mode != 6 && event == 1 {
+            close_for_selection();
+        }
+        stock(mode, event);
         if mode == 6 && event == 1 && recorder_active() && custom_active() && !saved_parameters().is_null()
             && core::ptr::read_volatile(core::ptr::addr_of!((*ui).magic)) == MAGIC && (*ui).active {
             #[cfg(knob_inspector)]

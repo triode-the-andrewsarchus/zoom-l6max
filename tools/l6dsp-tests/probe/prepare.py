@@ -9,7 +9,7 @@ import shlex
 import struct
 import subprocess
 from thumb_branch import branch
-from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer
+from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_mode_hooks
 
 ROOT = Path(__file__).resolve().parents[3]
 PROBE = Path(__file__).resolve().parent
@@ -124,20 +124,21 @@ image = bytearray(main)
 image[0x107de6:0x107df0] = CALLBACK_REDIRECT if args.callback else REDIRECT
 if args.inspector:
     # Same Thumb BL encoding as firmware-patch-core::branch, for this
-    # disposable diagnostic only. Guard both exact stock call instructions.
+    # disposable diagnostic only. Guard the stock call instructions.
     symbols = {}
     for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines():
         parts = line.split()
         if len(parts) == 3 and parts[2] in ("inspector_select", "inspector_knob", "inspector_mode", "inspector_enqueue", "ainr_selector_veneer"):
             symbols[parts[2]] = int(parts[0], 16) & ~1
-    for offset, expected, symbol in (
+    hooks = [
         (0x36f28, bytes.fromhex("1df0bef9"), "inspector_select"),
         (0x36c74, bytes.fromhex("1cf058ff"), "inspector_knob"),
-        (0x36f8a, bytes.fromhex("1cf011fe"), "inspector_mode"),
-    ):
+    ]
+    for offset, expected, symbol in hooks:
         if image[offset:offset + 4] != expected or symbol not in symbols:
             raise ValueError(f"inspector call site or symbol mismatch: {symbol}")
         image[offset:offset + 4] = branch(0x80000000 + offset, symbols[symbol])
+    install_mode_hooks(image, symbols.get("inspector_mode"))
     install_ainr_selector_veneer(image, symbols)
     if args.enqueue_trace:
         offset = 0x4c606
