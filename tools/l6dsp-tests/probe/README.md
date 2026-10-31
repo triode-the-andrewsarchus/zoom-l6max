@@ -389,7 +389,11 @@ The resulting extra work can prevent the selection sequence from reaching
 AINR in QEMU; inspect the selected callback and learned flag. This tests
 passthrough in the probe; it does not implement a firmware fallback.
 
-This prototype retains a large heap allocation, copies at least 103,700 bytes
-on the audio task, uses unowned control words, and assumes an experimental settling delay.
-It does not establish snapshot coherence, stock coexistence, deadline safety,
-reset behavior or a usable learning workflow. Never install it on hardware.
+These prototypes retain a heap allocation and use unowned control words and
+an experimental settling delay. The full and prefix modes copy on the audio
+task; the boundary mode copies 56,264 bytes on the selector. A separate
+attempt to capture only 512 bytes and reconstruct the rest after selection
+produced a different state under injected signal, despite reporting success;
+it was discarded. None establishes snapshot coherence, stock coexistence,
+deadline safety, reset behavior or a usable learning workflow. Never install
+these images on hardware.

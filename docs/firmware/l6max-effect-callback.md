@@ -4814,6 +4814,57 @@ trace and result hashes were
 The state footprint, ownership, callback ABI and target timing remain
 unqualified; the production builder remains disabled.
 
+#### Reconstructing the tail after selection did not preserve the snapshot
+
+In a stock-QEMU, silent-input observation, the learned flag remained 1 after
+leaving AINR. Chunked reads of the candidate tail before and three guest
+seconds after selection differed in 32 bytes, all within its first 512 bytes.
+Because the guest continued running during the reads, these were not atomic
+snapshots. The before/after tail hashes were
+`7b372fcebd43843429d11d8d189940c601d6c0429b13cacdbf20eb0b4e6abbf4` and
+`8b15435818ab420104af8a178415db1c40f650be9afd7bdc838c562cbdf58bd7`.
+The recipe and result hashes were
+`1cd24815ded995dbe3de2607bdcc4a4a8e470af248e08072b58c56a41cf3e6f6` and
+`7bc0e43d93571d6b7e9358ede17e1e81e4f59363095b1d6136376accf663315f`.
+
+That observation motivated a temporary QEMU-only prototype which captured
+512 bytes during the pause and reconstructed the rest of the tail from the
+stock source after the effect-buffer clear. Separate silent-learning and
+injected-signal runs reported completed handoffs and nonzero sampled output;
+their allocator free count decreased by 528 bytes. Their MAIN, ELF, recipe,
+and result hashes, respectively, were
+`03e41c1b2574a0988d10f7ecd307d16a8e93f5fa9513a024b38acd27c30213af`,
+`3b39879c37178c687e416beb34a36512bbb451c342c5627594374c247a8918b6`,
+`8c37408afd8e3115e4861ba6190a814836ffa0b8c056057e2ba0bdb6dab0df73`,
+`ace292e05824d64c84ef39c6e3dceb9545a4dd6d8be9963ef4d6dbeee75d8570`, and
+`a1d9b4c073a14089177401288edb7057cee0cb6b26d29237e74c44d925f409cf`,
+`a60ede5bc82e5a9368eb887b767da9c3ad33852791e701a758835f182eea6394`,
+`0eebc73e1284fd79c0e22cd65f2392152b48828a18f1630a5ae5e15df6354abc`,
+`422f1e1d0bd5d83bd2cd0850459a2ac737e32c1219020b0b443aa7bc2d67197c`.
+
+A further injected-signal run instrumented the prototype to save the entire
+56,264-byte candidate tail while the pause was acknowledged and save the
+first reconstructed clone before callback publication. The handoff again
+reported success, but 13,175 bytes differed, spanning offsets
+`0xbb4d..0x15d13`; the saved first 512 bytes matched. The captured and
+reconstructed hashes were
+`c63329105e5bdae9e92ff8f287f55484cad494b55527edfd047837c8829ed241` and
+`3c1f9cc5400e1971804e94bd7eb7fbae378d6a0c2bf4fe17ee8967c44b336f45`.
+The instrumentation adds a full-tail copy during the pause and may change
+scheduling. This observation does not identify every writer or show which
+differences affect audio, but it disproves snapshot equivalence in this run.
+The smaller reconstruction was discarded; a completed handoff or nonzero
+output cannot establish a coherent state. MAIN, ELF, recipe, result,
+boundary-source and instrumented handoff-source hashes were
+`f31ee304eed5e3d0a8c86d2c2ea78033ba00d4cb3bcc0a6f932b042e8a237e17`,
+`cd8c34dd79ebd035b03edfdcd2579ae2c2c0863321608f2ca0883bf833acfbc9`,
+`e488b0d89ef794f0136b4c163eb3af5b1c01a0ee06b0c160165fd76a41052281`,
+`e648bbdaea3a3b3a65567b8d7f454184c692e4342f862b84eb176d75d20bced9`,
+`3e620f578b00153b9843f78d3b92cb9592744985b3bac62c5ffc77e8e57dbe7e`, and
+`af25a2609ba2ccfb47b9f054e74582b675ed5207af22dff2eb3de326fb9bf2de`.
+All four runs used stock MAIN, initial NOR, panel state, `l6dbg` and the
+unattested QEMU executable identified in the preceding packed-tail run.
+
 
 A later forced-interleaving test invalidated the pause immediately after the
 selector's last validity check. The old diagnostic nevertheless marked the
