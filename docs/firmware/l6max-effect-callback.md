@@ -4317,6 +4317,78 @@ send histories, per-frame controls and transition behavior and be measured on
 the ARM workload before adoption. The Plus Plateau implementation also carries
 GPL-3.0-or-later and third-party notices; retain applicable notices if using it.
 
+A separate [host experiment](../../tools/l6dsp-tests/experiments/velvet_block.rs)
+tests 16-frame tap-outer processing with two mirrored mono histories against a
+sample reference. Its 285-tap synthetic banks match across stereo channels,
+an intra-block event split, per-frame crossfade and history wraps. This does
+not implement filter generation or firmware controls. The two mirrored sample
+arrays occupy 76,832 bytes versus 57,624 bytes for the current three unmirrored
+arrays, excluding other state.
+
+Three disposable ARM diagnostics used the same synthetic FIR workload with
+285 taps, two channels, two sends and both banks on every 64-frame callback.
+They bypassed Plateau and other effects. In five guest seconds at `shift=1`,
+the one-frame control counted 1,238 callbacks; the first 16-frame version
+counted 1,393; the revised slice-based version counted 1,658. These are
+approximately 248, 279 and 332 per second, respectively, versus 750 nominal.
+The one-frame control invokes the experimental kernel once per frame; it is
+not the existing production sample kernel. The diagnostic's symmetric bank
+gains cancel its aggregate checksum in the control, so it does not verify
+nonzero effect output. The host test verifies the bounded mathematical case.
+The temporary workloads do not cover filter rebuilds, audio output, AINR,
+memory ownership or the real CPU's instruction timing; they do not qualify
+this approach or rule out a better ARM implementation.
+
+A separate rebased diagnostic raised the existing sample kernel's limit to
+285 and initialized it at 95 ms / 3,000 pps, with all three synthetic sends
+and Plateau active. It counted 2,077 callbacks in five guest seconds (about
+415/s) and sampled nonzero output. Fewer than 240,000 frames had been
+processed at the last sample, so the default five-second renewal had not yet
+started. This covers one modeled schedule, not worst-case callback time,
+physical audio or pre-AINR. The MAIN, ELF, recipe and result hashes were
+`410c75d3688edefbcfdc3fd51729ea640bc6326e75a67c3c9da575adead5cb33`,
+`19a306a8e08cc1fa17735b5cd10ab5df69085f34980c3124a7ed685f06f8eb0c`,
+`be977a8d25e2fda1d3c7761f587a1172fdb61d6c929f61092438e6193166057a`, and
+`b9ad772c1ea24a8810f2ae106d07070f1d6bfe16075747a08c88baa84019f617`;
+the initial diagnostic NOR was
+`2f3e189763a3e144b9b89259f758790838ce06fb0343005c918421879c456a3a`.
+Its temporary callback and Velvet sources were
+`c6c017ea8c0b564e67471f5a8394eb7223a10e03edd6cb2034ebb557b3631a97` and
+`58d4e430570fb46078c02f8e25b28c7c729996e43dfe2a680fcfe2a4ca61a95a`.
+Stock MAIN, panel state, `l6dbg` and unattested QEMU matched the rebased
+active-sends observation above.
+
+For the one-frame, original block, and slice-based runs, respectively, the
+diagnostic MAIN hashes were
+`033e581bec0e97261cadd116a2166a3f308fcbac9460d51d80a57ffd4dc3e265`,
+`5c12d085de3bbd5fa6ef93b0be0e4fa7768ff8a9dc1f507a803b013861333f79`, and
+`f8462bef5b663bd39cce63fd63093948c87adae9b14aaaf70117da824eaf5b42`;
+ELFs were `1d1bd2bf4fc0e84e01d2a69db671a07812ecd01188ba784b9dc3f1e7e569a423`,
+`d11eea152107ad58f7794ef78989bc68dbbe275e19efb18f8af8ef1e390a6daa`, and
+`4efced0916e82dae54aec043cb60fa7ac0a7238873c323af0c0525d8cfa0b5c5`;
+recipes were `3f304f000b256dfbf32c857de28565ea26dc01005e7b7822e057d0577f4c1c95`,
+`6afe11825ce4f3149f9679a2a0cec0eaf6f2eaef3d95fcef762a7c804d40374f`, and
+`cef100d4737380af650b53a0c01ec232616cf0eb01c8bae14a620cb52f86c64f`;
+results were `177c61302001b58e8bfa178053bd77c5e80231cedd6f0440179edf07b1645e09`,
+`c085516f152e4923e8b5f7691d6e4c8c687a857643cc2e5879422da652d943a0`, and
+`a583e8e20a49c5b307f74cc40e34f7955f25dfc0df7c4305ec4aaaa3e66e29fe`.
+Their initial NOR hashes were
+`bdc9137f0cfed9bfdf9c90d1740d42d12d01efe4d6f5072403aed7e376b94dc6`,
+`85af2ae4a24582987d13cd253c5ab45e8b4a7be98d565f70aa5032deb4d4d022`, and
+`e21631d490aa6d64a1d8cca5511af46b33c71e159a9b8cdc1662547380b8f678`.
+The respective temporary workload sources were
+`ffb37d8372c86ebcbd4ed27a757bb5f70871d91162c7963bdc3766855c0627a0`,
+`0545045a4857e9ec37a9dd4efd976b3f767d20f480ddb8459979665ee5f44b59`, and
+`5829b85e35d2b3485db6003e787a814f806ff81eb419987ffe9f62600408f6d1`;
+the corresponding FIR source hashes were
+`f78f69b9d32b9e15141d1c274b99629b674e18814548c2d5748e055a853924b5`,
+`f78f69b9d32b9e15141d1c274b99629b674e18814548c2d5748e055a853924b5`, and
+`be794ca84d9efb378f630a1c083dff0a6515550f5bb9301f18039859c363d67e`.
+The shared modified callback source was
+`50c44f02d04a3bb348f703199eab28cfcc729bf3190e189d943675d26b8e574f`.
+The stock MAIN, panel state, `l6dbg` and unattested QEMU identities match the
+rebased active-sends observation above.
+
 A later disposable workload explored partitioned convolution with a direct
 512-sample head and 256-frame tail partitions. The host model compared two
 inputs, stereo banks, an interrupted bank rebuild and a crossfade against
