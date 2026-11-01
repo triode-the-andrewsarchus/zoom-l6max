@@ -4284,6 +4284,39 @@ individual modeled observations with instrumentation, not physical CPU,
 deadline or memory-ownership measurements. The 285-tap prototype was not
 adopted as a solution to the unresolved full-range workload.
 
+After rebasing onto main's SAI/eDMA changes, a 64-tap active-sends diagnostic
+ran at approximately 750 callbacks per guest second over 15 guest seconds,
+with nonzero sampled output. This used paced `icount shift=1`; the earlier
+451/s comparison used a different QEMU binary and timing, so the values do
+not isolate the effect of the DMA changes. This run does not exercise 285 taps,
+pre-AINR or physical hardware and is not a deadline measurement. Its MAIN,
+ELF, recipe and result SHA-256 values were
+`f6da0c9ff910930a50bcbe37a203843e69891e6e9f834d69c79dc4702ace4b10`,
+`66d06684d4aa2647cafa258bb167ddce5534a61aa62f988008c406e612b3535f`,
+`f691328e02d1c7b9924cfd2d2df97baaa0ec91e5401d447809a033c5bc9f901c`, and
+`fdbb4ef1749ae1ac305a9ba604bff32e2a32b323a928b939f6a3115db5ef3536`.
+The initial diagnostic NOR, panel flash, options and RTC hashes were
+`80ac330adb5d3edec41299c2b36620984dfc2b771dfa1b1f14e3cf0e98e0d97e`,
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
+The source MAIN was `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+`l6dbg` was `52af793c1d34e927210f99cf49117180121d8bd62885ce0ee7148be5dedbf6`,
+and QEMU was `6d16a74074f46732f03630c7e827f8d052e61ef4ae6585221e78d0d82d20263e`
+(source provenance unattested by the driver).
+
+The user-provided Multistomp Plus work at
+[`7ea50ae`](https://github.com/triode-the-andrewsarchus/ZoomMultistompZDL/tree/7ea50ae6e30705989d0b8414ad5a83c97dbef0db)
+offers a different full-density approach. Its Velvet uses mirrored histories,
+a tap-outer block FIR and a third bank for incremental renewal; its documented
+standalone pedal tests include dense renewal and stereo separation. Its Plateau
+port has separate upstream-reference and hardware tests. The pedal's DSP,
+memory arena, sample rate and routing differ from the L6max, so neither result
+qualifies this firmware. A block FIR must preserve the L6max's two independent
+send histories, per-frame controls and transition behavior and be measured on
+the ARM workload before adoption. The Plus Plateau implementation also carries
+GPL-3.0-or-later and third-party notices; retain applicable notices if using it.
+
 A later disposable workload explored partitioned convolution with a direct
 512-sample head and 256-frame tail partitions. The host model compared two
 inputs, stereo banks, an interrupted bank rebuild and a crossfade against
