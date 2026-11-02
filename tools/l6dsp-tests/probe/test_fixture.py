@@ -13,6 +13,9 @@ class PreparerModeTests(unittest.TestCase):
         preparer = Path(__file__).with_name('prepare.py')
         selector = ['--callback', '--inspector', '--selector-load-trace']
         cases = [
+            (['--offline-mix-layout'], '--offline-mix-layout requires'),
+            (['--callback', '--offline-mix-layout', '--inspector'], '--offline-mix-layout requires'),
+            (['--callback', '--offline-mix-layout', '--switches'], '--offline-mix-layout requires'),
             (['--max-velvet-density'], '--max-velvet-density requires'),
             (['--mixer-input-capture'], '--mixer-input-capture requires'),
             (['--callback', '--mixer-input-capture', '--inspector'], '--mixer-input-capture requires'),

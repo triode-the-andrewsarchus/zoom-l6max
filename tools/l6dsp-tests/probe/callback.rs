@@ -25,6 +25,8 @@ mod inspector;
 mod event_queue;
 #[cfg(mixer_input_capture)]
 mod mixer_capture;
+#[cfg(offline_mix_layout)]
+mod offline_layout;
 #[cfg(irq_trace)]
 mod irq;
 #[cfg(ring_timing)]
@@ -178,6 +180,8 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
             core::ptr::write_volatile(0x202a6f28 as *mut u32, 0);
             #[cfg(retain_custom_state)]
             core::ptr::write_volatile(0x83e00148 as *mut u32, 0x52455553);
+            #[cfg(offline_mix_layout)]
+            offline_layout::run();
             core::ptr::write_volatile(entry, diagnostic_audio as *const () as usize as u32);
         }
     }

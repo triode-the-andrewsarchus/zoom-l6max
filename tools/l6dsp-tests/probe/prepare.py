@@ -25,6 +25,7 @@ parser.add_argument("output", type=Path, help="new directory under the system te
 parser.add_argument("--callback", action="store_true", help="observe automatic effect callback installation")
 parser.add_argument("--switches", action="store_true", help="observe all six effect selections")
 parser.add_argument("--mixer-input-capture", action="store_true", help="capture routed mixer input and output for each custom effect (QEMU only)")
+parser.add_argument("--offline-mix-layout", action="store_true", help="run a destructive synthetic file-mix layout probe in QEMU")
 parser.add_argument("--inspector", action="store_true", help="enable QEMU-only inspector event hooks")
 parser.add_argument("--gesture-trace", action="store_true", help="record selector events (perturbs timing)")
 parser.add_argument("--enqueue-trace", action="store_true", help="record panel events before enqueue (perturbs timing)")
@@ -49,6 +50,14 @@ parser.add_argument("--passthrough-unready", action="store_true", help="keep syn
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
 parser.add_argument("--bank-stress-count", type=int, default=10, help="number of bank changes (1..64)")
 args = parser.parse_args()
+if args.offline_mix_layout and (not args.callback or any((args.switches, args.inspector,
+        args.mixer_input_capture, args.gesture_trace, args.enqueue_trace, args.irq_trace,
+        args.irq_timing, args.ring_timing, args.ring_drop, args.timing_control, args.active_sends,
+        args.selector_load_trace, args.max_velvet_density, args.submix_return, args.retain_custom_state,
+        args.pre_ainr, args.effect_buffer, args.auto_handoff, args.channel0_prefix,
+        args.hybrid_handoff, args.boundary_handoff, args.boundary_noise,
+        args.passthrough_unready, args.bank_stress))):
+    parser.error("--offline-mix-layout requires --callback alone")
 if args.max_velvet_density and not args.selector_load_trace:
     parser.error("--max-velvet-density requires --selector-load-trace")
 if args.mixer_input_capture and (not args.callback or args.switches or args.inspector
@@ -131,6 +140,8 @@ rustc = [
 ]
 if args.mixer_input_capture:
     rustc += ["--cfg", "mixer_input_capture"]
+if args.offline_mix_layout:
+    rustc += ["--cfg", "offline_mix_layout"]
 if args.inspector:
     rustc += ["--cfg", "inspector_probe"]
 if args.gesture_trace:
@@ -504,6 +515,9 @@ wall_timeout_s = 420
         for index in range(3):
             memory(f"clone_{index}_descriptor", 0x80d5ba0c + index * 0x20000, 132)
     memory("output", 0x83e00800, 16)
+if args.offline_mix_layout:
+    recipe = recipe.replace('wall_timeout_s = 180', 'wall_timeout_s = 300', 1)
+    add("memory", name="offline_layout", address=0x83e07000, length=216)
 (out / "recipe.toml").write_text(recipe)
 if args.pre_ainr:
     metadata = {"stock_main_sha256": MAIN_SHA, "diagnostic_main_sha256": image_sha,

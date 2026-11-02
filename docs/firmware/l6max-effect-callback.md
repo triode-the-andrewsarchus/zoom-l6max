@@ -5820,6 +5820,33 @@ The temporary callback source and Plateau source hashed to
 Stock MAIN, NOR, panel state, QEMU and `l6dbg` match the preceding
 modeled-input inspector run; the QEMU build's provenance is unattested.
 
+### Synthetic file-mix input layout
+
+Static inspection of `0x80017500` shows twelve input regions spaced by
+960,000 bytes, with gain values at `0x20016170 + 8 * slot` and smoothed
+values at `0x20016140 + 4 * slot`. The caller passes the stock track-buffer
+base `0x81570400`; its callback loop advances by 64 frames. In a QEMU-only
+direct call, the `--offline-mix-layout` probe disabled three filter sections,
+set twelve distinct track signals and twelve distinct gains, and processed
+128 frames. The captured track values and the stock callback's weighted,
+scaled sums matched the test's predictions at frames 0, 63, 64 and 127.
+The four observed sums were approximately 0.01891749, 0.01906051, 0.01906278
+and 0.01920579. This is a candidate source for routed file-mix inputs, not a
+validated hook. The probe masks interrupts, modifies stock state, and calls
+the routine directly; it does not test the normal file-mix workflow,
+concurrency, physical memory, or target deadlines. Never install its image.
+
+The diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`f8696c7750ef7d0f2867dc4bdedb9452e65b3f68afa56aab5b33b9ef75f1bed5`,
+`fdb451edda7a2f161d83ca705e8e1f66808d01f7ca8608d08310833f5bfe2565`,
+`9bc4f3a9774a5d2cac82509246ace9955483653ec1f4cb89e0e11055a9c729c1`, and
+`41a1e8662be55f1b945e16fb3e319b30a080fb7057a6acfe4ecbc305bf81998d`.
+The probe source and checker hashed to
+`fc5a45179de277ba64d9caf603f7ceba0ed16750fb6eee587b3a8efe97732c21` and
+`acbd3184e0b5492ff04a6507718cec3907a72d59d1046c9a14bf8a54f1e4a180`.
+Stock MAIN, initial NOR, panel state, QEMU and `l6dbg` match the preceding
+modeled-input inspector run; the QEMU build's provenance is unattested.
+
 ### Current full-density selector workload
 
 The maintained selector-load diagnostic can now initialize Velvet at 95 ms
