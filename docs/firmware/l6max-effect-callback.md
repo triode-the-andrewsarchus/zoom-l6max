@@ -5754,6 +5754,72 @@ tail, identities and diagnostic log hashes were
 These controls detect that particular alteration only; they do not qualify
 all possible snapshot damage or the handoff itself.
 
+A further disposable variant performed both the initial capture and a later
+refresh in `AudioProcess` before the stock block call. For the refresh, the
+selector retained the 48 candidate control bytes from its first capture,
+requested a one-shot copy into separate unowned scratch at `0x83e10000`, and
+waited for completion. It then copied from scratch to the claimed snapshot and
+restored those control bytes. Scratch is never rearmed in this experiment; a
+second refresh is rejected. This is a diagnostic, not a usable repeated
+selection or memory-allocation design.
+
+Uninstrumented and plugin-assisted runs each reached ready token `0x7e`,
+completed one refresh after one selector-side tick wait, and had changing
+sampled sends. In the traced run no CPU write starting in the watched tail
+occurred during refresh, and no RX completion or pointer write was observed
+between the audio task's claim and entry into the stock block processor. No stock block entry was observed between the copy markers. One forced
+variant delayed the audio task by 30 ticks after claiming the refresh; the
+selector timed out after 20, canceled the capture and left ready zero. The
+late scratch writer was rejected, capture control was `0x83`, sampled AINR
+send count was zero, and the main effect callback advanced. That forced
+delay intentionally disrupts audio. These observations do not cover all
+interleavings, repeated attempts, DMA, other writers or physical deadlines.
+
+In another debugger-perturbed run, the stock tail captured just before
+teardown and the installed candidate tail both hashed to
+`ee9fdf61cfa69ffae9012b04c6051ff1b99e21bbbcaed0b0d133f6524cfc4474`.
+The reusable live-call replay matched stock output on two signals for 96
+blocks, with sampled state matching at five checkpoints. As in the preceding
+replay, the stock reference is a hybrid of the captured tail and a fresh
+guest's live prefix and suffix; neither this test nor matching bytes prove a
+coherent full state or audio quality. The scratch and heap lifetimes, all
+selection paths, safe cancellation and retry, physical timing and actual
+hardware memory ownership remain unqualified. **Never install these images.**
+
+Normal and traced diagnostic MAIN and ELF were
+`71bc6d7e15d2906c8d60f632abd96d552e7e42445c6c3316b381c28f1702040a` and
+`657a366c57e1387e0c0f5273cde73d22eace826e4b07d51061992010776cef2c`;
+the temporary handoff source and common recipe were
+`3583637186a9c90fabe7400d7d50214e982852240ebbe78c4f77e2c769f83260` and
+`6d849ea1ef5e92f11c278221982586bff32c2a11e049b3a731381c7053973009`.
+Normal and traced results, and the combined CPU/RX trace, were
+`ef7bf2bd6fba33698c64b5311592498e32bf12a728ba89f74824083f6e3ac617`,
+`cc7ef4977aed66217d7111d8dc7c9d5e3e34981637049a545fb00daa075b14e6`, and
+`c2d55338bf273e6a1242920a3dc871fd959427f091dee4a9e2d6f4d9a5aa539c`.
+The RX plugin source, binary and combined wrapper were
+`752ab3054dda325282fef2fd30b1f8f3446ae8e58ac13f872318dfd14166ac7f`,
+`8e5d5083b1748d0e053550dde3d22d448407391556b76670507c656140469b32`, and
+`eb224b7e4dc9d4aea6aedd3d234a66b07815460b3536ba2e8f35756f6d7fd9ae`;
+the source-write plugin is identified in the previous refresh experiment.
+The timeout MAIN, ELF, handoff source, recipe and result were
+`8379ecbd17583f57f9a29f40b23aec4af3bd47d06dccda34be7fd57d59467f56`,
+`fce77c2e4469139d21e0c680fb2b2035b5e75db4d58fe42e299eecd5d8ec2c29`,
+`610c389a8e36c19abbe19b89fb77d9b9de7b445a4a5c3a8fd06d374111c25a20`,
+`13285c47c0efb325027d48c9e473cd927730a27bb5f1969a4c1083ca6942a446`, and
+`3db625dc5597f6bf85efed6f3deee7cebfed38e4a4162108b9e1f9bdb83ec3e8`.
+
+The debugger capture observer, capture result, recipe and driver output were
+`4a5cf735eaff8dc4befca8f0c5e6d76f64a60e5c574e0928a59cbccb81b46a68`,
+`63af99eb61d4e69c2281f0197addd09fd11cc793db01f1a4e054109214f4e032`,
+`e5c484cbc75bdb7527473ad831ab83d400ec954fc72c8f8b82a7b8737b6e473a`, and
+`6cf7bb66256f3091a5570adf87807951b9b40029ea25e46a9d7532ba6cf3f9e5`.
+The replay used observer source
+`7f2d7061ea25e7b72827301022bcdb0b0b5742885216dd21bac5539430791141`, recipe
+`45233d0c29dc9947da9353f8a78eb1e26788b80958fed6dd31f1cff11cbc51db`, result
+`8b795b4bb3a97c7a330946d84439c8625b2522808409529a6b1264a9f40aecd6`, and
+identities `61c1594afdf9a53e173cad67a4ff2a6f6c8bbdec128718ba1a13c23775b4c3a7`.
+All experiments used the stock MAIN, fixture and QEMU identities below.
+
 All runs used stock MAIN SHA-256
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
 initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
