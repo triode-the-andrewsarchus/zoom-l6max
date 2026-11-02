@@ -26,18 +26,13 @@ impl CallbackAdmission {
         Self { state: AtomicU32::new(0) }
     }
 
-    /// Rejects a closed gate or either occupied path. Atomic retries are not bounded;
-    /// the caller must define safe real-time behavior for rejection.
+    /// Makes one strong atomic admission attempt. A closed, occupied, or
+    /// invalid state is rejected; callers must handle rejection safely.
+    /// The target's atomic implementation may retry and needs deadline qualification.
     pub fn try_enter(&self, path: CallbackPath) -> Option<CallbackLease<'_>> {
         let bit = match path { CallbackPath::Live => LIVE, CallbackPath::FileMix => FILE_MIX };
-        let mut state = self.state.load(Ordering::Acquire);
-        loop {
-            if state & (CLOSED | LIVE | FILE_MIX) != 0 { return None; }
-            match self.state.compare_exchange_weak(state, state | bit, Ordering::AcqRel, Ordering::Acquire) {
-                Ok(_) => return Some(CallbackLease { gate: self, bit }),
-                Err(actual) => state = actual,
-            }
-        }
+        self.state.compare_exchange(0, bit, Ordering::AcqRel, Ordering::Acquire)
+            .ok().map(|_| CallbackLease { gate: self, bit })
     }
 
     /// Stops new leases. Only one selector can hold the close guard; a caller
@@ -75,5 +70,18 @@ impl CloseGuard<'_> {
 impl Drop for CloseGuard<'_> {
     fn drop(&mut self) {
         self.gate.state.fetch_and(!CLOSED, Ordering::Release);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invalid_state_rejects_both_callback_paths() {
+        let gate = CallbackAdmission::new();
+        gate.state.store(8, Ordering::Relaxed);
+        assert!(gate.try_enter(CallbackPath::Live).is_none());
+        assert!(gate.try_enter(CallbackPath::FileMix).is_none());
     }
 }

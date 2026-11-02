@@ -80,7 +80,9 @@ The blocking findings for L6max MAIN 1.10
   to rejected entry, owned persistent storage, appropriate state handling for
   both paths, and all users to acquire a lease before loading a callback or
   touching shared scratch; these remain unproven. Its
-  atomic retries and selector wait have no established target deadline.
+  admission rejects unexpected gate state, but its strong atomic operation
+  can retry on the target. Safe rejection behavior and deadlines for the atomic
+  sequence and selector wait remain unproven.
 - In QEMU, the inspector's long-hold gesture was misclassified during a
   stress run with nonzero synthetic sends on all three effect buses. Silent
   input runs passed after a DSP optimization; the active-audio control path
