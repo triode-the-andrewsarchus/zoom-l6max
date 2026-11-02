@@ -8841,3 +8841,54 @@ ELF, initial diagnostic NOR, recipe, result and trace SHA-256 values were
 `54f0dbb0e57039c32416df82ac6d85106de159685880c76b097a4f4a732ba31d`, and
 `1623dce0a5fc5d8a7d08e364f4779caa6d5ac62ed20112c9ad98a78be9cd076f`.
 The modified diagnostic image must not be installed.
+
+### Power-of-two Velvet history experiment
+
+A disposable prototype kept the 4,802-sample delay limit and malformed-delay
+normalization, but increased each of the three history rings to 8,192 samples
+and replaced the wrapped subtraction with a mask. It tracked nonzero samples
+over the larger ring, so it can continue convolving after all samples in the
+original delay window have become silent. This is a performance experiment,
+not a proposed firmware layout. It increases the three histories by 40,680
+bytes; neither their ownership nor the resulting processor layout is proven.
+
+A 180,000-frame host render, with changing filter parameters, intermittent
+inputs and both stereo and shared-mono routing, matched the control byte for
+byte (SHA-256 `9f713039f0b54907d28c06b4fad3673a20e71375afbc56acc7c9cc4675fd182a`).
+The candidate had 285 active taps at frames 10,000 and 25,000. This comparison
+does not establish equivalence for every input, control sequence, or corrupt
+state.
+
+Sequential high-density long-fade diagnostics with nonzero synthetic sends
+advanced 1,736 callbacks for the existing ring and 1,416 for the larger ring
+over five guest seconds, versus 3,750 nominal. Fade counters advanced 1,575
+and 1,283 respectively; both had 285 taps, nonzero observed audio, and a
+closed inspector. These are single QEMU observations and can be affected by
+host load; they do not measure physical timing or prove the cause of the
+difference. The additional memory and lack of an observed speedup do not
+justify adopting this prototype.
+
+The control/candidate diagnostic MAIN hashes were
+`4d4925cf96ccc379c36c3618feca96b69d8402d3e0942eac6cf910c71a1b706e` /
+`958d5d91dd45ef7d0dd07b8635438ffc5b3bd161a13457dd1dd19b24ea916e14`;
+the ELF hashes were
+`5ae8e13a44372f6f3d77ccc28b87d65e2f9a69fc589a0aa51b9efb7330b42c00` /
+`d2cf20251fac1b9bd9c8054824ed615f3cfd4622a09bbf7e87c6b8513451549a`.
+The control and temporary candidate Velvet source hashes were
+`5b600441f67af8ea4c4019ac9cfa92164ac8c6b62087b6057424443b23550459` /
+`f2c8ec9c88b25c68ac4af8d66a171adcd0f6fc0ece972ed4734ef91ccba7c05c`.
+Their recipe hashes were
+`739348d234d88a02c24c8795be967d8b7dfa0dee8b0f6579aab7d0f38fe8b4f2` /
+`0dea69d709da1a0d9df0ec2b43353c4d825d0354cb2cede8bc9594db1128e45b`.
+The stock MAIN and initial NOR were
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461` and
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`.
+Panel firmware, initial flash, options and RTC were respectively
+`4640747acf15fb7a1d53da1d4b20c1412e9426349aeb260275ebd192924433ff`,
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
+QEMU was `4902e96e8375adb69b1ebe0e5572fe1ba3fb6a0e413c8595605128a297dfd910`
+and `l6dbg` was `ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`;
+the QEMU build source is unattested. These diagnostics use unowned scratch and
+must never be installed on hardware.
