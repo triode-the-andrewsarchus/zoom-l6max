@@ -468,11 +468,12 @@ impl PlateauReverb {
 
         let scale = SR_SCALE * params.size;
 
-        // Diffusers
-        self.in_apf1.delay_time = clamp_usize((141.0 * scale) as usize, 1, IN_APF1_MAX - 1);
-        self.in_apf2.delay_time = clamp_usize((107.0 * scale) as usize, 1, IN_APF2_MAX - 1);
-        self.in_apf3.delay_time = clamp_usize((379.0 * scale) as usize, 1, IN_APF3_MAX - 1);
-        self.in_apf4.delay_time = clamp_usize((277.0 * scale) as usize, 1, IN_APF4_MAX - 1);
+        // Plateau scales the tank with size; input diffuser times depend only
+        // on sample rate, so changing size does not retime their histories.
+        self.in_apf1.delay_time = clamp_usize((141.0 * SR_SCALE) as usize, 1, IN_APF1_MAX - 1);
+        self.in_apf2.delay_time = clamp_usize((107.0 * SR_SCALE) as usize, 1, IN_APF2_MAX - 1);
+        self.in_apf3.delay_time = clamp_usize((379.0 * SR_SCALE) as usize, 1, IN_APF3_MAX - 1);
+        self.in_apf4.delay_time = clamp_usize((277.0 * SR_SCALE) as usize, 1, IN_APF4_MAX - 1);
 
         // Tank delays
         self.l_apf1.delay_time = clamp_usize((672.0 * scale) as usize, 1, L_APF1_MAX - 32);

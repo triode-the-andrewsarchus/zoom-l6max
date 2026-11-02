@@ -5791,3 +5791,30 @@ The diagnostic MAIN, ELF, recipe and diagnostic JSON hashes were
 `ff8505801a191db2ad79fbd2f45dacb84e938e0a2dbbdfb04a70fda0ac692f63`.
 Stock MAIN, input NOR and panel state, QEMU and `l6dbg` match the preceding
 modeled-input routing experiment; QEMU's build provenance is unattested.
+
+A further QEMU-only combined inspector run tested a Plateau size edit with
+modeled input. A temporary callback capture recorded the four input-diffuser
+delays and the left tank's first feedback delay every 32 callbacks. Before the
+edit these were `(227, 172, 611, 446, 7182)` samples; after four encoder-2
+steps they were `(227, 172, 611, 446, 7756)`. The inspector recorded four
+edits and the queue drained at 7/7 with no drops. The three captured routing
+stages also contained clean nonzero modeled sends on the expected buses. The
+standard route checker initially rejected the run because its callback-address
+constant did not match this instrumented build. The recorded callback
+`0x8010ddd1` matched `diagnostic_audio` in the diagnostic ELF; the remaining
+route checks were then evaluated with that address verified separately. These
+are non-atomic scratch captures from one run, not evidence of real-time
+performance, audio quality or hardware safety. Never install this image.
+
+The diagnostic MAIN, effect ELF, popup ELF, edited recipe and diagnostic JSON
+SHA-256 values were respectively
+`38ae10ef3d2711208476a9d3b404d0ec4b22dee2964a19a945ec522b28d86d59`,
+`c3ea7422229f71ad7ea493d71ef1a0f9218c1faafda9e9b01c9c3e527e8a034d`,
+`b22eb39c1ffb970f375a01345e6bfc68e3a179e19321560c2e46f5b7fe465d62`,
+`3cecf4f8d6a01e27e940b75b1478b44f8451095e567ab94dd4fc562d8b59a5f5`, and
+`547f46f854e93ee24917c88c4cbf096ea40bfb62f011c04a9d89012af0c33b0d`.
+The temporary callback source and Plateau source hashed to
+`2d7f2c530dc1ab02e89f811d6fd121b7abd0d61fddbd3bb35a4741e6b4dd730c` and
+`c3a3bfebd56084967064770a81503275073959925cef048bc7b3c49b96ec3a9f`.
+Stock MAIN, NOR, panel state, QEMU and `l6dbg` match the preceding
+modeled-input inspector run; the QEMU build's provenance is unattested.
