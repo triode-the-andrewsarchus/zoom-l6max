@@ -418,11 +418,16 @@ impl VelvetDecorrelator {
         let size = MAX_DELAY_SAMPLES;
         // A malformed count must not panic inside an audio callback. Silence
         // this bank rather than convolving an incomplete or unrelated table.
-        for tap in bank.storage.get(..bank.count).unwrap_or(&[]) {
+        let taps = bank.storage.get(..bank.count).unwrap_or(&[]);
+        // A corrupt position cannot safely address the history. Fail closed.
+        if wp >= size { return 0.0; }
+        for tap in taps {
             let delay = tap.delay as usize;
             let d = if delay < size { delay } else { wrap_out_of_range_delay(delay) };
             let read = history_index(wp, d);
-            result += tap.gain * delay_line[read];
+            // SAFETY: wp is in range and d is normalized to the ring
+            // length, so their wrapped difference indexes delay_line.
+            result += tap.gain * unsafe { delay_line.get_unchecked(read) };
         }
         result
     }
@@ -675,6 +680,9 @@ mod tests {
         channel.banks[0].count = 1;
         // A bad position still encounters a bounds check, not an unchecked read.
         assert!(std::panic::catch_unwind(|| VelvetDecorrelator::convolve_pair(&channel, &history, 0)).is_err());
+        assert_eq!(VelvetDecorrelator::convolve(&channel.banks[0], &channel.delay_line, MAX_DELAY_SAMPLES), 0.0);
+        channel.banks[0].count = MAX_TAPS + 1;
+        assert_eq!(VelvetDecorrelator::convolve(&channel.banks[0], &channel.delay_line, 0), 0.0);
     }
 
     #[test]
@@ -705,6 +713,8 @@ mod tests {
                 expected.1 += tap.gain * history.delay_line[read];
             }
             assert_eq!(VelvetDecorrelator::convolve_pair(&channel, &history, 0), expected, "wp={wp}");
+            assert_eq!(VelvetDecorrelator::convolve(&channel.banks[0], &channel.delay_line, wp), expected.0, "wp={wp}");
+            assert_eq!(VelvetDecorrelator::convolve(&channel.banks[0], &history.delay_line, wp), expected.1, "wp={wp}");
         }
     }
 

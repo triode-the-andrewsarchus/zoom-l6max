@@ -199,6 +199,10 @@ invalid-position and malformed-delay tests also passed under host Miri. A matche
 emulator comparison reached about 527 modeled
 callbacks per second and still did not open the inspector. This does not
 qualify physical timing, memory ownership or behavior under corrupted state.
+The single-history loop now uses the same index bound, returning silence for
+an invalid position. In a separate one-history QEMU workload it advanced
+about 495 callbacks per modeled second before and 526 after the change;
+neither inspector opened and physical timing remains unmeasured.
 With maximum density and a 100 ms renewal interval, a paired QEMU stress
 probe reached about 532 callbacks per modeled second with a 1 ms fade and
 339 with a 90 ms fade. Neither inspector opened; pre-AINR was omitted.

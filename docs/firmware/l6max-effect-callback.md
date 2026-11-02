@@ -7216,3 +7216,36 @@ The temporary Velvet, routing and callback sources were
 `cd57dd178f092136e890b44f7c70cc95a3d91965825d499a388efe1d3226f5e0`.
 Stock MAIN, input NOR, panel state, QEMU and `l6dbg` matched the preceding
 experiment; the modified images must not be installed.
+
+### Single-history Velvet ring reads
+
+The single-history convolution now checks the write position once and uses
+unchecked reads only after normalizing each delay. The existing exhaustive
+index test covers all in-range positions and delays; focused reference tests
+also cover malformed delays, an invalid position and a malformed tap count.
+The convolution returns silence for an invalid position, but that does not
+qualify other callers against arbitrary corrupt state. Selected valid and
+invalid cases passed under host Miri. A 40,000-frame host render spanning
+single, cascade, combined and silent sends plus a filter edit matched the
+previous implementation byte for byte; the output SHA-256 was
+`5ddc81f5ce30e4d3f3d66a797df8a1f45d21773242fc6988cc033aa427346418`.
+
+In a one-history QEMU diagnostic with 285 Velvet taps, the old and new builds
+advanced 2,477 and 2,631 callbacks respectively over five guest seconds,
+against 3,750 nominal. The inspector stayed closed in both runs. This
+comparison uses synthetic sends, excludes pre-AINR, and does not establish
+physical timing, general UI behavior or hardware safety. The old/new MAIN
+hashes were `c91a12f525b3e4e12f27cd979a43b3333bb527738e8152a29549eb9b0b27eeef`
+and `ec61c97d793b888e72b4d97a8198007c0364327850f3fdbd7b19b01237882560`;
+the ELFs were `6cae723c800e57c64ee40ee9e5ea3bf5603cfaea057c0dd50e129efc3418969f`
+and `dc268f878817427c1740c0928f147bc0384b39278639d1dfb4ac6fee4c67bdc7`;
+recipe/result hashes were
+`dd73e1742a33e9045b8efd057405d8acd38223ad59a7b2a257da57cf15b254a4` /
+`e75c28fd6f96dd5b2a2888cfe86e8cd8b3484d75d4143d5a9b50efcb455cda9a` and
+`359d6276b010601c2bcec73c79bbef60677e5c916adcdce70531d7a645eb4bca` /
+`96f72b2f8090fc2b81d3bfcca1838dcae36b4854cc19a13613f776131b6c6669`.
+The temporary single-send callback source SHA-256 was
+`a09c43e139566fbf014c781156fc632606d60ef21a432d5dbdba1b92069ec964`.
+Stock MAIN, initial NOR, unattested QEMU and `l6dbg` identities matched the
+preceding experiments. The diagnostic images use unowned scratch and must
+not be installed.
