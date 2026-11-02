@@ -75,8 +75,12 @@ The blocking findings for L6max MAIN 1.10
   history. The diagnostic now converts before and after that call. This short
   capture does not establish independent learning, physical full scale, or
   denoising quality. Continuous-clone comparisons without refreshed state
-  diverged at zero-based blocks 65 and 73 in two runs; the cause is unproven.
-  See the [research observation](https://github.com/derekstavis/zoom-l6max-research/blob/decb0af/docs/firmware/l6max-effects-ainr.md#selection-learning-and-processing).
+  diverged at zero-based blocks 65 and 73 in two runs. A follow-up observed
+  stock state changes before the second channel-0 call; mirroring both stock
+  channels then matched for 96 blocks per channel in one active-input run.
+  This suggests an omitted stock update may explain the divergence, but the
+  cause is unproven and independent clones remain unqualified. See the
+  [research observation](https://github.com/derekstavis/zoom-l6max-research/blob/d2867e2/docs/firmware/l6max-effects-ainr.md#selection-learning-and-processing).
 - L6max 1.10 also supports stock effect returns to Sub-Mix and Mix Minus.
   A QEMU diagnostic with synthetic sends and replacement DSP reached modeled
   Sub-Mix transmit slots when enabled. USB Mix Minus, physical output mapping,

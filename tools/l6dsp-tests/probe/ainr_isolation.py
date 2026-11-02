@@ -261,9 +261,9 @@ def compare_second_clone(g, frame, initial_regs, original_after, checkpoint, ref
     return other, reference_state
 
 
-def call_clone(g, initial_regs, buffer, entry):
+def call_clone(g, initial_regs, buffer, entry, channel=0, return_address=0x20228d8a):
     g.expect('G' + initial_regs)
-    for index, value in ((0, buffer), (1, buffer), (2, 0), (14, 0x20228d8b), (15, entry)):
+    for index, value in ((0, buffer), (1, buffer), (2, channel), (14, return_address | 1), (15, entry)):
         g.setreg(index, value)
     g.packet('c')
 
@@ -278,7 +278,90 @@ def check_state(g, frame, original_after):
     print(f'Checkpoint {frame}: output and sampled state match', flush=True)
 
 
-def main():
+def wait_stereo_input(g, minimum_input):
+    # Skip complete stock calls until the requested live-input threshold is met.
+    for skipped in range(1200):
+        values = struct.unpack('<64f', g.read(0x20011010, 256))
+        if all(map(math.isfinite, values)) and max(map(abs, values)) > minimum_input:
+            return skipped
+        g.expect('z0,20228d86,2')
+        g.expect('Z0,20228d8a,2')
+        g.packet('c')
+        if g.reg(15) != 0x20228d8a:
+            raise RuntimeError('unexpected stock return while waiting for input')
+        g.expect('z0,20228d8a,2')
+        g.expect('Z0,20228d86,2')
+        g.packet('c')
+    raise RuntimeError('stock input did not reach the requested threshold')
+
+
+def compare_stereo_block(g, frame, channel):
+    entry = (0x20228d86, 0x20228d94)[channel]
+    ret = entry + 4
+    if frame or channel:
+        g.expect(f'Z0,{entry:x},2')
+        g.packet('c')
+    buffer = 0x20011010 + 0x100 * channel
+    if [g.reg(i) for i in (0, 1, 2, 15)] != [buffer, buffer, channel, entry]:
+        raise RuntimeError(f'unexpected entry at block {frame}, channel {channel}')
+    g.expect(f'z0,{entry:x},2')
+    initial_regs = g.packet('g')
+    samples = g.read(buffer, 256)
+    values = struct.unpack('<64f', samples)
+    if not all(map(math.isfinite, values)):
+        raise RuntimeError('nonfinite stock input')
+    peak = max(map(abs, values))
+    g.write(0x80e40000, samples)
+    g.expect(f'Z0,{ret:x},2')
+    g.packet('c')
+    if g.reg(15) != ret:
+        raise RuntimeError('unexpected stock return')
+    expected, post_regs = g.read(buffer, 256), g.packet('g')
+    if not all(map(math.isfinite, struct.unpack('<64f', expected))):
+        raise RuntimeError(f'nonfinite stock output at block {frame}, channel {channel}')
+    call_clone(g, initial_regs, 0x80e40000, 0x80f00780, channel, ret)
+    if g.reg(15) != ret or g.read(0x80e40000, 256) != expected:
+        raise RuntimeError(f'clone output mismatch at block {frame}, channel {channel}')
+    if frame in (0, 31, 63, 95):
+        for offset, length in ((0xb97c, 20), (0xb9a4, 20), (0xb9cc, 32),
+                               (0xba0c, 264), (0xbb14, 0x1b400)):
+            if g.read(0x20280000 + offset, length) != g.read(0x80e00000 + offset, length):
+                raise RuntimeError(f'clone state mismatch at block {frame}, channel {channel}, {offset:#x}')
+    g.expect('G' + post_regs)
+    g.expect(f'z0,{ret:x},2')
+    return expected, peak
+
+
+def compare_stereo(g, code, minimum_input):
+    """Mirror both natural stock calls in QEMU, including both working areas."""
+    g.expect('Hg1')
+    g.expect('Z0,20228d86,2')
+    g.packet('c')
+    if [g.reg(i) for i in (0, 1, 2, 15)] != [0x20011010, 0x20011010, 0, 0x20228d86]:
+        raise RuntimeError('unexpected first stock AINR call')
+    if struct.unpack('<I', g.read(0x2028ba4c, 4))[0] != 1:
+        raise RuntimeError('AINR processor is not learned')
+    skipped = wait_stereo_input(g, minimum_input)
+    if struct.unpack('<I', g.read(0x2028ba4c, 4))[0] != 1:
+        raise RuntimeError('AINR processor left the learned state while waiting for input')
+    source = g.read(0x20280000, 0x27000)
+    g.write(0x80e00000, source)
+    g.write(0x80f00000, code)
+    if g.read(0x80e00000, len(source)) != source or g.read(0x80f00000, len(code)) != code:
+        raise RuntimeError('stereo clone readback mismatch')
+    outputs = [bytearray(), bytearray()]
+    peaks = [0.0, 0.0]
+    for frame in range(96):
+        for channel in (0, 1):
+            expected, peak = compare_stereo_block(g, frame, channel)
+            peaks[channel] = max(peaks[channel], peak)
+            outputs[channel].extend(expected)
+    g.expect('D')
+    return {'blocks_per_channel': 96, 'input_peaks': peaks, 'skipped_blocks': skipped,
+            'output_sha256': [sha(output) for output in outputs], 'matches': True}
+
+
+def parse_arguments():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('firmware', type=Path, help='unpacked stock firmware directory')
     parser.add_argument('state', type=Path, help='stock L6max state directory')
@@ -288,7 +371,20 @@ def main():
     parser.add_argument('--channel0-prefix', action='store_true', help='zero the unobserved state suffix in the copied states')
     parser.add_argument('--replay-tails', nargs=2, type=replay_tail, metavar=('REFERENCE', 'CANDIDATE'),
                         help='QEMU-only: replay captured reference and candidate tails')
+    parser.add_argument('--stereo', action='store_true', help='compare both natural stock AINR calls')
+    parser.add_argument('--recipe', type=Path, help='override diagnostic recipe')
+    parser.add_argument('--minimum-input', type=float, default=0.0,
+                        help='require a finite stock sample larger than this magnitude in stereo mode')
     args = parser.parse_args()
+    if args.stereo and (args.independent or args.channel0_prefix or args.replay_tails):
+        parser.error('--stereo cannot be combined with independent, prefix or replay modes')
+    if not math.isfinite(args.minimum_input) or args.minimum_input < 0 or (args.minimum_input and not args.stereo):
+        parser.error('--minimum-input must be finite, nonnegative and used with --stereo')
+    return parser, args
+
+
+def main():
+    parser, args = parse_arguments()
     replay_tails = args.replay_tails
     out, main_image, nor = checked_inputs(parser, args.firmware, args.state, args.output)
     code = cloned_code(main_image)
@@ -301,7 +397,7 @@ def main():
     if (out / 'state' / 'main-nor.bin').read_bytes() != nor:
         raise RuntimeError('state NOR changed while copying')
     recipe = out / 'recipe.toml'
-    shutil.copyfile(RECIPE, recipe)
+    shutil.copyfile(args.recipe or RECIPE, recipe)
     identities = {'main_sha256': sha(main_image), 'initial_nor_sha256': sha(nor),
                   'qemu_path': str(qemu), 'qemu_sha256': sha(qemu.read_bytes()),
                   'qemu_source': 'unattested', 'recipe_sha256': sha(recipe.read_bytes()),
@@ -334,8 +430,11 @@ def main():
                 if time.monotonic() >= deadline:
                     raise TimeoutError('learned snapshot not produced in 300 seconds')
                 time.sleep(.1)
-            result = compare(Remote(socket_path), code, args.independent, args.channel0_prefix, replay_tails)
-            result['snapshot_bytes'] = (len(replay_tails[1]) if replay_tails is not None
+            if args.stereo:
+                result = compare_stereo(Remote(socket_path), code, args.minimum_input)
+            else:
+                result = compare(Remote(socket_path), code, args.independent, args.channel0_prefix, replay_tails)
+            result['snapshot_bytes'] = (0x27000 if args.stereo else len(replay_tails[1]) if replay_tails is not None
                                         else 0x19514 if args.channel0_prefix else 0x20000)
             process.wait(timeout=180)
             if process.returncode:

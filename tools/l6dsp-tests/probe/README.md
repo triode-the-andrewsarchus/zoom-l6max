@@ -642,6 +642,32 @@ state word at offset `0xba4c` set to 1. The two input hashes are recorded in
 state or a test of capture synchronization. Keep captured firmware state in
 local temporary storage and never commit it.
 
+`--stereo` instead mirrors both natural stock calls, using 159,744 bytes of
+copied state and 96 blocks per channel. It compares each clone output and
+checks both working areas at four checkpoints. This mode needs modeled input
+to reach the stock AINR call; `--minimum-input N` requires a finite input
+sample greater than N before the comparison starts. A custom `--recipe PATH`
+can set mixer controls and extend the wait after `learned_ready` for debugger
+work. For the observed gated-input run, that recipe inserted EFX (target 20),
+channel-1 encoder +20, LEVEL (target 35), channel-1 encoder +20, and a
+3-second guest wait immediately before `before_learn_control`, and extended
+the wait after `learned_ready` to 30 guest seconds. The QEMU build injected a
+500 Hz square wave gated at 0.5-second intervals on each modeled RX word.
+The recipe, exact QEMU binary, input fixture, and state are part of the
+result; a normal QEMU with silent inputs will not satisfy a positive threshold.
+The two channels in one observed run used identical modeled input, so matching
+results do not establish behavior with independent stereo signals. This mode
+does not implement or validate three independent pre-AINR processors.
+One such run matched 96 blocks per channel with a peak input of 45,838,220.
+Its stock MAIN, initial NOR, and QEMU SHA-256 values were
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a` and
+`eade074b5d7a6fe9d74bbbe1ad36a34f7356cd200cbfc81e772f2a21892012e8`.
+Its recipe, probe, and result hashes were
+`2761c79ab8817adc22459cb54922791e8c062deade5cb848533a4613d0d49c9c`,
+`821ef18d6cbf817ddbf7d1174c414ad6b965c2e9604b1b8a06e6776e98ad375f` and
+`338e7698d44f0df837b09da92ebde202e11209d9ffa5bb72f0b64cd0fc1d91a3`.
+
 This diagnostic modifies emulated execution and uses memory whose ownership on
 hardware is unknown. It does not establish complete relocation coverage,
 concurrent isolation, timing, pre-AINR integration, or physical safety, and
