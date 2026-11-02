@@ -6335,3 +6335,23 @@ The startup debugger recipe and two transcripts hashed to
 `47f5c90581db0aa6c020bb608348af07d206bb6912f56aab7556fca2b1fc7c8c`;
 the perturbed guest was stopped after observation. Stock MAIN, initial fixture,
 QEMU and `l6dbg` matched the preceding run.
+
+A further QEMU-only variant deliberately signaled `AudioProcess` immediately
+before one selector close and paused its live wrapper for eight ticks while it
+held the lease. In one full-cycle run, the signal returned 1; the selector
+observed the wrapper's entry marker, then gate value `5` (closed plus live),
+waited seven times, and observed the drained gate before proceeding. Seven
+selector guards acquired and released with no reported failure; the same
+run's forced no-card mix also rejected one late live entry and resumed callbacks.
+The [probe and checker](../../tools/l6dsp-tests/probe/README.md#forced-file-mix-handoff)
+include this deliberately scheduled case. It tests one instrumented
+interleaving and does not establish natural scheduling, bounded execution,
+safe rejection, reset behavior, DMA exclusion, memory ownership or physical
+timing. The modified MAIN and its scratch must never be installed.
+
+The diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`0bc3dd6c856c3ba100124e644468039e6f965cc07efd7f40db739e3a0f44bca6`,
+`6a8211e3bf443919e8e822cb4816148ac14545e8d0b4ad0619503211b6e78644`,
+`56b79bc9917ceb8ac2caa996c1b480c45658815e1d99908bfadd0f1761a6ac13`, and
+`38adbaa9f32d0117ccc7cb273d36993dadd58ff76e6b16be577380407bd690aa`.
+Stock MAIN, initial fixture, QEMU and `l6dbg` matched the preceding run.

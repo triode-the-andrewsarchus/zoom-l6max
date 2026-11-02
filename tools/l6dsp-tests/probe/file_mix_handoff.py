@@ -17,7 +17,14 @@ def check_selector(items):
     return acquired
 
 
-def check(report, bypass, selector=False):
+def check_overlap(items):
+    phase, signal, entered, closed, waits, drained = words(items, 'selector_overlap', '<6I')
+    if (phase, signal, entered, closed, drained) != (2, 1, 2, 5, 4) or not waits:
+        raise ValueError('selector did not wait for the forced live lease to drain')
+    return waits
+
+
+def check(report, bypass, selector=False, overlap=False):
     items = observations(report)
     marker, first, before = words(items, 'callback_state', '<III')
     after_marker, second, after = words(items, 'callback_after', '<III')
@@ -37,6 +44,8 @@ def check(report, bypass, selector=False):
                'after_restart': after}
     if selector:
         outcome['selector_transitions'] = check_selector(items)
+    if overlap:
+        outcome['selector_waits'] = check_overlap(items)
     return outcome
 
 
@@ -45,9 +54,12 @@ def main():
     parser.add_argument('report', type=Path)
     parser.add_argument('--bypass', action='store_true')
     parser.add_argument('--selector', action='store_true')
+    parser.add_argument('--overlap', action='store_true')
     args = parser.parse_args()
     try:
-        result = check(json.loads(args.report.read_text()), args.bypass, args.selector)
+        if args.overlap and not args.selector:
+            raise ValueError('--overlap requires --selector')
+        result = check(json.loads(args.report.read_text()), args.bypass, args.selector, args.overlap)
     except (OSError, json.JSONDecodeError, KeyError, ValueError) as error:
         parser.exit(1, f'check failed: {error}\n')
     print(json.dumps(result, indent=2))

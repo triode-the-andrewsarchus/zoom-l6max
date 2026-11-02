@@ -23,17 +23,41 @@ pub unsafe extern "C" fn selector_handoff_begin() -> u32 {
             return 0;
         }
         let gate: &'static CallbackAdmission = &*(GATE as *const CallbackAdmission);
+        #[cfg(selector_overlap)]
+        let overlap = read(0x81fff004 as *const u32) == 0x4f564c50;
+        #[cfg(selector_overlap)]
+        if overlap {
+            write(0x81fff004 as *mut u32, 0);
+            write(0x83e0b100 as *mut u32, 1);
+            let give: unsafe extern "C" fn(u32, u32, u32, u32) -> u32 = core::mem::transmute(0x80090ad1usize);
+            let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
+            write(0x83e0b104 as *mut u32, give(read(0x20007cf8 as *const u32), 0, 0, 0));
+            delay(1);
+            write(0x83e0b108 as *mut u32, read(0x83e0b100 as *const u32));
+        }
         let Some(guard) = gate.try_close() else {
             increment(2);
             return 0;
         };
+        #[cfg(selector_overlap)]
+        if overlap {
+            use core::sync::atomic::{AtomicU32, Ordering};
+            write(0x83e0b10c as *mut u32, (&*(GATE as *const AtomicU32)).load(Ordering::Acquire));
+        }
         let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
         for _ in 0..20 {
             if guard.is_drained() {
+                #[cfg(selector_overlap)]
+                if overlap { write(0x83e0b114 as *mut u32, 4); }
                 (GUARD as *mut CloseGuard<'static>).write(guard);
                 write(ACTIVE as *mut u32, 1);
                 increment(1);
                 return 1;
+            }
+            #[cfg(selector_overlap)]
+            if overlap {
+                let waits = 0x83e0b110 as *mut u32;
+                write(waits, read(waits).wrapping_add(1));
             }
             delay(1);
         }

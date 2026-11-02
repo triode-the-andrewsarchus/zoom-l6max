@@ -60,6 +60,15 @@ class FileMixHandoffTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             check(bad, True, True)
 
+        value['events'].append({'observation': {'name': 'selector_overlap',
+                                'bytes': list(struct.pack('<6I', 2, 1, 2, 5, 3, 4))}})
+        self.assertEqual(check(value, True, True, True)['selector_waits'], 3)
+        for index in (0, 1, 2, 3, 4, 5):
+            bad = copy.deepcopy(value)
+            bad['events'][-1]['observation']['bytes'][index * 4:index * 4 + 4] = [0, 0, 0, 0]
+            with self.subTest(index=index), self.assertRaises(ValueError):
+                check(bad, True, True, True)
+
 
 if __name__ == '__main__':
     unittest.main()

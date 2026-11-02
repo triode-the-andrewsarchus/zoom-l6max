@@ -97,6 +97,12 @@ unexpected value. Reset behavior, preexisting work, ramp destinations, scratch
 ownership and all selection callers remain unproven. This experiment must not
 be installed.
 
+Add `--selector-overlap` when preparing that image and `--overlap` to the
+checker to force an audio semaphore signal and an eight-tick pause with a live
+lease held during one selection. The checker requires a closed gate with a
+live lease, at least one wait, and a subsequently drained gate. This deliberately
+changes scheduling and does not establish physical timing or every interleaving.
+
 ## Synthetic file-mix layout
 
 To examine the candidate file-mix track layout, prepare a separate image with

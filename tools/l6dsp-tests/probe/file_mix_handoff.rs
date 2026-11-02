@@ -113,6 +113,12 @@ pub unsafe extern "C" fn mix_handoff_atomic_live() {
             None
         };
         if let Some(_lease) = lease {
+            #[cfg(selector_overlap)]
+            if read(0x83e0b100 as *const u32) == 1 {
+                write(0x83e0b100 as *mut u32, 2);
+                let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
+                delay(8);
+            }
             mix_handoff_original();
         } else {
             let counter = 0x83e0b004 as *mut u32;
