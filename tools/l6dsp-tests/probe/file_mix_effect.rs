@@ -95,11 +95,32 @@ pub unsafe extern "C" fn file_mix_effect_audio(_context: u32, descriptor: *const
             }
         }
         let state = &mut *(0x80d00000 as *mut crate::routing::DualEfxProcessor);
+        // Accumulate output observations once per block, not per volatile
+        // sample. This instrumentation perturbs timing and is QEMU-only.
+        let stats = 0x83e0a078 as *mut u32;
+        let mut nonzero = read(stats);
+        let mut nonfinite = read(stats.add(1));
+        let mut peaks = [
+            f32::from_bits(read(stats.add(2))),
+            f32::from_bits(read(stats.add(3))),
+        ];
         for i in 0..64 {
             write(control_target, read(control_source.add(i)));
             let (l, r) = state.process_bus_sample(sends[0][i], sends[1][i], sends[2][i]);
+            for (channel, value) in [l, r].into_iter().enumerate() {
+                if !value.is_finite() {
+                    nonfinite = nonfinite.saturating_add(1);
+                } else {
+                    nonzero = nonzero.saturating_add((value != 0.0) as u32);
+                    peaks[channel] = peaks[channel].max(value.abs());
+                }
+            }
             write(buffer.add(i), l);
             write(buffer.add(i + 64), r);
         }
+        write(stats, nonzero);
+        write(stats.add(1), nonfinite);
+        write(stats.add(2), peaks[0].to_bits());
+        write(stats.add(3), peaks[1].to_bits());
     }
 }

@@ -38,7 +38,12 @@ def check_project(report):
     if not count or maximum > 239936 or out_of_range or misaligned:
         raise ValueError('file mix did not use valid workspace offsets')
     error = check_project_capture(items)
-    return {'routed_calls': count, 'max_offset': maximum, 'max_input_error': error}
+    nonzero, nonfinite, left_peak, right_peak = words(items, 'file_mix_output', '<IIff')
+    if (not nonzero or nonfinite or not all(math.isfinite(p) and 0.0 < p <= 1.0
+                                            for p in (left_peak, right_peak))):
+        raise ValueError('file-mix effect output is silent, nonfinite or out of range')
+    return {'routed_calls': count, 'max_offset': maximum, 'max_input_error': error,
+            'output_nonzero_samples': nonzero, 'output_peaks': [left_peak, right_peak]}
 
 
 def check_selector(items):

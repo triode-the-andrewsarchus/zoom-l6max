@@ -812,6 +812,7 @@ if args.file_mix_project:
     add("memory", name="mix_handoff", address=0x83e0a000, length=44)
     add("memory", name="file_mix_sends", address=0x83e0c000, length=1040)
     add("memory", name="file_mix_routed_calls", address=0x83e0a060, length=24)
+    add("memory", name="file_mix_output", address=0x83e0a078, length=16)
 (out / "recipe.toml").write_text(recipe)
 if args.pre_ainr:
     metadata = {"stock_main_sha256": MAIN_SHA, "diagnostic_main_sha256": image_sha,

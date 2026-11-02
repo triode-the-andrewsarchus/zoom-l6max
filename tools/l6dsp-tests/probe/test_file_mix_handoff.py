@@ -34,12 +34,17 @@ class FileMixHandoffTests(unittest.TestCase):
             'mix_handoff': ('<11I', (0x4d495831, 1, 0, 0, 1, 1, 1, 0, 0x444f4e45, 0, 0)),
             'file_mix_routed_calls': ('<6I', (100, 6400, 0, 1, 6400, 0)),
             'file_mix_sends': ('<4I256f', (0x43415054, 0, 0, 0, *samples)),
+            'file_mix_output': ('<IIff', (100, 0, 0.5, 0.25)),
         }
         check_project(capture_report(captures))
         for name, value in (
             ('send_1', ('<B', (0,))),
             ('file_mix_routed_calls', ('<6I', (0, 0, 0, 0, 0, 0))),
             ('file_mix_routed_calls', ('<6I', (100, 240000, 1, 1, 240000, 0))),
+            ('file_mix_output', ('<IIff', (0, 0, 0.0, 0.0))),
+            ('file_mix_output', ('<IIff', (100, 1, 0.5, 0.25))),
+            ('file_mix_output', ('<IIff', (100, 0, float('nan'), 0.25))),
+            ('file_mix_output', ('<IIff', (100, 0, 1.1, 0.25))),
             ('file_mix_sends', ('<4I256f', (0, 0, 0, 0, *samples))),
             ('file_mix_sends', ('<4I256f', (0x43415054, 0, 0, 0, *([float('nan')] + samples[1:])))),
             ('file_mix_sends', ('<4I256f', (0x43415054, 0, 0, 0, *(stock + [0.0] * 192)))),

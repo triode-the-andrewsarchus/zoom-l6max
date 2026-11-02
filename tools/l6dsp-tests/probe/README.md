@@ -86,22 +86,26 @@ python3 tools/l6dsp-tests/probe/file_mix_handoff.py OUTPUT/logs/diagnostic.json 
 
 The checker requires a completed bounce, nonzero channel sends, bounded and
 aligned offsets, finite input and a nonzero B-only send matching the first
-captured stock block. Its pass is limited to that block and setup. Preserve
+captured stock block. It also requires finite, nonzero and bounded effect
+output on both channels across the observed calls. Input matching covers one
+block; output statistics do not establish fidelity. Preserve
 the firmware, NOR, card, recipe, QEMU and result identities separately; the
 external QEMU binary's source is unattested.
 
-One run recorded 6,144 routed calls, a maximum offset of 131,008 and a
-maximum captured input difference of `1.46e-11`. Its stock MAIN SHA-256 was
+One instrumented run recorded 6,144 routed calls, a maximum offset of 131,008,
+a maximum captured input difference of `1.46e-11` and 785,470 nonzero output
+samples. Left and right peaks were approximately `0.00042172` and
+`0.00042241`. Its stock MAIN SHA-256 was
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`;
 initial patched NOR, diagnostic MAIN, initial card and recipe were
-`48950155714d9f508fed36c1366b3d9deaf2b257421b59123f297aed2d13580d`,
-`5c17fecdbcb39ac4345e60f48a7b7a3ac034727afaac47eb1b17bd0a33f5fb05`,
+`5300dbe0b90fa96959a0735d51b7ffc86896207e67a3d77b35035f76ab6bacbd`,
+`937a880e4a89a126f07d0f83da20838cc97b574a98cbf03ad350c15cd89fafe0`,
 `fb1a78fb2bbce8d8abb6e2f87da342e96aad6a02545bf6bfdecf2c564deb2c44`, and
-`1fb0a6b6ab4cc310b92b4ce8cb3b4fa776d7a01a97316ff9b61018e1e992b87d`.
+`f8bc2dadd7668df7eccb75c2e08a01baa316eae96a6a818a437279f3abd5655b`.
 The QEMU executable, `l6dbg` and `diagnostic.json` hashes were
 `4902e96e8375adb69b1ebe0e5572fe1ba3fb6a0e413c8595605128a297dfd910`,
 `ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`, and
-`bc21a07b826ec8806b0250b97a33c427eea99355c532111f656e276522aadee1`.
+`0404677957bfd2b3c6c338013f4990a475f32e71b157152799340d3b1dc48c41`.
 The input NOR was
 `1f2df1149cd7f7d028653d25e0e0f42c6de6b4b92b43595e5e089ad9c11e1a91`.
 
