@@ -287,7 +287,7 @@ python3 tools/l6dsp-tests/probe/prepare_ui.py UNPACKED_DIR STOCK_STATE_DIR /tmp/
 target/debug/l6dbg /tmp/l6-ui-route/recipe.toml \
   --firmware-dir /tmp/l6-ui-route/firmware --state-dir /tmp/l6-ui-route/state \
   --logs /tmp/l6-ui-route/logs --qemu QEMU_WITH_TEST_TONE > /tmp/l6-ui-route/result.json
-python3 tools/l6dsp-tests/probe/mixer_input_capture.py --ui-route /tmp/l6-ui-route/result.json
+python3 tools/l6dsp-tests/probe/mixer_input_capture.py --ui-route --probe-elf /tmp/l6-ui-route/probe.elf /tmp/l6-ui-route/result.json
 ```
 
 The probe opens the Room inspector, changes the first route from B to A→B
@@ -297,6 +297,8 @@ at least one clean nonzero snapshot on the expected bus, not a continuous
 audio or timing guarantee. The fixture uses unowned scratch and does not
 establish physical input mapping, GUI parity, sound quality or hardware safety.
 `--mixer-route-capture` excludes the synthetic-send and timing-trace options.
+The checker reads `diagnostic_audio` from the supplied ELF, whose identity
+must be matched to the diagnostic image separately; it needs `llvm-nm`.
 
 The combined prototype shows the current page on opening or switching it.
 The recipe captures Room and Spring popup frames and routing-page edits. Verify the captured widget
