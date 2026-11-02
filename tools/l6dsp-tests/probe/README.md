@@ -83,14 +83,31 @@ physical-device compatibility.
 
 Prepare a separate image with `--admission-probe` to exercise the standalone
 atomic admission model on the emulated ARM target. The `admission_result`
-observation should contain `0x7ff` and marker `0x41444d31` in its first two
+observation should contain `0x3ffff` and marker `0x41444d31` in its first two
 32-bit words. This is a sequential interleaving test, not an integrated
 callback or real-time test. It uses unowned QEMU scratch; never install it.
 Host tests also force a delayed pointer load and concurrent entry and close
 operations. Both callback paths must participate before loading a callback
-pointer or touching shared scratch; at most one may hold a lease. Storage ownership,
+pointer or touching shared scratch; full live and file-mix leases are exclusive.
+The modeled live-bypass lease excludes another live lease while permitting a
+file-mix lease, and must not access effect state or other shared resources.
+Its firmware resource boundaries have not been established. Storage ownership,
 rejected-entry behavior, time bounds, other users and hardware synchronization
 remain unresolved.
+
+One sequential ARM emulator run returned `0x3ffff`. Its stock MAIN and source
+NOR SHA-256 values were `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`
+and `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`.
+Diagnostic MAIN, ELF, initial NOR, recipe and result were
+`744d55c8cd9007bc278638db486124eb483f9bb1d1bff45b7cc28785d86c98bd`,
+`8ce08a5ebfdd1d96be45651fbc9e627e212d7cdf3b4d65a7f8cc2ca271823e0d`,
+`e9f6111ebb8a5a56465d1350e4f2b87156c2c00a21ddc448bf933e945f1e5c18`,
+`1c9d727681af9cadcffdefe8f24f1e6743d60cc5ff28e538c303a9c9acff1d74`, and
+`960356a96cd3b0e701c45f49b3108fbc24461652aa73a950c81239c3d739f353`.
+The QEMU and `l6dbg` binaries were
+`4902e96e8375adb69b1ebe0e5572fe1ba3fb6a0e413c8595605128a297dfd910` and
+`ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`;
+the external QEMU source is unattested. The image must not be installed.
 
 ## Recorded-project file mix
 

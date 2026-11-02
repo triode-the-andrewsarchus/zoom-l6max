@@ -136,6 +136,46 @@ mod tests {
     }
 
     #[test]
+    fn live_bypass_is_exclusive_and_selector_waits_for_it() {
+        use admission::{CallbackAdmission, CallbackPath};
+        use core::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Barrier;
+        let gate = CallbackAdmission::new();
+        let file = gate.try_enter(CallbackPath::FileMix).unwrap();
+        let start = Barrier::new(3);
+        let attempted = Barrier::new(3);
+        let release = Barrier::new(3);
+        let successes = AtomicUsize::new(0);
+        std::thread::scope(|scope| {
+            let mut handles = Vec::new();
+            for _ in 0..2 {
+                let (gate, start, attempted, release, successes) =
+                    (&gate, &start, &attempted, &release, &successes);
+                handles.push(scope.spawn(move || {
+                    start.wait();
+                    let lease = gate.try_enter_live_bypass();
+                    if lease.is_some() { successes.fetch_add(1, Ordering::SeqCst); }
+                    attempted.wait();
+                    release.wait();
+                    drop(lease);
+                }));
+            }
+            start.wait();
+            attempted.wait();
+            assert_eq!(successes.load(Ordering::SeqCst), 1);
+            let close = gate.try_close().unwrap();
+            drop(file);
+            assert!(!close.is_drained());
+            assert!(gate.try_enter_live_bypass().is_none());
+            release.wait();
+            for handle in handles { handle.join().unwrap(); }
+            assert!(close.is_drained());
+            drop(close);
+        });
+        assert!(gate.try_enter(CallbackPath::Live).is_some());
+    }
+
+    #[test]
     fn ainr_boundary_pause_rejects_stale_acknowledgment_after_timeout() {
         use core::sync::atomic::AtomicU32;
         let word = AtomicU32::new(0);

@@ -2,9 +2,10 @@
 //!
 //! A lease must be acquired before loading a callback pointer or borrowing
 //! its state or shared scratch, and held until all accesses are complete.
-//! Live and file-mix leases are mutually exclusive because the stock paths
-//! share scratch buffers. Closing this gate does not stop DMA or code that
-//! does not participate in it.
+//! Full live and file-mix leases are mutually exclusive because the stock
+//! paths share effect state and scratch. A separate modeled live-bypass lease
+//! permits only work proven independent of file mixing. Closing this gate does
+//! not stop DMA or code that does not participate in it.
 use core::sync::atomic::{AtomicU32, Ordering};
 
 const LIVE: u32 = 1;
@@ -35,11 +36,32 @@ impl CallbackAdmission {
             .ok().map(|_| CallbackLease { gate: self, bit })
     }
 
+    /// Claims the live side while file mixing owns the effect. The caller may
+    /// only use resources proven disjoint from file mixing and must not load
+    /// or invoke the effect callback. Acquire before touching live scratch.
+    /// This model does not establish those resource boundaries in firmware.
+    pub fn try_enter_live_bypass(&self) -> Option<LiveBypassLease<'_>> {
+        self.state.compare_exchange(FILE_MIX, FILE_MIX | LIVE, Ordering::AcqRel, Ordering::Acquire)
+            .ok().map(|_| LiveBypassLease { gate: self })
+    }
+
     /// Stops new leases. Only one selector can hold the close guard; a caller
     /// must wait for `is_drained` before touching callback-owned state.
     pub fn try_close(&self) -> Option<CloseGuard<'_>> {
         let previous = self.state.fetch_or(CLOSED, Ordering::AcqRel);
         (previous & CLOSED == 0).then(|| CloseGuard { gate: self })
+    }
+}
+
+/// Owns only the modeled live bypass, not the effect or file-mix state.
+#[must_use]
+pub struct LiveBypassLease<'a> {
+    gate: &'a CallbackAdmission,
+}
+
+impl Drop for LiveBypassLease<'_> {
+    fn drop(&mut self) {
+        self.gate.state.fetch_and(!LIVE, Ordering::Release);
     }
 }
 
@@ -83,5 +105,46 @@ mod tests {
         gate.state.store(8, Ordering::Relaxed);
         assert!(gate.try_enter(CallbackPath::Live).is_none());
         assert!(gate.try_enter(CallbackPath::FileMix).is_none());
+        assert!(gate.try_enter_live_bypass().is_none());
+    }
+
+    #[test]
+    fn bypass_excludes_other_live_work_and_drains_in_either_order() {
+        for file_finishes_first in [false, true] {
+            let gate = CallbackAdmission::new();
+            assert!(gate.try_enter_live_bypass().is_none());
+            let file = gate.try_enter(CallbackPath::FileMix).unwrap();
+            let bypass = gate.try_enter_live_bypass().unwrap();
+            assert!(gate.try_enter_live_bypass().is_none());
+            assert!(gate.try_enter(CallbackPath::Live).is_none());
+            let close = gate.try_close().unwrap();
+            assert!(!close.is_drained());
+            assert!(gate.try_enter_live_bypass().is_none());
+            if file_finishes_first {
+                drop(file);
+                assert!(!close.is_drained());
+                drop(bypass);
+            } else {
+                drop(bypass);
+                assert!(!close.is_drained());
+                drop(file);
+            }
+            assert!(close.is_drained());
+            drop(close);
+            assert!(gate.try_enter(CallbackPath::Live).is_some());
+        }
+    }
+
+    #[test]
+    fn bypass_outlives_file_without_allowing_a_new_owner() {
+        let gate = CallbackAdmission::new();
+        let file = gate.try_enter(CallbackPath::FileMix).unwrap();
+        let bypass = gate.try_enter_live_bypass().unwrap();
+        drop(file);
+        assert!(gate.try_enter(CallbackPath::FileMix).is_none());
+        assert!(gate.try_enter(CallbackPath::Live).is_none());
+        assert!(gate.try_enter_live_bypass().is_none());
+        drop(bypass);
+        assert!(gate.try_enter(CallbackPath::FileMix).is_some());
     }
 }

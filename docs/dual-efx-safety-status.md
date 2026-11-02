@@ -113,6 +113,11 @@ The blocking findings for L6max MAIN 1.10
   sequence and selector wait remain unproven. The diagnostic's rejected-live
   branch clears two live effect buffers; if live calls overlap, it can write
   buffers in use by the admitted call despite having failed to acquire a lease.
+  A separate modeled bypass lease can exclude other live entries while file
+  mixing holds the effect lease; it grants no access to effect state. Host
+  tests cover concurrent claims and selector drain. This lease is not wired
+  into firmware, and stock resource separation and the selector-closed
+  rejection path remain unproven.
 - In QEMU, the inspector's long-hold gesture was misclassified during a
   stress run with nonzero synthetic sends on all three effect buses. Silent
   input runs passed after a DSP optimization; the active-audio control path

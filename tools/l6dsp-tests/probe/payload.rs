@@ -34,6 +34,26 @@ pub unsafe extern "C" fn probe_selection() {
 }
 
 #[cfg(admission_probe)]
+fn check_live_bypass(gate: &admission::CallbackAdmission) -> u32 {
+    use admission::CallbackPath;
+    let mut passed = 0;
+    let file = gate.try_enter(CallbackPath::FileMix);
+    let bypass = gate.try_enter_live_bypass();
+    if file.is_some() && bypass.is_some() { passed |= 0x800; }
+    if gate.try_enter_live_bypass().is_none() && gate.try_enter(CallbackPath::Live).is_none() { passed |= 0x1000; }
+    let close = gate.try_close();
+    if close.as_ref().is_some_and(|guard| !guard.is_drained()) { passed |= 0x2000; }
+    if gate.try_enter_live_bypass().is_none() { passed |= 0x4000; }
+    drop(file);
+    if close.as_ref().is_some_and(|guard| !guard.is_drained()) { passed |= 0x8000; }
+    drop(bypass);
+    if close.as_ref().is_some_and(|guard| guard.is_drained()) { passed |= 0x10000; }
+    drop(close);
+    if gate.try_enter(CallbackPath::Live).is_some() { passed |= 0x20000; }
+    passed
+}
+
+#[cfg(admission_probe)]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn probe_selection() {
     use admission::{CallbackAdmission, CallbackPath};
@@ -58,6 +78,7 @@ pub unsafe extern "C" fn probe_selection() {
     drop(timed_out);
     if file.is_some() && gate.try_enter(CallbackPath::Live).is_none() { passed |= 1024; }
     drop(file);
+    passed |= check_live_bypass(&gate);
     unsafe {
         core::ptr::write_volatile(0x83e00000 as *mut u32, passed);
         core::ptr::write_volatile(0x83e00004 as *mut u32, 0x41444d31);
