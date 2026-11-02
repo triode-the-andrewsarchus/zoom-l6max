@@ -24,6 +24,7 @@ parser.add_argument("state", type=Path, help="disposable stock emulator state di
 parser.add_argument("output", type=Path, help="new directory under the system temporary directory")
 parser.add_argument("--callback", action="store_true", help="observe automatic effect callback installation")
 parser.add_argument("--switches", action="store_true", help="observe all six effect selections")
+parser.add_argument("--mixer-input-capture", action="store_true", help="capture routed mixer input and output for each custom effect (QEMU only)")
 parser.add_argument("--inspector", action="store_true", help="enable QEMU-only inspector event hooks")
 parser.add_argument("--gesture-trace", action="store_true", help="record selector events (perturbs timing)")
 parser.add_argument("--enqueue-trace", action="store_true", help="record panel events before enqueue (perturbs timing)")
@@ -47,6 +48,10 @@ parser.add_argument("--passthrough-unready", action="store_true", help="keep syn
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
 parser.add_argument("--bank-stress-count", type=int, default=10, help="number of bank changes (1..64)")
 args = parser.parse_args()
+if args.mixer_input_capture and (not args.callback or args.switches or args.inspector
+        or args.active_sends or args.timing_control or args.pre_ainr or args.submix_return
+        or args.bank_stress or args.retain_custom_state or args.selector_load_trace):
+    parser.error("--mixer-input-capture requires --callback without other diagnostic variants")
 if args.selector_load_trace:
     if (not args.callback or not args.inspector or args.active_sends == args.timing_control
             or args.pre_ainr or args.submix_return or args.bank_stress or args.retain_custom_state
@@ -121,6 +126,8 @@ rustc = [
     "-C", "opt-level=z", "-C", "panic=abort", "-C", "relocation-model=static",
     "-C", f"link-arg=-T{PROBE / 'link.ld'}", "-o", str(elf),
 ]
+if args.mixer_input_capture:
+    rustc += ["--cfg", "mixer_input_capture"]
 if args.inspector:
     rustc += ["--cfg", "inspector_probe"]
 if args.gesture_trace:
@@ -277,21 +284,45 @@ name = "active_{i}"
 address = 0x202a6f20
 length = 4
 '''
+def add(action, **fields):
+    global recipe
+    recipe += '[[step]]\naction = "' + action + '"\n'
+    for key, value in fields.items():
+        if isinstance(value, bool):
+            recipe += f'{key} = {str(value).lower()}\n'
+        else:
+            recipe += f'{key} = "{value}"\n' if isinstance(value, str) else f'{key} = {value}\n'
+
+
+if args.mixer_input_capture:
+    recipe = f'''version = 1
+model = "l6max"
+main_sha256 = "{image_sha}"
+wall_timeout_s = 420
+'''
+    add("wait", guest_ms=45000)
+    add("press", target=20, hold_ms=150)
+    add("encoder", channel=1, steps=8)
+    add("wait", guest_ms=2000)
+    add("press", target=35, hold_ms=150)
+    add("encoder", channel=1, steps=8)
+    add("wait", guest_ms=2000)
+    for label in ("plateau", "velvet"):
+        add("press", target=40, hold_ms=150)
+        add("wait", guest_ms=6000)
+        for field, address, length in (
+            ("state", 0x83e00000, 12), ("marker", 0x83e00800, 8),
+            ("sends", 0x83e01000, 768), ("output", 0x83e01400, 512),
+            ("source", 0x83e02000, 3072), ("gains", 0x83e02c00, 512),
+        ):
+            add("memory", name=f"{label}_{field}", address=address, length=length)
+
 if args.inspector:
     recipe = f'''version = 1
 model = "l6max"
 main_sha256 = "{image_sha}"
 wall_timeout_s = 300
 '''
-    def add(action, **fields):
-        global recipe
-        recipe += '[[step]]\naction = "' + action + '"\n'
-        for key, value in fields.items():
-            if isinstance(value, bool):
-                recipe += f'{key} = {str(value).lower()}\n'
-            else:
-                recipe += f'{key} = "{value}"\n' if isinstance(value, str) else f'{key} = {value}\n'
-
     def wait(ms=2000):
         add("wait", guest_ms=ms)
 

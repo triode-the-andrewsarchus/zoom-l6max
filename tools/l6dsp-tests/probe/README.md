@@ -442,3 +442,37 @@ produced a different state under injected signal, despite reporting success;
 it was discarded. None establishes snapshot coherence, stock coexistence,
 deadline safety, reset behavior or a usable learning workflow. Never install
 these images on hardware.
+
+## Mixer-input capture
+
+`--callback --mixer-input-capture` prepares a separate, QEMU-only signal-path
+probe. It selects EFX and LEVEL for strip 1, selects each custom callback in
+turn, and captures one block of source slots, gains, reconstructed sends, and
+stereo return. For this comparison it resets the diagnostic route mailbox to
+B for Room and A for Spring on each selection. The marker is published after
+at least 100 callbacks and a send sample exceeds `1e-7`; a zero marker means
+no eligible block was captured. Scratch is unowned and the extra memory writes
+perturb execution. Do not install the result.
+
+The normal QEMU receive path supplies silence. To test nonzero input, supply a
+separately instrumented QEMU binary with a documented modeled input signal;
+this option does not generate audio. Record that executable and input's exact
+identity. Check the captured active callback and route, compare all 64 send
+samples to the captured source and gain data, and inspect both return channels
+for finite, nonzero samples bounded by unity. `python3 tools/l6dsp-tests/probe/mixer_input_capture.py
+/path/to/diagnostic.json` performs those checks for the probe's fixed test
+routes. Active gain ramps require their own capture and cannot be reconstructed
+from these snapshots. A successful recipe collects
+observations only; it does not establish physical input mapping, control
+responsiveness, state ownership, or hardware timing.
+
+For a repeatable L6max stimulus, `sai-test-tone.patch` applies to a disposable
+copy of the configured QEMU source tree's `hw/arm/l6max.c`. It replaces the
+silent receive data with a 500 Hz square wave, gated at 0.5-second intervals,
+on every modeled receive word. For example, after building the normal local
+`emulator/qemu/build-source` tree, copy it to a new temporary directory, apply
+this patch with `patch -p1` there, and rebuild its `qemu-system-arm` with
+Ninja. Use that binary only for diagnostic runs and hash it alongside the
+fixture and results. It is an artificial test signal; it is not a model of
+any particular analog jack, and the instrumented binary is not the normal
+emulator build.

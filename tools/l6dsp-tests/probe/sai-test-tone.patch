@@ -1,0 +1,18 @@
+--- a/hw/arm/l6max.c
++++ b/hw/arm/l6max.c
+@@ -3090,6 +3090,15 @@
+                 }
+             }
+             if (rx & L6_SAI_RE) {
++                /* Diagnostic build only: a gated, low-level 500 Hz square
++                 * wave on every modeled receive word. Not physical routing. */
++                static uint64_t input_frame;
++                bool on = (input_frame / 24000) % 2 == 0;
++                int32_t sample = on ? ((input_frame % 96 < 48) ? 0x01000000 : -0x01000000) : 0;
++                for (unsigned j = 0; j < ARRAY_SIZE(silence); j++) {
++                    silence[j] = (uint32_t)sample;
++                }
++                input_frame++;
+                 l6_sai_rx_frame(sai, silence, rx_words);
+                 /* RX requests assert after the frame has been written into
+                  * the FIFO, so evaluate the updated count for this edge. */

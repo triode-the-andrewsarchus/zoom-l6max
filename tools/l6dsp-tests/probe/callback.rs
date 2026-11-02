@@ -23,6 +23,8 @@ mod parameters;
 mod inspector;
 #[cfg(inspector_probe)]
 mod event_queue;
+#[cfg(mixer_input_capture)]
+mod mixer_capture;
 #[cfg(irq_trace)]
 mod irq;
 #[cfg(ring_timing)]
@@ -134,6 +136,8 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
             core::ptr::write_volatile(0x83e00000 as *mut u32, 0x494e4954);
             core::ptr::write_volatile(0x83e00004 as *mut u32, entry as u32);
             core::ptr::write_volatile(0x83e00008 as *mut u32, 0);
+            #[cfg(mixer_input_capture)]
+            core::ptr::write_volatile(0x83e00800 as *mut u32, 0);
             // In the combined diagnostic, retain functional routes in the
             // heap sidecar. Null sidecar falls back to this effect's default.
             #[cfg(knob_inspector)]
@@ -141,7 +145,7 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
                 inspector::initialize_routes(&mut *storage.cast(), entry as usize);
             }
             #[cfg(not(knob_inspector))]
-            if !routes_initialized {
+            if !routes_initialized || cfg!(mixer_input_capture) {
                 let route = if entry as usize == 0x2028b8dc { 2u32 } else { 1u32 };
                 for slot in 0..12 {
                     core::ptr::write_volatile((0x83e00100 as *mut u32).add(slot), route);
@@ -288,6 +292,8 @@ pub unsafe extern "C" fn diagnostic_audio(_context: u32, descriptor: u32) {
         }
         #[cfg(pre_ainr_probe)]
         process_pre_ainr_sends(&mut sends);
+        #[cfg(mixer_input_capture)]
+        let capture_input = unsafe { mixer_capture::begin(&sends, counter) };
         if unsafe { core::ptr::read_volatile(0x83e00140 as *const u32) } != 0 {
             for bus in 0..3 {
                 for i in 0..64 {
@@ -308,6 +314,8 @@ pub unsafe extern "C" fn diagnostic_audio(_context: u32, descriptor: u32) {
                 core::ptr::write_volatile(buffer.add(i + 64), r);
             }
         }
+        #[cfg(mixer_input_capture)]
+        if capture_input { unsafe { mixer_capture::finish(buffer, counter); } }
         #[cfg(active_sends)]
         unsafe {
             core::ptr::write_volatile(0x83e00804 as *mut u32, core::ptr::read_volatile(counter));
