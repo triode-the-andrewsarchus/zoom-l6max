@@ -13,6 +13,7 @@ class PreparerModeTests(unittest.TestCase):
         preparer = Path(__file__).with_name('prepare.py')
         selector = ['--callback', '--inspector', '--selector-load-trace']
         cases = [
+            (['--callback', '--admission-probe'], '--admission-probe cannot'),
             (['--offline-mix-layout'], '--offline-mix-layout requires'),
             (['--callback', '--offline-mix-layout', '--inspector'], '--offline-mix-layout requires'),
             (['--callback', '--offline-mix-layout', '--switches'], '--offline-mix-layout requires'),

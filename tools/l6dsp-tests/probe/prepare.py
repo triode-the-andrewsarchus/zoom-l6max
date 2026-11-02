@@ -23,6 +23,7 @@ parser.add_argument("firmware", type=Path, help="unpacked stock firmware directo
 parser.add_argument("state", type=Path, help="disposable stock emulator state directory")
 parser.add_argument("output", type=Path, help="new directory under the system temporary directory")
 parser.add_argument("--callback", action="store_true", help="observe automatic effect callback installation")
+parser.add_argument("--admission-probe", action="store_true", help="exercise the standalone callback admission model in QEMU")
 parser.add_argument("--switches", action="store_true", help="observe all six effect selections")
 parser.add_argument("--mixer-input-capture", action="store_true", help="capture routed mixer input and output for each custom effect (QEMU only)")
 parser.add_argument("--offline-mix-layout", action="store_true", help="run a destructive synthetic file-mix layout probe in QEMU")
@@ -50,6 +51,8 @@ parser.add_argument("--passthrough-unready", action="store_true", help="keep syn
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
 parser.add_argument("--bank-stress-count", type=int, default=10, help="number of bank changes (1..64)")
 args = parser.parse_args()
+if args.admission_probe and args.callback:
+    parser.error("--admission-probe cannot be combined with --callback")
 if args.offline_mix_layout and (not args.callback or any((args.switches, args.inspector,
         args.mixer_input_capture, args.gesture_trace, args.enqueue_trace, args.irq_trace,
         args.irq_timing, args.ring_timing, args.ring_drop, args.timing_control, args.active_sends,
@@ -140,6 +143,8 @@ rustc = [
 ]
 if args.mixer_input_capture:
     rustc += ["--cfg", "mixer_input_capture"]
+if args.admission_probe:
+    rustc += ["--cfg", "admission_probe"]
 if args.offline_mix_layout:
     rustc += ["--cfg", "offline_mix_layout"]
 if args.inspector:
@@ -524,6 +529,8 @@ wall_timeout_s = 420
 if args.offline_mix_layout:
     recipe = recipe.replace('wall_timeout_s = 180', 'wall_timeout_s = 300', 1)
     add("memory", name="offline_layout", address=0x83e07000, length=316)
+if args.admission_probe:
+    recipe = recipe.replace('name = "impulse_peaks"', 'name = "admission_result"', 1)
 (out / "recipe.toml").write_text(recipe)
 if args.pre_ainr:
     metadata = {"stock_main_sha256": MAIN_SHA, "diagnostic_main_sha256": image_sha,

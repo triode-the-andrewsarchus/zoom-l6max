@@ -12,6 +12,8 @@ pub mod parameter_view;
 pub mod parameters;
 #[path = "../../../patches/dual-efx/src/controls.rs"]
 pub mod controls;
+#[path = "../../../patches/dual-efx/src/admission.rs"]
+pub mod admission;
 #[path = "../probe/event_queue.rs"]
 pub mod event_queue;
 #[path = "../probe/handoff_protocol.rs"]
@@ -22,6 +24,110 @@ pub mod boundary_pause;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn callback_admission_drains_both_paths_and_rejects_duplicate_closes() {
+        use admission::{CallbackAdmission, CallbackPath};
+        let gate = CallbackAdmission::new();
+        let live = gate.try_enter(CallbackPath::Live).unwrap();
+        let file = gate.try_enter(CallbackPath::FileMix).unwrap();
+        assert!(gate.try_enter(CallbackPath::Live).is_none());
+        assert!(gate.try_enter(CallbackPath::FileMix).is_none());
+        let close = gate.try_close().unwrap();
+        assert!(gate.try_close().is_none());
+        assert!(gate.try_enter(CallbackPath::Live).is_none(), "failed close reopened the gate");
+        assert!(!close.is_drained());
+        drop(live);
+        assert!(!close.is_drained());
+        drop(file);
+        assert!(close.is_drained());
+        assert!(gate.try_enter(CallbackPath::FileMix).is_none());
+        drop(close);
+        assert!(gate.try_enter(CallbackPath::Live).is_some());
+        assert!(gate.try_enter(CallbackPath::FileMix).is_some());
+    }
+
+    #[test]
+    fn callback_admission_handles_timeout_and_pointer_load_after_close() {
+        use admission::{CallbackAdmission, CallbackPath};
+        use core::sync::atomic::{AtomicU32, Ordering};
+        use std::sync::mpsc::sync_channel;
+        use std::time::Duration;
+        let gate = CallbackAdmission::new();
+        let pointer = AtomicU32::new(7);
+        let (entered_tx, entered_rx) = sync_channel(1);
+        let (continue_tx, continue_rx) = sync_channel(1);
+        let (loaded_tx, loaded_rx) = sync_channel(1);
+        std::thread::scope(|scope| {
+            let gate_ref = &gate;
+            let pointer_ref = &pointer;
+            scope.spawn(move || {
+                let lease = gate_ref.try_enter(CallbackPath::Live).unwrap();
+                entered_tx.send(()).unwrap();
+                continue_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+                let old = pointer_ref.load(Ordering::Relaxed);
+                drop(lease);
+                loaded_tx.send(old).unwrap();
+            });
+            entered_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            let timed_out = gate.try_close().unwrap();
+            assert!(!timed_out.is_drained());
+            drop(timed_out);
+            assert!(gate.try_enter(CallbackPath::Live).is_none(), "active lease was lost on timeout");
+            let close = gate.try_close().unwrap();
+            assert!(!close.is_drained());
+            continue_tx.send(()).unwrap();
+            assert_eq!(loaded_rx.recv_timeout(Duration::from_secs(5)).unwrap(), 7);
+            assert!(close.is_drained());
+            pointer.store(9, Ordering::Relaxed);
+            drop(close);
+        });
+        let lease = gate.try_enter(CallbackPath::Live).unwrap();
+        assert_eq!(pointer.load(Ordering::Relaxed), 9);
+        drop(lease);
+    }
+
+    #[test]
+    fn callback_admission_serializes_each_path_during_concurrent_closes() {
+        use admission::{CallbackAdmission, CallbackPath};
+        use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+        use std::sync::Barrier;
+        let gate = CallbackAdmission::new();
+        let active = [AtomicUsize::new(0), AtomicUsize::new(0)];
+        let changing = AtomicBool::new(false);
+        let start = Barrier::new(5);
+        std::thread::scope(|scope| {
+            for (lane, path) in [(0, CallbackPath::Live), (0, CallbackPath::Live),
+                                 (1, CallbackPath::FileMix), (1, CallbackPath::FileMix)] {
+                let (gate, active, changing, start) = (&gate, &active, &changing, &start);
+                scope.spawn(move || {
+                    start.wait();
+                    for _ in 0..3000 {
+                        if let Some(lease) = gate.try_enter(path) {
+                            assert_eq!(active[lane].fetch_add(1, Ordering::SeqCst), 0);
+                            assert!(!changing.load(Ordering::SeqCst));
+                            std::thread::yield_now();
+                            assert_eq!(active[lane].fetch_sub(1, Ordering::SeqCst), 1);
+                            drop(lease);
+                        }
+                    }
+                });
+            }
+            start.wait();
+            for _ in 0..3000 {
+                if let Some(close) = gate.try_close() {
+                    if close.is_drained() {
+                        changing.store(true, Ordering::SeqCst);
+                        assert_eq!(active[0].load(Ordering::SeqCst), 0);
+                        assert_eq!(active[1].load(Ordering::SeqCst), 0);
+                        changing.store(false, Ordering::SeqCst);
+                    }
+                    drop(close);
+                }
+                std::thread::yield_now();
+            }
+        });
+    }
 
     #[test]
     fn ainr_boundary_pause_rejects_stale_acknowledgment_after_timeout() {
