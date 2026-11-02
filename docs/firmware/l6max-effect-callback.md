@@ -6899,3 +6899,43 @@ The temporary candidate's file-mix MAIN, ELF, recipe and result were
 its initial NOR was
 `cbe3085d77443a5f06a930c4713998b9d66064de875e96debfd97595ea0bad76`.
 Stock MAIN, panel state, QEMU and `l6dbg` matched the preceding experiment.
+
+### Further Velvet timing experiments
+
+Two temporary `opt-level=3` selector-load pairs used 285 taps and nonzero
+synthetic sends, without pre-AINR. Setting the Rust target CPU to Cortex-M7
+did not improve the measured callback count: both generic and tuned builds
+advanced by 2,635 in five guest seconds. The tuned ELF also advertised a
+broader floating-point architecture than the generic build; the actual chip
+variant is not established, so this is not a justified firmware target.
+Neither inspector opened.
+
+A separate prototype mirrored the three Velvet history rings, writing each
+sample twice so convolution reads need no wrap operation. Its matched control
+advanced by 2,637 callbacks in five guest seconds; the mirrored build advanced
+by 2,795. Both had 285 taps and neither inspector opened. This is a 6% gain in
+this diagnostic, still below the nominal 3,750 callbacks and not evidence of
+hardware timing. All 104 host tests passed, and a 40,000-frame host comparison
+produced the same output hash
+`2c05f4b906baa5d67cdccbf8763ab05cabd985c091c7b1ee23acd3be8d196e43`.
+The target processor state grew by 57,624 bytes to 336,968; the current
+0x50000-byte diagnostic layout cannot hold it. Rearranging the stock-state
+copies and workspace might accommodate it, but firmware ownership and the
+combined layout remain unproven. The prototype was not adopted.
+
+The mirrored control and candidate MAIN hashes were
+`1ebd809a7a73685289a838604ec6482ce80de1983b9e6f77d51b633f402d2950` and
+`f9eae4814ac701f4ccbed7b89e28275458078054ca1f33e2d4c6c59998535372`;
+their ELFs were `a3eefc56d80a555e48b8db094879b3417e4ca5b00eeeee173fa2d762491d5ece`
+and `afe27de89dee53ac20f1917f922b9f1e69ee5833f2f5deb569112b3c4939413d`.
+Their recipe/result hashes were
+`d245b9c04679412eb6a977ce3149d80d81de25ba71b3ec92f2edb6a9f4ed1f12` /
+`b5914723983916c3693453b13f710c01cddc3d02c0d61c011ee9c4a1a1f99500` and
+`f14799709dd032065366ee1d390e2568324db7338b2a0c1b07e056975d0e62be` /
+`284c8f9041baafe1242e29c27c44b82e2f5742ce12d33744849b0dc5be9eaab7`.
+The stock MAIN and initial NOR hashes were
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461` and
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`.
+The external QEMU and `l6dbg` binaries were
+`eade074b5d7a6fe9d74bbbe1ad36a34f7356cd200cbfc81e772f2a21892012e8` and
+`52af793c1d34e927210f99cf49117180121d8bd62885ce0ee7148be5dedbf2f6`.
