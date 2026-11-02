@@ -125,6 +125,9 @@ The blocking findings for L6max MAIN 1.10
 
 Some standalone DSP defects have been fixed and tested on the host. Those
 tests do not exercise the firmware bindings or establish hardware safety.
+An out-of-range Velvet bank tap count now silences that bank instead of
+panicking; host and forced ARM tests cover the stereo and shared-history
+paths. Other malformed processor state remains unqualified.
 Plateau's zero-diffusion setting now bypasses its input diffuser chain while
 advancing that chain's history. Its bypass and allpass gains ramp over 64
 frames on diffusion edits. Host tests cover the immediate impulse path, an

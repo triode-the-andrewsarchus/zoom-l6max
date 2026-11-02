@@ -6010,6 +6010,41 @@ SHA-256 values were respectively
 Stock MAIN, initial NOR, panel state, QEMU and `l6dbg` match the preceding
 modeled-input inspector run; the QEMU build's provenance is unattested.
 
+### Invalid Velvet bank count
+
+An out-of-range public Velvet bank count previously panicked in both the
+stereo and shared-history paths. The affected bank now contributes silence;
+host tests verify the other channel remains unchanged and a later dynamic
+regeneration restores a valid bank. A forced ARM/QEMU test with a maximum
+invalid count returned marker `0x56424e44` and result bits `3`, covering
+both processing paths. This does not validate arbitrary malformed processor
+state, memory ownership or callback lifetime; the diagnostic uses unowned
+scratch and must not be installed.
+
+The forced-test MAIN, ELF, recipe and result SHA-256 values were
+`5c8a9309748c3993dca596c8e7ec5e5acc645ca6db4b924ce0c2a1349a3ae266`,
+`82e58492e9e384ed84c2f1c19ab60c9d921c056a7bf95e084aa0546e684d6723`,
+`6ecf1390960bbd9149bf90929688c855aed4fd4439a813a3a4d62e4f192ce61f`, and
+`7a410ae403da7e6d6774be481f33b9e37949eb2c8b337634b54605819f36006a`.
+The temporary test source and Velvet source hashed to
+`6ce06e4c845b5df3eb5d39d5becc61ca79d3440ef35b4a2bce2be1f31e5cdb76` and
+`6a29a03b904099f38a9a9dee76692ea8a254f6a6e2be24bc41457c3f7fa43bf0`.
+
+A separate active-sends, 285-tap selector-load run advanced by 2,082
+callbacks in five guest seconds, about 416 per second. The earlier recorded
+run observed the same count, though the surrounding code also changed. The
+IRQ saw both hold edges but the traced enqueue and handler did not record
+them by the later snapshot. These instrumented model observations neither
+isolate all performance effects nor measure target timing or qualify controls.
+The new MAIN, ELF, recipe and result hashes were
+`2d6ee12034b55fb91c8e35b6ccab60d5d54fbd45d8996434c10870f8c823bb38`,
+`9b138e70b1a9e96baaa4e57ea96f99a55a1d4327ea3317d24ba4f48e25fcee06`,
+`2fd42b9d8ea632fe55eea3c97a438b8753abbc1714b8d04fe4ec6933e4600b6d`, and
+`ed81946ed1288323b54d32bb48bde0761d1760285e393afbcf672c4bd4db2044`.
+Both experiments used the stock MAIN, initial NOR, panel state, QEMU and
+`l6dbg` identified in the preceding modeled-input run; QEMU provenance is
+unattested.
+
 ### Standalone callback admission model
 
 The standalone model admits at most one lease for each of the live and

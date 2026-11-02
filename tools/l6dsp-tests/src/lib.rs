@@ -1412,6 +1412,42 @@ mod tests {
     }
 
     #[test]
+    fn invalid_velvet_bank_count_silences_only_its_channel() {
+        let mut damaged = Box::new(velvet::VelvetDecorrelator::new());
+        let mut reference = Box::new(velvet::VelvetDecorrelator::new());
+        let params = velvet::Parameters { dynamic: false, ..velvet::Parameters::default() };
+        damaged.init(params);
+        reference.init(params);
+        damaged.channels[0].banks[damaged.active_bank].count = usize::MAX;
+        for frame in 0..5000 {
+            let input = (frame as f32 * 0.03).sin() * 0.1 + 0.1;
+            let (left, right) = damaged.process_sample(input, input);
+            let (_, expected_right) = reference.process_sample(input, input);
+            assert_eq!(left, 0.0, "corrupt left frame {frame}");
+            assert_eq!(right, expected_right, "valid right frame {frame}");
+        }
+        damaged.init(params);
+        reference.init(params);
+        damaged.channels[0].banks[damaged.active_bank].count = usize::MAX;
+        let mut damaged_history = velvet::MonoHistory::new();
+        let mut reference_history = velvet::MonoHistory::new();
+        for frame in 0..5000 {
+            let input = (frame as f32 * 0.03).sin() * 0.1 + 0.1;
+            let ((a_l, a_r), (b_l, b_r)) = damaged.process_shared_mono(&mut damaged_history, input, -input);
+            let ((_, expected_a), (_, expected_b)) = reference.process_shared_mono(&mut reference_history, input, -input);
+            assert_eq!((a_l, b_l), (0.0, 0.0), "corrupt left frame {frame}");
+            assert_eq!((a_r, b_r), (expected_a, expected_b), "valid right frame {frame}");
+        }
+        let dynamic = velvet::Parameters { dynamic: true, refresh_seconds: 0.1,
+            transition_ms: 1.0, ..velvet::Parameters::default() };
+        damaged.init(dynamic);
+        damaged.channels[0].banks[damaged.active_bank].count = usize::MAX;
+        for _ in 0..10_000 { damaged.process_sample(0.1, 0.1); }
+        assert!(damaged.channels[0].banks[damaged.active_bank].count <= velvet::MAX_TAPS);
+        assert_ne!(damaged.process_sample(0.1, 0.1).0, 0.0, "valid regenerated bank stayed silent");
+    }
+
+    #[test]
     fn velvet_keeps_the_last_delayed_sample_through_silence() {
         let mut engine = Box::new(velvet::VelvetDecorrelator::new());
         engine.init(velvet::Parameters::default());
