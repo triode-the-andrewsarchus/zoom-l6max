@@ -13,6 +13,7 @@ class PreparerModeTests(unittest.TestCase):
         preparer = Path(__file__).with_name('prepare.py')
         selector = ['--callback', '--inspector', '--selector-load-trace']
         cases = [
+            (['--max-velvet-density'], '--max-velvet-density requires'),
             (['--mixer-input-capture'], '--mixer-input-capture requires'),
             (['--callback', '--mixer-input-capture', '--inspector'], '--mixer-input-capture requires'),
             (['--callback', '--mixer-input-capture', '--switches'], '--mixer-input-capture requires'),

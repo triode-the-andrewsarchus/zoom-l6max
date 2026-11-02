@@ -123,7 +123,17 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
         unsafe { auto_handoff::allocate(); }
         let storage = 0x80d00000 as *mut core::mem::MaybeUninit<routing::DualEfxProcessor>;
         if !reuse {
+            #[cfg(not(max_velvet_density))]
             routing::DualEfxProcessor::initialize_in_place(unsafe { &mut *storage });
+            #[cfg(max_velvet_density)]
+            {
+                let processor = routing::DualEfxProcessor::initialize_in_place(unsafe { &mut *storage });
+                let mut params = processor.velvet.current;
+                params.length_ms = 95.0;
+                params.density = 3000.0;
+                processor.velvet.init(params);
+                unsafe { core::ptr::write_volatile(0x83e03f00 as *mut u32, processor.velvet.channels[0].banks[processor.velvet.active_bank].count as u32); }
+            }
         }
         unsafe {
             // The route mailbox is outside the stock effect buffer. Keep it

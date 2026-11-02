@@ -136,7 +136,10 @@ for each image. Inspect `start`, `end`, `work`, `inspector`, `inspector_later`,
 `irq`, `enqueue`, `gesture` and `selected` in each result; the runner collecting
 them is not an assertion that the interaction passed. Both images perturb
 timing and use unowned scratch. A separate modified source was used for the
-historical 285-tap observations below.
+historical 285-tap observations below. Add `--max-velvet-density` to either
+selector-load image to initialize Velvet at 95 ms and 3,000 pps; the recipe
+also records `tap_count`. The option is a QEMU-only stress case and does not
+change the installable firmware.
 
 For a paired Sub-Mix observation, copy the same Hall-selected 1.10 state to
 two disposable directories and use `l6nor set` to set
