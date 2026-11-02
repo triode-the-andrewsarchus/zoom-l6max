@@ -17,8 +17,11 @@ unsafe fn increment(index: usize) {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn selector_handoff_begin() -> u32 {
     unsafe {
-        crate::file_mix_handoff::ensure_gate();
         increment(0);
+        if !crate::file_mix_handoff::ensure_gate() {
+            increment(2);
+            return 0;
+        }
         let gate: &'static CallbackAdmission = &*(GATE as *const CallbackAdmission);
         let Some(guard) = gate.try_close() else {
             increment(2);

@@ -90,9 +90,12 @@ closure it calls the stock float ramp generator and writes its final sample to
 an indirect destination; this approximates work normally performed by an
 effect callback and is not qualified as equivalent or safe. Its recipe cycles
 further through stock effects, including AINR. Add `--selector` to the checker.
-A timeout aborts selection without a qualified recovery; gate initialization,
-existing in-flight work, ramp destinations, scratch ownership and all selection
-callers remain unproven. This experiment must not be installed.
+A timeout aborts selection without a qualified recovery. The experiment assumes
+its scratch starts at zero, initializes the gate on the first participating
+entry, and fails closed if initialization is in progress or scratch has an
+unexpected value. Reset behavior, preexisting work, ramp destinations, scratch
+ownership and all selection callers remain unproven. This experiment must not
+be installed.
 
 ## Synthetic file-mix layout
 

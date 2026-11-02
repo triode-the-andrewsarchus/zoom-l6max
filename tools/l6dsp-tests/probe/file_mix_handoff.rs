@@ -11,16 +11,26 @@ const GATE: usize = 0x83e0b000;
 const READY: usize = 0x83e0b008;
 #[cfg(file_mix_atomic)]
 const READY_MAGIC: u32 = 0x47415445;
+#[cfg(file_mix_atomic)]
+const INITIALIZING: u32 = 0x494e4954;
 
 #[cfg(file_mix_atomic)]
-pub unsafe fn ensure_gate() {
+pub unsafe fn ensure_gate() -> bool {
     unsafe {
-        // Disposable emulator scratch; initialization and ownership are not
-        // qualified for hardware or already-running wrapper entries.
+        // Only disposable, initially zeroed emulator scratch is assumed.
+        // A competing initializer or an unexpected value fails closed.
         let ready = &*(READY as *const AtomicU32);
-        if ready.load(Ordering::Acquire) != READY_MAGIC {
-            (GATE as *mut CallbackAdmission).write(CallbackAdmission::new());
-            ready.store(READY_MAGIC, Ordering::Release);
+        if ready.load(Ordering::Acquire) == READY_MAGIC {
+            return true;
+        }
+        match ready.compare_exchange(0, INITIALIZING, Ordering::AcqRel, Ordering::Acquire) {
+            Ok(_) => {
+                (GATE as *mut CallbackAdmission).write(CallbackAdmission::new());
+                ready.store(READY_MAGIC, Ordering::Release);
+                true
+            }
+            Err(READY_MAGIC) => true,
+            Err(_) => false,
         }
     }
 }
@@ -31,7 +41,7 @@ pub unsafe fn queue_if_requested() {
         if read(trigger) == 0x54524947 {
             write(trigger, 0);
             #[cfg(file_mix_atomic)]
-            ensure_gate();
+            if !ensure_gate() { return; }
             let enqueue: unsafe extern "C" fn() = core::mem::transmute(0x800475b9usize);
             enqueue();
         }
@@ -49,6 +59,8 @@ pub unsafe extern "C" fn mix_handoff_observer(a: u32, b: u32, c: u32, d: u32) ->
         write(out.add(3), read(0x40384094 as *const u32));
         write(out.add(4), read(0x40384008 as *const u32));
         write(out.add(5), read(0x40384088 as *const u32));
+        #[cfg(file_mix_atomic)]
+        if !ensure_gate() { return 9; }
         #[cfg(file_mix_atomic)]
         let lease = match (&*(GATE as *const CallbackAdmission)).try_enter(CallbackPath::FileMix) {
             Some(lease) => lease,
@@ -95,11 +107,12 @@ unsafe extern "C" {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn mix_handoff_atomic_live() {
     unsafe {
-        if (&*(READY as *const AtomicU32)).load(Ordering::Acquire) != READY_MAGIC {
-            mix_handoff_original();
-            return;
-        }
-        if let Some(_lease) = (&*(GATE as *const CallbackAdmission)).try_enter(CallbackPath::Live) {
+        let lease = if ensure_gate() {
+            (&*(GATE as *const CallbackAdmission)).try_enter(CallbackPath::Live)
+        } else {
+            None
+        };
+        if let Some(_lease) = lease {
             mix_handoff_original();
         } else {
             let counter = 0x83e0b004 as *mut u32;

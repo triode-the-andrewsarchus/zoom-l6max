@@ -6308,3 +6308,30 @@ The debugger-stop recipe and transcript hashed to
 `4fa5fe6785a00294fa70475cbc0ed789b0f27e7486e2797dc912d5a5bbdf87d2`;
 that diagnostic was stopped after the observation. The input firmware,
 initial fixture, QEMU and `l6dbg` matched the preceding run.
+
+The next QEMU-only revision initializes admission on the first participating
+live, selector or file-mix entry, using a compare-and-exchange claim followed
+by release publication. An entry seeing initialization in progress or an
+unexpected marker fails closed rather than using the stock wrapper untracked.
+The marker and gate still occupy unowned scratch assumed initially zero. In a
+startup debugger stop at the first observed stock-wrapper entry, the marker
+was ready, the gate held a live lease, and no selector attempt had yet been
+recorded. In a separately perturbed stop, the debugger forced the marker to
+the initializing value before a live entry; that entry reached the silent
+path. This does not simulate simultaneous initializers, prove reset or SRAM
+initialization, bound atomic retries, or qualify the failure behavior.
+
+A full prepared run with the revised startup again completed seven balanced
+selection guards and rejected one forced late live entry during the no-card
+mix, with callback activity resuming afterward. The modified MAIN, ELF,
+recipe and result hashes were
+`a33128f0a225b8da55a9d985fea61cfcd2aa1376783e848f92f5bb8990a239cc`,
+`317ceff1290e8bc4314c4374db7c0c2161af97931be52cd32f7901fd5084db30`,
+`9e38e8bf7432a15cd7778c12297a69cb69b31d1c2ddaa88b226270312b65da02`, and
+`385fc42c653a189283584f38720f5634679ab327720430a52a567edc7c9a36fa`.
+The startup debugger recipe and two transcripts hashed to
+`cb8da976332d6d3d82a31ba20a0b5b4fdcd3407e7f03404a6d34b0f4d0467518`,
+`1f947361451e16b722d1ff5e6db9ef9584939d8cd331523c3d14beb0043e9ab2`, and
+`47f5c90581db0aa6c020bb608348af07d206bb6912f56aab7556fca2b1fc7c8c`;
+the perturbed guest was stopped after observation. Stock MAIN, initial fixture,
+QEMU and `l6dbg` matched the preceding run.
