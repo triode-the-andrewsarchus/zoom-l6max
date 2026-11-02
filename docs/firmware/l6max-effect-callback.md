@@ -5648,3 +5648,50 @@ The host comparison executables hashed to
 Rust was `1.99.0-nightly (1ed2df61a 2026-08-04)`. Callback and routing
 sources, stock MAIN, input state, `l6dbg`, and unattested QEMU matched the
 scalar comparison above.
+
+### Modeled receive input through the replacement effects
+
+A separate QEMU-only run applied the checked-in `sai-test-tone.patch` to a
+copy of the emulator source: it supplies the same gated 500 Hz square wave to
+every modeled SAI receive word. Panel gestures set strip 1 EFX and LEVEL. The
+`--mixer-input-capture` probe selected each experimental effect callback and
+forced its diagnostic routes to B for Room and A for Spring. It captured one
+block of mixer sources and gains, reconstructed sends, and return samples
+per effect. The checker found no active gain ramps; all 64 samples of each
+selected send matched its independent reconstruction, the other test sends
+were zero, and both 64-sample return channels were finite, nonzero, and
+within unity. The Plateau send and return peaks were approximately
+`1.40075e-5` and `3.61421e-5`; Velvet's were `1.42174e-5` and `1.55049e-5`.
+
+This demonstrates a modeled receive-to-mixer-to-effect-callback signal path
+for these two captured blocks. The test waveform is artificial, identical on
+all receive words, and quiet in this fixture. It does not establish physical
+input or jack mapping, musical audio quality, user-controlled routing, UI
+responsiveness, full-rate processing, ownership, or hardware safety. The
+capture uses unowned scratch and intrusive copies; do not install it. The raw
+modeled output was also captured locally, but is a mixer output including dry
+signal rather than an isolated effect return.
+
+The stock MAIN and input NOR were respectively
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461` and
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`.
+The diagnostic MAIN, ELF, recipe and result SHA-256 values were respectively
+`755a07087d2230cbee1fca5c558ae9cab0b122d016834fc1753bf664a5019c49`,
+`e6f34a76bcbb41008b73dc2428f7610bc515df2b5529df4de4027cdbed4309c3`,
+`cf8b2869bca1208b97a6bd1b021c535ffcfedbee934764d72cbe070662a1b1bf`, and
+`3baecb3cc4fde3ab6fb3738f705bb75f51bea9889ca9e8e044ed742d94ba94de`.
+The QEMU binary, modified QEMU source and tone patch hashes were
+`eade074b5d7a6fe9d74bbbe1ad36a34f7356cd200cbfc81e772f2a21892012e8`,
+`33297af852dde46b11c550ab40aceedf16217ec965113ef07f076fd0092fceeb`, and
+`d9f7be9da55ee4efa86089ad13b45b3d78b4cc859a0e02626d9351006443951a`;
+the external QEMU build's full source provenance is unattested. The callback,
+capture module, preparer and checker sources were respectively
+`fdae4b33ec48dc8544eb69e6e2e0a2d3b1ef2f8550a66eb0575202f6f062c133`,
+`4f37c9ee63d4482e140f456564a688f297d4ef17de229d53928bdd2fe1344ee9`,
+`f50bf79ca152ca1316e7ac7aac21df72631796aff5fe5b6503e1477c3d4273a0`, and
+`776877929b24cf063cd2d7d87234e19ecb7c388206a1b57688b201a803babc76`.
+The `l6dbg` executable and local raw output were
+`52af793c1d34e927210f99cf49117180121d8bd62885ce0ee7148be5dedbf2f6` and
+`6d5f7002ea4de0956bfc635b0e0dc57df0b1da0e7ba338e39b7bb77a992ccd53`.
+Panel flash, options and RTC input identities match the integrated block
+experiment above.

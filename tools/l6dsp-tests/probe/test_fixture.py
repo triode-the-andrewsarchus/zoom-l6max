@@ -13,6 +13,10 @@ class PreparerModeTests(unittest.TestCase):
         preparer = Path(__file__).with_name('prepare.py')
         selector = ['--callback', '--inspector', '--selector-load-trace']
         cases = [
+            (['--mixer-input-capture'], '--mixer-input-capture requires'),
+            (['--callback', '--mixer-input-capture', '--inspector'], '--mixer-input-capture requires'),
+            (['--callback', '--mixer-input-capture', '--switches'], '--mixer-input-capture requires'),
+            (['--callback', '--mixer-input-capture', '--active-sends'], '--mixer-input-capture requires'),
             (['--submix-return'], '--submix-return requires'),
             (['--callback', '--inspector', '--active-sends', '--submix-return', '--bank-stress'], '--submix-return requires'),
             (['--selector-load-trace', '--callback', '--active-sends'], '--selector-load-trace requires'),
