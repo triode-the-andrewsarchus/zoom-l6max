@@ -115,6 +115,9 @@ channels as the supplied Multistomp reference, independently of tank size.
 They read the full retained delay histories. Host tests exercise each tap at
 the smallest tank size; this does not establish overall audio equivalence with
 the reference or physical behavior.
+The input diffuser delay times are now also independent of tank size, as in
+that reference. Host tests cover size edits and retained input history, but
+do not establish musical quality or target execution time.
 The Velvet crossfade now calculates its phase step once per transition;
 host tests compare its weights with the previous calculation. In a disposable
 ARM diagnostic build, the former per-sample divide moved to transition start

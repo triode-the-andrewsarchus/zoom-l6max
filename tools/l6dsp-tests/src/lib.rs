@@ -1680,13 +1680,14 @@ mod tests {
         reverb.init(params);
         let scale = (48_000.0f32 / 29_761.0) * params.size;
         let samples = |value: f32| (value * scale) as usize;
+        let input_samples = |value: f32| (value * (48_000.0f32 / 29_761.0)) as usize;
         assert_eq!(reverb.predelay_samples, 9_120);
         assert!(reverb.predelay_samples < reverb.predelay.buffer.len());
         for (actual, expected) in [
-            (reverb.in_apf1.delay_time, samples(141.0)),
-            (reverb.in_apf2.delay_time, samples(107.0)),
-            (reverb.in_apf3.delay_time, samples(379.0)),
-            (reverb.in_apf4.delay_time, samples(277.0)),
+            (reverb.in_apf1.delay_time, input_samples(141.0)),
+            (reverb.in_apf2.delay_time, input_samples(107.0)),
+            (reverb.in_apf3.delay_time, input_samples(379.0)),
+            (reverb.in_apf4.delay_time, input_samples(277.0)),
             (reverb.l_apf1.delay_time, samples(672.0)),
             (reverb.l_apf2.delay_time, samples(1800.0)),
             (reverb.r_apf1.delay_time, samples(908.0)),
@@ -1714,6 +1715,28 @@ mod tests {
         ] {
             let tap_samples = (tap * (48_000.0f32 / 29_761.0)) as usize;
             assert!(tap_samples < capacity, "output tap exceeded retained history");
+        }
+    }
+
+    #[test]
+    fn plateau_size_changes_tank_without_retiming_input_diffusers() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        reverb.init(params);
+        let initial = [reverb.in_apf1.delay_time, reverb.in_apf2.delay_time,
+                       reverb.in_apf3.delay_time, reverb.in_apf4.delay_time];
+        let expected = [141.0f32, 107.0, 379.0, 277.0]
+            .map(|time| (time * (48_000.0f32 / 29_761.0)) as usize);
+        assert_eq!(initial, expected);
+        reverb.in_apf1.delay.write(0.75);
+        for size in [0.2, 0.55, 1.0, 1.2] {
+            params.size = size;
+            reverb.set_parameters(params);
+            assert_eq!([reverb.in_apf1.delay_time, reverb.in_apf2.delay_time,
+                        reverb.in_apf3.delay_time, reverb.in_apf4.delay_time], initial);
+            assert_eq!(reverb.in_apf1.delay.read(1), 0.75);
+            let expected_tank = (4453.0f32 * ((48_000.0f32 / 29_761.0) * size)) as usize;
+            assert_eq!(reverb.l_del1.length, expected_tank, "size {size}");
         }
     }
 
