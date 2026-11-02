@@ -126,8 +126,10 @@ The blocking findings for L6max MAIN 1.10
   during one leased bypass. Running them concurrently or simply discarding
   their live-side work is not yet qualified.
   One injected word-copy request remained pending through a bypass and was
-  consumed before the same QEMU file mix returned. This does not cover real
-  producers, competing requests, aborted mixes, other destinations or the
+  consumed before the same QEMU file mix returned. Another injected on the
+  final callback remained pending at return and was consumed after stream
+  restart in one traced run. This does not cover real producers, competing
+  requests, aborted mixes, failure to restart, other destinations or the
   doubleword path.
 - In QEMU, the inspector's long-hold gesture was misclassified during a
   stress run with nonzero synthetic sends on all three effect buses. Silent

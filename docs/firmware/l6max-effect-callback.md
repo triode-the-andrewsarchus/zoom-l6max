@@ -8725,6 +8725,32 @@ values were respectively
 Stock MAIN, source NOR, panel fixtures, external QEMU, plugin and `l6dbg`
 match the preceding extended trace; QEMU source is unattested.
 
+In a further run with the same generated card, the probe injected the request
+on callback 6,144 and checked that this was the final file-mix callback. The
+word and its destination remained pending at mix return. After the stream
+resumed, the slot was clear and the scratch destination contained the word.
+The CPU trace recorded instruction `0x8002bb86` in the stock word-copy helper
+writing that value while the diagnostic marked a normal-live block. This is
+one synthetic request in one instrumented schedule; the marker alone does not
+prove task identity or exclude other callers. Aborted mixes, no restart, real
+producers, competing requests, doubleword copies, DMA and physical timing
+remain unqualified. Never install the diagnostic image.
+
+The diagnostic MAIN, ELF, initial NOR, card, recipe, trace plugin source and
+binary, wrapper, result and trace SHA-256 values were respectively
+`914d8e6915299c3e8b3d755b2084305cef28145d45cbbbcdabc56d7c9c4b3c71`,
+`0812d24f25a2db8d304edbaa360240316a903cd6dbf437f6f6446017ee985196`,
+`892f65d2bd3f66d4d0849596da686f0c9d64369149e85eb1b3f26ed4d2905b41`,
+`fb1a78fb2bbce8d8abb6e2f87da342e96aad6a02545bf6bfdecf2c564deb2c44`,
+`9623bf3d3a1cb739bb63e2e4893412dbd3c9a69462066968ccd9dee97dd732a0`,
+`a88549823efcc9c1f09b0b6083b7d12632475a151728dc461d43a3443d7815e4`,
+`4e3fbc1fae32c17b3e73a26a5ea11311ae98752a5be871f2624756afe90249f3`,
+`7091d82300348e0debae32d64b6e1ce433551a7a320948b7258fa6a7c5cd332f`,
+`27e8bd7f549fd5ac254acefd861083334e338a5541bdc0d0a74e04d5c73dc633`, and
+`5270a19191747ed7671a4a39be72087842b6974cd53a194e5749a2824357772f`.
+Stock MAIN, source NOR, panel fixtures, external QEMU and `l6dbg` matched the
+preceding extended trace; QEMU source remains unattested.
+
 The forced-bounce probe also has an inner-guard variant: it allows the stock
 `AudioProcess` block to proceed, but rejects its effect wrapper while file
 mixing holds the lease. In one run the forced semaphore give succeeded, the

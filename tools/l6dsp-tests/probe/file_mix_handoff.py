@@ -70,6 +70,21 @@ def check_project_deferred_copy(report):
     return True
 
 
+def check_project_deferred_last(report, routed_calls):
+    items = observations(report)
+    expected = (1, 0, 1, 0xa55aa55a, 1, 0xa55aa55a, 0x83e0b940, 0x44454652)
+    if routed_calls != 6144 or words(items, 'project_deferred_copy', '<8I') != expected:
+        raise ValueError('final-callback copy did not remain pending at mix return')
+    if (words(items, 'project_deferred_after', '<2I') != (0, 0)
+            or words(items, 'project_deferred_target', '<I') != (0x5a3cc35a,)):
+        raise ValueError('final-callback copy was not consumed after restart')
+    marker, descriptor, count = words(items, 'project_callback_after', '<3I')
+    before = words(items, 'mix_handoff', '<11I')[1]
+    if (marker, descriptor) != (0x494e4954, 0x2028b8f8) or count <= before:
+        raise ValueError('expected live callback did not resume after mix')
+    return True
+
+
 def check_project_helpers(trace, routed_calls):
     entries = re.findall(r'^MIX_TRACE_HELPER pc=([0-9a-f]{8}) mix=(\d+) bypass=(\d+)$', trace, re.M)
     expected = {'8002bb18', '8002bba8', '80066180', '800664f0'}
@@ -81,6 +96,16 @@ def check_project_helpers(trace, routed_calls):
             or not re.search(r'^MIX_TRACE_END workspace_read=[1-9]\d* overflow=0$', trace, re.M)):
         raise ValueError('shared helper trace lacks its controls or overflows')
     return {pc: int(mix) for pc, mix, _ in entries}
+
+
+def check_project_copy_trace(trace):
+    entries = re.findall(r'^MIX_TRACE_COPY_AFTER pc=([0-9a-f]{8}) mode=(\d+) helpers=(\d+),(\d+),(\d+),(\d+)$', trace, re.M)
+    if len(entries) != 1:
+        raise ValueError('missing or repeated post-mix copy trace')
+    pc, mode, first, _, _, _ = entries[0]
+    if not 0x8002bb18 <= int(pc, 16) < 0x8002bba8 or mode != '1' or int(first) < 1:
+        raise ValueError('post-mix copy was not observed in the marked normal-live block')
+    return pc
 
 
 def check_selector(items):
@@ -274,13 +299,21 @@ def run_project_check(args):
     if args.project_leased_bypass:
         result['leased_bypass_blocks'] = check_project_leased_bypass(report)
     if args.project_deferred_copy:
-        result['deferred_copy_consumed'] = check_project_deferred_copy(report)
+        if args.project_deferred_last:
+            result['deferred_copy_after_restart'] = check_project_deferred_last(report, result['routed_calls'])
+        else:
+            result['deferred_copy_consumed'] = check_project_deferred_copy(report)
     if args.project_helper_trace:
-        result['helper_entries'] = check_project_helpers(args.project_helper_trace.read_text(), result['routed_calls'])
+        trace = args.project_helper_trace.read_text()
+        result['helper_entries'] = check_project_helpers(trace, result['routed_calls'])
+        if args.project_deferred_last:
+            result['post_mix_copy_pc'] = check_project_copy_trace(trace)
     return result
 
 
 def run_check(args):
+    if args.project_deferred_last and not args.project_deferred_copy:
+        raise ValueError('--project-deferred-last requires --project-deferred-copy')
     if args.project_deferred_copy and not args.project_leased_bypass:
         raise ValueError('--project-deferred-copy requires --project-leased-bypass')
     if args.project_helper_trace and not args.project_leased_bypass:
@@ -309,6 +342,7 @@ def main():
     parser.add_argument('--project-pending', action='store_true', help='check a forced audio wake inside the project mix callback')
     parser.add_argument('--project-leased-bypass', action='store_true', help='check the experimental outer-lease bypass')
     parser.add_argument('--project-deferred-copy', action='store_true', help='check an injected deferred copy across the bypass')
+    parser.add_argument('--project-deferred-last', action='store_true', help='check the final-callback copy after stream restart')
     parser.add_argument('--project-helper-trace', type=Path, help='check shared-helper execution in the plugin trace')
     parser.add_argument('--bypass', action='store_true')
     parser.add_argument('--selector', action='store_true')

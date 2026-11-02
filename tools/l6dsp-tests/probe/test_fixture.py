@@ -38,6 +38,7 @@ class PreparerModeTests(unittest.TestCase):
             (['--file-mix-project-inner'], '--file-mix-project-inner requires'),
             (['--file-mix-project-leased-bypass'], '--file-mix-project-leased-bypass requires'),
             (['--file-mix-project-deferred-copy'], '--file-mix-project-deferred-copy requires'),
+            (['--file-mix-project-deferred-last'], '--file-mix-project-deferred-last requires'),
             (['--file-mix-project', '--callback', '--file-mix-handoff', 'atomic',
               '--file-mix-project-pending', '--file-mix-project-inner', '--file-mix-project-leased-bypass'],
              '--file-mix-project-leased-bypass requires'),

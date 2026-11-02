@@ -196,6 +196,14 @@ globals and writes an unowned emulator address. It does not test real request
 producers, competing edits, other destinations, an aborted mix, the doubleword
 copy path, or hardware. Never install it.
 
+For the generated card used in this experiment, add
+`--file-mix-project-deferred-last` to the preparer and
+`--project-deferred-last` to the checker to inject at callback 6,144. The
+checker requires that to be the final callback, the copy to remain pending
+at mix return, and the resumed stream to consume it. Supplying the helper
+trace also checks the observed copy instruction and marked live-block mode.
+This fixture-specific test does not cover an aborted mix or failure to restart.
+
 One instrumented run recorded 6,144 routed calls, a maximum offset of 131,008,
 a maximum captured input difference of `1.46e-11` and 785,470 nonzero output
 samples. Left and right peaks were approximately `0.00042172` and

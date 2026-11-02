@@ -36,6 +36,7 @@ parser.add_argument("--file-mix-project-pending", action="store_true", help="for
 parser.add_argument("--file-mix-project-inner", action="store_true", help="guard the effect wrapper instead of discarding whole audio blocks (unsafe QEMU experiment)")
 parser.add_argument("--file-mix-project-leased-bypass", action="store_true", help="model an outer live-bypass lease during project mix (unsafe QEMU experiment)")
 parser.add_argument("--file-mix-project-deferred-copy", action="store_true", help="inject one deferred copy during the leased-bypass project probe")
+parser.add_argument("--file-mix-project-deferred-last", action="store_true", help="inject the copy at this fixture's final file-mix callback")
 parser.add_argument("--selector-admission", action="store_true", help="also gate effect selection after the stock fade (QEMU only)")
 parser.add_argument("--selector-overlap", action="store_true", help="force a live lease across selector closure (QEMU only)")
 parser.add_argument("--selector-timeout", action="store_true", help="force a selector timeout and inspect partial recovery (QEMU only)")
@@ -86,6 +87,8 @@ if args.file_mix_project_leased_bypass and (not args.file_mix_project_pending or
     parser.error("--file-mix-project-leased-bypass requires project pending and excludes inner guard")
 if args.file_mix_project_deferred_copy and not args.file_mix_project_leased_bypass:
     parser.error("--file-mix-project-deferred-copy requires --file-mix-project-leased-bypass")
+if args.file_mix_project_deferred_last and not args.file_mix_project_deferred_copy:
+    parser.error("--file-mix-project-deferred-last requires --file-mix-project-deferred-copy")
 if args.file_mix_project and (args.selector_admission or args.combined_admission_refresh):
     parser.error("--file-mix-project cannot be combined with selector or refresh admission")
 if args.selector_admission and args.file_mix_handoff != "atomic":
@@ -243,6 +246,8 @@ if args.file_mix_project_leased_bypass:
     rustc += ["--cfg", "file_mix_project_leased_bypass"]
 if args.file_mix_project_deferred_copy:
     rustc += ["--cfg", "file_mix_project_deferred_copy"]
+if args.file_mix_project_deferred_last:
+    rustc += ["--cfg", "file_mix_project_deferred_last"]
 if args.file_mix_handoff:
     rustc += ["--cfg", "file_mix_handoff"]
     if args.file_mix_handoff == "bypass":
@@ -841,6 +846,10 @@ if args.file_mix_project:
         add("memory", name="project_leased_bypass", address=0x83e0b820, length=24)
     if args.file_mix_project_deferred_copy:
         add("memory", name="project_deferred_copy", address=0x83e0b900, length=32)
+    if args.file_mix_project_deferred_last:
+        add("memory", name="project_deferred_after", address=0x80464fc8, length=8)
+        add("memory", name="project_deferred_target", address=0x83e0b940, length=4)
+        add("memory", name="project_callback_after", address=0x83e00000, length=12)
 (out / "recipe.toml").write_text(recipe)
 if args.pre_ainr:
     metadata = {"stock_main_sha256": MAIN_SHA, "diagnostic_main_sha256": image_sha,

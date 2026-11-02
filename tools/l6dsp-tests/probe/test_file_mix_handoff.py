@@ -3,7 +3,7 @@ import copy
 import struct
 import unittest
 
-from file_mix_handoff import check, check_ainr_admission, check_ainr_timeout, check_learned_marker, check_midi_trace, check_project, check_project_deferred_copy, check_project_helpers, check_project_leased_bypass, check_project_pending, check_timeout
+from file_mix_handoff import check, check_ainr_admission, check_ainr_timeout, check_learned_marker, check_midi_trace, check_project, check_project_copy_trace, check_project_deferred_copy, check_project_deferred_last, check_project_helpers, check_project_leased_bypass, check_project_pending, check_timeout
 
 
 def capture_report(captures):
@@ -26,6 +26,36 @@ def report(bypass):
 
 
 class FileMixHandoffTests(unittest.TestCase):
+    def test_post_mix_copy_trace_requires_live_mode_and_helper(self):
+        line = 'MIX_TRACE_COPY_AFTER pc=8002bb60 mode=1 helpers=1,0,0,0'
+        self.assertEqual(check_project_copy_trace(line), '8002bb60')
+        for bad in (line.replace('mode=1', 'mode=2'), line.replace('8002bb60', '8002bba8'),
+                    line.replace('helpers=1', 'helpers=0'), line + '\n' + line, ''):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                check_project_copy_trace(bad)
+
+    def test_final_callback_copy_requires_pending_then_restart_consumption(self):
+        captures = {
+            'project_deferred_copy': ('<8I', (1, 0, 1, 0xa55aa55a, 1, 0xa55aa55a, 0x83e0b940, 0x44454652)),
+            'project_deferred_after': ('<2I', (0, 0)),
+            'project_deferred_target': ('<I', (0x5a3cc35a,)),
+            'project_callback_after': ('<3I', (0x494e4954, 0x2028b8f8, 101)),
+            'mix_handoff': ('<11I', (0x4d495831, 100, 0, 0, 0, 0, 100, 0, 0x444f4e45, 0, 0)),
+        }
+        self.assertTrue(check_project_deferred_last(capture_report(captures), 6144))
+        with self.assertRaises(ValueError):
+            check_project_deferred_last(capture_report(captures), 6145)
+        for name, index in (('project_deferred_copy', 4), ('project_deferred_copy', 6),
+                            ('project_deferred_after', 0), ('project_deferred_after', 1),
+                            ('project_deferred_target', 0), ('project_callback_after', 2)):
+            bad = dict(captures)
+            fmt, values = bad[name]
+            values = list(values)
+            values[index] = 100 if name == 'project_callback_after' else values[index] ^ 1
+            bad[name] = (fmt, tuple(values))
+            with self.subTest(name=name, index=index), self.assertRaises(ValueError):
+                check_project_deferred_last(capture_report(bad), 6144)
+
     def test_deferred_copy_requires_pending_then_consumed(self):
         expected = (1, 0, 1, 0xa55aa55a, 0, 0x5a3cc35a, 0, 0x44454652)
         self.assertTrue(check_project_deferred_copy(capture_report({'project_deferred_copy': ('<8I', expected)})))
