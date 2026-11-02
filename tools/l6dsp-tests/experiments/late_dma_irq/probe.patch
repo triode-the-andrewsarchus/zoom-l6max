@@ -1,0 +1,34 @@
+--- a/tools/l6dsp-tests/probe/file_mix_handoff.rs
++++ b/tools/l6dsp-tests/probe/file_mix_handoff.rs
+@@ -73,11 +73,18 @@
+             write(0x83e0b004 as *mut u32, 0);
+             write(0x83e0b000 as *mut u32, 1);
+         }
+-        let give: unsafe extern "C" fn(u32, u32, u32, u32) -> u32 = core::mem::transmute(0x80090ad1usize);
+-        let semaphore = read(0x20007cf8 as *const u32);
+-        write(out.add(9), give(semaphore, 0, 0, 0));
++        // Disposable custom-QEMU MMIO request: inject a real guest DMA IRQ
++        // only after recording the stopped transfer state.
++        write(out.add(11), read(0x400e8024 as *const u32));
++        write(out.add(12), read(0x400e91f0 as *const u32));
++        write(out.add(13), read(0x400e91fc as *const u16) as u32);
++        write(out.add(9), 1);
++        write(0x83e0e000 as *mut u32, 0x4254474e);
++        write(0x400e80f0 as *mut u32, 0x4c364951);
++        write(out.add(14), read(0x400e8024 as *const u32));
+         let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
+         delay(50);
++        write(0x83e0e000 as *mut u32, 0x454e4421);
+         write(out.add(6), read(0x83e00008 as *const u32));
+         #[cfg(file_mix_bypass)]
+         write(out.add(10), read(0x83e0b004 as *const u32));
+--- a/tools/l6dsp-tests/probe/prepare.py
++++ b/tools/l6dsp-tests/probe/prepare.py
+@@ -700,6 +700,7 @@
+     add("wait", guest_ms=4000)
+     add("memory", name="callback_after", address=0x83e00000, length=12)
+     add("memory", name="mix_handoff", address=0x83e0a000, length=44)
++    add("memory", name="mix_irq", address=0x83e0a02c, length=16)
+ if args.selector_admission and not args.selector_timeout and not args.combined_admission_refresh:
+     for index in range(4):
+         if args.selector_overlap and index == 0:

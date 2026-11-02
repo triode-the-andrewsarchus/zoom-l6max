@@ -29,3 +29,71 @@ unmirrored sample arrays take 57,624 bytes, excluding other state in both cases.
 The block size and implementation are informed by the MIT-licensed
 Multistomp Velvet port at commit `7ea50ae6e30705989d0b8414ad5a83c97dbef0db`;
 that pedal's tests do not qualify the L6max implementation.
+
+## Forced late eDMA interrupt (QEMU only)
+
+[`late_dma_irq`](late_dma_irq/) contains disposable patches and a QEMU plugin
+for the file-mix handoff diagnostic. It replaces the synthetic semaphore give
+with a custom QEMU MMIO trigger that raises eDMA channel 15 after stream stop.
+The plugin counts entries to the guest IRQ handler, transfer dispatcher, RX
+stream callback, audio-completion callback, and audio block processor. The
+checker reuses the existing handoff checks and requires all five entries.
+The `mix_handoff` signal field in this experiment marks the injected request;
+it is not the return value of a semaphore give.
+
+**Never install these diagnostic images or use the patched QEMU as a normal
+emulator.** The trigger at `0x400e80f0` is invented and is not a hardware
+register. This models an interrupt forced after stop; it does not establish
+whether such an interrupt occurs naturally, qualify DMA/NVIC timing, exercise a
+successful file mix, or resolve shared-buffer and effect-state ownership.
+
+Starting from a staged `emulator/qemu/build-source/`, copy the source and apply
+`qemu.patch` only to that disposable copy. Configure a separate build with ARM
+system emulation, TCG and plugins enabled; for example, use the configure flags
+recorded by your existing QEMU build and add `--enable-plugins`. The patch's
+paths are relative to this repository, so when applying it in the copied
+source's `hw/arm` directory use `patch -p5`. Build the copied source and record
+the resulting QEMU executable's SHA-256; do not rely on a source commit alone.
+Compile `trace.c` as a QEMU plugin against that build's `qemu-plugin.h` and
+GLib headers, and use a wrapper that passes `-plugin PATH` to this custom QEMU.
+
+Separately copy `patches/dual-efx/src` and `tools/l6dsp-tests/probe` into an
+otherwise empty temporary tree retaining their relative paths. From that tree,
+apply `probe.patch` with `patch -p1`. Use its `prepare.py` with a matching
+stock firmware and state to build `--callback --file-mix-handoff pending` and
+`--callback --file-mix-handoff atomic` into separate fresh directories. Run
+each generated recipe with `l6dbg`, the custom QEMU wrapper, and a private
+GDB socket, as described in the [handoff diagnostic](../probe/README.md#forced-file-mix-handoff).
+Then check the two results:
+
+```sh
+python3 tools/l6dsp-tests/experiments/late_dma_irq/check.py PENDING_RESULT PENDING_ENGINE_STDERR
+python3 tools/l6dsp-tests/experiments/late_dma_irq/check.py ATOMIC_RESULT ATOMIC_ENGINE_STDERR --guarded
+```
+
+In one such paired run, both interrupt traces recorded each watched guest entry
+once. The unguarded callback count increased from 28 to 29; the atomic guard
+held it at 28 and recorded one bypass. Both no-card mix calls returned 9 and
+callback activity resumed after restart. The custom QEMU SHA-256 was
+`23e4c6a57b2a265cc4fa460d67ae561b7b69bc81de74ec724503f4686dc75f21`
+(source provenance unattested); pending/atomic MAIN hashes were
+`adb4fcd45182bbe55a7b5e7d236f8d52ae2dac138b330b2de3dcf45fa45836ff` and
+`c0b48e49c8c909043cf19aeda213a974b154f7dab825faadaba557023db16e2b`.
+Stock MAIN and initial NOR were
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461` and
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`.
+The pending/atomic ELF hashes were
+`6da7fc0cd1be0dac5056d322c5a1f394c2c962b3f647f8387b5c68222198d90b` and
+`9af22cf47dfb6f9da6944abd4d2b632bd58f5a0feeee4a4cfe60705ea4d95bdc`;
+recipe hashes were `f0b7d9d37590d6f17273cdd009c61bc6b67c3584d6b9099a54eddfb897bf1543`
+and `424be4eecbc621d30aaab0d88b0a006ab65e6f2c5769fe028dc339b3af5897fe`;
+result hashes were `f3d6d2140c88aab7181bb5646024e05714e7e779fd39a62f0a9e34e5f01f832f`
+and `522fdf197d54af8ffaffc80bea18fe0b4ce673b30fd61ef3f4544d396876b58c`.
+Both plugin logs hashed to
+`e83a4b0a7457eeee13fba6fa013481b1b3abcc506f10078f48c3bd44beaa8905`;
+the plugin binary was `ab2b9c89d88e0e6ff9f46b1a0b1201d184d22d8fb832d654f6b4c330312291e5`.
+Initial panel flash, options and RTC were
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`;
+`l6dbg` was `aed900b0f7f43f225233f7f1a33e5ba8e159d4a698905297e0fb48c5c8519cc0`.

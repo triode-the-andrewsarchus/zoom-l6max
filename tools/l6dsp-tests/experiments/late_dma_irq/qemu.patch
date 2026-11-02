@@ -1,0 +1,14 @@
+--- a/emulator/qemu/hw/arm/l6max.c
++++ b/emulator/qemu/hw/arm/l6max.c
+@@ -3612,6 +3612,11 @@
+          * against QEMU's I2C bus and the L6max-compatible codec slaves. */
+         l6_lpi2c_mtdr_write(s, value);
+     }
++    /* Disposable diagnostic only: synthesize one pending DMA IRQ. */
++    if (!s->panel && offset == 0x0e80f0 && size == 4 && value == 0x4c364951) {
++        l6_edma_raise_interrupt(s, 15);
++        return;
++    }
+     if (offset == 0x0e8024 && size == 4) {
+         /* eDMA INT is write-one-to-clear. */
+         uint32_t old = GPOINTER_TO_UINT(g_hash_table_lookup(s->registers, key));
