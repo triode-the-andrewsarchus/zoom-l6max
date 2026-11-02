@@ -122,9 +122,10 @@ pub unsafe extern "C" fn ainr_selection_close() {
     }
 }
 
+core::arch::global_asm!(include_str!("clear_dispatch.s"));
+
 #[unsafe(no_mangle)]
-#[unsafe(link_section = ".text.probe")]
-pub unsafe extern "C" fn probe(entry: *mut u32) {
+pub unsafe extern "C" fn probe_selection(entry: *mut u32) {
     let custom = entry as usize == 0x2028b8dc || entry as usize == 0x2028b8f8;
     #[cfg(inspector_probe)]
     if !custom { unsafe { inspector::close_for_selection(); } }

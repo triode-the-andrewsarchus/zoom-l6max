@@ -7,6 +7,38 @@ writes a result to QEMU-only scratch at `0x83e00000`, and does not create an
 update package. The scratch address is not validated on physical hardware. **Do not install its output on a
 physical device.** The supported patch builders still reject `dual-efx`.
 
+The stock clear veneer also has a caller outside effect selection. The
+diagnostic dispatch accepts only the two observed selection return addresses;
+other callers go directly to the stock clear without running the diagnostic
+handler. This is revision-specific and does not establish that every valid
+selection path has been identified or that caller identity is sufficient for
+hardware safety. The dispatcher can be checked while a disposable `l6dbg`
+run is active with its GDB socket enabled:
+
+```sh
+python3 tools/l6dsp-tests/probe/clear_dispatch_check.py OUTPUT/gdb.sock OUTPUT/probe.elf
+```
+
+The checker pauses the guest, forces two selector returns, the other known
+return and an unrelated return through the dispatcher, then restores the
+registers. It stops before either destination executes. Match the ELF and
+firmware identities separately. One QEMU run reached the diagnostic handler
+for both selector returns and stock clear for both other returns. Its stock
+MAIN and initial NOR were
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461` and
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`;
+diagnostic MAIN and effect ELF were
+`341dbd589b97c1242837928761c7aadc8ff10e2d033a7ff571b8549a1384248c` and
+`550bdca2fb6c79e18badc8b116508a2032642c3b336ec1ff6a0995dc6bf21c19`.
+The `l6dbg` and QEMU executable hashes were
+`ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241` and
+`4902e96e8375adb69b1ebe0e5572fe1ba3fb6a0e413c8595605128a297dfd910`;
+the QEMU source is unattested. The ordinary inspector diagnostic also opened,
+processed eight queued edits, and closed with no drops in one separate run.
+Its recipe and result hashes were
+`301eecf0c229f0e3c9d889b35c91647c9ee65dd88821358167f0827ac85de8c8` and
+`a6d945746de13feb565433ef55cc907362b2c8d1435b109d6552b1efe88e0085`.
+
 From the repository root, using a disposable L6max 1.10 state whose installed
 MAIN matches the unpacked stock image:
 

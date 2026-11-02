@@ -8,10 +8,10 @@
 #[path = "../../../patches/dual-efx/src/routing.rs"] mod routing;
 #[cfg(admission_probe)]
 #[path = "../../../patches/dual-efx/src/admission.rs"] mod admission;
+core::arch::global_asm!(include_str!("clear_dispatch.s"));
 #[cfg(not(admission_probe))]
 #[unsafe(no_mangle)]
-#[unsafe(link_section = ".text.probe")]
-pub unsafe extern "C" fn probe() {
+pub unsafe extern "C" fn probe_selection() {
     let clear: unsafe extern "C" fn() = unsafe { core::mem::transmute(0x80024679usize) };
     unsafe { clear() };
     let storage = unsafe { &mut *(0x80d00000 as *mut core::mem::MaybeUninit<routing::DualEfxProcessor>) };
@@ -35,8 +35,7 @@ pub unsafe extern "C" fn probe() {
 
 #[cfg(admission_probe)]
 #[unsafe(no_mangle)]
-#[unsafe(link_section = ".text.probe")]
-pub unsafe extern "C" fn probe() {
+pub unsafe extern "C" fn probe_selection() {
     use admission::{CallbackAdmission, CallbackPath};
     let gate = CallbackAdmission::new();
     let mut passed = 0u32;
