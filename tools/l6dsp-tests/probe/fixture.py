@@ -11,6 +11,14 @@ MODE_CALL_SITES = (0x80036dd4, 0x80036e2e, 0x80036e4e, 0x80036ec2,
 VENEER_SHA = "c366ef222fb2b2b87302d6eae469b721f11ba6b41dd79d4b7fe16a582e332c13"
 
 
+def validate_probe_entry(nm_output):
+    """Ensure the fixed diagnostic redirect points to the intended function."""
+    matches = [line.split() for line in nm_output.splitlines()
+               if line.split() and line.split()[-1] == "probe"]
+    if matches != [["80108000", "T", "probe"]]:
+        raise ValueError("diagnostic probe is not the unique function at 0x80108000")
+
+
 def install_offline_mix_hook(image, target):
     """Redirect a revision-guarded file-mix callback site in a QEMU copy."""
     offset = 0x196ea
