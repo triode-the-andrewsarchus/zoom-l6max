@@ -6045,6 +6045,47 @@ Both experiments used the stock MAIN, initial NOR, panel state, QEMU and
 `l6dbg` identified in the preceding modeled-input run; QEMU provenance is
 unattested.
 
+### File-mix audio shutdown observation
+
+Static inspection identifies the file-mix workflow as a queued callback
+consumed by the priority-11 `RecPlayCtl` worker; `AudioProcess` is created at
+priority 30. The workflow stops the SAI stream before calling the mix routine
+and starts it again afterward. This does not itself establish that an
+already-pending interrupt or signaled audio task is drained.
+
+One disposable QEMU run forced that queued workflow after selecting the
+diagnostic callback. At the original mix call site, an observer recorded
+zero SAI transmit and receive channel-enable fields and zero transmit and
+receive enable bits. Its callback counter remained at 28 across an inserted
+50-tick task delay. The unmodified mix routine returned 9 in a no-card setup;
+afterward the callback counter had reached 3,114. Before the second selection,
+the first selected diagnostic callback had reached 1,663 calls. The counter
+is reset on selection, so these values do not represent a single cumulative
+count. This run supports shutdown and subsequent resumption in that observed
+schedule. It does not exercise a successful file mix or deliberately force a
+pending interrupt, prove scratch or state ownership, bound physical timing,
+or establish safety of the diagnostic. The probe adds a work item, a delay,
+an unowned trigger and unowned observation memory; never install its image.
+
+The temporary diagnostic callback, preparer and linker script SHA-256 values
+were `e545c7425b5edaf111162e81b35f1a5bdf7e1eb361bed3a414d9450f09c4602b`,
+`c7007855e064f3c1e92a44466c001f88feb6c0854bd7bdfc6da2bb5a7bb50171`, and
+`e673963a7f18cbfcd2b02b5636cfa26fc15b8c1ae97a966f65c2955081a807fe`.
+Diagnostic MAIN, ELF, recipe and result hashes were
+`b9395aee2c92ac30995ed2206ca233db7949f3e642cc0159afacf11c96bb3c0c`,
+`475ab43511aefdf9629e334372dc3fe8130d330dbe17cb605c80f989f3edc9c2`,
+`d68955bfa1fa806b441f1c44b6daf76193d8a9d85ff7ca823621aa1daaf7c857`, and
+`39183008bb234c2b04ffce46e46f82b98e00991369ab253e3ddd5d40f0132298`.
+It used stock MAIN `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`;
+initial NOR, panel flash, options and RTC were respectively
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
+QEMU was `eade074b5d7a6fe9d74bbbe1ad36a34f7356cd200cbfc81e772f2a21892012e8`
+with unattested source provenance, and `l6dbg`
+`52af793c1d34e927210f99cf49117180121d8bd62885ce0ee7148be5dedbf2f6`.
+
 ### Standalone callback admission model
 
 The original standalone model admitted at most one lease for each of the live
