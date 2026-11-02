@@ -16,8 +16,11 @@ The blocking findings for L6max MAIN 1.10
   emulator run the largest stock-heap free block was 160,008 bytes, less than
   the then-current payload state of 319,216 bytes; see the
   [callback investigation](firmware/l6max-effect-callback.md). The current
-  processor type measures 272,152 bytes for the ARM target after a 25,824-byte
-  reduction in raw Plateau delay arrays; it still exceeds that free block.
+  processor type measures 272,160 bytes for `thumbv7em-none-eabihf` after a
+  25,824-byte reduction in raw Plateau delay arrays; it still exceeds that free
+  block. The current size query object SHA-256 is
+  `1680359f8fd11c014d8e2a6aacb19708cd32ca9cecd361a911eaf8c7dd815b7d`
+  using `rustc 1.99.0-nightly (1ed2df61a 2026-08-04)`.
   Stock code
   also references several regions well above that heap; a high SDRAM address
   cannot be treated as reserved merely because it is distant from the heap.
