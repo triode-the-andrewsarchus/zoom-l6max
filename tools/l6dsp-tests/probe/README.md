@@ -142,6 +142,15 @@ The same option can accompany the entry-timeout experiment; its checker
 requires both channels to be admitted and no unknown call forms, but does
 not require teardown rejections because that transition enters AINR.
 
+Add `--ainr-pair` to replace the observed caller's second dispatch with a
+single paired call inside the first call's live lease. The preparer checks the
+full stock instruction sequence before changing it. With `--selector-overlap`,
+the diagnostic forces its delay after the first dispatch and before the second,
+while the lease is held. The counters report decisions for both channels;
+they are not a comparison of stereo audio output. The shared veneer, caller
+register effects, other entry points, signal behavior and memory ownership are
+not qualified. This variant is also QEMU-only and must never be installed.
+
 ## Synthetic file-mix layout
 
 To examine the candidate file-mix track layout, prepare a separate image with

@@ -103,6 +103,15 @@ def install_ainr_veneer(image, target):
     image[offset:offset + 10] = bytes.fromhex('dff800f0') + (target | 1).to_bytes(4, 'little') + bytes.fromhex('00bf')
 
 
+def install_ainr_pair(image):
+    """Remove the second call only after checking the complete stock pair."""
+    start = 0xfd7ce
+    original = bytes.fromhex('07f009fb42f6105001225044014607f002fb')
+    if image[start:start + len(original)] != original:
+        raise ValueError('stock AINR call pair mismatch')
+    image[start + 4:start + len(original)] = bytes.fromhex('00bf') * 7
+
+
 def install_boundary_hook(image, target):
     """Guard the observed L6max 1.10 panel pre-disable call."""
     offset = 0x5435c

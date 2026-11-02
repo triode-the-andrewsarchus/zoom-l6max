@@ -4,7 +4,7 @@ import subprocess
 import sys
 import unittest
 
-from fixture import MODE_CALL_SITES, install_ainr_selector_veneer, install_ainr_veneer, install_boundary_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, install_selector_admission, install_selector_feedback, validate_probe_entry
+from fixture import MODE_CALL_SITES, install_ainr_pair, install_ainr_selector_veneer, install_ainr_veneer, install_boundary_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, install_selector_admission, install_selector_feedback, validate_probe_entry
 from thumb_branch import branch
 
 
@@ -33,6 +33,7 @@ class PreparerModeTests(unittest.TestCase):
             (['--selector-ainr-timeout', 'entry'], '--selector-ainr-timeout requires'),
             (['--selector-ainr-learned'], '--selector-ainr-learned requires'),
             (['--ainr-admission'], '--ainr-admission requires'),
+            (['--ainr-pair'], '--ainr-pair requires'),
             (['--callback', '--inspector', '--file-mix-handoff', 'pending'], '--file-mix-handoff requires'),
             (['--callback', '--offline-mix-layout', '--inspector'], '--offline-mix-layout requires'),
             (['--callback', '--offline-mix-layout', '--switches'], '--offline-mix-layout requires'),
@@ -153,6 +154,20 @@ class SelectorVeneerGuardTests(unittest.TestCase):
 
 
 class AinrVeneerGuardTests(unittest.TestCase):
+    def test_pair_guard_checks_both_calls_before_writing(self):
+        image = bytearray(0xfd7e0)
+        original = bytes.fromhex('07f009fb42f6105001225044014607f002fb')
+        image[0xfd7ce:0xfd7e0] = original
+        for offset in range(len(original)):
+            bad = image[:]
+            bad[0xfd7ce + offset] ^= 1
+            before = bad[:]
+            with self.subTest(offset=offset), self.assertRaises(ValueError):
+                install_ainr_pair(bad)
+            self.assertEqual(bad, before)
+        install_ainr_pair(image)
+        self.assertEqual(image[0xfd7ce:0xfd7e0], original[:4] + bytes.fromhex('00bf') * 7)
+
     def test_guard_and_redirect(self):
         image = bytearray(0x104dee)
         image[0x104de4:0x104dee] = bytes.fromhex('40f2817cc0f2000c6047')

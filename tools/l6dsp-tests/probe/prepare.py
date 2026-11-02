@@ -9,7 +9,7 @@ import shlex
 import struct
 import subprocess
 from thumb_branch import branch
-from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_ainr_veneer, install_boundary_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, install_selector_admission, install_selector_feedback, validate_probe_entry
+from fixture import MAIN_SHA, checked_inputs, install_ainr_pair, install_ainr_selector_veneer, install_ainr_veneer, install_boundary_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, install_selector_admission, install_selector_feedback, validate_probe_entry
 
 ROOT = Path(__file__).resolve().parents[3]
 PROBE = Path(__file__).resolve().parent
@@ -35,6 +35,7 @@ parser.add_argument("--selector-feedback", action="store_true", help="experiment
 parser.add_argument("--selector-ainr-timeout", choices=("entry", "exit"), help="inspect AINR flags across a selector timeout (QEMU only)")
 parser.add_argument("--selector-ainr-learned", action="store_true", help="attempt AINR learning before the exit timeout (QEMU only)")
 parser.add_argument("--ainr-admission", action="store_true", help="guard stock AINR dispatch with the diagnostic gate (QEMU only)")
+parser.add_argument("--ainr-pair", action="store_true", help="admit the observed stereo AINR calls together (QEMU only)")
 parser.add_argument("--inspector", action="store_true", help="enable QEMU-only inspector event hooks")
 parser.add_argument("--gesture-trace", action="store_true", help="record selector events (perturbs timing)")
 parser.add_argument("--enqueue-trace", action="store_true", help="record panel events before enqueue (perturbs timing)")
@@ -73,6 +74,8 @@ if args.selector_ainr_learned and args.selector_ainr_timeout != "exit":
     parser.error("--selector-ainr-learned requires --selector-ainr-timeout exit")
 if args.ainr_admission and not args.selector_admission:
     parser.error("--ainr-admission requires --selector-admission")
+if args.ainr_pair and not args.ainr_admission:
+    parser.error("--ainr-pair requires --ainr-admission")
 other_diagnostics = (args.switches, args.inspector, args.mixer_input_capture, args.gesture_trace, args.enqueue_trace,
         args.irq_trace, args.irq_timing, args.ring_timing, args.ring_drop, args.timing_control,
         args.active_sends, args.selector_load_trace, args.max_velvet_density, args.submix_return,
@@ -188,6 +191,8 @@ if args.selector_feedback:
     rustc += ["--cfg", "selector_feedback"]
 if args.ainr_admission:
     rustc += ["--cfg", "ainr_admission"]
+if args.ainr_pair:
+    rustc += ["--cfg", "ainr_pair"]
 if args.inspector:
     rustc += ["--cfg", "inspector_probe"]
 if args.gesture_trace:
@@ -304,6 +309,8 @@ if args.auto_handoff or args.ainr_admission:
     if len(matches) != 1 or len(matches[0]) != 3:
         raise ValueError("missing or duplicate AINR veneer target")
     install_ainr_veneer(image, int(matches[0][0], 16) & ~1)
+    if args.ainr_pair:
+        install_ainr_pair(image)
 image.extend(b"\xff" * (0x108000 - len(image)))
 image.extend(payload)
 if args.effect_buffer:

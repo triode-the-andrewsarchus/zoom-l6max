@@ -101,6 +101,20 @@ unsafe extern "C" {
     fn mix_handoff_silence();
 }
 
+#[cfg(selector_overlap)]
+unsafe fn force_selector_overlap() {
+    unsafe {
+        if read(0x83e0b100 as *const u32) == 1 {
+            write(0x83e0b100 as *mut u32, 2);
+            let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
+            #[cfg(selector_timeout)]
+            delay(40);
+            #[cfg(not(selector_timeout))]
+            delay(8);
+        }
+    }
+}
+
 // Own the lease across the complete stock wrapper, including deferred copies
 // before its callback load and shared-scratch accesses after its return.
 #[cfg(file_mix_atomic)]
@@ -113,15 +127,8 @@ pub unsafe extern "C" fn mix_handoff_atomic_live() {
             None
         };
         if let Some(_lease) = lease {
-            #[cfg(selector_overlap)]
-            if read(0x83e0b100 as *const u32) == 1 {
-                write(0x83e0b100 as *mut u32, 2);
-                let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
-                #[cfg(selector_timeout)]
-                delay(40);
-                #[cfg(not(selector_timeout))]
-                delay(8);
-            }
+            #[cfg(all(selector_overlap, not(ainr_pair)))]
+            force_selector_overlap();
             mix_handoff_original();
         } else {
             let counter = 0x83e0b004 as *mut u32;
@@ -143,6 +150,19 @@ pub unsafe extern "C" fn mix_handoff_atomic_live() {
     }
 }
 
+#[cfg(ainr_admission)]
+unsafe fn record_ainr_rejection(counters: *const AtomicU32, index: usize, pair: bool) {
+    unsafe {
+        (&*counters.add(2 + index)).fetch_add(1, Ordering::Relaxed);
+        if pair { (&*counters.add(3)).fetch_add(1, Ordering::Relaxed); }
+        if read(0x83e0b030 as *const u32) == 1 && read(0x83e0b02c as *const u32) == 5
+            && read(0x2028ba4c as *const u32) == 1 && read(0x2028bad0 as *const u32) == 1 {
+            (&*counters.add(4 + index)).fetch_add(1, Ordering::Relaxed);
+            if pair { (&*counters.add(5)).fetch_add(1, Ordering::Relaxed); }
+        }
+    }
+}
+
 // QEMU-only veneer for the two observed in-place stock AINR calls. Returning
 // without processing leaves those buffers unchanged; other callers and the
 // return-value contract remain unqualified for real firmware.
@@ -152,7 +172,8 @@ pub unsafe extern "C" fn mix_handoff_atomic_live() {
 pub unsafe extern "C" fn ainr_admission(input: *mut f32, output: *mut f32, index: u32) -> u32 {
     unsafe {
         let counters = 0x83e0b200 as *const AtomicU32;
-        let valid = input == output && index < 2;
+        let pair = cfg!(ainr_pair) && input as usize == 0x20011010 && input == output && index == 0;
+        let valid = if cfg!(ainr_pair) { pair } else { input == output && index < 2 };
         if !valid { (&*counters.add(6)).fetch_add(1, Ordering::Relaxed); }
         let lease = if ensure_gate() {
             (&*(GATE as *const CallbackAdmission)).try_enter(CallbackPath::Live)
@@ -162,14 +183,19 @@ pub unsafe extern "C" fn ainr_admission(input: *mut f32, output: *mut f32, index
         if let Some(_lease) = lease {
             if valid { (&*counters.add(index as usize)).fetch_add(1, Ordering::Relaxed); }
             let stock: unsafe extern "C" fn(*mut f32, *mut f32, u32) -> u32 = core::mem::transmute(0x781usize);
-            stock(input, output, index)
+            let result = stock(input, output, index);
+            if pair {
+                // Force the existing selector-overlap scenario to close the
+                // gate between channels while this one lease remains held.
+                #[cfg(selector_overlap)]
+                force_selector_overlap();
+                (&*counters.add(1)).fetch_add(1, Ordering::Relaxed);
+                let right = input.add(64);
+                stock(right, right, 1)
+            } else { result }
         } else {
             if valid {
-                (&*counters.add(2 + index as usize)).fetch_add(1, Ordering::Relaxed);
-                if read(0x83e0b030 as *const u32) == 1 && read(0x83e0b02c as *const u32) == 5
-                    && read(0x2028ba4c as *const u32) == 1 && read(0x2028bad0 as *const u32) == 1 {
-                    (&*counters.add(4 + index as usize)).fetch_add(1, Ordering::Relaxed);
-                }
+                record_ainr_rejection(counters, index as usize, pair);
             }
             0
         }

@@ -6598,3 +6598,42 @@ The debugger recipe and transcript hashes were
 `c76c1a341dedb2dc6213b4e333ac6739d446d05a7104668a58ff95410f234923`.
 The debugger guest was stopped after observation. Stock MAIN, initial fixture,
 QEMU and `l6dbg` matched the preceding experiment.
+
+The stock caller's two dispatcher calls are consecutive, with no conditional
+branch between them. A further disposable probe guards the exact caller bytes,
+replaces the second call sequence with NOPs, and makes the first call's veneer
+invoke both observed in-place channels under one live lease. The probe forces
+the selector-overlap delay after the first dispatcher return and before the
+second call. In an AINR-to-Hall exit run the selector timed out while that
+lease was held, sampled state was retained, and a retry selected Hall. The
+probe recorded 50,305 admitted pairs, 40 rejected pairs during teardown, and
+seven expected modeled DIN messages; it saw no unrecognized call form. These
+are counters of probe decisions, not independently verified stereo outputs.
+The reverse entry timeout and retry passed its sampled state and six modeled
+DIN message checks, with 47,895 admitted pairs and no unrecognized call form.
+A separate silent-input learning run retained the sampled learned marker,
+recording 62,505 admitted pairs and 40 rejected pairs during teardown. It
+does not establish preservation of the complete learned model.
+
+The shared veneer could have unobserved callers; the patch's effects on caller
+registers and flags, nonzero signal and stereo sound, interrupt users, the
+dispatcher return contract, scratch ownership and target timing are unknown.
+The forced delay changes scheduling, and its timeout does not prove every
+transition or physical behavior. Do not install this diagnostic.
+
+The paired diagnostic MAIN and ELF SHA-256 values were
+`f995449ab19e7144c7485070bc00d950380aaf71e80212cc73bd41d1234dac1c` and
+`12e562664322b3c5125b202cdb203a8fd2e9d1a00f368663b2eb14b02ccf9460`.
+The recipe, result and trace hashes were
+`764f6d6b75527fa94538898967cf90683493bb515e49d4016c312d2c3b94a919`,
+`d365cce46086d52437d861e650f8790920015a5034c8164d2ac1c66962459c38`, and
+`1a12d85ad0c858dae1a2473db1f6a52e2111802949e2b6562c51444ccbdad527`.
+The entry recipe, result and trace hashes were
+`ef669bf6f22863f7405b03d3acf649e4183c9462cec6900035dcacd008e3da8e`,
+`58f806f08976068ab6608b5fb252f9e0cd297e98bb40b0c4c537166c4a1fad24`, and
+`ae7b3730ff93d6d3e812b364537d12bcb765021bf8064ad75ee144e1adc23e1a`.
+The learning recipe, result and trace hashes were
+`82f86d45761747a9123af450d7cefa158b7c2f563c6413935b282a4aa29f45b2`,
+`4e156ff749c591aace34584e4377cc4913ef2ccfd839f393de903eb2459b953f`, and
+`1be8504ff8b2524a0856c2e64828b3a8bba29d13de15ffb1004341643b2e38ac`.
+Stock MAIN, initial fixture, QEMU and `l6dbg` matched the preceding experiment.
