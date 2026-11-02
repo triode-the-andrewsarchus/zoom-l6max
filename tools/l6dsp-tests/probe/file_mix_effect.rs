@@ -44,7 +44,8 @@ pub unsafe extern "C" fn file_mix_effect_audio(_context: u32, descriptor: *const
         #[cfg(file_mix_project_pending)]
         {
             // Interrupt one real file-mix callback with a forced audio wake.
-            // The outer guard discards the audio block: diagnostic only.
+            // The configured guard rejects either the block or its effect
+            // wrapper. Both paths remain diagnostic only.
             let pending = 0x83e0b800 as *mut u32;
             if read(pending) == 0 {
                 use core::sync::atomic::{AtomicU32, Ordering};

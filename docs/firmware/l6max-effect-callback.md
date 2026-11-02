@@ -8635,6 +8635,40 @@ the QEMU source is unattested. The initial panel flash, options and RTC were
 `473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
 The modified diagnostic image must not be installed.
 
+The forced-bounce probe also has an inner-guard variant: it allows the stock
+`AudioProcess` block to proceed, but rejects its effect wrapper while file
+mixing holds the lease. In one run the forced semaphore give succeeded, the
+gate remained 2 and the wrapper rejection counter rose once during the
+callback's five-tick delay. The bounce completed with 6,144 routed callbacks
+and passed the existing single-block input and output-statistics checker.
+The QEMU CPU trace recorded 165 distinct instruction addresses touching the
+live arrays during the window, including 512 writes from `0x80000714`, with
+zero hit-table overflow. Its pre-window live-array counts were 22,542,784
+reads and 23,881,216 writes; the in-window track-workspace positive control
+recorded 34,758,145 reads. The source program counters and observed writes
+show the live block was not simply discarded, not that every control or output
+was correct.
+
+This prototype's rejected wrapper still takes the stock no-callback branch,
+which clears live buffers without a live lease and skips deferred work. Other
+audio-block users can access stock globals while file mixing runs, and the
+test does not prove non-reentrancy, full bounce equivalence, signal
+continuity, DMA exclusion or target timing. It uses forced scheduling and
+unowned scratch. It is not a safe fallback and must not be installed.
+
+The inner-guard diagnostic MAIN, ELF, initial diagnostic NOR, recipe, result,
+trace, plugin source and plugin binary SHA-256 values were respectively
+`b610e1e25d048592bf670c40b679889aeac8cb50feecbe3e82d4673e890ca216`,
+`46af704d4e2843964eb87dcf610cc66dfd7be690a5c9140638ff0dfe5f239525`,
+`3fd82cc5adc5d59bcc2e39126decb64ecf9fe5a3babd3877a982a32fc7dbce0a`,
+`25c4aef8cb813f914c0d588b0849131f6992157637c759471078209346939574`,
+`4edd03e81454ce9014bb361ad22960818b09cf018639da7bcf71ec3bd876f503`,
+`ab0e8698ad4cf2b63c0506b050180becf7b023f6418ab0af2dce46cc4203bfcc`,
+`e4eff298a7ae45e504a2fa02d965f17acf5f77c5a8473ba0b1992eca4a5484d0`, and
+`e37bc7599cbae39314ea84f0f0744fbfe46b3b701a9fef158388a1108bbc9f94`.
+Other fixture and executable identities are as above; QEMU source is
+unattested.
+
 A forced-overlap variant injected one `AudioProcess` semaphore signal from
 inside the first routed file-mix callback. The recorded file-mix lease state
 was 2 before and after a five-tick delay; the signal succeeded and the

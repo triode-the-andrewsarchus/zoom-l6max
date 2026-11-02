@@ -9,7 +9,7 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_version = QEMU_PLUGIN_VERSION;
 static bool active, done;
 static uint64_t before_read, before_write;
 struct hit { uintptr_t pc; uint64_t read, write; };
-static struct hit hits[128];
+static struct hit hits[512];
 static unsigned used;
 static uint64_t overflow, workspace_read;
 static void memory(unsigned cpu, qemu_plugin_meminfo_t info, uint64_t addr, void *opaque) {
@@ -35,7 +35,7 @@ static void memory(unsigned cpu, qemu_plugin_meminfo_t info, uint64_t addr, void
     uintptr_t pc = (uintptr_t)opaque;
     unsigned i;
     for (i=0; i<used && hits[i].pc != pc; i++);
-    if (i == used) { if (used == 128) { overflow++; return; } hits[used++].pc = pc; }
+    if (i == used) { if (used == 512) { overflow++; return; } hits[used++].pc = pc; }
     if (store) hits[i].write++; else hits[i].read++;
 }
 static void translate(struct qemu_plugin_tb *tb, void *opaque) {

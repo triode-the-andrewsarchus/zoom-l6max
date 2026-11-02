@@ -34,6 +34,8 @@ class PreparerModeTests(unittest.TestCase):
             (['--file-mix-handoff', 'bypass'], '--file-mix-handoff requires'),
             (['--file-mix-handoff', 'atomic'], '--file-mix-handoff requires'),
             (['--file-mix-project'], '--file-mix-project requires'),
+            (['--file-mix-project-pending'], '--file-mix-project-pending requires'),
+            (['--file-mix-project-inner'], '--file-mix-project-inner requires'),
             (['--file-mix-project', '--callback', '--file-mix-handoff', 'pending'], '--file-mix-project requires'),
             (['--file-mix-project', '--callback', '--file-mix-handoff', 'atomic', '--selector-admission'], '--file-mix-project cannot'),
             (['--selector-admission'], '--selector-admission requires'),

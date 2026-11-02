@@ -143,6 +143,13 @@ file-mix lease, add `--file-mix-project-pending` to the preparer and
 the held file-mix gate before and after a short delay, and one rejected audio
 block. It intentionally drops that block and uses unowned scratch; it does not
 test a production fallback or prove that a pending wake happens naturally.
+Adding `--file-mix-project-inner` to that preparer instead guards only the
+effect wrapper and lets the surrounding audio block run. The rejected
+wrapper enters the stock no-callback branch, which clears shared live buffers
+and skips its normal deferred work. It is unsafe if live invocations overlap
+and does not guard the rest of the mixer. This is an intentionally incomplete
+QEMU-only experiment, not an installable fallback. Use the same checker and
+inspect the trace and its overflow count separately.
 
 One instrumented run recorded 6,144 routed calls, a maximum offset of 131,008,
 a maximum captured input difference of `1.46e-11` and 785,470 nonzero output
