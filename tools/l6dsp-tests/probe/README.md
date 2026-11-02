@@ -524,6 +524,16 @@ before those comparisons. The stock reference retains the full state. This
 tests one candidate boundary for channel 0; it does not prove the omitted
 region is unused for other inputs, learning states, or execution paths.
 
+`--replay-tails REFERENCE_TAIL CANDIDATE_TAIL` replays two local 56,264-byte
+captures for offsets
+`0xb94c..0x19514`. The stock reference uses the supplied reference tail with
+the live guest's prefix and suffix; each clone uses the candidate tail with a
+zeroed prefix and suffix. The reference tail must have the observed processor
+state word at offset `0xba4c` set to 1. The two input hashes are recorded in
+`identities.json`. This is a hybrid reference, not a captured whole-processor
+state or a test of capture synchronization. Keep captured firmware state in
+local temporary storage and never commit it.
+
 This diagnostic modifies emulated execution and uses memory whose ownership on
 hardware is unknown. It does not establish complete relocation coverage,
 concurrent isolation, timing, pre-AINR integration, or physical safety, and

@@ -30,6 +30,17 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def replay_tail(path):
+    """Read one captured candidate tail for the QEMU replay argument."""
+    try:
+        data = Path(path).read_bytes()
+    except OSError as error:
+        raise argparse.ArgumentTypeError(str(error)) from error
+    if len(data) != 0x19514 - 0xb94c:
+        raise argparse.ArgumentTypeError('each replay tail must contain exactly 56,264 bytes')
+    return data
+
+
 def cloned_code(main):
     code = bytearray(main[0xee688:0xee688 + 0x5b4c])
     if sha(code) != '0a4bdaf6e401a90c17d1b49e6907b375cb6cd7b4c0f02ee414b963f8610f457f':
@@ -111,7 +122,25 @@ class Remote:
             self.expect(f'M{address + i:x},{len(part):x}:{part.hex()}')
 
 
-def compare(g, code, independent=False, channel0_prefix=False):
+def prepare_states(g, channel0_prefix, replay_tails):
+    """Prepare a live reference and clone state at the stopped stock call."""
+    original_source = g.read(0x20280000, 0x20000)
+    if replay_tails is not None:
+        reference_tail, candidate_tail = replay_tails
+        if struct.unpack_from('<I', reference_tail, 0xba4c - 0xb94c)[0] != 1:
+            raise RuntimeError('replayed reference processor is not enabled')
+        original_source = original_source[:0xb94c] + reference_tail + original_source[0x19514:]
+        g.write(0x20280000, original_source)
+        if g.read(0x20280000 + 0xb94c, len(reference_tail)) != reference_tail:
+            raise RuntimeError('replayed reference readback mismatch')
+        source = bytes(0xb94c) + candidate_tail + bytes(0x20000 - 0x19514)
+    else:
+        source = (original_source[:0x19514] + bytes(0x20000 - 0x19514)
+                  if channel0_prefix else original_source)
+    return original_source, source
+
+
+def compare(g, code, independent=False, channel0_prefix=False, replay_tails=None):
     g.expect('Hg1')
     g.expect('Z0,20228d86,2')
     g.packet('c')
@@ -119,9 +148,7 @@ def compare(g, code, independent=False, channel0_prefix=False):
         raise RuntimeError('unexpected stock AINR calling convention')
     if struct.unpack('<I', g.read(0x2028ba4c, 4))[0] != 1:
         raise RuntimeError('AINR processor is not learned')
-    original_source = g.read(0x20280000, 0x20000)
-    source = (original_source[:0x19514] + bytes(0x20000 - 0x19514)
-              if channel0_prefix else original_source)
+    original_source, source = prepare_states(g, channel0_prefix, replay_tails)
     g.write(0x80e00000, source)
     g.write(0x80f00000, code)
     if g.read(0x80e00000, len(source)) != source or g.read(0x80f00000, len(code)) != code:
@@ -259,7 +286,10 @@ def main():
     parser.add_argument('--qemu', required=True, type=Path, help='QEMU executable')
     parser.add_argument('--independent', action='store_true', help='compare a second clone using a different signal')
     parser.add_argument('--channel0-prefix', action='store_true', help='zero the unobserved state suffix in the copied states')
+    parser.add_argument('--replay-tails', nargs=2, type=replay_tail, metavar=('REFERENCE', 'CANDIDATE'),
+                        help='QEMU-only: replay captured reference and candidate tails')
     args = parser.parse_args()
+    replay_tails = args.replay_tails
     out, main_image, nor = checked_inputs(parser, args.firmware, args.state, args.output)
     code = cloned_code(main_image)
     qemu = args.qemu.resolve(strict=True)
@@ -282,6 +312,11 @@ def main():
                   'firmware_files': {
                       str(path.relative_to(args.firmware)): sha(path.read_bytes())
                       for path in sorted(args.firmware.rglob('*')) if path.is_file()}}
+    if replay_tails is not None:
+        identities['replay_tails'] = {'reference_sha256': sha(replay_tails[0]),
+                                      'candidate_sha256': sha(replay_tails[1]),
+                                      'bytes': len(replay_tails[0]),
+                                      'reference_context': 'live guest prefix and suffix'}
     (out / 'identities.json').write_text(json.dumps(identities, indent=2) + '\n')
     cmd = ['cargo', 'run', '--offline', '--locked', '-p', 'l6dbg', '--', str(recipe),
            '--firmware-dir', str(args.firmware.resolve()), '--state-dir', str(out / 'state'),
@@ -299,8 +334,9 @@ def main():
                 if time.monotonic() >= deadline:
                     raise TimeoutError('learned snapshot not produced in 300 seconds')
                 time.sleep(.1)
-            result = compare(Remote(socket_path), code, args.independent, args.channel0_prefix)
-            result['snapshot_bytes'] = 0x19514 if args.channel0_prefix else 0x20000
+            result = compare(Remote(socket_path), code, args.independent, args.channel0_prefix, replay_tails)
+            result['snapshot_bytes'] = (len(replay_tails[1]) if replay_tails is not None
+                                        else 0x19514 if args.channel0_prefix else 0x20000)
             process.wait(timeout=180)
             if process.returncode:
                 raise RuntimeError(f'l6dbg exited {process.returncode}')

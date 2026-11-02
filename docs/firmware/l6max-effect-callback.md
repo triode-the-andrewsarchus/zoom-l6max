@@ -5711,6 +5711,49 @@ result and trace hashes were
 `863065a3e6b5224a3ba044e60d8115d3ddc9de1b68a1f83ffbb7d2b6f54abed6`.
 It used the refresh trace plugin identified below. Never install this image.
 
+A follow-up used the existing live-call comparison instead of the
+uncalibrated synthetic-call setup. An unchanged control matched stock output
+and sampled states for 96 blocks on each of two independent signals. A
+separate replay put the captured pre-teardown tail into the live stock state
+and a previously reconstructed 20-byte-per-structure tail into the clone,
+zeroing the clone's excluded prefix and suffix. The two tails had the same
+SHA-256
+`3c04908b74bd5f65262e18594719b743253b3620219ffb4bba1ff2033782b703`.
+This replay also matched stock output and sampled state for both signals across
+96 blocks. Its stock state combines the captured tail with the replay guest's
+live prefix and suffix; it is not an independently captured whole state or a
+test of the handoff while it is occurring. The debugger perturbs scheduling,
+only five state checkpoints were sampled, and these signals do not establish
+noise-reduction quality, complete state coverage, synchronization, DMA
+exclusion, physical timing or safety. The diagnostic remains QEMU-only.
+
+Both runs used stock MAIN, initial fixture, QEMU and `l6dbg` identified below,
+and recipe `45233d0c29dc9947da9353f8a78eb1e26788b80958fed6dd31f1cff11cbc51db`.
+The control observer and result hashes were
+`304b0af439db706921eb4864faa389c862a77f7f209afc6ebd6eb6eb1746f7b2` and
+`f35359b44a8fad01c16765dcdc9eaa10899d10ad1802dd9ef7ba7bf3f33c9675`;
+the replay observer and result were
+`f0713dfce1b3e7efbeb8a08180bfd6e06360578cf609f0a427ca264bf713aae0` and
+`b3145db64aeb7364434e2c99e33be9fff82c0e044807fc91244dc9df4f97f363`.
+The replay's inherited `snapshot_bytes` field describes the old prefix option;
+the actual supplied tails were 56,264 bytes each. The reusable diagnostic now
+records the supplied tails and reports their actual size.
+
+The reusable diagnostic repeated the replay successfully with the same two
+signals, all 96 blocks, and both recorded input hashes. Its source, result and
+identities hashes were
+`7f2d7061ea25e7b72827301022bcdb0b0b5742885216dd21bac5539430791141`,
+`8b795b4bb3a97c7a330946d84439c8625b2522808409529a6b1264a9f40aecd6`, and
+`6ec21e4dad85dd7a69c819cfbc8038438a65d12c434713bbf7c0f218c8de14dc`.
+A negative control changed the candidate's first enable word to zero; the
+comparison rejected it at block 0 with a clone output mismatch. The modified
+tail, identities and diagnostic log hashes were
+`785c160864a285b10ace026466ea98e60b5bf014452876daf5cad37dbe105ab8`,
+`7fac5a933b7235d105d2286c52371385876b6fdf0581b9d6f0256287fb3c545d`, and
+`471de794584eed4a69c179cf6fe4c8c23d9411b564be446b1f4252e990c13df2`.
+These controls detect that particular alteration only; they do not qualify
+all possible snapshot damage or the handoff itself.
+
 All runs used stock MAIN SHA-256
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
 initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
