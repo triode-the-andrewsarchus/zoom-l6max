@@ -60,6 +60,7 @@ impl Histories {
             } else {
                 start + RING - tap.delay
             };
+            let gain = tap.gain;
             let first = &self.samples[0][read..read + frames];
             let second = &self.samples[1][read..read + frames];
             for (((a, b), x), y) in left[0][..frames]
@@ -68,8 +69,8 @@ impl Histories {
                 .zip(first)
                 .zip(second)
             {
-                *a += tap.gain * *x;
-                *b += tap.gain * *y;
+                *a += gain * *x;
+                *b += gain * *y;
             }
         }
     }
