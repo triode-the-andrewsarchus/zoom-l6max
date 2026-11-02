@@ -811,6 +811,8 @@ mod tests {
                 params.size = if frame == 17_000 { 0.2 } else { 1.2 };
                 params.predelay_ms = if frame == 4_000 { 190.0 } else { 0.0 };
                 params.freeze = frame == 17_000;
+                params.low_cut_hz = if frame == 17_000 { 1000.0 } else { 20.0 };
+                params.high_cut_hz = if frame == 17_000 { 1000.0 } else { 16000.0 };
                 idle.set_parameters(params);
                 reference.set_parameters(params);
             }
@@ -1322,8 +1324,15 @@ mod tests {
             params.low_cut_hz = low;
             params.high_cut_hz = high;
             reverb.set_parameters(params);
-            for filter in &mut lp[1..] { filter.set_cutoff(high); }
-            for filter in &mut hp[1..] { filter.set_cutoff(low); }
+            for _ in 0..64 {
+                reverb.process_sample(0.0, 0.0);
+                hp[0].process(lp[0].process(0.0));
+            }
+            // Preserve each tank filter's post-transition history separately.
+            lp[1] = reverb.l_lp;
+            lp[2] = reverb.r_lp;
+            hp[1] = reverb.l_hp;
+            hp[2] = reverb.r_hp;
             for frame in 0..512 {
                 let inputs = [if frame % 37 == 0 { 0.5 } else { 0.0 },
                     if frame % 53 == 0 { -0.75 } else { 0.0 },
@@ -1338,6 +1347,52 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn plateau_damping_edit_ramps_and_retargets_without_a_coefficient_jump() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        params.high_cut_hz = 1000.0;
+        reverb.init(params);
+        let initial = reverb.l_lp.a;
+        params.high_cut_hz = 16000.0;
+        reverb.set_parameters(params);
+        assert_eq!(reverb.l_lp.a, initial, "the setter must not jump the filter");
+        for _ in 0..20 { reverb.process_sample(0.0, 0.0); }
+        let midway = reverb.l_lp.a;
+        assert!(midway > initial && midway < 0.8);
+        params.high_cut_hz = 1000.0;
+        reverb.set_parameters(params);
+        assert_eq!(reverb.l_lp.a, midway, "reversal must start from the applied coefficient");
+        for _ in 0..64 { reverb.process_sample(0.0, 0.0); }
+        assert_eq!(reverb.l_lp.a, initial);
+        assert_eq!(reverb.r_lp.a, initial);
+        params.high_cut_hz = 16000.0;
+        reverb.set_parameters(params);
+        reverb.clear();
+        let mut target = plateau::OnePoleLP::new();
+        target.set_cutoff(16000.0);
+        assert_eq!(reverb.l_lp.a, target.a, "clear must apply the requested cutoff");
+    }
+
+    #[test]
+    fn plateau_low_cut_ramps_without_changing_filter_history_at_the_edit() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        params.low_cut_hz = 20.0;
+        reverb.init(params);
+        let mut reference = plateau::OnePoleHP::new();
+        reference.set_cutoff(20.0);
+        assert_eq!(reverb.l_hp.process(0.5), reference.process(0.5));
+        params.low_cut_hz = 1000.0;
+        reverb.set_parameters(params);
+        assert_eq!(reverb.l_hp.process(-0.2), reference.process(-0.2));
+        for _ in 0..64 { reverb.process_sample(0.0, 0.0); }
+        reverb.l_hp.clear();
+        reference.clear();
+        reference.set_cutoff(1000.0);
+        assert_eq!(reverb.l_hp.process(0.5), reference.process(0.5));
     }
 
     #[test]

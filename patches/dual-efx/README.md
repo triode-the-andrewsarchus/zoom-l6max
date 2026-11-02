@@ -74,6 +74,8 @@ tail, and resumes modulation when freeze is released.
 Its low-cut and high-cut controls adjust tank damping; the input filter
 cutoffs remain fixed. The filters use this port's one-pole implementation,
 so matching the Multistomp control mapping does not establish audio parity.
+Damping edits ramp their tank-filter coefficients over 64 samples; the
+transition and its target execution time have not been qualified on hardware.
 Predelay edits crossfade over 64 frames; changes during freeze take effect
 without retaining frozen input. The transition has not been auditioned or
 timed on the physical device.

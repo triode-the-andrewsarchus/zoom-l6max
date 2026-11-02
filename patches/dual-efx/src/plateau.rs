@@ -14,6 +14,7 @@ pub const SAMPLE_RATE: f32 = 48000.0;
 const OUTPUT_FADE_SAMPLES: u32 = 64;
 const PREDELAY_FADE_SAMPLES: u32 = 64;
 const DIFFUSION_BYPASS_FADE_SAMPLES: u32 = 64;
+const DAMPING_FADE_SAMPLES: u32 = 64;
 const DATTORRO_SR: f32 = 29761.0;
 const SR_SCALE: f32 = SAMPLE_RATE / DATTORRO_SR; // ~1.61285
 // Fixed input-filter defaults in the Multistomp Plateau control mapping.
@@ -150,6 +151,7 @@ impl<const N: usize> Allpass<N> {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct OnePoleLP {
     pub z: f32,
     pub a: f32,
@@ -183,6 +185,7 @@ impl OnePoleLP {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct OnePoleHP {
     previous_input: f32,
     previous_output: f32,
@@ -332,6 +335,11 @@ pub struct PlateauReverb {
     diffusion_current: f32,
     diffusion_gain_step: f32,
     diffusion_remaining: u32,
+    damping_lp_target: f32,
+    damping_hp_target: f32,
+    damping_lp_step: f32,
+    damping_hp_step: f32,
+    damping_remaining: u32,
     pub params: PlateauParameters,
 }
 
@@ -384,6 +392,11 @@ impl PlateauReverb {
             diffusion_current: 0.75,
             diffusion_gain_step: 0.0,
             diffusion_remaining: 0,
+            damping_lp_target: 1.0,
+            damping_hp_target: 0.0,
+            damping_lp_step: 0.0,
+            damping_hp_step: 0.0,
+            damping_remaining: 0,
             params: PlateauParameters {
                 predelay_ms: 10.0,
                 size: 1.0,
@@ -467,6 +480,8 @@ impl PlateauReverb {
         self.diffusion_gain_step = 0.0;
         self.diffusion_remaining = 0;
         self.apply_diffusion_gain();
+        self.damping_remaining = 0;
+        self.apply_damping(self.damping_lp_target, self.damping_hp_target);
     }
 
     pub fn set_parameters(&mut self, mut params: PlateauParameters) {
@@ -503,12 +518,41 @@ impl PlateauReverb {
 
         // Damping controls affect the tank only. Keep the input filters at
         // their fixed defaults and retain separate histories in each channel.
-        self.l_lp.set_cutoff(params.high_cut_hz);
-        self.l_hp.set_cutoff(params.low_cut_hz);
-        self.r_lp.a = self.l_lp.a;
-        self.r_lp.b = self.l_lp.b;
-        self.r_hp.pole = self.l_hp.pole;
-        self.r_hp.gain = self.l_hp.gain;
+        let mut lp = OnePoleLP::new();
+        let mut hp = OnePoleHP::new();
+        lp.set_cutoff(params.high_cut_hz);
+        hp.set_cutoff(params.low_cut_hz);
+        if lp.a != self.damping_lp_target || hp.pole != self.damping_hp_target {
+            self.damping_lp_target = lp.a;
+            self.damping_hp_target = hp.pole;
+            self.damping_lp_step = (lp.a - self.l_lp.a) / DAMPING_FADE_SAMPLES as f32;
+            self.damping_hp_step = (hp.pole - self.l_hp.pole) / DAMPING_FADE_SAMPLES as f32;
+            self.damping_remaining = DAMPING_FADE_SAMPLES;
+        }
+    }
+
+    #[inline(always)]
+    fn apply_damping(&mut self, lp: f32, hp: f32) {
+        self.l_lp.a = lp;
+        self.l_lp.b = 1.0 - lp;
+        self.r_lp.a = lp;
+        self.r_lp.b = 1.0 - lp;
+        self.l_hp.pole = hp;
+        self.l_hp.gain = (1.0 + hp) * 0.5;
+        self.r_hp.pole = hp;
+        self.r_hp.gain = (1.0 + hp) * 0.5;
+    }
+
+    #[inline(always)]
+    fn advance_damping(&mut self) {
+        if self.damping_remaining != 0 {
+            self.damping_remaining -= 1;
+            if self.damping_remaining == 0 {
+                self.apply_damping(self.damping_lp_target, self.damping_hp_target);
+            } else {
+                self.apply_damping(self.l_lp.a + self.damping_lp_step, self.l_hp.pole + self.damping_hp_step);
+            }
+        }
     }
 
     fn retarget_diffusion(&mut self, diffusion: f32) {
@@ -690,6 +734,7 @@ impl PlateauReverb {
         let r_mod2 = self.r_apf2.delay_time as f32 + lfo4_val * depth;
 
         let decay = if self.params.freeze { 1.0 } else { self.params.decay };
+        self.advance_damping();
 
         // 4. Left Tank Loop
         self.l_sum += diff_in;
@@ -796,6 +841,7 @@ impl PlateauReverb {
         self.lfo3.step();
         self.lfo4.step();
         self.advance_diffusion_mix();
+        self.advance_damping();
         self.transition_remaining = self.transition_remaining.saturating_sub(1);
     }
 

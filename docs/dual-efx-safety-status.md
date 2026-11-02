@@ -16,15 +16,15 @@ The blocking findings for L6max MAIN 1.10
   emulator run the largest stock-heap free block was 160,008 bytes, less than
   the then-current payload state of 319,216 bytes; see the
   [callback investigation](firmware/l6max-effect-callback.md). The current
-  processor type measures 279,360 bytes for `thumbv7em-none-eabihf` after a
+  processor type measures 279,384 bytes for `thumbv7em-none-eabihf` after a
   25,824-byte reduction in raw Plateau delay arrays; it still exceeds that free
   block. The current size query object SHA-256 is
-  `35ffc2c4103a2cf9713cedcff4130e0dce04ea622a2c6e01d010cf44e8ee5eeb`
+  `9741a7d1d19a74bfd731655de9f0d53f2cba6aa3ae6331fa88882fde5dc41c1a`
   using `rustc 1.99.0-nightly (1ed2df61a 2026-08-04)`.
   Of that state, the raw `f32` histories comprise 36,484 bytes of
   Plateau predelay, 7,024 bytes of Plateau input diffusion, 168,372 bytes of
   Plateau tank delays and 57,624 bytes of Velvet histories (including the
-  separate cascade history). The remaining 9,856 bytes include filter banks,
+  separate cascade history). The remaining 9,880 bytes include filter banks,
   parameters and bookkeeping. These counts describe allocated capacity,
   not a proof that any stock firmware memory can be reused.
   Stock code
@@ -83,7 +83,7 @@ The blocking findings for L6max MAIN 1.10
   `0x19514` bytes. That weakens the omitted-update hypothesis; the earlier
   divergence remains unexplained. The smaller copy is only a candidate, not
   established independent learning or safe memory ownership. Three such
-  prefixes plus the 279,360-byte processor would occupy 590,460 bytes of the
+  prefixes plus the 279,384-byte processor would occupy 590,484 bytes of the
   768,000-byte effect buffer before any snapshot or other storage; this is
   arithmetic, not an allocation or ownership proof. See the
   [research observation](https://github.com/derekstavis/zoom-l6max-research/blob/0621038/docs/firmware/l6max-effects-ainr.md#selection-learning-and-processing).
@@ -226,6 +226,20 @@ MAIN, ELF, recipe and result SHA-256 values were
 `38a31af9a7f1ea237e6e673515e5b8edb2fd7f7469fba706d841ab5409d0aa0b` and
 `5db4eeb3cc48690b33048ffad87fe10e4210a00dab713db731bc92d9025840b7`.
 This does not qualify audio parity, live-control transitions or hardware.
+Tank low-cut and high-cut edits now ramp their filter coefficients over 64
+frames, including while the reverb is pristine or frozen. Host tests cover
+retargeting, clear, separate filter histories and idle advancement. The
+extra work has not been timed on hardware. In one QEMU-only inspector run,
+16 queued turns on the two damping encoders were consumed with no queue
+overflow; the final high-cut display was `8500.0 Hz`, and the inspector later
+closed. The run did not separately capture the low-cut value or qualify audio
+transitions. It used the stock MAIN, initial NOR, QEMU and `l6dbg` identities
+above. Diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`663f6ac1b5cb3aa40cf1968352737011524872bbd82e5e995828eac518c08a98`,
+`f087837891939d913dcfde21ae8e76ac661d1e8784453e5231f9e2a5b7836eab`,
+`b8cd44b8b2c9abae2551716b402f43c0b8657cf8607f64842604a46c05d60b6d` and
+`fa6e5a2cd17fc98423c8b32bb0ebade12d3a917b0dc976bed2370161bc392bc7`.
+The diagnostic uses unowned scratch and cannot qualify physical hardware.
 Plateau predelay edits now crossfade read positions over 64 frames; a rapid
 retarget starts from the preceding predelay output, and freeze cancels the
 transition without retaining frozen input. Host tests cover reversal, idle
