@@ -8443,3 +8443,28 @@ The plugin-enabled QEMU, interrupt plugin and `l6dbg` hashes were
 QEMU source provenance is unattested. The stock MAIN and initial NOR hashes
 were `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`
 and `1f2df1149cd7f7d028653d25e0e0f42c6de6b4b92b43595e5e089ad9c11e1a91`.
+
+A follow-up used two mono project tracks with 440 Hz and 733 Hz signals and
+raised both channels' LEVEL and EFX controls. A QEMU-only build initialized
+channel 1's route to B and channel 2's to A; this did not exercise the
+routing UI. In the first active 64-frame block, both buses contained 63
+nonzero samples. Their frequencies matched their respective source tracks,
+and A plus B differed from the stock effect input by at most
+`1.1641532182693481e-10`. The cascade send was zero. The run returned zero
+and wrote a finite stereo WAV of 655,360 frames. This is one block and one
+routing configuration: it does not prove stereo-track mapping, route edits,
+filtering, gain ramps, concurrency, or physical behavior.
+
+The repeated run's initial card and patched NOR hashes were
+`045491f1ec812d3e4173e907116f2d7ad5f8af1a621fff0249d581d7f9d4b9a5` and
+`05034e17e9b72e846316f7fc308e9d3ce0e2bde987faffdb102009e6eed79f4a`.
+The diagnostic MAIN, ELF, recipe and result hashes were
+`f08733e9fc21de14558165a5e150f7290c16d2f238daa945fa43596955d0c768`,
+`c01be142efeddc7c78f655492c49ad4c84696640925bdf655b123287673dded4`,
+`c855cefe079e412a5554bd10a9f86ecf1ec9a6a7dba2efbdfb5ae7f6f86538d6`, and
+`9170e84ca3785f4d647f1e46721e2ccfe68bee45819819a3af4fbf43073ec447`.
+The resulting WAV hash was
+`54aaeebb53408125338c737294f805291f400c00bc642b63392f5cb295d5ffdf`.
+The stock firmware, QEMU, plugin and `l6dbg` were those identified above;
+the emulator's source provenance remains unattested. This image uses unowned
+scratch and must not be installed.
