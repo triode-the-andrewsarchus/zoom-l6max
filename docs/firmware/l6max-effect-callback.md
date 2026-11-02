@@ -8494,3 +8494,56 @@ external QEMU SHA-256
 `4902e96e8375adb69b1ebe0e5572fe1ba3fb6a0e413c8595605128a297dfd910`;
 the QEMU build source is unattested by the driver. They do not establish
 physical audio behavior or the replacement's bounce output with EQ enabled.
+
+### Bounce setup and EQ with the firmware queue
+
+On the rebased two-process emulator, a generated three-second recorder
+project initially appeared to skip the diagnostic effect during Quick Bounce.
+The diagnostic effect was active before the bounce. A stock mix call still
+returned successfully, but the effect call-site veneer was never reached.
+This was a setup issue in the experiment: the project started with EFX off,
+and the scenario turned the channel EFX controls before selecting an effect.
+At the bounce's stock send getters, all eight observed sends were zero.
+Selecting the custom effect first and then raising the same sends yielded
+values 54 and 53 on channels 1 and 2, and 6,144 file-mix veneer calls.
+This is a QEMU observation, not a qualification of the physical controls.
+
+An otherwise identical project with its initial settings byte at `0x15e`
+changed from 5 to 0 also reached the effect path when its sends were adjusted
+before selecting the diagnostic effect. A controlled follow-up made both
+cases select type 2 before bounce: the effect-type getter returned 2 and the
+return-level getter returned 63 in both, while the per-track send getters
+returned 54 and 55 in the modified project and zero in the original. The
+mix routine skips effect processing when those sends are all zero. Encoder
+acceleration makes the exact nonzero values timing dependent. This comparison
+does not establish that changing a saved project byte is a supported UI action.
+
+With the modified project and the firmware's real deferred queue, neutral
+and cut channel-1 high EQ produced different first active 64-frame captures.
+In each capture the selected reconstructed B send differed from the stock
+effect input by at most `1.862645149230957e-9`; its RMS was approximately
+0.01333 with neutral EQ and 0.00834 with the cut. The captures concern one
+block and configuration, not the full render, stereo mapping, tails, route
+editing, synchronization or physical timing. The generated project's eight
+equal-level tracks produced a flat dry bounce peak above 1.0, so it is not a
+fidelity or clipping qualification fixture.
+
+The input card SHA-256 was
+`d71428fea3a92e678363c20da863916eefc65a8f74f3be7f25313d8474fd3bd3`;
+the modified initial project file was
+`7f40d2bd0cf9b758387479530ca7b53ddb2bfa1439a0ed2798880c1d242fa60b`.
+The flat and cut EQ diagnostic MAIN SHA-256 was
+`bf5035111fe80d76708ec15e0c1851d7024ae8ea66dc284ef65f269512ffbb58`,
+and their result hashes were
+`5465ab9c92f316b1cc8003a07532386384eaeec11e4e12db28befc295319640d` and
+`1722b871864170f0a786a7f22c88d3acbbd6fe2a2e3b30b12d21847c5e649dc5`.
+The send-getter comparison and select-first diagnostic MAIN SHA-256 was
+`c8ce9482b5cf5796fc2bc602bfbb93230423f0730d3cfaad3396bc68e5526924`;
+their result hashes were
+`db4ed1ca93a7a31eaf870a16463077055e01b2934501e5fe31ddc7673a30cb2a`,
+`fc77da354330bedeef6ad959217c8807f437f8a2b9f2bbe2e265d3cd320dece6`, and
+`f4db4046a0e8cf8487de9bfebc66df6b8fba84491993c7c6aeceb2d6a84b7280`.
+All used stock MAIN and QEMU identities from the preceding section, an
+experimental whole-audio admission guard, and unowned scratch; no synthetic
+interrupt was injected. QEMU source provenance is unattested. These images
+must not be installed.
