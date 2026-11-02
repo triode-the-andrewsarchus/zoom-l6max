@@ -33,6 +33,13 @@ The blocking findings for L6max MAIN 1.10
 - The hook at `0x8000277c` is in a routine containing file-output and card-error
   handling. The branch has not established an audio-buffer ABI or a live
   audio callback at that call site.
+- The stock track-to-file mix path also loads and calls the active effect
+  callback, independently of the observed live audio wrapper. A pause tied
+  only to the live audio task does not establish that all callback users have
+  stopped. The diagnostic reconstructs sends from live mixer slots and has not
+  established correct input for this file-mixing path. Stock scheduling and
+  exclusion between the two paths are unverified. See the
+  [firmware research](https://github.com/derekstavis/zoom-l6max-research/blob/bad532c/docs/firmware/l6max-effects-ainr.md#effects-callback).
 - The active firmware signal path ignores per-channel routing and has no
   pre-AINR implementation. The planned pre-AINR address is an effect-type
   getter call, not an established audio interface; the selected AINR callback
