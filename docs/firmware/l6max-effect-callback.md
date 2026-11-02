@@ -5535,6 +5535,71 @@ unresolved. Memory ownership,
 DMA exclusion, lifetime, stack and real-time behavior are also unqualified.
 **Never install these diagnostic images.**
 
+Two additional plugin-assisted runs traced CPU stores beginning in the
+candidate tail after the copy. Both completed and reported the same 13,325
+byte differences. Each observed 39,210 stores from 173 instruction sites
+before installation entry, including `0x10bc` and `0x1176`, previously
+mapped to the stock AINR state-1/2 processor. One trace counted 2,466 stock
+block entries in this interval. The recipe deliberately waits three seconds
+between effect-selection presses; that count is not the snapshot copy time.
+In the second trace, two more block entries occurred during the comparison,
+but no stores starting in the watched range were recorded during that phase.
+These traces cover CPU stores starting in the range, not DMA, aliases or all
+possible schedules.
+
+A separate disposable variant returned pass-through for observed AINR indices
+0 and 1 after capture while the ready token was zero, and stopped bypassing
+when the replacement was ready. An uninstrumented run and an independently
+traced run each recorded 2,466 bypasses at each index, a ready token `0x7e`,
+and 18 differing bytes at offsets `0xb97c..0xbad0` in the non-atomic later
+comparison. The traced run saw ten stores from six sites in the candidate tail
+between copy and installation, and none during comparison. `0x80014840` and
+`0x80014842` wrote the two previously identified AINR enable words; the other
+four sites wrote the two 16-byte ranges previously associated with selector
+teardown. This is consistent with teardown accounting for the observed
+remaining differences, not proof of complete coverage or the correct data to
+restore. The bypass lasted across the recipe's deliberate three-second
+selection gap, so it is not an acceptable finished transition. Unknown index
+handling, all callers, cancellation, audible continuity and DMA remain
+unqualified. An earlier variant accidentally continued bypassing after the
+replacement became ready; its callback and send counters still advanced,
+illustrating why those counts alone do not prove AINR processing.
+
+Both trace experiments used the comparison image, fixture and QEMU identified
+below. The first and second trace results were
+`1c6d5cd2935e4396441d7fc7286538052ba24697e6aa70cfee637ded5314e878` and
+`6767134df55bffd96dfd29fc7508f0bd1240ae2893b510aca29f7363140d0fcb`, and
+trace hashes were
+`a34c89b22bcbc50b19a61d1333e47af36ad19f4ef993b8fe0d0ad7c250f76e13` and
+`33dcd19b8b01f03f08b7196d03a05b6af906935fe83e0477b45519df134c1e2d`.
+Plugin source, binary and wrapper hashes were
+`0de784be87c3942d5cf70944b09df106e276ede155dcaac9813cbcf680c1163e`,
+`2a823dc3e8288027ac5c7b23974ae78d9918fcc6f61f512f2cd6048f74cd23e9`,
+`e98b91eef989e541ffaec6232f0f6a4f62939ce41f57ff6d15183993ccd944fc`, and
+`29c0a89e68fc6bc65657874422dff07a5f9abd4fbae9391f55867223b2ce89cf`,
+`14ab2f0077855362c17bdf236c0d3d99ff130a55ef66bd6ff4757f13faeddaba`,
+`c181e559f87a03890e36bb40ec3db75b978fb62db1eb1e61c6cf5c8d3b349f9e`.
+
+The scoped bypass MAIN, ELF, modified handoff source and recipe were
+`d268408a740638a31d2a2f5842791aa009889fbbfc74777cf077a13acaa4ff40`,
+`96a5b50d94128b580c33635e8bf91cb8109d7c15ec40c3da6e2a6535b4af62d4`,
+`79f9ad5e21c4107279e977282824cd7df6182b333cd94295025209119b9d0087`, and
+`9fb57055afabc326f13272672398c462377a12a34832912a371bf23cac2213d6`.
+Uninstrumented and traced result hashes were
+`c7c90d38cbd34138c1829f0392cd8ce69ebfb2e69ad0790c61a422f5f4fc592b` and
+`a1c79cd7bd647a77ff41022c1a3131718a44d6ddb58f6e400211908f6646e1b1`;
+the trace was `d416a13f2a8c9135ce9c6121fe336afdb91206db7100cfc32e2be28ad6acd91d`.
+The scoped trace plugin source, binary and wrapper were
+`eba5b6315de31affe73255f9e5a881198395f73f5bfad5483b9a72af2a0a8d79`,
+`53d05b466ddfeb3289200000e8816e187994694ed761a52909d3ffb2929ed3a3`, and
+`2273899f878a0cf7b1996b69834a347b47d12b4620712f38d9e574d029042cc5`.
+The accidentally persistent-bypass MAIN, ELF, source, recipe and result were
+`c1e206342b22b8e5e72fc95f91c81b4ea747c712de7c0647a1dd6384cc4f54f5`,
+`059d8f9feaf22f37566fc86c973c4f35231911b2cb9d99d1b9526a40932b1dbd`,
+`2f5743dd82f91351b5615f7430f1e809fcc3f50eeecb6632d36e58c256981e6b`,
+`b7cb9cfd6d86e52fcd8474e615d5afc9701e2664d20538b6e44c51d628cc26cd`, and
+`22eed2ab7c9decf72c106e884f1efac84900dd6a36dd588b3af980e266c99764`.
+
 All runs used stock MAIN SHA-256
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
 initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
