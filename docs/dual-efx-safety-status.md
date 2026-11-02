@@ -16,15 +16,15 @@ The blocking findings for L6max MAIN 1.10
   emulator run the largest stock-heap free block was 160,008 bytes, less than
   the then-current payload state of 319,216 bytes; see the
   [callback investigation](firmware/l6max-effect-callback.md). The current
-  processor type measures 279,464 bytes for `thumbv7em-none-eabihf` after a
+  processor type measures 279,480 bytes for `thumbv7em-none-eabihf` after a
   25,824-byte reduction in raw Plateau delay arrays; it still exceeds that free
   block. The current size query object SHA-256 is
-  `a75b7b6386e0e98324e775815ecb22f295856522777c89507321da708547d2ee`
+  `b314c8e9f46b47e4218033def6ee03a2a669a370a99c2d6e0ee89292438345fd`
   using `rustc 1.99.0-nightly (1ed2df61a 2026-08-04)`.
   Of that state, the raw `f32` histories comprise 36,484 bytes of
   Plateau predelay, 7,024 bytes of Plateau input diffusion, 168,372 bytes of
   Plateau tank delays and 57,624 bytes of Velvet histories (including the
-  separate cascade history). The remaining 9,960 bytes include filter banks,
+  separate cascade history). The remaining 9,976 bytes include filter banks,
   parameters and bookkeeping. These counts describe allocated capacity,
   not a proof that any stock firmware memory can be reused.
   Stock code
@@ -89,7 +89,7 @@ The blocking findings for L6max MAIN 1.10
   `0x19514` bytes. That weakens the omitted-update hypothesis; the earlier
   divergence remains unexplained. The smaller copy is only a candidate, not
   established independent learning or safe memory ownership. Three such
-  prefixes plus the 279,464-byte processor would occupy 590,564 bytes of the
+  prefixes plus the 279,480-byte processor would occupy 590,580 bytes of the
   768,000-byte effect buffer before any snapshot or other storage; this is
   arithmetic, not an allocation or ownership proof. See the
   [research observation](https://github.com/derekstavis/zoom-l6max-research/blob/0621038/docs/firmware/l6max-effects-ainr.md#selection-learning-and-processing).
@@ -345,6 +345,22 @@ Instrumented external QEMU was
 and `l6dbg` was
 `ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`;
 QEMU source provenance is unattested. Never install the diagnostic image.
+The input now also has a 20 Hz DC blocker before predelay, implemented on the
+mono sum with the port's one-pole coefficients. Freeze clears its history and
+discards frozen input. Host tests check the stereo-sum equivalence, reset,
+freeze and control transitions. A modeled-input capture passed the same
+send and bounded-return checks; Plateau's peak send was `3.92e-5`, with
+left/right peaks `1.22e-4` and `9.46e-5` across 1,689 active blocks. The
+single captured Plateau block peaked at only `8.42e-9`, so the aggregate
+matters. Diagnostic MAIN, ELF, initial NOR, recipe and result hashes were
+`f0e03497c7b64c1177f55be9140aafd46b63d0d9759a6c369469673f8da1f11f`,
+`0faf3f5bc960ada55013243a4df37739abce1ff550a897ca39acf448d3316120`,
+`f439f2c7d6278b38a8af216aba9daf217002403fbe8c1a55023b139395476349`,
+`38c2c9e586558892e50afc20b932ad5b5d590ae54b4c9ee21a0d58b6d1249cbe`, and
+`c24f76d9545c381e8aa778b4da4b2983813aea5f3b8458c6bd37c5c7b7f20d10`.
+Stock MAIN, source NOR, panel state, instrumented QEMU and `l6dbg` match the
+preceding output-scale capture. The QEMU source is unattested; this is not an
+audible-quality, target-timing or hardware-safety test. Never install it.
 The diagnostic MAIN, ELF, initial NOR, recipe and result SHA-256 values were
 `d6b7b798390eb43fdddbfd41542ac6dbbe5bfb058304ed74994dd1d454f38b14`,
 `4ec3bb636a8208ab3fd3504240c9df6a01d75824e21a9d1f39d3eadb8fe7f12a`,

@@ -761,45 +761,57 @@ mod tests {
             let d = &p.plateau.predelay;
             d.buffer[(d.write_pos + d.buffer.len() - 1) % d.buffer.len()]
         };
+        let mut dc = plateau::OnePoleHP::new();
+        dc.set_cutoff(20.0);
+        let sample = math::soft_clip(0.5);
         let mut previous = last_predelay(&processor);
-        assert!(previous > 0.4);
+        assert!((previous - dc.process(sample)).abs() < 1e-6);
         edit_encoder(&mut processor, ParameterBank::Velvet, 7, -10).unwrap();
+        let mut gain = 1.0f32;
+        let mut step = -1.0 / 64.0;
         for frame in 0..80 {
             if frame == 20 {
                 edit_encoder(&mut processor, ParameterBank::Velvet, 7, 10).unwrap();
+                step = (1.0 - gain) / 64.0;
             }
+            gain += step;
             processor.process_bus_sample(0.0, 0.0, 0.5);
             let next = last_predelay(&processor);
             assert!((next - previous).abs() < 0.02, "frame {frame}: {previous} -> {next}");
+            assert!((next - dc.process(sample * gain)).abs() < 1e-6, "frame {frame}");
             previous = next;
         }
-        assert!(previous > 0.4);
         edit_encoder(&mut processor, ParameterBank::Velvet, 7, -10).unwrap();
+        step = -gain / 64.0;
         for frame in 0..64 {
+            gain = if frame == 63 { 0.0 } else { gain + step };
             processor.process_bus_sample(0.0, 0.0, 0.5);
             let next = last_predelay(&processor);
             assert!(next <= previous && previous - next < 0.02, "fade-out frame {frame}");
+            assert!((next - dc.process(sample * gain)).abs() < 1e-6, "fade-out frame {frame}");
             previous = next;
         }
-        assert_eq!(previous, 0.0);
 
         // The stereo-send path shares the ramp, and an explicit direct write
         // still takes effect immediately even if it interrupts an encoder edit.
         configure(&mut processor);
+        dc.clear();
         let mut left = [0.0];
         let mut right = [0.0];
         processor.process_stereo_send(&[0.5], &[0.5], &mut left, &mut right, true, true);
         previous = last_predelay(&processor);
+        assert!((previous - dc.process(0.5 + sample)).abs() < 1e-6);
         edit_encoder(&mut processor, ParameterBank::Velvet, 7, -10).unwrap();
         for frame in 0..8 {
             processor.process_stereo_send(&[0.5], &[0.5], &mut left, &mut right, true, true);
             let next = last_predelay(&processor);
             assert!((next - previous).abs() < 0.02, "stereo frame {frame}");
+            assert!((next - dc.process(0.5 + sample * (1.0 - (frame + 1) as f32 / 64.0))).abs() < 1e-6);
             previous = next;
         }
         processor.cascade_gain = 0.25;
         processor.process_stereo_send(&[0.5], &[0.5], &mut left, &mut right, true, true);
-        assert!((last_predelay(&processor) - (0.5 + math::soft_clip(0.5) * 0.25)).abs() < 1e-6);
+        assert!((last_predelay(&processor) - dc.process(0.5 + sample * 0.25)).abs() < 1e-6);
     }
 
     #[test]
@@ -2316,20 +2328,26 @@ mod tests {
         reverb.in_lp.a = 1.0;
         reverb.in_lp.b = 0.0;
         reverb.predelay.buffer.fill(-1.0);
+        let mut dc = plateau::OnePoleHP::new();
+        dc.set_cutoff(20.0);
         reverb.process_sample(1.0, 1.0);
-        assert_eq!(reverb.in_lp.z, 1.0);
+        assert_eq!(reverb.in_lp.z, dc.process(1.0));
 
         reverb.set_predelay_live(10.0);
         reverb.process_sample(1.0, 1.0);
-        assert!((reverb.in_lp.z - (1.0 - 2.0 / 64.0)).abs() < 1e-6);
-        for _ in 0..15 { reverb.process_sample(1.0, 1.0); }
+        let filtered = dc.process(1.0);
+        assert!((reverb.in_lp.z - (filtered + (-1.0 - filtered) / 64.0)).abs() < 1e-6);
+        for _ in 0..15 { reverb.process_sample(1.0, 1.0); dc.process(1.0); }
         let before_reverse = reverb.in_lp.z;
         reverb.set_predelay_live(0.0);
         reverb.process_sample(1.0, 1.0);
+        let filtered = dc.process(1.0);
+        assert!((reverb.in_lp.z - (before_reverse + (filtered - before_reverse) / 64.0)).abs() < 1e-6);
         assert!(reverb.in_lp.z >= before_reverse);
         assert!((reverb.in_lp.z - before_reverse).abs() <= 2.0 / 64.0);
-        for _ in 0..63 { reverb.process_sample(1.0, 1.0); }
-        assert_eq!(reverb.in_lp.z, 1.0);
+        let mut filtered = 0.0;
+        for _ in 0..63 { reverb.process_sample(1.0, 1.0); filtered = dc.process(1.0); }
+        assert_eq!(reverb.in_lp.z, filtered);
     }
 
     #[test]
@@ -2791,6 +2809,36 @@ mod tests {
             peak = peak.max(left.abs()).max(right.abs());
         }
         assert!(peak < 1e-7, "stale damping state reappeared after freeze: {peak}");
+    }
+
+    #[test]
+    fn plateau_input_dc_filter_precedes_predelay_and_rejects_frozen_input() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        reverb.init(params);
+        let mut left = plateau::OnePoleHP::new();
+        let mut right = plateau::OnePoleHP::new();
+        left.set_cutoff(20.0);
+        right.set_cutoff(20.0);
+
+        for frame in 0..512 {
+            if frame == 160 { params.freeze = true; reverb.set_parameters(params); left.clear(); right.clear(); }
+            if frame == 320 { params.freeze = false; reverb.set_parameters(params); }
+            let l = if frame % 17 == 0 { 0.75 } else { -0.1 };
+            let r = if frame % 23 == 0 { -0.5 } else { 0.2 };
+            let (input_l, input_r) = if params.freeze { (0.0, 0.0) } else { (l, r) };
+            let expected = 0.5 * (left.process(input_l) + right.process(input_r));
+            let pos = reverb.predelay.write_pos;
+            reverb.process_sample(l, r);
+            let expected = if params.freeze { 0.0 } else { expected };
+            assert!((reverb.predelay.buffer[pos] - expected).abs() < 1e-6, "frame {frame}");
+        }
+        reverb.clear();
+        let pos = reverb.predelay.write_pos;
+        reverb.process_sample(1.0, 0.0);
+        let mut fresh = plateau::OnePoleHP::new();
+        fresh.set_cutoff(20.0);
+        assert_eq!(reverb.predelay.buffer[pos], fresh.process(0.5));
     }
 
     #[test]

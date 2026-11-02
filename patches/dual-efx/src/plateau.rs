@@ -313,6 +313,7 @@ impl Default for PlateauParameters {
 
 pub struct PlateauReverb {
     // Predelay
+    input_dc: OnePoleHP,
     pub predelay: Delay<PREDELAY_MAX>,
     pub predelay_samples: usize,
     predelay_from_samples: usize,
@@ -381,6 +382,7 @@ pub struct PlateauReverb {
 impl PlateauReverb {
     pub const fn new() -> Self {
         Self {
+            input_dc: OnePoleHP::new(),
             predelay: Delay::new(),
             predelay_samples: 480,
             predelay_from_samples: 480,
@@ -470,6 +472,7 @@ impl PlateauReverb {
         self.lfo2 = TriangleLFO::new(0.15);
         self.lfo3 = TriangleLFO::new(0.12);
         self.lfo4 = TriangleLFO::new(0.18);
+        self.input_dc.set_cutoff(20.0);
         self.in_lp.set_cutoff(INPUT_HIGH_CUT_HZ);
         self.in_hp.set_cutoff(INPUT_LOW_CUT_HZ);
         self.out_hp_l.set_cutoff(20.0);
@@ -479,6 +482,7 @@ impl PlateauReverb {
     }
 
     pub fn clear(&mut self) {
+        self.input_dc.clear();
         self.predelay.clear();
         self.in_apf1.clear();
         self.in_apf2.clear();
@@ -549,6 +553,7 @@ impl PlateauReverb {
         if self.params.size != params.size || self.params.freeze != params.freeze {
             self.begin_output_transition();
         }
+        if params.freeze && !self.params.freeze { self.input_dc.clear(); }
         self.retarget_predelay(params.predelay_ms);
         if params.freeze {
             self.predelay_remaining = 0;
@@ -702,6 +707,7 @@ impl PlateauReverb {
         if self.params.freeze != params.freeze {
             self.begin_output_transition();
         }
+        if params.freeze && !self.params.freeze { self.input_dc.clear(); }
         if params.freeze {
             self.predelay_remaining = 0;
             self.predelay_previous = 0.0;
@@ -750,8 +756,12 @@ impl PlateauReverb {
         // Do not let corrupt samples poison the feedback tank.
         let in_l = audio_input(in_l);
         let in_r = audio_input(in_r);
-        // 1. Predelay & Input Sum
-        let tank_in = self.process_predelay(0.5 * in_l + 0.5 * in_r);
+        // The reference blocks DC on both channels before summing. Their
+        // identical linear filters can share one history after the sum.
+        // Discard frozen input before filtering so it cannot leak on release.
+        let input = if self.params.freeze { 0.0 } else { 0.5 * in_l + 0.5 * in_r };
+        let filtered = self.input_dc.process(input);
+        let tank_in = self.process_predelay(filtered);
 
         // 2. Input Diffusers
         let mix = self.advance_diffusion_mix();
