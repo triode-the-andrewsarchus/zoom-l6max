@@ -55,6 +55,30 @@ pointer or touching shared scratch; at most one may hold a lease. Storage owners
 rejected-entry behavior, time bounds, other users and hardware synchronization
 remain unresolved.
 
+## Forced file-mix handoff
+
+`--callback --file-mix-handoff pending` queues a stock file-mix workflow
+after selecting a diagnostic effect, then forces an audio semaphore signal
+after stream shutdown. `--file-mix-handoff bypass` adds a QEMU-only live-wrapper
+entry bypass during that interval. Both require a fresh output directory under
+`/tmp`, a disposable state and an `l6dbg` GDB socket for the trigger. For each
+mode, substitute the same mode and a new `OUTPUT` path:
+
+```sh
+python3 tools/l6dsp-tests/probe/prepare.py FIRMWARE STATE OUTPUT --callback --file-mix-handoff bypass
+target/debug/l6dbg OUTPUT/recipe.toml --firmware-dir OUTPUT/firmware --state-dir OUTPUT/state --logs OUTPUT/logs --qemu QEMU --gdb-socket OUTPUT/gdb.sock
+python3 tools/l6dsp-tests/probe/file_mix_handoff.py OUTPUT/logs/diagnostic.json --bypass
+```
+
+For the `pending` control, omit `--bypass` from the final command. The checker
+expects the no-card workflow to return 9, one successful forced signal, and
+callbacks both before and after the handoff. It distinguishes the observed
+late callback from the bypassed case. This experiment uses a non-atomic flag,
+unowned memory, an injected signal and a delay; it does not implement the
+production admission protocol, test a successful mix or prove safe ownership,
+selection synchronization, target timing or physical behavior. Never install
+either diagnostic image.
+
 ## Synthetic file-mix layout
 
 To examine the candidate file-mix track layout, prepare a separate image with

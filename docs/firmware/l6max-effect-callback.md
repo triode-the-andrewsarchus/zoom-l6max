@@ -6108,6 +6108,38 @@ result SHA-256 values were respectively
 The preparer, linker, stock MAIN, fixtures, QEMU and `l6dbg` matched the
 preceding run.
 
+A subsequent paired experiment inserted a QEMU-only bypass at the live
+wrapper's entry, before its deferred stock copies and callback-pointer load.
+During the forced file-mix window, the bypass took the wrapper's existing
+silent-output path. With the bypass disabled, the forced signal again advanced
+the callback counter from 28 to 29; with it enabled, one wrapper entry was
+bypassed and the counter stayed at 28. Both runs later reached 3,120 calls
+after stream restart. The [probe and checker](../../tools/l6dsp-tests/probe/README.md#forced-file-mix-handoff)
+reproduce these two diagnostic cases. This is not the admission protocol: the
+flag is non-atomic and in unowned scratch, the successful file-mix path was
+not exercised, and there is no proof for in-flight wrappers, selector races,
+other stock users, reset, target timing or physical behavior. Bypassing the
+entry also skips stock deferred copies, whose broader effects are unqualified.
+Never install either diagnostic image.
+
+The pending-control MAIN, ELF, recipe and result hashes were respectively
+`221de79e6ae4c2d4e510ea38ddaf60d6dd9a7ef7da3cdbaddd42577f23c944c9`,
+`8fc1042854fd0873c3eb9b1e9c0483131422f8ee88c8ac5e21ca3456c54abed5`,
+`ee10e3f129a304f4c746a09383394db53fb8f1c8967045f8a8eb8d545d308d50`, and
+`058c6d18cffbaeb448f187bcf219465efaf80838df773991c7799c48a5117346`.
+The bypass MAIN, ELF, recipe and result hashes were respectively
+`3743a82b09ba400cfd18d0175a312b370b504d719f5f5bf6e17f39eecdd6d71e`,
+`35305537ce5693d162c144c8c156aa4747fff02d5d6bbf54e986076ad3f62bfb`,
+`8463f590beb67ddf612818c50edc95466ed85a72fd700fdcd434cbc54da1ae0a`, and
+`ae0835ce2f5b4eba22b0ada076bb44c9a2a863e9b85e25fd190cf7ae5f5c361e`.
+The callback, handoff module, preparer, fixture helper and linker source
+hashes were `b06883ff904b6dd59300f8f5f21be9bf115ddd397dd4ac8ac6854edacdb7d700`,
+`1e0ed6ac3ed05ad721f7b97bfba7e25aa766df7480f000dedef5dd8187a79610`,
+`95d6b29dc59e39da1e6af96bfc276e1cbf0d6ad56680f9ef2bbead0a19759ed2`,
+`24ab340e2390d7037c02f848b4b79a384e8e515eb7744cf6d46209fcb912885a`, and
+`18157a18df323f2cecd0a996b183d35f039273aee9ec8d0244636bfa07dab3b4`.
+Stock MAIN, initial fixtures, QEMU and `l6dbg` matched the preceding run.
+
 ### Standalone callback admission model
 
 The original standalone model admitted at most one lease for each of the live

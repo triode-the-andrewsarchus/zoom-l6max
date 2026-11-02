@@ -9,7 +9,7 @@ import shlex
 import struct
 import subprocess
 from thumb_branch import branch
-from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_boundary_hook, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, validate_probe_entry
+from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_boundary_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, validate_probe_entry
 
 ROOT = Path(__file__).resolve().parents[3]
 PROBE = Path(__file__).resolve().parent
@@ -27,6 +27,7 @@ parser.add_argument("--admission-probe", action="store_true", help="exercise the
 parser.add_argument("--switches", action="store_true", help="observe all six effect selections")
 parser.add_argument("--mixer-input-capture", action="store_true", help="capture routed mixer input and output for each custom effect (QEMU only)")
 parser.add_argument("--offline-mix-layout", action="store_true", help="run a destructive synthetic file-mix layout probe in QEMU")
+parser.add_argument("--file-mix-handoff", choices=("pending", "bypass"), help="force a late audio signal in the stock file-mix workflow (QEMU only)")
 parser.add_argument("--inspector", action="store_true", help="enable QEMU-only inspector event hooks")
 parser.add_argument("--gesture-trace", action="store_true", help="record selector events (perturbs timing)")
 parser.add_argument("--enqueue-trace", action="store_true", help="record panel events before enqueue (perturbs timing)")
@@ -51,15 +52,18 @@ parser.add_argument("--passthrough-unready", action="store_true", help="keep syn
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
 parser.add_argument("--bank-stress-count", type=int, default=10, help="number of bank changes (1..64)")
 args = parser.parse_args()
+other_diagnostics = (args.switches, args.inspector, args.mixer_input_capture, args.gesture_trace, args.enqueue_trace,
+        args.irq_trace, args.irq_timing, args.ring_timing, args.ring_drop, args.timing_control,
+        args.active_sends, args.selector_load_trace, args.max_velvet_density, args.submix_return,
+        args.retain_custom_state, args.pre_ainr, args.effect_buffer, args.auto_handoff,
+        args.channel0_prefix, args.hybrid_handoff, args.boundary_handoff, args.boundary_noise,
+        args.passthrough_unready, args.bank_stress)
+if args.file_mix_handoff and (not args.callback or args.admission_probe
+        or args.offline_mix_layout or any(other_diagnostics)):
+    parser.error("--file-mix-handoff requires --callback alone")
 if args.admission_probe and args.callback:
     parser.error("--admission-probe cannot be combined with --callback")
-if args.offline_mix_layout and (not args.callback or any((args.switches, args.inspector,
-        args.mixer_input_capture, args.gesture_trace, args.enqueue_trace, args.irq_trace,
-        args.irq_timing, args.ring_timing, args.ring_drop, args.timing_control, args.active_sends,
-        args.selector_load_trace, args.max_velvet_density, args.submix_return, args.retain_custom_state,
-        args.pre_ainr, args.effect_buffer, args.auto_handoff, args.channel0_prefix,
-        args.hybrid_handoff, args.boundary_handoff, args.boundary_noise,
-        args.passthrough_unready, args.bank_stress))):
+if args.offline_mix_layout and (not args.callback or any(other_diagnostics)):
     parser.error("--offline-mix-layout requires --callback alone")
 if args.max_velvet_density and not args.selector_load_trace:
     parser.error("--max-velvet-density requires --selector-load-trace")
@@ -147,6 +151,10 @@ if args.admission_probe:
     rustc += ["--cfg", "admission_probe"]
 if args.offline_mix_layout:
     rustc += ["--cfg", "offline_mix_layout"]
+if args.file_mix_handoff:
+    rustc += ["--cfg", "file_mix_handoff"]
+    if args.file_mix_handoff == "bypass":
+        rustc += ["--cfg", "file_mix_bypass"]
 if args.inspector:
     rustc += ["--cfg", "inspector_probe"]
 if args.gesture_trace:
@@ -193,6 +201,18 @@ if not payload or 0x108000 + len(payload) > 0x1a2ff8:
     raise ValueError("diagnostic payload exceeds the application slot")
 image = bytearray(main)
 image[0x107de6:0x107df0] = CALLBACK_REDIRECT if args.callback else REDIRECT
+if args.file_mix_handoff:
+    symbols = {}
+    for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines():
+        parts = line.split()
+        if len(parts) == 3 and parts[2] in ("mix_handoff_observer", "mix_handoff_bypass"):
+            if parts[2] in symbols:
+                raise ValueError("duplicate file-mix handoff symbol")
+            symbols[parts[2]] = int(parts[0], 16) & ~1
+    bypass = symbols.get("mix_handoff_bypass") if args.file_mix_handoff == "bypass" else None
+    if args.file_mix_handoff == "bypass" and bypass is None:
+        raise ValueError("missing file-mix bypass symbol")
+    install_file_mix_handoff(image, symbols.get("mix_handoff_observer"), bypass)
 if args.offline_mix_layout:
     matches = [line.split() for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines()
                if line.endswith(" offline_mix_veneer")]
@@ -532,6 +552,13 @@ if args.offline_mix_layout:
     add("memory", name="offline_layout", address=0x83e07000, length=316)
 if args.admission_probe:
     recipe = recipe.replace('name = "impulse_peaks"', 'name = "admission_result"', 1)
+if args.file_mix_handoff:
+    recipe = recipe.replace('wall_timeout_s = 180', 'wall_timeout_s = 400', 1)
+    add("memory-write", name="trigger", address=0x81fff000, bytes=[71, 73, 82, 84])
+    add("press", target=40, hold_ms=150)
+    add("wait", guest_ms=4000)
+    add("memory", name="callback_after", address=0x83e00000, length=12)
+    add("memory", name="mix_handoff", address=0x83e0a000, length=44)
 (out / "recipe.toml").write_text(recipe)
 if args.pre_ainr:
     metadata = {"stock_main_sha256": MAIN_SHA, "diagnostic_main_sha256": image_sha,
@@ -563,7 +590,7 @@ command = [
     "--firmware-dir", str(firmware), "--state-dir", str(state), "--logs", str(out / "logs"),
     "--qemu", "QEMU_PATH",
 ]
-if args.pre_ainr and not args.auto_handoff:
+if args.file_mix_handoff or (args.pre_ainr and not args.auto_handoff):
     command += ["--gdb-socket", str(out / "gdb.sock")]
 print("Run: " + shlex.join(command))
 if args.pre_ainr and not args.auto_handoff:

@@ -19,6 +19,18 @@ def validate_probe_entry(nm_output):
         raise ValueError("diagnostic probe is not the unique function at 0x80108000")
 
 
+def install_file_mix_handoff(image, observer, bypass=None):
+    """Guard the file-mix call and optional relocated live-wrapper entry."""
+    valid = lambda target: target is not None and not target & 1 and 0x80108000 <= target < 0x801a2ff8
+    if (not valid(observer) or image[0x4ed8:0x4edc] != bytes.fromhex("fcf76efb")
+            or (bypass is not None and (not valid(bypass) or
+                image[0x104f58:0x104f60] != bytes.fromhex("f0b581b002f0f3fe")))):
+        raise ValueError("file-mix handoff site or target mismatch")
+    image[0x4ed8:0x4edc] = branch(0x80004ed8, observer)
+    if bypass is not None:
+        image[0x104f58:0x104f60] = bytes.fromhex("dff800f0") + (bypass | 1).to_bytes(4, "little")
+
+
 def install_offline_mix_hook(image, target):
     """Redirect a revision-guarded file-mix callback site in a QEMU copy."""
     offset = 0x196ea

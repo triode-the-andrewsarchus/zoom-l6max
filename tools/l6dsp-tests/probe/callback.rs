@@ -27,6 +27,8 @@ mod event_queue;
 mod mixer_capture;
 #[cfg(offline_mix_layout)]
 mod offline_layout;
+#[cfg(file_mix_handoff)]
+mod file_mix_handoff;
 #[cfg(irq_trace)]
 mod irq;
 #[cfg(ring_timing)]
@@ -187,6 +189,8 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
                 routing::DualEfxProcessor::initialize_in_place(&mut *storage);
             }
             core::ptr::write_volatile(entry, diagnostic_audio as *const () as usize as u32);
+            #[cfg(file_mix_handoff)]
+            file_mix_handoff::queue_if_requested();
         }
     }
 }
