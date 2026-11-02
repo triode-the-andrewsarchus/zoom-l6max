@@ -186,6 +186,16 @@ to require all four helpers, one completed bypass window, trace controls and
 no helper entry during that bypass. This is one instrumented CPU schedule,
 not a proof of every caller, DMA behavior or safe deferred-work handling.
 
+To probe one deferred word copy, also add
+`--file-mix-project-deferred-copy` to the preparer and
+`--project-deferred-copy` to the checker. The diagnostic injects a synthetic
+request only if the stock pending slot is idle, then checks that the request
+and destination remain unchanged after the forced live bypass and that the
+copy is consumed before the file mix returns. It deliberately modifies stock
+globals and writes an unowned emulator address. It does not test real request
+producers, competing edits, other destinations, an aborted mix, the doubleword
+copy path, or hardware. Never install it.
+
 One instrumented run recorded 6,144 routed calls, a maximum offset of 131,008,
 a maximum captured input difference of `1.46e-11` and 785,470 nonzero output
 samples. Left and right peaks were approximately `0.00042172` and

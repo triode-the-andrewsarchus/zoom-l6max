@@ -146,6 +146,14 @@ pub unsafe extern "C" fn mix_handoff_observer(a: u32, b: u32, c: u32, d: u32) ->
         write(out.add(10), read(0x83e0b004 as *const u32));
         let mix: unsafe extern "C" fn(u32, u32, u32, u32) -> u32 = core::mem::transmute(0x800015b9usize);
         let result = mix(a, b, c, d);
+        #[cfg(file_mix_project_deferred_copy)]
+        {
+            let observation = 0x83e0b900 as *mut u32;
+            write(observation.add(4), read(0x80464fcc as *const u32));
+            write(observation.add(5), read(0x83e0b940 as *const u32));
+            write(observation.add(6), read(0x80464fc8 as *const u32));
+            write(observation.add(7), 0x44454652);
+        }
         #[cfg(file_mix_atomic)]
         drop(lease);
         #[cfg(file_mix_bypass)]

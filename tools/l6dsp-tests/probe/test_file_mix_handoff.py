@@ -3,7 +3,7 @@ import copy
 import struct
 import unittest
 
-from file_mix_handoff import check, check_ainr_admission, check_ainr_timeout, check_learned_marker, check_midi_trace, check_project, check_project_helpers, check_project_leased_bypass, check_project_pending, check_timeout
+from file_mix_handoff import check, check_ainr_admission, check_ainr_timeout, check_learned_marker, check_midi_trace, check_project, check_project_deferred_copy, check_project_helpers, check_project_leased_bypass, check_project_pending, check_timeout
 
 
 def capture_report(captures):
@@ -26,6 +26,15 @@ def report(bypass):
 
 
 class FileMixHandoffTests(unittest.TestCase):
+    def test_deferred_copy_requires_pending_then_consumed(self):
+        expected = (1, 0, 1, 0xa55aa55a, 0, 0x5a3cc35a, 0, 0x44454652)
+        self.assertTrue(check_project_deferred_copy(capture_report({'project_deferred_copy': ('<8I', expected)})))
+        for index in range(len(expected)):
+            bad = list(expected)
+            bad[index] ^= 1
+            with self.subTest(index=index), self.assertRaises(ValueError):
+                check_project_deferred_copy(capture_report({'project_deferred_copy': ('<8I', bad)}))
+
     def test_helper_trace_requires_controls_and_no_bypass_calls(self):
         lines = ['MIX_TRACE_BEGIN before_read=1 before_write=1']
         lines += [f'MIX_TRACE_HELPER pc={pc} mix=6144 bypass=0'

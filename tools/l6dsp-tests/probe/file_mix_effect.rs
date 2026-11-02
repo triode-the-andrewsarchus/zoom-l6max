@@ -1,6 +1,61 @@
 //! QEMU-only experiment: route file-mix track chunks to the replacement DSP.
 use core::ptr::{read_volatile as read, write_volatile as write};
 
+// Synthetic QEMU-only request. Do not overwrite an already-pending copy.
+#[cfg(file_mix_project_deferred_copy)]
+#[inline(always)]
+unsafe fn stage_deferred_copy() {
+    unsafe {
+        let observation = 0x83e0b900 as *mut u32;
+        let target = 0x83e0b940 as *mut u32;
+        let destination = 0x80464fc8 as *mut u32;
+        let count = 0x80464fcc as *mut u32;
+        write(observation.add(1), read(count));
+        if read(count) == 0 && read(destination) == 0 {
+            write(target, 0xa55aa55a);
+            write(0x80464e20 as *mut u32, 0x5a3cc35a);
+            write(destination, target as u32);
+            write(count, 1);
+            write(observation, 1);
+        } else {
+            write(observation, 2);
+        }
+    }
+}
+
+// Interrupt one file-mix callback with a forced audio wake. Both guard
+// variants remain QEMU-only diagnostics.
+#[cfg(file_mix_project_pending)]
+#[inline(always)]
+unsafe fn force_pending_wake() {
+    use core::sync::atomic::{AtomicU32, Ordering};
+    unsafe {
+        let pending = 0x83e0b800 as *mut u32;
+        if read(pending) != 0 { return; }
+        write(pending, 1);
+        #[cfg(file_mix_project_deferred_copy)]
+        stage_deferred_copy();
+        let gate = &*(0x83e0b000 as *const AtomicU32);
+        let rejected = &*(0x83e0b004 as *const AtomicU32);
+        write(pending.add(1), gate.load(Ordering::Acquire));
+        write(pending.add(2), rejected.load(Ordering::Relaxed));
+        let give: unsafe extern "C" fn(u32, u32, u32, u32) -> u32 = core::mem::transmute(0x80090ad1usize);
+        let semaphore = read(0x20007cf8 as *const u32);
+        write(pending.add(3), give(semaphore, 0, 0, 0));
+        let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
+        delay(5);
+        #[cfg(file_mix_project_deferred_copy)]
+        {
+            let observation = 0x83e0b900 as *mut u32;
+            write(observation.add(2), read(0x80464fcc as *const u32));
+            write(observation.add(3), read(0x83e0b940 as *const u32));
+        }
+        write(pending.add(4), rejected.load(Ordering::Relaxed));
+        write(pending.add(5), gate.load(Ordering::Acquire));
+        write(pending, 2);
+    }
+}
+
 core::arch::global_asm!(
     r#"
     .syntax unified
@@ -42,28 +97,7 @@ pub unsafe extern "C" fn file_mix_effect_audio(_context: u32, descriptor: *const
         let count = 0x83e0a060 as *mut u32;
         write(count, read(count).wrapping_add(1));
         #[cfg(file_mix_project_pending)]
-        {
-            // Interrupt one real file-mix callback with a forced audio wake.
-            // The configured guard rejects either the block or its effect
-            // wrapper. Both paths remain diagnostic only.
-            let pending = 0x83e0b800 as *mut u32;
-            if read(pending) == 0 {
-                use core::sync::atomic::{AtomicU32, Ordering};
-                write(pending, 1);
-                let gate = &*(0x83e0b000 as *const AtomicU32);
-                let rejected = &*(0x83e0b004 as *const AtomicU32);
-                write(pending.add(1), gate.load(Ordering::Acquire));
-                write(pending.add(2), rejected.load(Ordering::Relaxed));
-                let give: unsafe extern "C" fn(u32, u32, u32, u32) -> u32 = core::mem::transmute(0x80090ad1usize);
-                let semaphore = read(0x20007cf8 as *const u32);
-                write(pending.add(3), give(semaphore, 0, 0, 0));
-                let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
-                delay(5);
-                write(pending.add(4), rejected.load(Ordering::Relaxed));
-                write(pending.add(5), gate.load(Ordering::Acquire));
-                write(pending, 2);
-            }
-        }
+        force_pending_wake();
         write(count.add(1), read(count.add(1)).max(offset));
         if offset > 239936 {
             write(count.add(2), read(count.add(2)).wrapping_add(1));

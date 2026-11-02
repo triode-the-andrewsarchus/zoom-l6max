@@ -8697,6 +8697,34 @@ binary, wrapper, result and trace SHA-256 values were respectively
 `1ea4e75b8685ac47854a9e672ca58e14c7df70f1f7eea0070a21b4bc36c49872`, and
 `d849a2050d634f87f3bbcf77b6c5d0c7df1ea83d65c10dec4f38fcc2167a93dc`.
 
+In another disposable leased-bypass bounce, the probe injected one synthetic
+pending word copy while the first file-mix callback was active. It first
+checked that the stock count and destination slot were zero, then staged one
+word and an unowned scratch destination. After the forced live wake returned,
+the count was still one and the destination still held its sentinel. Before
+the mix returned, the count and destination pointer had cleared and the
+scratch destination held the staged word. The project and shared-helper
+checks passed, including 6,144 helper entries outside the bypass window and
+none inside it.
+
+This is one manually injected word request and schedule, not a stock producer
+test or proof that deferral is safe. It does not cover a mix that exits before
+another helper call, concurrent requests or selectors, other destinations,
+the doubleword copy path, DMA or physical timing. The probe modifies stock
+globals and must not be installed.
+
+The diagnostic MAIN, ELF, initial NOR, card, recipe, result and trace SHA-256
+values were respectively
+`654971f27b070e50c22cd7f956595abe3d64dfe16f029e3fee4942c9f260d519`,
+`4b23ba8fbd7b10cd81eb31373a62ec35570c16eecaea94f601835e2543885fc5`,
+`e83c95ad02e06016f39a66c62f278805d0a87bc72e764dd9089151b9b6b71be3`,
+`fb1a78fb2bbce8d8abb6e2f87da342e96aad6a02545bf6bfdecf2c564deb2c44`,
+`502904bb02cd382fe7bff56feb16ee121b49ef032abd0b287bb5cc8d2227dd3a`,
+`b00ea37981dbe179ee4f62178933b276544f6b0d301561ccc269923aae2707e8`, and
+`9ca43ca1989f1f53a75f227d1c0bf275c3af999cecfa5c2f24edb2dc3bf0a863`.
+Stock MAIN, source NOR, panel fixtures, external QEMU, plugin and `l6dbg`
+match the preceding extended trace; QEMU source is unattested.
+
 The forced-bounce probe also has an inner-guard variant: it allows the stock
 `AudioProcess` block to proceed, but rejects its effect wrapper while file
 mixing holds the lease. In one run the forced semaphore give succeeded, the

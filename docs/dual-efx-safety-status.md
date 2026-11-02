@@ -125,6 +125,10 @@ The blocking findings for L6max MAIN 1.10
   ramp updates. A QEMU trace observed those helpers during the mix and none
   during one leased bypass. Running them concurrently or simply discarding
   their live-side work is not yet qualified.
+  One injected word-copy request remained pending through a bypass and was
+  consumed before the same QEMU file mix returned. This does not cover real
+  producers, competing requests, aborted mixes, other destinations or the
+  doubleword path.
 - In QEMU, the inspector's long-hold gesture was misclassified during a
   stress run with nonzero synthetic sends on all three effect buses. Silent
   input runs passed after a DSP optimization; the active-audio control path

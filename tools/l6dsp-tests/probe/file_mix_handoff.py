@@ -62,6 +62,14 @@ def check_project_leased_bypass(report):
     return completed
 
 
+def check_project_deferred_copy(report):
+    observed = words(observations(report), 'project_deferred_copy', '<8I')
+    expected = (1, 0, 1, 0xa55aa55a, 0, 0x5a3cc35a, 0, 0x44454652)
+    if observed != expected:
+        raise ValueError('injected deferred copy was not retained then consumed')
+    return True
+
+
 def check_project_helpers(trace, routed_calls):
     entries = re.findall(r'^MIX_TRACE_HELPER pc=([0-9a-f]{8}) mix=(\d+) bypass=(\d+)$', trace, re.M)
     expected = {'8002bb18', '8002bba8', '80066180', '800664f0'}
@@ -254,7 +262,27 @@ def run_ainr_check(args, report):
     return result
 
 
+def run_project_check(args):
+    if any((args.bypass, args.selector, args.overlap, args.timeout, args.feedback,
+            args.midi_trace, args.ainr_timeout, args.ainr_learned, args.ainr_admission)):
+        raise ValueError('--project cannot be combined with other checks')
+    report = json.loads(args.report.read_text())
+    result = check_project(report)
+    if args.project_pending:
+        key = 'forced_effect_bypasses' if args.project_leased_bypass else 'forced_audio_rejections'
+        result[key] = check_project_pending(report)
+    if args.project_leased_bypass:
+        result['leased_bypass_blocks'] = check_project_leased_bypass(report)
+    if args.project_deferred_copy:
+        result['deferred_copy_consumed'] = check_project_deferred_copy(report)
+    if args.project_helper_trace:
+        result['helper_entries'] = check_project_helpers(args.project_helper_trace.read_text(), result['routed_calls'])
+    return result
+
+
 def run_check(args):
+    if args.project_deferred_copy and not args.project_leased_bypass:
+        raise ValueError('--project-deferred-copy requires --project-leased-bypass')
     if args.project_helper_trace and not args.project_leased_bypass:
         raise ValueError('--project-helper-trace requires --project-leased-bypass')
     if args.project_leased_bypass and not args.project_pending:
@@ -262,19 +290,7 @@ def run_check(args):
     if args.project_pending and not args.project:
         raise ValueError('--project-pending requires --project')
     if args.project:
-        if any((args.bypass, args.selector, args.overlap, args.timeout, args.feedback,
-                args.midi_trace, args.ainr_timeout, args.ainr_learned, args.ainr_admission)):
-            raise ValueError('--project cannot be combined with other checks')
-        report = json.loads(args.report.read_text())
-        result = check_project(report)
-        if args.project_pending:
-            key = 'forced_effect_bypasses' if args.project_leased_bypass else 'forced_audio_rejections'
-            result[key] = check_project_pending(report)
-        if args.project_leased_bypass:
-            result['leased_bypass_blocks'] = check_project_leased_bypass(report)
-        if args.project_helper_trace:
-            result['helper_entries'] = check_project_helpers(args.project_helper_trace.read_text(), result['routed_calls'])
-        return result
+        return run_project_check(args)
     validate_options(args)
     validate_ainr_options(args)
     report = json.loads(args.report.read_text())
@@ -292,6 +308,7 @@ def main():
     parser.add_argument('--project', action='store_true', help='check the recorded-project workspace probe')
     parser.add_argument('--project-pending', action='store_true', help='check a forced audio wake inside the project mix callback')
     parser.add_argument('--project-leased-bypass', action='store_true', help='check the experimental outer-lease bypass')
+    parser.add_argument('--project-deferred-copy', action='store_true', help='check an injected deferred copy across the bypass')
     parser.add_argument('--project-helper-trace', type=Path, help='check shared-helper execution in the plugin trace')
     parser.add_argument('--bypass', action='store_true')
     parser.add_argument('--selector', action='store_true')
