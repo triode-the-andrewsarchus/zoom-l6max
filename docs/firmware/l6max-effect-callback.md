@@ -8343,3 +8343,47 @@ preceding worker-stack observation. The plugin-enabled QEMU executable SHA-256
 was `e5acb1abd30c50ed0413c6a6bf8bd1e99b39780bc0bf80a39f3a11a99c530e25`;
 its source provenance is unattested. These disposable images use unowned
 scratch and must not be installed.
+
+### Ordered prototype timing and convolution profile
+
+Using fresh copies of the same stock state and running sequentially with the
+uninstrumented QEMU executable, the ordered scalar and four-frame builds above
+advanced 1,692 and 2,260 callbacks respectively over five guest seconds; the
+nominal count is 3,750. Their fade counters advanced 1,495 and 1,993 times.
+The builds each injected one synthetic control block before the measurement
+window and used nonzero synthetic sends. These counts are emulator observations,
+not hardware execution times or proof of deadline compliance.
+
+A separate QEMU plugin counted translated-block instruction totals within the
+diagnostic payload between the same callback markers. Of approximately 473,528
+counted instruction slots, 401,307 were attributed to
+`VelvetDecorrelator::process_shared_block` and 68,080 to `process_buses`.
+This is a single callback's profile, not a cycle count: it counts whole
+translated blocks, does not account for conditional execution or time outside
+the payload, and instrumentation may affect scheduling.
+
+A follow-up temporary build specialized the four-frame convolution when the
+A-send and cascade histories had equal write positions, retaining the generic
+path for unequal positions. Its 115 existing host tests and an additional
+aligned-versus-generic wrap-boundary comparison passed. In the matched QEMU
+stress sequence, however, it advanced only 2,103 callbacks, with 1,854 fade
+starts. The specialization was not adopted. These observations do not establish
+full audio equivalence, safe concurrent access, or physical timing.
+
+The sequential scalar/four-frame result hashes were
+`fb1448164719aab500faae4d616ae2aeef5207282a3c41fd77872cfe49c425eb` and
+`f187bf433af0c6785a2d037df875a273e273b10c83bb59efe455e7b091dd151c`.
+The specialized MAIN, ELF, compiled Velvet source and result hashes were
+`4af727915d436365bfd38544c18c242b701ac1746fcf823ff3b68023d37e0c59`,
+`c1ed1f9815f26439872457891015619d33be0ce7ea2755bf594477439699013f`,
+`34a0800830f35693f96fa0b24b2820d56ab42574066ae0a0258a5a32aec25cd2`, and
+`f106e2c0b06ebf6a2f73001ac4f69b9755ff92ec50c4ed0842cfa1378180e35f`.
+The profile plugin source/binary hashes were
+`8bcc212b373cb2e1bcd2e1babc2b13a64ef6bf6a0868d962a472b52f59f80d46` and
+`58804ae93968a50363f4e4302bd5eeaca03f7720e6387ba16765e0e435a8bf0f`.
+The sequential timing runs used QEMU SHA-256
+`53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`;
+the profile used the plugin-enabled QEMU identified in the preceding section.
+Both executables' source provenance is unattested. The stock inputs and
+`l6dbg` identities matched the preceding sections. These diagnostic images use
+unowned scratch and must not be installed.
