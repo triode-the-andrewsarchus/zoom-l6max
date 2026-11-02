@@ -8388,6 +8388,46 @@ Both executables' source provenance is unattested. The stock inputs and
 `l6dbg` identities matched the preceding sections. These diagnostic images use
 unowned scratch and must not be installed.
 
+### Eight- and sixteen-frame convolution experiments
+
+After the renewal-timing fix, two disposable prototypes extended the
+saved-history approach to eight and sixteen frames, using the existing rings
+without mirrored copies. Each tested the existing 117 host DSP cases; the
+eight-frame version also passed a wrap-boundary check including malformed
+tap delays. The callback computes a group before issuing its ordered control
+and output stores, so its interleavings differ from the scalar callback.
+Neither prototype is enabled in the firmware integration.
+
+Sequential QEMU runs of the scalar, eight-frame and sixteen-frame versions
+with 285 taps, nonzero synthetic sends and a 90 ms fade counted 1,102, 1,846
+and 1,951 callbacks, respectively, over five modeled seconds; the inspector
+stayed closed in each. The host was running other workloads, so these counts
+are noisy and do not measure target timing. All are below the nominal 3,750
+callbacks in that interval. The sixteen-frame increase over eight frames was
+small in this run. Its compiler-reported local stack sizes were 1,056 bytes
+for `diagnostic_audio`, 600 for `process_buses`, and 912 for
+`process_shared_block`; the eight-frame values were 992, 472, and 544 bytes.
+These numbers exclude callers, deeper calls and interrupts, and cannot
+establish the available headroom on the 4,096-byte audio-task stack. Neither
+prototype establishes physical deadlines, memory ownership, concurrent
+visibility of state, or safe control behavior.
+
+The stock MAIN, NOR, QEMU and `l6dbg` identities were
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+`4902e96e8375adb69b1ebe0e5572fe1ba3fb6a0e413c8595605128a297dfd910`, and
+`ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`;
+QEMU source is unattested. The scalar, eight- and sixteen-frame diagnostic
+MAINs were `a9ff7fe8747449426b013149ded1b5bf343497adcc96052e51a79d58299cbcbf`,
+`1b54df2770d2e03f254265aff2e4c8360334d262ebdb7fe060a02a28d3e876e2`, and
+`21b0bc4726fa963c0825a8d5510eee9d0c2376dd1919fd1f43d52b898aee7851`;
+their result hashes were `7348548c36447a9f3ec4d619a5a1c6ad97f742329688e07dc59995752c5f4afc`,
+`c03847a1ed9c5687af2e0e5314315fd3d8c23948fcba4b73e039b79eda8a7a95`, and
+`bed0cfe71902a122366d5ed56b9013384d513a39489f5e62d0273fc3192546dd`.
+The local source diffs were
+`c0d74af6615c95ae784b4c3f8d3e13802d71ff0fbf4a48278dfd5ec50bfc669b` and
+`e5c99ecd3e90258e531c0630285c011d1b53db27d967cd01b9a076731ab49c36`.
+
 ### Recorded-project bounce and effect sends
 
 A disposable L6max 1.10 QEMU project exercised the normal Quick Bounce UI
