@@ -1,9 +1,6 @@
 """Failure checks for the QEMU-only paired Sub-Mix observation."""
 import copy
-from pathlib import Path
 import struct
-import subprocess
-import sys
 import unittest
 
 from submix_return import compare
@@ -22,16 +19,6 @@ def report(enabled):
 
 
 class SubmixComparisonTests(unittest.TestCase):
-    def test_preparer_rejects_incomplete_or_conflicting_modes(self):
-        preparer = Path(__file__).with_name('prepare.py')
-        for flags in (['--submix-return'],
-                      ['--callback', '--inspector', '--active-sends', '--submix-return', '--bank-stress']):
-            result = subprocess.run([sys.executable, str(preparer), 'missing', 'missing', 'missing', *flags],
-                                    capture_output=True, text=True, check=False)
-            with self.subTest(flags=flags):
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn('--submix-return requires', result.stderr)
-
     def test_matched_observations_and_reversed_settings(self):
         off, on = report(False), report(True)
         self.assertEqual(compare(off, on)['on_counts'], [10, 20])

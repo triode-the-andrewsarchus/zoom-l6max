@@ -1,8 +1,35 @@
 """Guard checks for disposable L6max diagnostic image preparation."""
+from pathlib import Path
+import subprocess
+import sys
 import unittest
 
 from fixture import MODE_CALL_SITES, install_ainr_selector_veneer, install_boundary_hook, install_mode_hooks, install_panel_receive_hooks
 from thumb_branch import branch
+
+
+class PreparerModeTests(unittest.TestCase):
+    def test_rejects_incomplete_or_conflicting_modes_before_reading_inputs(self):
+        preparer = Path(__file__).with_name('prepare.py')
+        selector = ['--callback', '--inspector', '--selector-load-trace']
+        cases = [
+            (['--submix-return'], '--submix-return requires'),
+            (['--callback', '--inspector', '--active-sends', '--submix-return', '--bank-stress'], '--submix-return requires'),
+            (['--selector-load-trace', '--callback', '--active-sends'], '--selector-load-trace requires'),
+            (['--selector-load-trace', '--inspector', '--timing-control'], '--selector-load-trace requires'),
+            (selector, '--selector-load-trace requires'),
+            (selector + ['--active-sends', '--timing-control'], '--selector-load-trace requires'),
+            (selector + ['--active-sends', '--ring-timing'], '--selector-load-trace requires'),
+            (selector + ['--active-sends', '--irq-timing'], '--selector-load-trace requires'),
+            (selector + ['--active-sends', '--pre-ainr'], '--selector-load-trace requires'),
+            (selector + ['--timing-control', '--bank-stress'], '--selector-load-trace requires'),
+        ]
+        for flags, message in cases:
+            result = subprocess.run([sys.executable, str(preparer), 'missing', 'missing', 'missing', *flags],
+                                    capture_output=True, text=True, check=False)
+            with self.subTest(flags=flags):
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr)
 
 
 class SelectorVeneerGuardTests(unittest.TestCase):

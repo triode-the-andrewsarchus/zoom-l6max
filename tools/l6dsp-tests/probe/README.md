@@ -128,6 +128,16 @@ it is not an effect implementation. Both options alter the diagnostic image.
 test signals and records the latest output samples at `0x83e00800`. It tests
 active DSP workload rather than the physical input or mixer routing path.
 
+For a shorter paired selector investigation, prepare one image with
+`--callback --inspector --selector-load-trace --active-sends` and another with
+`--callback --inspector --selector-load-trace --timing-control`. The option
+enables the IRQ, enqueue and gesture traces and creates the same hold sequence
+for each image. Inspect `start`, `end`, `work`, `inspector`, `inspector_later`,
+`irq`, `enqueue`, `gesture` and `selected` in each result; the runner collecting
+them is not an assertion that the interaction passed. Both images perturb
+timing and use unowned scratch. The normal preparer uses the current 64-tap
+limit; a separate modified source was used for the 285-tap observations below.
+
 For a paired Sub-Mix observation, copy the same Hall-selected 1.10 state to
 two disposable directories and use `l6nor set` to set
 `mixer.current.efx_return_submix=1` in the second. Verify with `l6nor diff`
