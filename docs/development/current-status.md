@@ -20,6 +20,10 @@ analog audio behavior, and physical jack routing remain unverified.
 
 ## Known limits
 
+- Both models now let the firmware consume deferred audio updates. Earlier
+  runs using the removed queue-discard shortcut do not qualify mixer
+  coefficient changes. Other firmware revisions need qualification.
+
 - The earlier L6max `l6max-ainr-tap` progress-flag assertion was intermittent;
   a trace showed a failing run entering the learning handler. The revised
   case checks the eventual learned state and reset, and needs repeat

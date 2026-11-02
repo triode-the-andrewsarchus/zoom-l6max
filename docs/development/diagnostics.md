@@ -33,6 +33,10 @@ Use the recipe runner for targeted observations that can be expressed as a
 short, reusable sequence. Do not use its successful exit as a substitute for
 test-driver assertions.
 
+The firmware consumes deferred audio updates in both models; the former
+queue-discard shortcut has been removed. Historical observations made with
+the shortcut do not qualify the applied audio coefficients.
+
 ## Focused input and MIDI probes
 
 The same binary retains lower-level `input` and `midi` subcommands:

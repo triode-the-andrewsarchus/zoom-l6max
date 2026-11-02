@@ -8468,3 +8468,29 @@ The resulting WAV hash was
 The stock firmware, QEMU, plugin and `l6dbg` were those identified above;
 the emulator's source provenance remains unattested. This image uses unowned
 scratch and must not be installed.
+
+### Deferred EQ updates in emulator diagnostics
+
+The preceding bounce experiments used the host's former default
+`L6_SERVICE_AUDIO_QUEUE=1`. This emulator shortcut advances the firmware's
+queue read index without executing the queued writes. A controlled 10 kHz
+bounce pair showed identical output with neutral and cut high EQ under both
+stock-effect and diagnostic-effect selections. Those runs therefore do not
+qualify EQ behavior, and earlier results obtained with the shortcut cannot
+establish effects of deferred mixer updates.
+
+On L6max 1.10, the high-EQ setter generated non-neutral coefficients and
+queued them at the stock deferred-copy interface. With the shortcut enabled,
+the audio routine ran but its queue-drain branch was not observed, and the
+destination stayed neutral. With the shortcut disabled, the stock consumer
+ran and the destination changed. The host now defaults to the latter for
+L6max; L6 retains the existing shortcut default pending separate evidence.
+The revision-guarded `l6max-eq-audio-update` scenario checks the mixer value
+and destination coefficient. It passed with the new default and failed at
+that coefficient check with the shortcut explicitly enabled. The paired
+headless runs used stock MAIN SHA-256
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461` and
+external QEMU SHA-256
+`4902e96e8375adb69b1ebe0e5572fe1ba3fb6a0e413c8595605128a297dfd910`;
+the QEMU build source is unattested by the driver. They do not establish
+physical audio behavior or the replacement's bounce output with EQ enabled.
