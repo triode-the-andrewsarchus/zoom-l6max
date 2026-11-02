@@ -127,7 +127,8 @@ The blocking findings for L6max MAIN 1.10
   selection still reconstructs three copies in unqualified effect storage.
   The versioned protocol invalidates a previous snapshot when the selector
   enters AINR again; host tests cover a stale token and an in-flight writer,
-  but the selector-level behavior has not been demonstrated in QEMU.
+  and a QEMU debugger experiment exercised the selector hook with a seeded
+  stale token. That experiment does not cover every selection path.
   The pause therefore does not establish a coherent snapshot. A smaller
   temporary prototype captured 512 bytes and reconstructed the remainder
   after selection; under injected signal the resulting state differed from

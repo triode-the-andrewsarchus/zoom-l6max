@@ -5478,6 +5478,26 @@ and result SHA-256 values were
 `cec7f0df1ea8f29b573778a448f78bd8a4a51e58de40c19785d59fbab94fc723`, and
 `23e34d93b2589831b39795a8da541cb6255ad3a66102e49176619502abbf50a9`.
 
+A later selector-hook experiment seeded a completed control token and ready
+token of `0x3e`, status `1`, and start timestamp `123` at the observed AINR
+entry hook in a disposable QEMU guest. At the hook's return, the control word
+was `0x40` and the other three words were zero. This checks that this compiled
+entry path invalidates the seeded generation; it is not a natural capture or
+an observation of every selector path. After the debugger detached, the recipe
+observed the learned flag, one wait for boundary acknowledgment, a reported
+capture, and nonzero sampled sends. Its result SHA-256 was
+`ecca0c5c118be261f826a7ae4829feead13f7d14d0a18e840b34a2d518082739`;
+the forced seed means this is not an unmodified end-to-end run. The diagnostic MAIN, ELF and recipe
+SHA-256 values were
+`b046c11fa7b4161739de58913ed60819c4fb5f25c4d73cb51cd80f27fbcaab4c`,
+`ea48ed1e0e07a79e2ebe78b814d71065fc96c20eeff907b29c06ef3db0d2dd33`, and
+`cbb01d4e8b37afbf5f0b03de7f97434f21c4ab26696a246fcbfec8d1a8303d76`;
+the GDB command file SHA-256 was
+`0f0724daf3c33aa8a1ea4430cbfc8a3409ab66bfe4e66e9a88539a88234b663a`.
+The stock MAIN, initial NOR and unattested QEMU binary were the same as the
+preceding experiment; `l6dbg` SHA-256 was
+`aed900b0f7f43f225233f7f1a33e5ba8e159d4a698905297e0fb48c5c8519cc0`.
+
 A separate instrumented run cancelled and rearmed the snapshot claim after
 the copy. The forced-invalidation marker was set, the handoff reported failure,
 and the ready token and sampled sends remained zero. This exercises one forced
