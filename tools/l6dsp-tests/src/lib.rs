@@ -1652,6 +1652,36 @@ mod tests {
     }
 
     #[test]
+    fn weighted_routing_matches_the_synthetic_file_mix_observation() {
+        use routing::{DualEfxProcessor, RoutingMode, WeightedChannel};
+        let mut processor = Box::new(DualEfxProcessor::new());
+        processor.init();
+        let mut tracks = [[0.0f32; 128]; 12];
+        for (slot, track) in tracks.iter_mut().enumerate() {
+            processor.channel_routing[slot] = [RoutingMode::SendA, RoutingMode::SendB,
+                RoutingMode::SendAtoB][slot % 3];
+            for (frame, sample) in track.iter_mut().enumerate() {
+                *sample = ((slot as f32 + 1.0) * 1_000_000.0 + frame as f32 * 1000.0)
+                    * (1.0 / 2147483648.0);
+            }
+        }
+        let channels: Vec<_> = tracks.iter().enumerate().map(|(slot, samples)| WeightedChannel {
+            samples, gain: (slot as f32 + 1.0) / 16.0, ramp: None,
+        }).collect();
+        let mut left = [0.0; 128];
+        let mut right = [0.0; 128];
+        processor.process_weighted_block(&channels, &mut left, &mut right);
+        // Independent ARM/QEMU capture from the synthetic file-mix caller.
+        for (frame, expected_l, expected_r) in [
+            (0, 0.007768246, 0.007729655), (63, 0.013850859, 0.001429997),
+            (64, 0.013852504, 0.001430163), (127, 0.013353780, -0.003259216),
+        ] {
+            assert!((left[frame] - expected_l).abs() < 1e-6, "left frame {frame}");
+            assert!((right[frame] - expected_r).abs() < 1e-6, "right frame {frame}");
+        }
+    }
+
+    #[test]
     fn plateau_predelay_delays_impulse_by_requested_samples() {
         let mut immediate = plateau::PlateauReverb::new();
         let mut delayed = plateau::PlateauReverb::new();

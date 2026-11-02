@@ -4,7 +4,7 @@ import subprocess
 import sys
 import unittest
 
-from fixture import MODE_CALL_SITES, install_ainr_selector_veneer, install_boundary_hook, install_mode_hooks, install_panel_receive_hooks
+from fixture import MODE_CALL_SITES, install_ainr_selector_veneer, install_boundary_hook, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks
 from thumb_branch import branch
 
 
@@ -38,6 +38,25 @@ class PreparerModeTests(unittest.TestCase):
             with self.subTest(flags=flags):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(message, result.stderr)
+
+
+class OfflineMixVeneerGuardTests(unittest.TestCase):
+    def test_guards_call_site_and_veneer_before_writing(self):
+        original = bytearray(0x196f2)
+        original[0x196ea:] = bytes.fromhex('d5e900014e60e047')
+        for target in (None, 0x80109001, 0x80001000, 0x801a2ff8):
+            image = original[:]
+            with self.subTest(target=target), self.assertRaises(ValueError):
+                install_offline_mix_hook(image, target)
+            self.assertEqual(image, original)
+        image = original[:]
+        image[0x196ea] ^= 1
+        before = image[:]
+        with self.assertRaises(ValueError):
+            install_offline_mix_hook(image, 0x80109000)
+        self.assertEqual(image, before)
+        install_offline_mix_hook(original, 0x80109000)
+        self.assertEqual(original[0x196ea:], branch(0x800196ea, 0x80109000) + bytes.fromhex('00bf00bf'))
 
 
 class SelectorVeneerGuardTests(unittest.TestCase):

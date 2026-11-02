@@ -11,6 +11,15 @@ MODE_CALL_SITES = (0x80036dd4, 0x80036e2e, 0x80036e4e, 0x80036ec2,
 VENEER_SHA = "c366ef222fb2b2b87302d6eae469b721f11ba6b41dd79d4b7fe16a582e332c13"
 
 
+def install_offline_mix_hook(image, target):
+    """Redirect a revision-guarded file-mix callback site in a QEMU copy."""
+    offset = 0x196ea
+    if (image[offset:offset + 8] != bytes.fromhex("d5e900014e60e047")
+            or target is None or target & 1 or not 0x80108000 <= target < 0x801a2ff8):
+        raise ValueError("file-mix call site or veneer mismatch")
+    image[offset:offset + 8] = branch(0x800196ea, target) + bytes.fromhex("00bf00bf")
+
+
 def install_mode_hooks(image, target):
     """Guard every observed direct mode call before changing the copied image."""
     if target is None or target & 1 or not 0x80108000 <= target < 0x801a2ff8:

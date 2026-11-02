@@ -5847,6 +5847,33 @@ The probe source and checker hashed to
 Stock MAIN, initial NOR, panel state, QEMU and `l6dbg` match the preceding
 modeled-input inspector run; the QEMU build's provenance is unattested.
 
+A subsequent diagnostic redirects the guarded file-mix callback site through
+a veneer. Only for its experimental callback, the veneer supplies the current
+block offset as a third argument; for another callback, it preserves that
+argument. In a direct QEMU call, the experimental callback received offsets
+0 and 64, reconstructed three synthetic routed buses, and ran the standalone
+effects. Its observed stereo output at frames 0, 63, 64 and 127 matched a
+separate host execution of the same DSP to nine decimal places. A second
+synthetic callback received the original third argument `0x202a7138` for
+both blocks. Guard tests reject changed site bytes and invalid veneer targets.
+This tests one synthetic call with interrupts masked, not normal file mixing,
+all stock callback behavior, concurrent DSP access, output-file contents,
+physical timing or safe installation. The scratch and displaced stock state
+are unowned; the diagnostic image must never be installed.
+
+The diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`4d99e218a428fd720e9c84c1ad2e1b096de88e81cd7d8e7069236139a8242863`,
+`48df91bb2852d647d476d40edf0092975dc7344eeb0fec86599820b137ecd3a3`,
+`05039bb4c773ad6cdc36124a67cf30a5021808ddc90e4710cfe395f014d6eacd`, and
+`4460dd08f6915602e4d24df4c395ab16cc6a37a8a14115962364dd5130e02bae`.
+The veneer/probe source and host-reference source hashed to
+`8eee735909cebd6efb7481eaecfec6a3cf64a622d9587c9845d5af919f19510c` and
+`d2d9d4a3700c97a6d12fcc6ee1dde0b78316da7036ded80aeeb359d4262c1a9e`;
+the host-reference executable was
+`09e12196b61292e2838939a237bff81017fd64c1bbabf41d49763ac6524c19b6`.
+Stock MAIN, initial NOR, panel state, QEMU and `l6dbg` match the preceding
+modeled-input inspector run; the QEMU build's provenance is unattested.
+
 ### Current full-density selector workload
 
 The maintained selector-load diagnostic can now initialize Velvet at 95 ms

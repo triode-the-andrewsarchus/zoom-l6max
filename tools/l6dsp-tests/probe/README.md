@@ -56,9 +56,13 @@ twelve candidate track buffers, distinct per-track gains, and disabled stock
 filter sections. It captures both ends of each 64-frame callback block. It
 masks interrupts during the call and deliberately overwrites stock state and
 unowned QEMU scratch; it is destructive to the copied emulator session and
-must never be installed on hardware. The check validates the synthetic data
-and stock summed callback input, not the normal file-mix workflow, effect
-routing, concurrency, target deadlines, or physical behavior.
+must never be installed on hardware. A guarded call-site veneer passes the
+block offset to the experimental callback, which routes the synthetic tracks
+to three buses and runs the standalone effects. A separate ordinary callback
+checks that its original third argument is retained. The checker validates
+the synthetic tracks, stock sum, routed buses and finite stereo output. This
+does not qualify the normal file-mix workflow, callback lifetime, all stock
+callback behavior, concurrency, target deadlines, or physical behavior.
 
 ## Automatic callback diagnostic
 
