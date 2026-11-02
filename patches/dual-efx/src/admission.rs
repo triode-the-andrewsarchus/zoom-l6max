@@ -1,9 +1,10 @@
 //! Callback admission model. This is not connected to firmware hooks.
 //!
 //! A lease must be acquired before loading a callback pointer or borrowing
-//! its state, and held until all accesses are complete. Live and file-mix
-//! leases may coexist only when their mutable DSP state is disjoint. Closing
-//! this gate does not stop DMA or code that does not participate in it.
+//! its state or shared scratch, and held until all accesses are complete.
+//! Live and file-mix leases are mutually exclusive because the stock paths
+//! share scratch buffers. Closing this gate does not stop DMA or code that
+//! does not participate in it.
 use core::sync::atomic::{AtomicU32, Ordering};
 
 const LIVE: u32 = 1;
@@ -25,13 +26,13 @@ impl CallbackAdmission {
         Self { state: AtomicU32::new(0) }
     }
 
-    /// Rejects a closed or occupied path. Atomic retries are not bounded;
+    /// Rejects a closed gate or either occupied path. Atomic retries are not bounded;
     /// the caller must define safe real-time behavior for rejection.
     pub fn try_enter(&self, path: CallbackPath) -> Option<CallbackLease<'_>> {
         let bit = match path { CallbackPath::Live => LIVE, CallbackPath::FileMix => FILE_MIX };
         let mut state = self.state.load(Ordering::Acquire);
         loop {
-            if state & (CLOSED | bit) != 0 { return None; }
+            if state & (CLOSED | LIVE | FILE_MIX) != 0 { return None; }
             match self.state.compare_exchange_weak(state, state | bit, Ordering::AcqRel, Ordering::Acquire) {
                 Ok(_) => return Some(CallbackLease { gate: self, bit }),
                 Err(actual) => state = actual,

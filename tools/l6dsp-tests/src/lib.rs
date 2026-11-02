@@ -26,25 +26,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn callback_admission_drains_both_paths_and_rejects_duplicate_closes() {
+    fn callback_admission_excludes_shared_scratch_and_rejects_duplicate_closes() {
         use admission::{CallbackAdmission, CallbackPath};
         let gate = CallbackAdmission::new();
         let live = gate.try_enter(CallbackPath::Live).unwrap();
-        let file = gate.try_enter(CallbackPath::FileMix).unwrap();
-        assert!(gate.try_enter(CallbackPath::Live).is_none());
         assert!(gate.try_enter(CallbackPath::FileMix).is_none());
+        assert!(gate.try_enter(CallbackPath::Live).is_none());
         let close = gate.try_close().unwrap();
         assert!(gate.try_close().is_none());
         assert!(gate.try_enter(CallbackPath::Live).is_none(), "failed close reopened the gate");
         assert!(!close.is_drained());
         drop(live);
-        assert!(!close.is_drained());
-        drop(file);
         assert!(close.is_drained());
         assert!(gate.try_enter(CallbackPath::FileMix).is_none());
         drop(close);
+        let file = gate.try_enter(CallbackPath::FileMix).unwrap();
+        assert!(gate.try_enter(CallbackPath::Live).is_none());
+        let close = gate.try_close().unwrap();
+        assert!(!close.is_drained());
+        drop(file);
+        assert!(close.is_drained());
+        drop(close);
         assert!(gate.try_enter(CallbackPath::Live).is_some());
-        assert!(gate.try_enter(CallbackPath::FileMix).is_some());
     }
 
     #[test]
@@ -88,26 +91,26 @@ mod tests {
     }
 
     #[test]
-    fn callback_admission_serializes_each_path_during_concurrent_closes() {
+    fn callback_admission_serializes_both_paths_during_concurrent_closes() {
         use admission::{CallbackAdmission, CallbackPath};
         use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
         use std::sync::Barrier;
         let gate = CallbackAdmission::new();
-        let active = [AtomicUsize::new(0), AtomicUsize::new(0)];
+        let active = AtomicUsize::new(0);
         let changing = AtomicBool::new(false);
         let start = Barrier::new(5);
         std::thread::scope(|scope| {
-            for (lane, path) in [(0, CallbackPath::Live), (0, CallbackPath::Live),
-                                 (1, CallbackPath::FileMix), (1, CallbackPath::FileMix)] {
+            for path in [CallbackPath::Live, CallbackPath::Live,
+                         CallbackPath::FileMix, CallbackPath::FileMix] {
                 let (gate, active, changing, start) = (&gate, &active, &changing, &start);
                 scope.spawn(move || {
                     start.wait();
                     for _ in 0..3000 {
                         if let Some(lease) = gate.try_enter(path) {
-                            assert_eq!(active[lane].fetch_add(1, Ordering::SeqCst), 0);
+                            assert_eq!(active.fetch_add(1, Ordering::SeqCst), 0);
                             assert!(!changing.load(Ordering::SeqCst));
                             std::thread::yield_now();
-                            assert_eq!(active[lane].fetch_sub(1, Ordering::SeqCst), 1);
+                            assert_eq!(active.fetch_sub(1, Ordering::SeqCst), 1);
                             drop(lease);
                         }
                     }
@@ -118,8 +121,7 @@ mod tests {
                 if let Some(close) = gate.try_close() {
                     if close.is_drained() {
                         changing.store(true, Ordering::SeqCst);
-                        assert_eq!(active[0].load(Ordering::SeqCst), 0);
-                        assert_eq!(active[1].load(Ordering::SeqCst), 0);
+                        assert_eq!(active.load(Ordering::SeqCst), 0);
                         changing.store(false, Ordering::SeqCst);
                     }
                     drop(close);

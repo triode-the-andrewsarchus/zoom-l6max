@@ -51,7 +51,7 @@ observation should contain `0x7ff` and marker `0x41444d31` in its first two
 callback or real-time test. It uses unowned QEMU scratch; never install it.
 Host tests also force a delayed pointer load and concurrent entry and close
 operations. Both callback paths must participate before loading a callback
-pointer, and their mutable DSP state must be disjoint. Storage ownership,
+pointer or touching shared scratch; at most one may hold a lease. Storage ownership,
 rejected-entry behavior, time bounds, other users and hardware synchronization
 remain unresolved.
 
