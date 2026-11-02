@@ -5600,6 +5600,61 @@ The accidentally persistent-bypass MAIN, ELF, source, recipe and result were
 `b7cb9cfd6d86e52fcd8474e615d5afc9701e2664d20538b6e44c51d628cc26cd`, and
 `22eed2ab7c9decf72c106e884f1efac84900dd6a36dd588b3af980e266c99764`.
 
+A follow-up writer-window trace of the original comparison image observed
+14 entries to the stock AINR wrapper and 2,466 entries to the stock audio
+block between capture and installation. All 39,210 observed stores starting
+in the candidate tail occurred no later than the 14th audio-block entry in
+that window. The recipe's three-second delay contributes most of the later
+quiet interval; this is one modeled schedule, not a safe waiting period or a
+proof that the range is no longer used. The result, trace, plugin source,
+binary and wrapper hashes were
+`634439e74e62ac1b160d02703b5a1240989534099aa1325da02d90cbee5572a6`,
+`c9861f89befcf50905dcc9f050289185e9d2033ddfe8e54be36995f17783a043`,
+`0ec176dac05a10f325ddf6b997e28186b35d4a5867932f2a812045bb65cb079f`,
+`df0b416d23cb0b2b51b8df1d060ae27a92b6234e36ca0031d098e49fe5dc3e1b`, and
+`ba5818610727319bcdda71664b5374f125147035f720bd0db70def7b8ee24813`.
+The recipe is the comparison recipe identified below.
+
+Another disposable variant refreshed the 56,264-byte snapshot from the
+original source immediately before clone installation, preserving from the
+earlier snapshot the two 16-byte teardown ranges and two four-byte enable
+words. It did not bypass AINR. One uninstrumented run and one source-write
+trace both reached ready token `0x7e`, had changing sampled sends, and found
+ten byte differences in a non-atomic later comparison, bounded by offsets
+`0xb97c..0xbad0` in the preserved control regions. The trace observed no
+CPU writes starting in the watched tail or stock block entries during the
+refresh. A separate traced run changed the recipe's three-second inter-press
+wait to one millisecond; press completions were 300 ms apart and the same
+ready token, ten differences, and zero observed CPU writes or stock block
+entries during refresh were reported. The press operation itself holds and
+releases the control, so this is not a one-millisecond selection transition.
+
+These observations do not establish that the 40 preserved bytes are the only
+needed control state, that the late source still represents the desired AINR
+history, or that the copied state is coherent. They exclude DMA and other
+addresses, have limited signal and schedule coverage, and do not measure
+physical timing, memory ownership, audio fidelity or all selection paths. The
+variant performs an unsynchronized copy and must not be installed. Sampled
+sends and a ready token do not validate noise-reduction behavior.
+
+The refresh MAIN, ELF, modified handoff source and recipe hashes were
+`3d7ae52110be0fbf30d98435c9f80c091ceabc4b83e5b890c6a452363c6b999f`,
+`4be307f236276b820dd5207f06199f642f83e1d94ae7c4f367c926c075c4a3cf`,
+`ba39d9dd4d3cc22107eb887b982cc4354aa95414d7617fea074358e51bafd170`, and
+`6c9b1eab2c739bcc0a9ccd4aaba5561fd08e8b2733e7e7837be271a3360d7913`.
+Uninstrumented and traced result hashes were
+`0b12a4dc305a8984a39b473cc4b5b15443ebabe523c7eda41e81eebfb7118174` and
+`8c08909b4f8bfce020520bd8fb1d0c778ef20f1bc76fa033d24c9c21b73aad75`;
+the trace was `863065a3e6b5224a3ba044e60d8115d3ddc9de1b68a1f83ffbb7d2b6f54abed6`.
+The faster recipe and result were
+`c392d14150f525e37f0086ac9d6313b2258979bd3e3bfdef160f2593943fd805` and
+`5bd0e9dc17566bfa0c2fc8630bc476d2a117912ef4cc34bfa44fab8de6d1c648`;
+its trace matched the preceding trace hash. The refresh plugin source, binary
+and wrapper were
+`3d82c85971052ac63c9a0287f1bd6181692628795099237f0317df7b7557ddce`,
+`101109b7d63ca6fe4fbf78a79eaba71da40017b177b839a4e709d8df152b61ba`, and
+`69c44d09df9db1471caec4a3441c186e06ae72d6da387549670251390add8fa7`.
+
 All runs used stock MAIN SHA-256
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
 initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
