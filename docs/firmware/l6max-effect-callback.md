@@ -7785,6 +7785,57 @@ Stock MAIN, panel state, QEMU and `l6dbg` matched the preceding experiment.
 
 ### Further Velvet timing experiments
 
+Two later temporary exact-arithmetic variants did not materially improve the
+modeled high-density deadline. Replacing the valid-delay fast path and cold
+remainder with an unconditional remainder retained malformed-delay behavior,
+but a matched 285-tap active-send run advanced 2,502 callbacks in five guest
+seconds versus 2,635 for the checked baseline. Diagnostic text was 32,252
+versus 30,336 bytes. Both inspectors remained closed. The 114 host DSP tests
+passed and a 180,000-frame host render matched byte for byte, including
+parameter changes and history wraps. This candidate was discarded.
+
+The second variant evaluated the existing sine polynomial directly when the
+crossfade phase was in its normal first-quadrant range, and retained the old
+function for other inputs. One million sampled phases matched the previous
+weights bit for bit; the same 180,000-frame render matched, and 115 host
+tests passed. In the 285-tap, 90 ms fade stress, the baseline and variant
+advanced 1,691 and 1,694 callbacks in five guest seconds, with 1,495 and
+1,498 fade-active callback starts respectively. Both inspectors remained
+closed. The three-callback difference does not justify the extra path, so it
+was discarded. These QEMU counts do not measure physical execution time.
+
+For the modulo baseline/candidate, MAIN hashes were
+`0a5e936ed765ff36e91330e245e7c9ba2b65b3db434bcd6260bfb3f825eaa888` and
+`95ef41aa45fad8acfea5842caea3aa324807e980f8253328fa429799564e7e62`;
+ELFs `4073bc12301c428bbe3597b743c3b1d25642481286c0794b3efe282a20d32c50` and
+`d20883e5b8bd98e40464f8be05985d83a429cf3bc757240c6b199372c99ffd2d`;
+recipe/result pairs `d4c9f11729a7cdd0ed659e5496ca41d2a723fd1c590b26c4afee8f8fb2b6d948` /
+`f0c3fb62f22a3fb97e0e16540276a40f7475a5612110490ad9cb213dfb49a9eb` and
+`76ab913590560b5e8b676dc2ad183afddeba5a384fa248bc32f3d645310ad751` /
+`3029d817062cd9c8c2324cc7095eecbbf0dfd41d917744aff5c3ba8b9add9fd1`.
+The temporary modulo source SHA-256 was
+`3b145c5aaa9c7a65e2b0148ea360d9173d214c57ce3107cd3261b84608fc3621`.
+
+For the fade baseline/candidate, MAIN hashes were
+`3bd4f5aa3fcb532b4f1faf7ef0688153fc034356ff3434376fb1565778eec122` and
+`92251cf23584545413179cd349f8ae531e927f1f2567bb12c1695166a3f914ad`;
+ELFs `ae7622caa6eba9e06c32283a1ca3f363e1b8ac0d6bfea8173ebea45a01e0163a` and
+`fed91b499d1dea92eb0733cd14334a9508ef0665975ae8d474b043110bc44976`;
+recipe/result pairs `6a9d73617b93e420a4798926f46abe4d54453329fcd0e85100f122861039821b` /
+`e69fbf177cd4fd9a71f4dc20c178fa5febd56ab1f1918ce49c582938b628fd0f` and
+`454be0f13754fc5897427be08f353830a2b1030faaae873f21608524b3ac2be9` /
+`26ba789c992708d288fa153319043507ab6ba3d93e9222c48adb145aadcfdf28`.
+The common host render SHA-256 was
+`13cc1df23b000080380b5454896cb0ce5079603e664782982f001c0dd1aa24a4`.
+These runs used stock MAIN `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+panel flash `6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+options `bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`,
+RTC `473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`,
+QEMU `53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`
+and `l6dbg` `aed900b0f7f43f225233f7f1a33e5ba8e159d4a698905297e0fb48c5c8519cc0`.
+The QEMU source provenance is unattested.
+
 Two temporary `opt-level=3` selector-load pairs used 285 taps and nonzero
 synthetic sends, without pre-AINR. Setting the Rust target CPU to Cortex-M7
 did not improve the measured callback count: both generic and tuned builds
