@@ -658,7 +658,18 @@ result; a normal QEMU with silent inputs will not satisfy a positive threshold.
 The two channels in one observed run used identical modeled input, so matching
 results do not establish behavior with independent stereo signals. This mode
 does not implement or validate three independent pre-AINR processors.
-One such run matched 96 blocks per channel with a peak input of 45,838,220.
+Add `--invert-second` to replace the second stock input block with its
+inverted half-amplitude version before each comparison. The clone receives the
+same modified block. The run requires the two captured input streams and the
+two output streams to differ. This is a debugger-forced correlated signal,
+not an independent physical input or a test of the unmodified mixer path.
+One such run matched 96 blocks per channel, with input peaks 45,698,716 and
+22,849,358. With the same MAIN, NOR, QEMU and recipe as the following run,
+its probe and result hashes were
+`cfbaa99fb0d4c11412a0a6c8eed55e25af5ba9cdd7506bdc152b12080b264ee4` and
+`5f54a8b453f82cdd6cfe29ac47a163738fbe3b7e83e474025758db90becd879a`.
+An earlier unmodified-input run matched 96 blocks per channel with a peak
+input of 45,838,220.
 Its stock MAIN, initial NOR, and QEMU SHA-256 values were
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
 `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a` and
