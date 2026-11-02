@@ -4,7 +4,7 @@ import subprocess
 import sys
 import unittest
 
-from fixture import MODE_CALL_SITES, install_ainr_selector_veneer, install_boundary_hook, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, validate_probe_entry
+from fixture import MODE_CALL_SITES, install_ainr_selector_veneer, install_boundary_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, validate_probe_entry
 from thumb_branch import branch
 
 
@@ -24,6 +24,8 @@ class PreparerModeTests(unittest.TestCase):
         cases = [
             (['--callback', '--admission-probe'], '--admission-probe cannot'),
             (['--offline-mix-layout'], '--offline-mix-layout requires'),
+            (['--file-mix-handoff', 'bypass'], '--file-mix-handoff requires'),
+            (['--callback', '--inspector', '--file-mix-handoff', 'pending'], '--file-mix-handoff requires'),
             (['--callback', '--offline-mix-layout', '--inspector'], '--offline-mix-layout requires'),
             (['--callback', '--offline-mix-layout', '--switches'], '--offline-mix-layout requires'),
             (['--max-velvet-density'], '--max-velvet-density requires'),
@@ -48,6 +50,33 @@ class PreparerModeTests(unittest.TestCase):
             with self.subTest(flags=flags):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(message, result.stderr)
+
+
+class FileMixHandoffGuardTests(unittest.TestCase):
+    def test_guards_both_sites_before_writing(self):
+        original = bytearray(0x104f60)
+        original[0x4ed8:0x4edc] = bytes.fromhex('fcf76efb')
+        original[0x104f58:0x104f60] = bytes.fromhex('f0b581b002f0f3fe')
+        for offset in (0x4ed8, 0x104f58):
+            image = original[:]
+            image[offset] ^= 1
+            before = image[:]
+            with self.subTest(offset=offset), self.assertRaises(ValueError):
+                install_file_mix_handoff(image, 0x80109000, 0x80109100)
+            self.assertEqual(image, before)
+        for observer, bypass in ((None, None), (0x80109001, None),
+                                 (0x80109000, 0x80109101)):
+            image = original[:]
+            with self.subTest(observer=observer, bypass=bypass), self.assertRaises(ValueError):
+                install_file_mix_handoff(image, observer, bypass)
+            self.assertEqual(image, original)
+        control = original[:]
+        install_file_mix_handoff(control, 0x80109000)
+        self.assertEqual(control[0x4ed8:0x4edc], branch(0x80004ed8, 0x80109000))
+        self.assertEqual(control[0x104f58:0x104f60], original[0x104f58:0x104f60])
+        install_file_mix_handoff(original, 0x80109000, 0x80109100)
+        self.assertEqual(original[0x4ed8:0x4edc], branch(0x80004ed8, 0x80109000))
+        self.assertEqual(original[0x104f58:0x104f60], bytes.fromhex('dff800f001911080'))
 
 
 class OfflineMixVeneerGuardTests(unittest.TestCase):
