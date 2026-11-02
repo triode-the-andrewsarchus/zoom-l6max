@@ -5802,7 +5802,8 @@ stages also contained clean nonzero modeled sends on the expected buses. The
 standard route checker initially rejected the run because its callback-address
 constant did not match this instrumented build. The recorded callback
 `0x8010ddd1` matched `diagnostic_audio` in the diagnostic ELF; the remaining
-route checks were then evaluated with that address verified separately. These
+route checks were then evaluated with that address verified separately. The
+checker now accepts the matching ELF and resolves that symbol itself. These
 are non-atomic scratch captures from one run, not evidence of real-time
 performance, audio quality or hardware safety. Never install this image.
 

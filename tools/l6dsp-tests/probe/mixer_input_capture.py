@@ -5,6 +5,7 @@ import json
 import math
 from pathlib import Path
 import struct
+import subprocess
 
 
 def floats(data):
@@ -82,11 +83,22 @@ def words(events, name, count):
     return struct.unpack('<' + 'I' * count, capture(events, name, None, 4 * count))
 
 
-def check_ui_routes(report):
+def callback_from_elf(elf):
+    output = subprocess.check_output(['llvm-nm', '-n', str(elf)], text=True, stderr=subprocess.PIPE)
+    symbols = [line.split() for line in output.splitlines() if line.split()[-1:] == ['diagnostic_audio']]
+    if len(symbols) != 1 or len(symbols[0]) != 3 or symbols[0][1] not in ('T', 't'):
+        raise ValueError('ELF must contain exactly one diagnostic_audio function')
+    address = int(symbols[0][0], 16)
+    if not 0x80108000 <= (address & ~1) < 0x801a2ff8:
+        raise ValueError('diagnostic_audio is outside the L6max application slot')
+    return address | 1
+
+
+def check_ui_routes(report, callback):
     if report.get('outcome') != 'complete' or report.get('model') != 'l6max':
         raise ValueError('diagnostic did not complete for L6max')
     events = {e['observation'].get('name'): e['observation'] for e in report['events']}
-    if words(events, 'active_room', 1)[0] != 0x8010b32d:
+    if words(events, 'active_room', 1)[0] != callback:
         raise ValueError('Room callback not active')
     if words(events, 'room_open', 8)[7] != 1:
         raise ValueError('Room inspector did not open')
@@ -127,11 +139,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('report', type=Path, help='l6dbg diagnostic JSON')
     parser.add_argument('--ui-route', action='store_true', help='check the combined UI routing probe')
+    parser.add_argument('--probe-elf', type=Path, help='effect ELF from this combined UI diagnostic')
     args = parser.parse_args()
+    if args.ui_route != (args.probe_elf is not None):
+        parser.error('--ui-route and --probe-elf must be supplied together')
     try:
-        checker = check_ui_routes if args.ui_route else check
-        result = checker(json.loads(args.report.read_text()))
-    except (OSError, ValueError, KeyError, TypeError, struct.error, OverflowError) as error:
+        report = json.loads(args.report.read_text())
+        result = check_ui_routes(report, callback_from_elf(args.probe_elf)) if args.ui_route else check(report)
+    except (OSError, ValueError, KeyError, TypeError, struct.error, OverflowError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'capture failed: {error}\n')
     print(json.dumps(result, indent=2))
     print('Modeled capture only; verify executable and fixture identities separately.')

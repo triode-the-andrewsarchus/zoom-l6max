@@ -2,9 +2,10 @@ import struct
 import subprocess
 import sys
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
-from mixer_input_capture import check_ui_routes as check
+from mixer_input_capture import callback_from_elf, check_ui_routes as check
 
 
 def report():
@@ -35,28 +36,44 @@ class UiMixerRouteCaptureTests(unittest.TestCase):
 
     def test_valid_and_silent_snapshots(self):
         self.events['route_1_sends_0']['bytes'] = [0] * 768
-        self.assertEqual(check(self.report)['callback_count'], 1000)
+        self.assertEqual(check(self.report, 0x8010b32d)['callback_count'], 1000)
+
+    def test_callback_address_follows_elf_and_rejects_wrong_build(self):
+        with patch('mixer_input_capture.subprocess.check_output', return_value='8010ddd0 T diagnostic_audio\n'):
+            callback = callback_from_elf(Path('probe.elf'))
+        self.assertEqual(callback, 0x8010ddd1)
+        with self.assertRaisesRegex(ValueError, 'callback not active'):
+            check(self.report, callback)
+        self.events['active_room']['bytes'] = list(struct.pack('<I', callback))
+        self.assertEqual(check(self.report, callback)['callback_count'], 1000)
+
+    def test_missing_duplicate_or_invalid_symbols_are_rejected(self):
+        for output in ('', '8010ddd0 D diagnostic_audio\n', '8010ddd0 T diagnostic_audio\n8010ddd2 T diagnostic_audio\n',
+                       '20000000 T diagnostic_audio\n'):
+            with self.subTest(output=output), patch('mixer_input_capture.subprocess.check_output', return_value=output):
+                with self.assertRaises(ValueError):
+                    callback_from_elf(Path('probe.elf'))
 
     def test_stuck_route_rejected(self):
         self.events['route_1']['bytes'] = self.events['route_before']['bytes']
         with self.assertRaisesRegex(ValueError, 'route_1'):
-            check(self.report)
+            check(self.report, 0x8010b32d)
 
     def test_wrong_bus_and_silence_rejected(self):
         for i in range(6):
             self.events[f'route_1_sends_{i}']['bytes'] = self.events[f'route_before_sends_{i}']['bytes']
         with self.assertRaisesRegex(ValueError, 'no clean'):
-            check(self.report)
+            check(self.report, 0x8010b32d)
 
     def test_nonfinite_and_queue_loss_rejected(self):
         self.events['route_before_sends_0']['bytes'][:4] = struct.pack('<f', float('nan'))
         with self.assertRaisesRegex(ValueError, 'nonfinite'):
-            check(self.report)
+            check(self.report, 0x8010b32d)
         self.report = report()
         self.events = {e['observation']['name']: e['observation'] for e in self.report['events']}
         self.events['queue_room']['bytes'] = list(struct.pack('<III', 11, 11, 1))
         with self.assertRaisesRegex(ValueError, 'queue'):
-            check(self.report)
+            check(self.report, 0x8010b32d)
 
     def test_synthetic_sends_and_timing_options_are_excluded(self):
         builder = Path(__file__).with_name('prepare_ui.py')
