@@ -7071,3 +7071,45 @@ recipe/result hashes were
 `146ddd6a1cbf289d60e63ec66e8514b1c0bab52bf75ec47de1c399177e506f83`.
 The stock MAIN, input NOR, panel state, QEMU and `l6dbg` matched the preceding
 experiment. The modified images use unowned scratch and must not be installed.
+
+### Four-frame shared-history experiment
+
+A disposable prototype prewrote up to four frames and accumulated each
+Velvet tap into four register-local outputs for each of two send histories.
+It retained the existing unmirrored delay storage and fell back to individual
+frames during bank builds, at transition boundaries, and when a tap could read
+history overwritten by prewriting. Its temporary callback grouped four stock
+control writes before processing each group; a matched scalar control used
+the same grouping. That differs from the normal per-frame control order, so
+neither callback is a firmware integration.
+
+All 108 host tests passed with the prototype. A separate 16,000-frame host
+comparison matched the scalar output bit for bit at 285 taps and frequent
+90 ms fades, including non-aligned edits and stereo/routed path switches.
+The temporary unchecked reads and all possible control interleavings have not
+been qualified.
+
+In the same long-fade QEMU stress sequence, the scalar control advanced 1,693
+callbacks in five guest seconds and the prototype advanced 1,799, against
+3,750 nominal. Fade-state samples were active at 1,497 and 1,585 callback
+starts respectively; both had 285 taps and neither inspector opened. Both
+sampled finite nonzero output, but those snapshots are not an audio comparison.
+This is not evidence of physical timing or safety. The prototype was not
+adopted.
+
+The control and candidate MAIN hashes were
+`57f41cf668ecbfb35912e852302ef7beb3b30640c44a21012d444be795dbe736` and
+`a01972f55c617ecfc7706001d09656a38444801e4dd668d3e5e20870556c749b`;
+their ELFs were `4d6e2b0eaf25266d8fc1cff22d5de4547f803d8eb725b640fed20e1d995b6321`
+and `608e07f6910feb617ce1a81319ed346a4b299dbf9bf66d0f249ed9be63a763d0`.
+Their recipe/result hashes were
+`ceb85b2c2edd86d461c2ffbe311ce5fe576290cc688968e8590d2ee585a4d4c9` /
+`03a5bf898211c8064ff80a49b5fdf7ccc42a4a5a67b19d59351dd567bce21283` and
+`8c33c1c4e77c122a89a5935d0cbfc5b5fb714f3d8ce2a8b7226c103fcf39625c` /
+`8af3c9578acdac0077a35f63686cb9f3b315edb3d156fcd6179252f20f3a9c40`.
+The temporary Velvet, routing and callback sources were
+`f80c9f9128bba76cd2bc8e20786299d3364882eebe1744213d4ddfe92114059c`,
+`5d36acea48be659689426b0cb86ead60f7ba38ad2ec83b8db58393833455af53`, and
+`cd57dd178f092136e890b44f7c70cc95a3d91965825d499a388efe1d3226f5e0`.
+Stock MAIN, input NOR, panel state, QEMU and `l6dbg` matched the preceding
+experiment; the modified images must not be installed.
