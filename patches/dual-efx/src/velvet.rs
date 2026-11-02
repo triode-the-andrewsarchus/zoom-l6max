@@ -641,8 +641,10 @@ impl VelvetDecorrelator {
         self.pending_bank = 1 - self.active_bank;
         self.transitioning = false;
         self.transition_position = 0;
-        self.samples_until_transition = if self.refresh_samples > self.transition_samples {
-            self.refresh_samples - self.transition_samples
+        // The fade just completed at the duration captured when it began;
+        // transition_samples may have been edited while it was in progress.
+        self.samples_until_transition = if self.refresh_samples > self.active_transition_samples {
+            self.refresh_samples - self.active_transition_samples
         } else {
             1
         };
@@ -711,6 +713,35 @@ mod tests {
         assert!(starts.len() >= 3, "too few transitions: {starts:?}");
         for pair in starts.windows(2) {
             assert_eq!(pair[1] - pair[0], effect.refresh_samples, "transition starts: {starts:?}");
+        }
+    }
+
+    #[test]
+    fn changing_fade_length_during_renewal_preserves_start_cadence() {
+        for (initial_ms, next_ms) in [(90.0, 5.0), (5.0, 90.0)] {
+            let mut effect = Box::new(VelvetDecorrelator::new());
+            let mut params = Parameters { refresh_seconds: 0.1, transition_ms: initial_ms,
+                dynamic: true, ..Parameters::default() };
+            effect.init(params);
+            let mut first_start = None;
+            let mut second_start = None;
+            let mut edited = false;
+            for frame in 0..(effect.refresh_samples * 4) {
+                let was_transitioning = effect.transitioning;
+                effect.advance_filter();
+                if !was_transitioning && effect.transitioning {
+                    if first_start.is_none() { first_start = Some(frame); }
+                    else { second_start = Some(frame); break; }
+                }
+                if effect.transitioning && effect.transition_position > 1 && !edited {
+                    params.transition_ms = next_ms;
+                    effect.set_parameters(params);
+                    edited = true;
+                }
+            }
+            assert!(edited);
+            assert_eq!(second_start.unwrap() - first_start.unwrap(), effect.refresh_samples,
+                "initial fade {initial_ms} ms, new fade {next_ms} ms");
         }
     }
 

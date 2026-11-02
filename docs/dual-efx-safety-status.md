@@ -297,6 +297,9 @@ right, matching the pinned upstream core's channel sequence after the two
 initial banks. A host test checks selected tap delays and signs across four
 banks at one parameter setting. Filter edits use this port's incremental
 transition behavior, and this test does not establish complete audio parity.
+Editing the transition length during an active renewal now schedules the next
+renewal using the fade duration actually completed. A host test covers both
+lengthening and shortening a fade; target timing remains unqualified.
 A disposable ARM diagnostic selected the custom callback, opened the
 inspector, applied eight queued edits without drops and closed it. Its MAIN,
 ELF, recipe and result hashes were
