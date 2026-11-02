@@ -1,5 +1,39 @@
 # Host-only DSP experiments
 
+`python3 tools/l6dsp-tests/experiments/plateau_rate.py` requires NumPy and
+models a 48 kHz → 32 kHz → 48 kHz stereo identity path. It uses the supplied
+Multistomp converter's 64-tap, 14 kHz Kaiser-window design, with two down and
+three up phases for this ratio. Checks cover frame count, streaming boundaries,
+DC gain, channel isolation, selected audio-band and alias frequencies, both
+downsampling stopbands, impulse alignment and 12 kHz phase-cycle residual.
+This is a floating-point host model with no reverb or firmware integration;
+it does not establish sound equivalence, target execution time, control-event
+ordering, effect-return alignment or hardware safety. Its impulse peak is
+79 host samples after the input in each of the three input phases.
+
+For a sizing experiment only, changing a temporary copy of the processor to
+32 kHz with delay capacities for size 4 and 500 ms predelay produced a
+510,944-byte ARM processor type, excluding the rate converter. The object
+SHA-256 was `262fd5a5ca09a4844e957bca4ff4ec6416a471b95bff6b69157dcee175bfa4eb`
+using `rustc 1.99.0-nightly (1ed2df61a 2026-08-04)`. This was a type-size
+query, not a functioning resampled reverb or evidence that every delay and
+tap is correctly sized. The input/output histories in the host model add
+1,024 bytes; coefficients and other implementation overhead are separate.
+The query used predelay capacity 16,001 samples, input allpasses
+`154, 118, 410, 300`, and left/right tank capacities
+`2923, 19155, 7744, 16002` / `3938, 18140, 11426, 13606` in source order.
+
+As a layout calculation, three previously observed 56,264-byte candidate
+AINR tails could start at offsets `0xb94c`, `0x1b94c` and `0x2b94c` within
+the stock 768,000-byte effect buffer, ending at `0x39514`. An eight-byte
+aligned 510,944-byte processor beginning at `0x39518` would leave 22,280
+bytes; a snapshot would need separate storage. This assumes the clone code
+does not access the preceding regions, that its base addresses can be
+relocated appropriately, and that the stock buffer and heap can be safely
+owned across selection, audio and file mixing. None is established. The
+calculation excludes converter state, executable code, workspaces, other
+firmware use and allocation overhead; it is not a hardware memory plan.
+
 `python3 tools/l6dsp-tests/experiments/partitioned_velvet.py` requires NumPy
 and compares a proposed full-density, partitioned convolution schedule with
 direct convolution. It covers two inputs, stereo filters, two banks, an
