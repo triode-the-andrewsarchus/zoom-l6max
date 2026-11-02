@@ -12,6 +12,7 @@ use super::math::*;
 
 pub const SAMPLE_RATE: f32 = 48000.0;
 const OUTPUT_FADE_SAMPLES: u32 = 64;
+const PREDELAY_FADE_SAMPLES: u32 = 64;
 const DIFFUSION_BYPASS_FADE_SAMPLES: u32 = 64;
 const DATTORRO_SR: f32 = 29761.0;
 const SR_SCALE: f32 = SAMPLE_RATE / DATTORRO_SR; // ~1.61285
@@ -277,6 +278,11 @@ pub struct PlateauReverb {
     // Predelay
     pub predelay: Delay<PREDELAY_MAX>,
     pub predelay_samples: usize,
+    predelay_from_samples: usize,
+    predelay_remaining: u32,
+    predelay_anchor: f32,
+    predelay_previous: f32,
+    predelay_use_anchor: bool,
 
     // Input diffusers
     pub in_apf1: Allpass<IN_APF1_MAX>,
@@ -331,6 +337,11 @@ impl PlateauReverb {
         Self {
             predelay: Delay::new(),
             predelay_samples: 480,
+            predelay_from_samples: 480,
+            predelay_remaining: 0,
+            predelay_anchor: 0.0,
+            predelay_previous: 0.0,
+            predelay_use_anchor: false,
             in_apf1: Allpass::new(0.75, 227),
             in_apf2: Allpass::new(0.75, 173),
             in_apf3: Allpass::new(0.625, 611),
@@ -412,6 +423,11 @@ impl PlateauReverb {
 
     pub fn clear(&mut self) {
         self.predelay.clear();
+        self.predelay_from_samples = self.predelay_samples;
+        self.predelay_remaining = 0;
+        self.predelay_anchor = 0.0;
+        self.predelay_previous = 0.0;
+        self.predelay_use_anchor = false;
         self.in_apf1.clear();
         self.in_apf2.clear();
         self.in_apf3.clear();
@@ -464,8 +480,12 @@ impl PlateauReverb {
         if self.params.size != params.size || self.params.freeze != params.freeze {
             self.begin_output_transition();
         }
+        self.retarget_predelay(params.predelay_ms);
+        if params.freeze {
+            self.predelay_remaining = 0;
+            self.predelay_previous = 0.0;
+        }
         self.params = params;
-        self.predelay_samples = ((params.predelay_ms / 1000.0) * SAMPLE_RATE) as usize;
 
         // Plateau scales the tank with size; input diffuser times depend only
         // on sample rate, so changing size does not retime their histories.
@@ -515,8 +535,28 @@ impl PlateauReverb {
 
     pub(crate) fn set_predelay_live(&mut self, value: f32) {
         let value = clamp(value, 0.0, 190.0);
+        self.retarget_predelay(value);
         self.params.predelay_ms = value;
-        self.predelay_samples = ((value / 1000.0) * SAMPLE_RATE) as usize;
+    }
+
+    fn retarget_predelay(&mut self, milliseconds: f32) {
+        let samples = ((milliseconds / 1000.0) * SAMPLE_RATE) as usize;
+        if samples == self.predelay_samples { return; }
+        if self.params.freeze {
+            self.predelay_samples = samples;
+            self.predelay_remaining = 0;
+            self.predelay_previous = 0.0;
+            return;
+        }
+        self.predelay_use_anchor = self.predelay_remaining != 0;
+        if self.predelay_use_anchor {
+            // A second edit during a fade starts at the last emitted value.
+            self.predelay_anchor = self.predelay_previous;
+        } else {
+            self.predelay_from_samples = self.predelay_samples;
+        }
+        self.predelay_samples = samples;
+        self.predelay_remaining = PREDELAY_FADE_SAMPLES;
     }
 
     pub(crate) fn set_size_live(&mut self, value: f32) {
@@ -567,9 +607,47 @@ impl PlateauReverb {
         if self.params.freeze != params.freeze {
             self.begin_output_transition();
         }
+        if params.freeze {
+            self.predelay_remaining = 0;
+            self.predelay_previous = 0.0;
+        }
         self.params.decay = clamp(params.decay, 0.1, 0.999);
         self.params.mod_depth = clamp(params.mod_depth, 0.0, 16.0);
         self.params.freeze = params.freeze;
+    }
+
+    #[inline(always)]
+    fn process_predelay(&mut self, mono_in: f32) -> f32 {
+        let target = if self.predelay_samples == 0 {
+            mono_in
+        } else {
+            self.predelay.read(self.predelay_samples)
+        };
+        let predelayed = if self.predelay_remaining == 1 {
+            self.predelay_remaining = 0;
+            target
+        } else if self.predelay_remaining != 0 {
+            let from = if self.predelay_use_anchor {
+                self.predelay_anchor
+            } else if self.predelay_from_samples == 0 {
+                mono_in
+            } else {
+                self.predelay.read(self.predelay_from_samples)
+            };
+            let fade = (PREDELAY_FADE_SAMPLES - self.predelay_remaining + 1) as f32
+                / PREDELAY_FADE_SAMPLES as f32;
+            self.predelay_remaining -= 1;
+            from + (target - from) * fade
+        } else {
+            target
+        };
+        self.predelay_previous = if self.params.freeze { 0.0 } else { predelayed };
+        // Advance the ring during freeze without retaining audio received
+        // while input to the tank is disabled.
+        self.predelay.write(if self.params.freeze { 0.0 } else { mono_in });
+
+        // Stop feeding the input filters while frozen; let their history drain.
+        if self.params.freeze { 0.0 } else { predelayed }
     }
 
     #[inline(always)]
@@ -578,18 +656,7 @@ impl PlateauReverb {
         let in_l = audio_input(in_l);
         let in_r = audio_input(in_r);
         // 1. Predelay & Input Sum
-        let mono_in = 0.5 * in_l + 0.5 * in_r;
-        let predelayed = if self.predelay_samples == 0 {
-            mono_in
-        } else {
-            self.predelay.read(self.predelay_samples)
-        };
-        // Advance the ring during freeze without retaining audio received
-        // while input to the tank is disabled.
-        self.predelay.write(if self.params.freeze { 0.0 } else { mono_in });
-
-        // Stop feeding the input filters while frozen; let their history drain.
-        let tank_in = if self.params.freeze { 0.0 } else { predelayed };
+        let tank_in = self.process_predelay(0.5 * in_l + 0.5 * in_r);
 
         // 2. Input Diffusers
         let mix = self.advance_diffusion_mix();
@@ -708,6 +775,8 @@ impl PlateauReverb {
             }};
         }
         advance!(self.predelay);
+        self.predelay_previous = 0.0;
+        self.predelay_remaining = self.predelay_remaining.saturating_sub(1);
         advance!(self.in_apf1.delay);
         advance!(self.in_apf2.delay);
         advance!(self.in_apf3.delay);

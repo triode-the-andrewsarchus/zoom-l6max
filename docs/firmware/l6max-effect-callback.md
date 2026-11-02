@@ -6983,3 +6983,30 @@ Their recipe/result hashes were
 `73b63f721173bea975441d70093ca3e74cd4feba99dbdf568645b4d3f2e8ba10` and
 `38771d4e611b87e47a3ba4082c07dd518c445ec0efecc9212e0401bca19291a5` /
 `1fbfc823c0cb2a62bde5af10364f2262778d3bbbe41fdd63bbcc68b2d10e9317`.
+
+### Plateau predelay edit transition
+
+The standalone Plateau engine crossfades the old and new predelay reads for
+64 frames. An edit during a transition begins from the preceding output;
+freeze cancels the transition and does not retain frozen input. Host tests
+cover transitions, reversal, pristine-idle advancement and freeze, and a
+focused Miri test covered the active transition. With no predelay edits, a
+40,000-frame host comparison retained output hash
+`2c05f4b906baa5d67cdccbf8763ab05cabd985c091c7b1ee23acd3be8d196e43`.
+
+In a matched speed-optimized QEMU pair with active synthetic sends and 285
+Velvet taps, the earlier code advanced 2,636 callbacks in five guest seconds
+and the new code advanced 2,634. The inspector stayed closed in both. This
+measures the settled predelay path, not the edit transition, and neither run
+qualifies hardware timing or audible behavior. The control and candidate
+MAIN hashes were
+`375ff6cfadba34bf5eb581683ac3235d9273eb355a995419a7c73a226981a1ef` and
+`89e683a936ca136a081e0b1c23ad340d56c1027e26b585ccd0f1f52996a8a1ff`;
+their ELFs were `30238fc79a73609237bbde3fe58c1578afaad49a6df3c52d4cc988777928e6cd`
+and `29f30297289653974f32797e0de5653700d2d9274ec46c2b569467bead354838`.
+The control and candidate recipe/result hashes were
+`2ae133f7dd0c4b0aeface44ccd1330dbf929056ea0824876e6d1b95f3d892d3d` /
+`9f63be733e690e07e58d011f14e090da5fb7a67e817b9f3e794e270f48979991` and
+`4010203dc69d8f9afba8b02e7463092fbc4b85391e9a2f83f9dd4ac15538d2f8` /
+`b24d5dfc5c6501c5739dc2d4d9e519244c5f7997244f4f306cb08235799a9efd`.
+The stock MAIN, input NOR, QEMU and `l6dbg` matched the preceding experiment.

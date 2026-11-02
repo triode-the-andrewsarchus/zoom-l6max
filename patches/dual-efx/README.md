@@ -68,6 +68,9 @@ off. The model and value formatter are host-tested; firmware event handling,
 display presentation, bank selection and routing controls are not connected.
 Plateau holds its tank modulation delays fixed while frozen to preserve the
 tail, and resumes modulation when freeze is released.
+Predelay edits crossfade over 64 frames; changes during freeze take effect
+without retaining frozen input. The transition has not been auditioned or
+timed on the physical device.
 The density display reports the target after rounding to a whole number of
 taps. The requested setting is retained. Density edits that leave the rounded
 tap count unchanged do not regenerate the filter. The audible bank may still

@@ -607,6 +607,15 @@ mod tests {
         (idle, reference)
     }
 
+    fn assert_idle_reverb_frame(idle: &mut routing::IdlePlateau,
+                                reference: &mut plateau::PlateauReverb,
+                                input: f32, frame: usize) {
+        let actual = idle.process_sample(input, input);
+        let expected = reference.process_sample(input, input);
+        assert_eq!((actual.0.to_bits(), actual.1.to_bits()),
+                   (expected.0.to_bits(), expected.1.to_bits()), "frame {frame}");
+    }
+
     #[test]
     fn idle_reverb_matches_full_processing_through_edits_and_resume() {
         let (mut idle, mut reference) = idle_reverb_pair();
@@ -620,10 +629,7 @@ mod tests {
                 reference.set_parameters(params);
             }
             let input = if frame == 50_000 { 0.5 } else { 0.0 };
-            let actual = idle.process_sample(input, input);
-            let expected = reference.process_sample(input, input);
-            assert_eq!((actual.0.to_bits(), actual.1.to_bits()),
-                (expected.0.to_bits(), expected.1.to_bits()), "frame {frame}");
+            assert_idle_reverb_frame(&mut idle, &mut reference, input, frame);
         }
     }
 
@@ -1891,6 +1897,67 @@ mod tests {
             peak = peak.max(left.abs()).max(right.abs());
         }
         assert!(peak > 0.001, "test must observe a reverb response");
+    }
+
+    #[test]
+    fn plateau_predelay_edits_crossfade_and_retarget_without_a_step() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        params.predelay_ms = 0.0;
+        reverb.init(params);
+        // Isolate the signal entering the diffuser chain from its LP filter.
+        reverb.in_lp.a = 1.0;
+        reverb.in_lp.b = 0.0;
+        reverb.predelay.buffer.fill(-1.0);
+        reverb.process_sample(1.0, 1.0);
+        assert_eq!(reverb.in_lp.z, 1.0);
+
+        reverb.set_predelay_live(10.0);
+        reverb.process_sample(1.0, 1.0);
+        assert!((reverb.in_lp.z - (1.0 - 2.0 / 64.0)).abs() < 1e-6);
+        for _ in 0..15 { reverb.process_sample(1.0, 1.0); }
+        let before_reverse = reverb.in_lp.z;
+        reverb.set_predelay_live(0.0);
+        reverb.process_sample(1.0, 1.0);
+        assert!(reverb.in_lp.z >= before_reverse);
+        assert!((reverb.in_lp.z - before_reverse).abs() <= 2.0 / 64.0);
+        for _ in 0..63 { reverb.process_sample(1.0, 1.0); }
+        assert_eq!(reverb.in_lp.z, 1.0);
+    }
+
+    #[test]
+    fn plateau_predelay_transition_advances_while_pristine() {
+        let (mut idle, mut reference) = idle_reverb_pair();
+        let mut params = reference.params;
+        params.predelay_ms = 0.0;
+        idle.set_parameters(params);
+        reference.set_parameters(params);
+        for frame in 0..10_000 {
+            let input = if frame == 7 { 0.5 } else { 0.0 };
+            assert_idle_reverb_frame(&mut idle, &mut reference, input, frame);
+        }
+    }
+
+    #[test]
+    fn plateau_predelay_edit_during_freeze_does_not_replay_frozen_input() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        params.predelay_ms = 0.0;
+        reverb.init(params);
+        reverb.in_lp.a = 1.0;
+        reverb.in_lp.b = 0.0;
+        reverb.set_predelay_live(190.0);
+        for _ in 0..8 { reverb.process_sample(1.0, 1.0); }
+        params = reverb.params;
+        params.freeze = true;
+        reverb.set_live_parameters(params);
+        reverb.set_predelay_live(0.0);
+        for _ in 0..8 { reverb.process_sample(1.0, 1.0); }
+        params = reverb.params;
+        params.freeze = false;
+        reverb.set_live_parameters(params);
+        reverb.process_sample(0.0, 0.0);
+        assert_eq!(reverb.in_lp.z, 0.0);
     }
 
     #[test]

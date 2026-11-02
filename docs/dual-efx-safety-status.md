@@ -16,15 +16,15 @@ The blocking findings for L6max MAIN 1.10
   emulator run the largest stock-heap free block was 160,008 bytes, less than
   the then-current payload state of 319,216 bytes; see the
   [callback investigation](firmware/l6max-effect-callback.md). The current
-  processor type measures 279,344 bytes for `thumbv7em-none-eabihf` after a
+  processor type measures 279,360 bytes for `thumbv7em-none-eabihf` after a
   25,824-byte reduction in raw Plateau delay arrays; it still exceeds that free
   block. The current size query object SHA-256 is
-  `1d917a7f8698898ff4e71c00824b9bf6896e6188432d3e57663f6302eba034e4`
+  `35ffc2c4103a2cf9713cedcff4130e0dce04ea622a2c6e01d010cf44e8ee5eeb`
   using `rustc 1.99.0-nightly (1ed2df61a 2026-08-04)`.
   Of that state, the raw `f32` histories comprise 36,484 bytes of
   Plateau predelay, 7,024 bytes of Plateau input diffusion, 168,372 bytes of
   Plateau tank delays and 57,624 bytes of Velvet histories (including the
-  separate cascade history). The remaining 9,840 bytes include filter banks,
+  separate cascade history). The remaining 9,856 bytes include filter banks,
   parameters and bookkeeping. These counts describe allocated capacity,
   not a proof that any stock firmware memory can be reused.
   Stock code
@@ -141,6 +141,10 @@ advancing that chain's history. Its bypass and allpass gains ramp over 64
 frames on diffusion edits. Host tests cover the immediate impulse path, an
 active-signal first-frame edit, reversals and edits while idle; target
 execution time and audible transitions remain unqualified.
+Plateau predelay edits now crossfade read positions over 64 frames; a rapid
+retarget starts from the preceding predelay output, and freeze cancels the
+transition without retaining frozen input. Host tests cover reversal, idle
+advancement and freeze; target timing and audible quality remain unqualified.
 Plateau's output taps now use the same sample-rate-scaled positions on both
 channels as the supplied Multistomp reference, independently of tank size.
 They read the full retained delay histories. Host tests exercise each tap at
