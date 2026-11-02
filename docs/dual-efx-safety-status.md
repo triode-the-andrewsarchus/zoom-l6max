@@ -361,6 +361,21 @@ matters. Diagnostic MAIN, ELF, initial NOR, recipe and result hashes were
 Stock MAIN, source NOR, panel state, instrumented QEMU and `l6dbg` match the
 preceding output-scale capture. The QEMU source is unattested; this is not an
 audible-quality, target-timing or hardware-safety test. Never install it.
+The fixed input low- and high-pass filters now precede the predelay, matching
+the supplied Multistomp core's ordering. Freeze clears all three input-filter
+histories and discards frozen input. Host tests cover filter ordering, predelay
+retargeting and freeze transitions. A modeled-input capture passed the same
+bounded-send and return checks, with Plateau's left/right peaks `1.19e-4` and
+`9.43e-5` across 1,672 active blocks; its single captured return block peaked
+at only `2.93e-11`. Diagnostic MAIN, ELF, initial NOR, recipe and result were
+`f71aaf7a168f85c28914d6b98468008449a8ca60b15b695dac03229ab3368e12`,
+`8da2fe169ff8dbb9a0687dfb29ba4de85fcadd7f19d6e0ebfb0f39b0764b8a7f`,
+`94685019bd2f13484f2318eddeb2577a41297947cbac16a4c5ec9e4ffee90d16`,
+`42ffa6d11cb8eb85bee75c71c44e617e292d2fec3e282be24f22dbc44d44ddf9`, and
+`7f4904ad4d46e9b16c2346462e34e42869a2f0ae7be638b7afbe8e6dd277685e`.
+Stock MAIN, source NOR, panel state, instrumented QEMU and `l6dbg` match the
+preceding capture. QEMU source is unattested. This does not qualify audio
+fidelity, target timing or hardware safety; never install the diagnostic.
 The diagnostic MAIN, ELF, initial NOR, recipe and result SHA-256 values were
 `d6b7b798390eb43fdddbfd41542ac6dbbe5bfb058304ed74994dd1d454f38b14`,
 `4ec3bb636a8208ab3fd3504240c9df6a01d75824e21a9d1f39d3eadb8fe7f12a`,

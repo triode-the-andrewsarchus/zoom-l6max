@@ -72,8 +72,9 @@ display presentation, bank selection and routing controls are not connected.
 Plateau holds its tank modulation delays fixed while frozen to preserve the
 tail, and resumes modulation when freeze is released.
 Its low-cut and high-cut controls adjust tank damping; the input filter
-cutoffs remain fixed. A 20 Hz DC blocker precedes the predelay; its history is
-cleared on freeze entry and frozen input is discarded. The filters use this port's one-pole implementation,
+cutoffs remain fixed. A 20 Hz DC blocker and the input filters precede the
+predelay, as in the supplied core. Their histories are cleared on freeze entry
+and frozen input is discarded. The filters use this port's one-pole implementation,
 so matching the Multistomp control mapping does not establish audio parity.
 Damping edits ramp their tank-filter coefficients over 64 samples; the
 transition and its target execution time have not been qualified on hardware.

@@ -763,9 +763,21 @@ mod tests {
         };
         let mut dc = plateau::OnePoleHP::new();
         dc.set_cutoff(20.0);
+        let mut lp = plateau::OnePoleLP::new();
+        lp.set_cutoff(14_080.0);
+        let mut hp = plateau::OnePoleHP::new();
+        hp.set_cutoff(13.75);
+        let filter = |x, dc: &mut plateau::OnePoleHP, lp: &mut plateau::OnePoleLP, hp: &mut plateau::OnePoleHP| {
+            hp.process(lp.process(dc.process(x)))
+        };
         let sample = math::soft_clip(0.5);
         let mut previous = last_predelay(&processor);
-        assert!((previous - dc.process(sample)).abs() < 1e-6);
+        assert!((previous - filter(sample, &mut dc, &mut lp, &mut hp)).abs() < 1e-6);
+        for _ in 0..64 {
+            processor.process_bus_sample(0.0, 0.0, 0.5);
+            previous = last_predelay(&processor);
+            assert!((previous - filter(sample, &mut dc, &mut lp, &mut hp)).abs() < 1e-6);
+        }
         edit_encoder(&mut processor, ParameterBank::Velvet, 7, -10).unwrap();
         let mut gain = 1.0f32;
         let mut step = -1.0 / 64.0;
@@ -778,7 +790,7 @@ mod tests {
             processor.process_bus_sample(0.0, 0.0, 0.5);
             let next = last_predelay(&processor);
             assert!((next - previous).abs() < 0.02, "frame {frame}: {previous} -> {next}");
-            assert!((next - dc.process(sample * gain)).abs() < 1e-6, "frame {frame}");
+            assert!((next - filter(sample * gain, &mut dc, &mut lp, &mut hp)).abs() < 1e-6, "frame {frame}");
             previous = next;
         }
         edit_encoder(&mut processor, ParameterBank::Velvet, 7, -10).unwrap();
@@ -788,7 +800,7 @@ mod tests {
             processor.process_bus_sample(0.0, 0.0, 0.5);
             let next = last_predelay(&processor);
             assert!(next <= previous && previous - next < 0.02, "fade-out frame {frame}");
-            assert!((next - dc.process(sample * gain)).abs() < 1e-6, "fade-out frame {frame}");
+            assert!((next - filter(sample * gain, &mut dc, &mut lp, &mut hp)).abs() < 1e-6, "fade-out frame {frame}");
             previous = next;
         }
 
@@ -796,22 +808,29 @@ mod tests {
         // still takes effect immediately even if it interrupts an encoder edit.
         configure(&mut processor);
         dc.clear();
+        lp.clear();
+        hp.clear();
         let mut left = [0.0];
         let mut right = [0.0];
         processor.process_stereo_send(&[0.5], &[0.5], &mut left, &mut right, true, true);
         previous = last_predelay(&processor);
-        assert!((previous - dc.process(0.5 + sample)).abs() < 1e-6);
+        assert!((previous - filter(0.5 + sample, &mut dc, &mut lp, &mut hp)).abs() < 1e-6);
+        for _ in 0..64 {
+            processor.process_stereo_send(&[0.5], &[0.5], &mut left, &mut right, true, true);
+            previous = last_predelay(&processor);
+            assert!((previous - filter(0.5 + sample, &mut dc, &mut lp, &mut hp)).abs() < 1e-6);
+        }
         edit_encoder(&mut processor, ParameterBank::Velvet, 7, -10).unwrap();
         for frame in 0..8 {
             processor.process_stereo_send(&[0.5], &[0.5], &mut left, &mut right, true, true);
             let next = last_predelay(&processor);
             assert!((next - previous).abs() < 0.02, "stereo frame {frame}");
-            assert!((next - dc.process(0.5 + sample * (1.0 - (frame + 1) as f32 / 64.0))).abs() < 1e-6);
+            assert!((next - filter(0.5 + sample * (1.0 - (frame + 1) as f32 / 64.0), &mut dc, &mut lp, &mut hp)).abs() < 1e-6);
             previous = next;
         }
         processor.cascade_gain = 0.25;
         processor.process_stereo_send(&[0.5], &[0.5], &mut left, &mut right, true, true);
-        assert!((last_predelay(&processor) - dc.process(0.5 + sample * 0.25)).abs() < 1e-6);
+        assert!((last_predelay(&processor) - filter(0.5 + sample * 0.25, &mut dc, &mut lp, &mut hp)).abs() < 1e-6);
     }
 
     #[test]
@@ -2324,30 +2343,38 @@ mod tests {
         let mut params = plateau::PlateauParameters::default();
         params.predelay_ms = 0.0;
         reverb.init(params);
-        // Isolate the signal entering the diffuser chain from its LP filter.
+        // The first allpass cannot feed back within this short test. Its last
+        // written input is therefore the output of the predelay.
+        let diffuser_input = |r: &plateau::PlateauReverb| {
+            let d = &r.in_apf1.delay;
+            d.buffer[(d.write_pos + d.buffer.len() - 1) % d.buffer.len()]
+        };
         reverb.in_lp.a = 1.0;
         reverb.in_lp.b = 0.0;
         reverb.predelay.buffer.fill(-1.0);
         let mut dc = plateau::OnePoleHP::new();
         dc.set_cutoff(20.0);
+        let mut hp = plateau::OnePoleHP::new();
+        hp.set_cutoff(13.75);
         reverb.process_sample(1.0, 1.0);
-        assert_eq!(reverb.in_lp.z, dc.process(1.0));
+        assert_eq!(diffuser_input(&reverb), hp.process(dc.process(1.0)));
 
         reverb.set_predelay_live(10.0);
         reverb.process_sample(1.0, 1.0);
-        let filtered = dc.process(1.0);
-        assert!((reverb.in_lp.z - (filtered + (-1.0 - filtered) / 64.0)).abs() < 1e-6);
-        for _ in 0..15 { reverb.process_sample(1.0, 1.0); dc.process(1.0); }
-        let before_reverse = reverb.in_lp.z;
+        let filtered = hp.process(dc.process(1.0));
+        assert!((diffuser_input(&reverb) - (filtered + (-1.0 - filtered) / 64.0)).abs() < 1e-6);
+        for _ in 0..15 { reverb.process_sample(1.0, 1.0); hp.process(dc.process(1.0)); }
+        let before_reverse = diffuser_input(&reverb);
         reverb.set_predelay_live(0.0);
         reverb.process_sample(1.0, 1.0);
-        let filtered = dc.process(1.0);
-        assert!((reverb.in_lp.z - (before_reverse + (filtered - before_reverse) / 64.0)).abs() < 1e-6);
-        assert!(reverb.in_lp.z >= before_reverse);
-        assert!((reverb.in_lp.z - before_reverse).abs() <= 2.0 / 64.0);
+        let filtered = hp.process(dc.process(1.0));
+        let after_reverse = diffuser_input(&reverb);
+        assert!((after_reverse - (before_reverse + (filtered - before_reverse) / 64.0)).abs() < 1e-6);
+        assert!(after_reverse >= before_reverse);
+        assert!((after_reverse - before_reverse).abs() <= 2.0 / 64.0);
         let mut filtered = 0.0;
-        for _ in 0..63 { reverb.process_sample(1.0, 1.0); filtered = dc.process(1.0); }
-        assert_eq!(reverb.in_lp.z, filtered);
+        for _ in 0..63 { reverb.process_sample(1.0, 1.0); filtered = hp.process(dc.process(1.0)); }
+        assert_eq!(diffuser_input(&reverb), filtered);
     }
 
     #[test]
@@ -2820,14 +2847,21 @@ mod tests {
         let mut right = plateau::OnePoleHP::new();
         left.set_cutoff(20.0);
         right.set_cutoff(20.0);
+        let mut lp = plateau::OnePoleLP::new();
+        lp.set_cutoff(14_080.0);
+        let mut hp = plateau::OnePoleHP::new();
+        hp.set_cutoff(13.75);
 
         for frame in 0..512 {
-            if frame == 160 { params.freeze = true; reverb.set_parameters(params); left.clear(); right.clear(); }
+            if frame == 160 {
+                params.freeze = true; reverb.set_parameters(params);
+                left.clear(); right.clear(); lp.clear(); hp.clear();
+            }
             if frame == 320 { params.freeze = false; reverb.set_parameters(params); }
             let l = if frame % 17 == 0 { 0.75 } else { -0.1 };
             let r = if frame % 23 == 0 { -0.5 } else { 0.2 };
             let (input_l, input_r) = if params.freeze { (0.0, 0.0) } else { (l, r) };
-            let expected = 0.5 * (left.process(input_l) + right.process(input_r));
+            let expected = hp.process(lp.process(0.5 * (left.process(input_l) + right.process(input_r))));
             let pos = reverb.predelay.write_pos;
             reverb.process_sample(l, r);
             let expected = if params.freeze { 0.0 } else { expected };
@@ -2838,7 +2872,8 @@ mod tests {
         reverb.process_sample(1.0, 0.0);
         let mut fresh = plateau::OnePoleHP::new();
         fresh.set_cutoff(20.0);
-        assert_eq!(reverb.predelay.buffer[pos], fresh.process(0.5));
+        lp.clear(); hp.clear();
+        assert_eq!(reverb.predelay.buffer[pos], hp.process(lp.process(fresh.process(0.5))));
     }
 
     #[test]

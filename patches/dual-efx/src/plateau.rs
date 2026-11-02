@@ -482,14 +482,12 @@ impl PlateauReverb {
     }
 
     pub fn clear(&mut self) {
-        self.input_dc.clear();
+        self.clear_input_filters();
         self.predelay.clear();
         self.in_apf1.clear();
         self.in_apf2.clear();
         self.in_apf3.clear();
         self.in_apf4.clear();
-        self.in_lp.clear();
-        self.in_hp.clear();
 
         self.l_apf1.clear();
         self.l_del1.clear();
@@ -510,6 +508,12 @@ impl PlateauReverb {
         self.out_hp_l.clear();
         self.out_hp_r.clear();
         self.settle_fresh_controls();
+    }
+
+    fn clear_input_filters(&mut self) {
+        self.input_dc.clear();
+        self.in_lp.clear();
+        self.in_hp.clear();
     }
 
     // The caller must ensure all audio histories are already clear.
@@ -553,7 +557,7 @@ impl PlateauReverb {
         if self.params.size != params.size || self.params.freeze != params.freeze {
             self.begin_output_transition();
         }
-        if params.freeze && !self.params.freeze { self.input_dc.clear(); }
+        if params.freeze && !self.params.freeze { self.clear_input_filters(); }
         self.retarget_predelay(params.predelay_ms);
         if params.freeze {
             self.predelay_remaining = 0;
@@ -707,7 +711,7 @@ impl PlateauReverb {
         if self.params.freeze != params.freeze {
             self.begin_output_transition();
         }
-        if params.freeze && !self.params.freeze { self.input_dc.clear(); }
+        if params.freeze && !self.params.freeze { self.clear_input_filters(); }
         if params.freeze {
             self.predelay_remaining = 0;
             self.predelay_previous = 0.0;
@@ -761,19 +765,19 @@ impl PlateauReverb {
         // Discard frozen input before filtering so it cannot leak on release.
         let input = if self.params.freeze { 0.0 } else { 0.5 * in_l + 0.5 * in_r };
         let filtered = self.input_dc.process(input);
+        let filtered = self.in_hp.process(self.in_lp.process(filtered));
         let tank_in = self.process_predelay(filtered);
 
         // 2. Input Diffusers
         let mix = self.advance_diffusion_mix();
-        let filtered_in = self.in_hp.process(self.in_lp.process(tank_in));
-        let diff1 = self.in_apf1.process(filtered_in);
+        let diff1 = self.in_apf1.process(tank_in);
         let diff2 = self.in_apf2.process(diff1);
         let diff3 = self.in_apf3.process(diff2);
         let diffused = self.in_apf4.process(diff3);
         // A zero-gain allpass is still a delay. Bypass the input diffusers
         // at zero, but keep their histories advancing for subsequent edits.
-        let diffused = if mix == 0.0 { filtered_in } else if mix == 1.0 { diffused }
-            else { filtered_in * (1.0 - mix) + diffused * mix };
+        let diffused = if mix == 0.0 { tank_in } else if mix == 1.0 { diffused }
+            else { tank_in * (1.0 - mix) + diffused * mix };
         // The diffusers may still contain pre-freeze audio. Do not inject it
         // into the frozen feedback tank while that history drains.
         let diff_in = if self.params.freeze { 0.0 } else { diffused };
