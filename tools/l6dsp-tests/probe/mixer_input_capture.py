@@ -118,6 +118,24 @@ def check_ui_routes(report, callback):
     return {'callback_count': count, 'queue_events': head, 'send_peaks': check_ui_sends(events)}
 
 
+def check_ui_overflow(report, callback):
+    if report.get('outcome') != 'complete' or report.get('model') != 'l6max':
+        raise ValueError('diagnostic did not complete for L6max')
+    events = {e['observation'].get('name'): e['observation'] for e in report['events']}
+    if words(events, 'active_room', 1)[0] != callback or words(events, 'room_open', 8)[7] != 1:
+        raise ValueError('custom effect or inspector was not active')
+    if words(events, 'overflow_queue', 3) != (0, 0, 1):
+        raise ValueError('forced rejection was not observed')
+    if words(events, 'overflow_mode', 1) != (41,):
+        raise ValueError('warning was not presented or a stale edit replaced it')
+    if words(events, 'recovered_mode', 1) != (22,):
+        raise ValueError('a later accepted edit did not replace the warning')
+    head, tail, dropped = words(events, 'queue_room', 3)
+    if head == 0 or head != tail or dropped != 1 or words(events, 'closed', 8)[7] != 0:
+        raise ValueError('queue did not drain or inspector did not close')
+    return {'accepted_events': head, 'forced_rejections': dropped}
+
+
 def check_ui_sends(events):
     peaks = {}
     for name, bus in (('route_before', 1), ('route_1', 2), ('route_reverse', 1)):
@@ -139,13 +157,21 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('report', type=Path, help='l6dbg diagnostic JSON')
     parser.add_argument('--ui-route', action='store_true', help='check the combined UI routing probe')
+    parser.add_argument('--ui-overflow', action='store_true', help='check the forced inspector rejection probe')
     parser.add_argument('--probe-elf', type=Path, help='effect ELF from this combined UI diagnostic')
     args = parser.parse_args()
-    if args.ui_route != (args.probe_elf is not None):
-        parser.error('--ui-route and --probe-elf must be supplied together')
+    if args.ui_route and args.ui_overflow:
+        parser.error('--ui-route and --ui-overflow cannot be combined')
+    if (args.ui_route or args.ui_overflow) != (args.probe_elf is not None):
+        parser.error('a UI check and --probe-elf must be supplied together')
     try:
         report = json.loads(args.report.read_text())
-        result = check_ui_routes(report, callback_from_elf(args.probe_elf)) if args.ui_route else check(report)
+        if args.ui_route:
+            result = check_ui_routes(report, callback_from_elf(args.probe_elf))
+        elif args.ui_overflow:
+            result = check_ui_overflow(report, callback_from_elf(args.probe_elf))
+        else:
+            result = check(report)
     except (OSError, ValueError, KeyError, TypeError, struct.error, OverflowError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'capture failed: {error}\n')
     print(json.dumps(result, indent=2))

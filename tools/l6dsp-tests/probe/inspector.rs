@@ -386,16 +386,34 @@ pub unsafe extern "C" fn inspector_knob(channel: u32, mode: u32, absolute: u32, 
         };
         let signed = delta.clamp(-8_388_608, 8_388_607) as u32 & 0x00ff_ffff;
         let encoded_channel = channel | if (*ui).routing_page { 0x80 } else if (*ui).velvet_bank { 0x40 } else { 0 };
-        let result = queue.push((signed << 8) | encoded_channel, || {
+        #[cfg(force_inspector_overflow)]
+        let force_overflow = {
+            let trigger = 0x81fff008 as *mut u32;
+            let force = core::ptr::read_volatile(trigger) == 0x4f564652;
+            if force { core::ptr::write_volatile(trigger, 0); }
+            force
+        };
+        #[cfg(not(force_inspector_overflow))]
+        let force_overflow = false;
+        let result = if force_overflow { Err(1) } else { queue.push((signed << 8) | encoded_channel, || {
             #[cfg(knob_inspector)]
             { generation }
             #[cfg(not(knob_inspector))]
             { 0 }
-        });
+        }) };
         #[cfg(knob_inspector)]
         match result {
             Ok(head) => core::ptr::write_volatile(QUEUE as *mut u32, head),
-            Err(dropped) => core::ptr::write_volatile((QUEUE + 8) as *mut u32, dropped),
+            Err(dropped) => {
+                core::ptr::write_volatile((QUEUE + 8) as *mut u32, dropped);
+                // Report a dropped turn using the generation captured before
+                // checking the inspector, so a concurrent close wins.
+                inspector_edit_hook(25, 0.0f32.to_bits(), generation);
+                // A diagnostic-only stale publication models an earlier
+                // accepted edit finishing after the overflow warning.
+                #[cfg(force_inspector_overflow)]
+                if force_overflow { inspector_edit_hook(0, 50.0f32.to_bits(), generation); }
+            }
         }
         #[cfg(not(knob_inspector))]
         let _ = result;

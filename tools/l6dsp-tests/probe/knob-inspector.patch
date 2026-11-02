@@ -81,7 +81,10 @@
 +}
 +unsafe fn restore_and_pop() {
 +    unsafe {
-@@ -56,0 +136,7 @@
+@@ -56,0 +136,10 @@
++            #[cfg(dual_efx)]
++            #[cfg(force_inspector_overflow)]
++            core::ptr::write_volatile(0x83e07e10 as *mut u32, mode);
 +            #[cfg(dual_efx)]
 +            if mode == sync::INSPECTOR_CLOSE {
 +                restore_and_pop();
@@ -133,7 +136,7 @@
 +            core::ptr::write_bytes(core::ptr::addr_of_mut!((*c).inspector_handoff).cast::<u8>(), 0xff, 64);
 +            core::ptr::write_bytes(core::ptr::addr_of_mut!((*c).inspector_routes).cast::<u8>(), 0xff, 48);
 +        }
-@@ -210,0 +222,50 @@
+@@ -210,0 +222,55 @@
 +
 +// Disposable dual-effect diagnostic: producer tags edits with this generation.
 +#[cfg(dual_efx)]
@@ -157,6 +160,11 @@
 +        enter();
 +        if read(core::ptr::addr_of!((*c).blocked)) == 0
 +            && read(core::ptr::addr_of!((*c).generation)) == generation {
++            let generation = if mode == 16 + 25 {
++                let next = generation.wrapping_add(1);
++                write(core::ptr::addr_of_mut!((*c).generation), next);
++                next
++            } else { generation };
 +            write(core::ptr::addr_of_mut!((*c).mode), mode);
 +            write(core::ptr::addr_of_mut!((*c).raw), raw);
 +            write(core::ptr::addr_of_mut!((*c).event_generation), generation);

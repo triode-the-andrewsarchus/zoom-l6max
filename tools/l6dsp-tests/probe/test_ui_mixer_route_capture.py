@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import patch
 from pathlib import Path
 
-from mixer_input_capture import callback_from_elf, check_ui_routes as check
+from mixer_input_capture import callback_from_elf, check_ui_overflow, check_ui_routes as check
 
 
 def report():
@@ -83,6 +83,35 @@ class UiMixerRouteCaptureTests(unittest.TestCase):
             with self.subTest(option=option):
                 self.assertEqual(result.returncode, 2)
                 self.assertIn('--mixer-route-capture excludes', result.stderr)
+
+    def test_overflow_requires_warning_then_recovery_and_drained_queue(self):
+        def set_words(name, *values):
+            self.events[name] = {'name': name, 'bytes': list(struct.pack('<' + 'I' * len(values), *values))}
+            self.report['events'].append({'observation': self.events[name]})
+        set_words('overflow_queue', 0, 0, 1)
+        set_words('overflow_mode', 41)
+        set_words('recovered_mode', 22)
+        set_words('closed', 0, 0, 0, 0, 0, 0, 0, 0)
+        self.events['queue_room']['bytes'] = list(struct.pack('<III', 11, 11, 1))
+        self.assertEqual(check_ui_overflow(self.report, 0x8010b32d)['accepted_events'], 11)
+        for name, value in [('overflow_mode', 16), ('recovered_mode', 41)]:
+            original = self.events[name]['bytes']
+            self.events[name]['bytes'] = list(struct.pack('<I', value))
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                check_ui_overflow(self.report, 0x8010b32d)
+            self.events[name]['bytes'] = original
+        self.events['queue_room']['bytes'] = list(struct.pack('<III', 11, 10, 1))
+        with self.assertRaisesRegex(ValueError, 'queue'):
+            check_ui_overflow(self.report, 0x8010b32d)
+
+    def test_overflow_probe_excludes_other_variants(self):
+        builder = Path(__file__).with_name('prepare_ui.py')
+        for option in ('--mixer-route-capture', '--active-sends', '--irq-timing', '--ring-timing', '--enqueue-trace'):
+            result = subprocess.run([sys.executable, str(builder), 'unused', 'unused', 'unused',
+                                     '--force-inspector-overflow', option], capture_output=True, text=True)
+            with self.subTest(option=option):
+                self.assertEqual(result.returncode, 2)
+                self.assertIn('excludes', result.stderr)
 
 
 if __name__ == '__main__':

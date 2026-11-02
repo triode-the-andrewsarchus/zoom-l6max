@@ -494,7 +494,11 @@ parameter, route, and event mailboxes.
 This does not qualify allocation lifetime, reset, exhaustion, concurrent
 selection, callback ownership, or the remaining scratch addresses on hardware.
 The bounded event queue drops a new edit when full; it does not recover that
-edit. Host tests in `l6dsp-tests` exercise FIFO ordering, counter wrap, full
+edit. The combined experiment attempts to display `EFX INPUT / BUSY - RETRY`
+when this happens. It invalidates older edit notifications, but still applies
+those accepted edits; a later accepted turn can replace the warning. Other
+notifications or inspector transitions can also replace it, so this is not a
+guaranteed delivery or recovery mechanism. Host tests in `l6dsp-tests` exercise FIFO ordering, counter wrap, full
 capacity, standalone storage, and a two-thread producer/consumer exchange.
 They assume one producer, one consumer and stable storage; they do not prove
 those assumptions for the firmware. The consumer stops applying events if
@@ -511,6 +515,29 @@ cargo run --offline --locked -p l6dbg -- /tmp/l6-ui-probe/recipe.toml \
 The combined builder also accepts `--irq-timing`, `--active-sends`, and
 `--enqueue-trace` for the corresponding QEMU-only experiments described
 above. These flags do not enable an installable firmware patch.
+
+To exercise the combined inspector's rejection path in QEMU, prepare with
+`--force-inspector-overflow`, run its generated recipe as above, and check:
+
+```sh
+python3 tools/l6dsp-tests/probe/mixer_input_capture.py --ui-overflow \
+  --probe-elf /tmp/l6-ui-probe/probe.elf /tmp/l6-ui-probe/result.json
+```
+
+Redirect `l6dbg`'s JSON output to that result file. This option injects a
+rejection and an older notification; it does not fill the actual queue. The
+checker observes the warning, a subsequent accepted edit, queue drain and
+inspector close. It does not establish target behavior or hardware safety.
+One run observed one injected rejection and 11 accepted, drained events.
+The stock MAIN SHA-256 was `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+the diagnostic MAIN was `110da65a446fca1db2250704930188ca635fea10d0af105b86eaa848ec703bf1`,
+and QEMU was `4902e96e8375adb69b1ebe0e5572fe1ba3fb6a0e413c8595605128a297dfd910`
+(source unattested). The `l6dbg` binary was
+`ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`.
+The initial NOR was
+`26e79ca08d1bff89489d34055cc661e3431354260260fd19f8811dcca7e24924`,
+the recipe was `3fcf09e80a19c606281d6b12b21582ee8d1e8358bf9734cb61ebf2d31458a24d`,
+and the report was `013b9f32243d0fd275d64c42ab4b6b843b1fcc1896c3c724c708127da836dfe8`.
 
 For the modeled-input routing check, use a QEMU binary built with the
 `sai-test-tone.patch` described in the mixer-input capture section, then run:

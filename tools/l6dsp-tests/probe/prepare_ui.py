@@ -26,11 +26,14 @@ parser.add_argument("--ring-timing", action="store_true", help="use QEMU-only re
 parser.add_argument("--active-sends", action="store_true", help="inject nonzero QEMU-only effect buses")
 parser.add_argument("--enqueue-trace", action="store_true", help="record panel events before enqueue")
 parser.add_argument("--mixer-route-capture", action="store_true", help="capture modeled input sends while changing routes")
+parser.add_argument("--force-inspector-overflow", action="store_true", help="force one QEMU-only inspector enqueue rejection and a stale display update")
 args = parser.parse_args()
 if args.irq_timing and args.ring_timing:
     parser.error("--ring-timing excludes --irq-timing")
 if args.mixer_route_capture and (args.active_sends or args.irq_timing or args.ring_timing or args.enqueue_trace):
     parser.error("--mixer-route-capture excludes synthetic sends and timing traces")
+if args.force_inspector_overflow and (args.mixer_route_capture or args.active_sends or args.irq_timing or args.ring_timing or args.enqueue_trace):
+    parser.error("--force-inspector-overflow excludes other diagnostic variants")
 out, main, nor = checked_inputs(parser, args.firmware, args.state, args.output)
 for name, expected in (
     ("payload.rs", "9034539aefa64cad6797570ad8de9da9dbe4d51718a81fa774da1ad478441488"),
@@ -63,7 +66,7 @@ subprocess.run(["patch", "-p1", "-i", str(PROBE / "knob-inspector.patch")], cwd=
 channel = tomllib.loads((ROOT / "rust-toolchain.toml").read_text())["toolchain"]["channel"]
 knob_root = overlay / "knob-dialog"
 knob_elf = out / "knob-ui.elf"
-subprocess.run([
+knob_args = [
     "rustup", "run", channel, "rustc", str(knob_root / "src/payload.rs"), "--cfg", "dual_efx",
     f"--remap-path-prefix={knob_root / 'src'}=patches/knob-dialog",
     f"--remap-path-prefix={overlay / 'dual-efx/src'}=patches/dual-efx",
@@ -71,7 +74,10 @@ subprocess.run([
     "-C", "panic=abort", "-C", "relocation-model=static",
     "-C", "link-arg=--defsym=PAYLOAD_BASE=0x80108000",
     "-C", f"link-arg=-T{knob_root / 'linker/link.ld'}", "-o", str(knob_elf),
-], cwd=args.firmware.resolve(), check=True)
+]
+if args.force_inspector_overflow:
+    knob_args += ["--cfg", "force_inspector_overflow"]
+subprocess.run(knob_args, cwd=args.firmware.resolve(), check=True)
 knob_blob = out / "knob-ui.bin"
 subprocess.run(["llvm-objcopy", "-O", "binary", str(knob_elf), str(knob_blob)], check=True)
 
@@ -117,6 +123,8 @@ if args.enqueue_trace:
     probe_args += ["--cfg", "enqueue_trace"]
 if args.mixer_route_capture:
     probe_args += ["--cfg", "mixer_route_capture"]
+if args.force_inspector_overflow:
+    probe_args += ["--cfg", "force_inspector_overflow"]
 subprocess.run(probe_args, cwd=ROOT, check=True)
 probe_blob = out / "probe.bin"
 subprocess.run(["llvm-objcopy", "-O", "binary", str(probe_elf), str(probe_blob)], check=True)
@@ -178,12 +186,53 @@ recipe = (seed / "recipe.toml").read_text()
 seed_hash = hashlib.sha256((seed / "firmware/main_firmware.bin").read_bytes()).hexdigest()
 image_hash = hashlib.sha256(image).hexdigest()
 recipe = recipe.replace(seed_hash, image_hash).replace("guest_ms = 3000", "guest_ms = 500")
+if args.force_inspector_overflow:
+    marker = f'[[step]]\naction = "memory"\nname = "room_open"\naddress = {0x83e00400}\nlength = 32\n'
+    if recipe.count(marker) != 1:
+        raise ValueError("recipe marker mismatch: room_open")
+    exercise = '''[[step]]
+action = "memory-write"
+name = "overflow_trigger"
+address = 0x81fff008
+bytes = [82, 70, 86, 79]
+[[step]]
+action = "encoder"
+channel = 1
+steps = 1
+[[step]]
+action = "wait"
+guest_ms = 500
+[[step]]
+action = "snapshot"
+name = "overflow_screen"
+[[step]]
+action = "memory"
+name = "overflow_mode"
+address = 0x83e07e10
+length = 4
+[[step]]
+action = "memory"
+name = "overflow_queue"
+address = 0x83e00200
+length = 12
+'''
+    recipe = recipe.replace(marker, marker + exercise, 1)
 for name in ("room_edit", "spring_edit", "room_return_edit", "spring_return_edit"):
     marker = f'[[step]]\naction = "memory"\nname = "{name}"'
     snapshot = f'[[step]]\naction = "snapshot"\nname = "{name}_screen"\n'
     if recipe.count(marker) != 1:
         raise ValueError(f"recipe marker mismatch: {name}")
     recipe = recipe.replace(marker, snapshot + marker)
+if args.force_inspector_overflow:
+    marker = '[[step]]\naction = "snapshot"\nname = "room_edit_screen"\n'
+    if recipe.count(marker) != 1:
+        raise ValueError("recipe marker mismatch: room_edit_screen")
+    recipe = recipe.replace(marker, marker + '''[[step]]
+action = "memory"
+name = "recovered_mode"
+address = 0x83e07e10
+length = 4
+''', 1)
 # Exercise routing while Room's inspector is open.
 marker = '[[step]]\naction = "memory"\nname = "queue_room"'
 if recipe.count(marker) != 1:

@@ -81,12 +81,14 @@ impl ParameterSnapshot {
     }
 }
 
-/// A copied inspector value; IDs 16 through 23 name strips and 24 names the page.
+/// A copied inspector value; IDs 16 through 23 name strips, 24 names the
+/// page, and 25 reports a rejected turn when the input queue is full.
 #[derive(Clone, Copy, Debug)]
 pub enum DisplaySnapshot {
     Parameter(ParameterSnapshot),
     Route { strip: u8, mode: u8 },
     Page { routing: bool, velvet: bool },
+    QueueFull,
 }
 
 impl DisplaySnapshot {
@@ -101,6 +103,9 @@ impl DisplaySnapshot {
                 2.0 => Some(Self::Page { routing: false, velvet: true }),
                 _ => None,
             };
+        }
+        if index == 25 {
+            return (f32::from_bits(bits) == 0.0).then_some(Self::QueueFull);
         }
         let strip = index.checked_sub(16)?;
         let value = f32::from_bits(bits);
@@ -192,6 +197,11 @@ fn append_str(buf: &mut [u8], start: usize, s: &[u8]) -> usize {
 pub fn format_display(snapshot: DisplaySnapshot) -> FormattedParam {
     match snapshot {
         DisplaySnapshot::Parameter(parameter) => format_snapshot(parameter),
+        DisplaySnapshot::QueueFull => {
+            let mut formatted = FormattedParam::new("EFX INPUT");
+            formatted.value_len = append_str(&mut formatted.value_str, 0, b"BUSY - RETRY");
+            formatted
+        }
         DisplaySnapshot::Page { routing, velvet } => {
             let mut formatted = FormattedParam::new("EFX CONTROLS");
             let value: &[u8] = if routing { b"ROUTING" } else if velvet { b"VELVET PARAM" } else { b"PLATEAU PARAM" };
