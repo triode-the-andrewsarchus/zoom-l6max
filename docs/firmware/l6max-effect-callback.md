@@ -6825,3 +6825,72 @@ The size- and speed-optimized host comparison executables were
 using source `5c8c48d5289dc0c2943e5b67cad0201047b9db42458cc22885c55dfac12f2432`.
 Rust was `1.99.0-nightly (1ed2df61a 2026-08-04)`; stock fixture, QEMU and
 `l6dbg` match the preceding experiment.
+
+An exploratory profile of the speed-optimized full-density diagnostic booted
+from a disposable NOR with the patched MAIN installed and Room selected. Of
+294 main-CPU samples between guest times 35.194 and 50.727 seconds, 166 were
+inside `process_shared_mono` and 152 of those were in its aligned two-history
+tap loop. Sampling perturbs execution and does not identify physical CPU
+cycles. The profile executable, initial NOR, sample TSV and profile log were
+`920ede276b33c094db4cf4a5fda0578befb1e471e751ac9b6e124fabb56b891a`,
+`f131bcf9bbd1a605c4897ec19bb2339444aa97455e24987fac491a879c4e6c61`,
+`a53aa0357219a21ada2d40f8aec6c3306290963c342fe261bba72ef3b3a3c4ef`, and
+`afcc702d8ca968c12bca823c85d5245533e74d9502437ae4160a8b20baecff66`.
+The MAIN, ELF, panel state and unattested QEMU matched the preceding speed
+diagnostic. The profile did not independently capture its tap-count marker.
+
+The aligned two-history loop now checks that the common write position is in
+range before using unchecked reads. Each tap delay is reduced to the ring
+length, so the wrapped index is within both fixed-size arrays. Unaligned or
+invalid positions take the previous checked path. A host test exhaustively
+checks all 23,059,204 valid position/delay pairs, and a malformed-position
+test exercises the checked fallback. Existing tests also exercise oversized
+bank counts, out-of-range tap delays and routed/stereo path switches. Selected
+malformed-delay, path-switch and fallback tests passed with AddressSanitizer;
+Miri was unavailable. These tests do not establish behavior for arbitrary
+memory corruption or unsafe concurrent access.
+
+Two matched speed-optimized QEMU pairs at 285 taps counted 2,483 callbacks
+per five guest seconds for the checked control and 2,635/2,634 for the
+candidate. A separate build from the maintained source counted 2,635. The
+inspector remained closed in all cases, and the nominal rate is 3,750 per
+five seconds. A 40,000-frame host comparison was byte-identical to the control,
+with output hash `2c05f4b906baa5d67cdccbf8763ab05cabd985c091c7b1ee23acd3be8d196e43`.
+The candidate's synthetic ARM file-mix capture matched the preceding capture
+hash `9dea592e4b93e6fe00490791a5448d32520a82a1a4eeec901ced709626abd39a`.
+The measurements omit pre-AINR and do not qualify real-time behavior,
+hardware safety or the complete audio output.
+
+The control and temporary-candidate MAIN hashes were
+`56dabc2d9c1a5dc8ef767242a70044772b7282061e1a6c922df4b868b96a9b2c` and
+`5d2a714ca2525d2f665ba858719c1958fb4f47077f97ca475b7e6402723b43e6`;
+their ELFs were `88afcf0145bb0709dc4eaa44c1cce4d611c5a8ab6fc9380377e2b5b27825d5d1`
+and `a264d912708db3f1862a82861cf3ea52edb599e6a6c202f665648696853813a5`.
+The control and candidate recipe/result hashes were
+`18b368f85aa262d7eccbe5b0ff23c3fca101cdd8901a7c38b9b2a6bdfda91c76` /
+`1d87574bf2c49c6e357066c158654f39c16a75381ca17bb40206e92fe4ce7e08` and
+`60f5e38bf38ba7294581e552a67db7dfa6454dc17b3bcc614800943a17566c11` /
+`2983672cad5be5ca66fce6e486a019f97cf631ef4d45870e1f422e34684aceba`.
+The repeat result hashes were
+`f56e0a40aeb4eee6168d0f9736561ef48cc0a9d6fcbce494f7da740a245c42d4` and
+`49ddff4aedd337d2033ea08c02cebcfebe544f74dbc73497d525d79a490f3ff9`.
+The control and candidate initial diagnostic NOR hashes were
+`d5902a8fac8a962521f18c12129bff84c39cb04f5d5655d81e414edea8f12d06` and
+`6fc3374c8d5701b0d92868e6fc57a31fdd64ab4e7fbd1d5f882dc5e5fb00a3d1`.
+
+The maintained-source diagnostic MAIN, ELF, recipe, result and trace were
+`b6c555053e8d8f26fa840a635a858bfc4ea57e5c32ae2543b76642b144620ddb`,
+`2dbf8f7ecee3eebdc699b1a54b2e90f41cceea29ca751747ac1439619755d1fb`,
+`7a3c322b9a34623e41c313e71e5cbe73ea49dd55f0d5644c440803586175c343`,
+`5ac9d94022f8220cc4472dd097a191591ec943279df9226d341f98cf4a12d29c`, and
+`3904310572cf187fe78c5783672883ba7ca959f59b28ddb9bd82aa2bfc9a273d`.
+Its initial NOR was
+`671a55572d90e183d6ba8d7c0bc323465ca41d852991a588e73deb631a9367a2`.
+The temporary candidate's file-mix MAIN, ELF, recipe and result were
+`aa325afada6ecb0a87b54fb85a073f29cdad5a064babc5c8ea16b254a18233de`,
+`68def15695370af6020e659d4433142830cb427dca3b128c818d4bf958476069`,
+`9b9dd75f94dbff5e6b78b6c73fa3a562d4c3d852e37e231d5e3797af944bb667`, and
+`3d667eb94c8288a200ef8ce13749c7e530b3a40456d5dfc04c2035b0142aeafe`;
+its initial NOR was
+`cbe3085d77443a5f06a930c4713998b9d66064de875e96debfd97595ea0bad76`.
+Stock MAIN, panel state, QEMU and `l6dbg` matched the preceding experiment.

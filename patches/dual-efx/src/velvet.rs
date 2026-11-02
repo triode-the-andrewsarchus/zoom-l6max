@@ -447,13 +447,19 @@ impl VelvetDecorrelator {
         let mut sum_a = 0.0f32;
         let mut sum_b = 0.0f32;
         let taps = ca.banks[bank].storage.get(..ca.banks[bank].count).unwrap_or(&[]);
-        if ca.nonzero_samples != 0 && history.nonzero_samples != 0 && wp == history.write_position {
+        if ca.nonzero_samples != 0 && history.nonzero_samples != 0
+            && wp == history.write_position && wp < MAX_DELAY_SAMPLES {
             for tap in taps {
                 let delay = tap.delay as usize;
                 let d = if delay < MAX_DELAY_SAMPLES { delay } else { wrap_out_of_range_delay(delay) };
                 let read = history_index(wp, d);
-                sum_a += tap.gain * ca.delay_line[read];
-                sum_b += tap.gain * history.delay_line[read];
+                // SAFETY: wp is checked above and d is normalized to the
+                // ring length. Their wrapped difference is therefore less
+                // than MAX_DELAY_SAMPLES, the length of both arrays.
+                unsafe {
+                    sum_a += tap.gain * ca.delay_line.get_unchecked(read);
+                    sum_b += tap.gain * history.delay_line.get_unchecked(read);
+                }
             }
         } else if ca.nonzero_samples != 0 && history.nonzero_samples != 0 {
             for tap in taps {
@@ -645,6 +651,30 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn history_index_stays_in_bounds_for_all_valid_positions_and_delays() {
+        for write_position in 0..MAX_DELAY_SAMPLES {
+            for delay in 0..MAX_DELAY_SAMPLES {
+                let index = history_index(write_position, core::hint::black_box(delay));
+                assert!(index < MAX_DELAY_SAMPLES);
+                assert_eq!(index, (write_position + MAX_DELAY_SAMPLES - delay) % MAX_DELAY_SAMPLES);
+            }
+        }
+    }
+
+    #[test]
+    fn invalid_aligned_positions_take_the_checked_fallback() {
+        let mut channel = Box::new(Channel::new());
+        let mut history = Box::new(MonoHistory::new());
+        channel.write_position = MAX_DELAY_SAMPLES;
+        history.write_position = MAX_DELAY_SAMPLES;
+        channel.nonzero_samples = 1;
+        history.nonzero_samples = 1;
+        channel.banks[0].count = 1;
+        // A bad position still encounters a bounds check, not an unchecked read.
+        assert!(std::panic::catch_unwind(|| VelvetDecorrelator::convolve_pair(&channel, &history, 0)).is_err());
     }
 
     #[test]
