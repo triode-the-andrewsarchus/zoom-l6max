@@ -2457,4 +2457,66 @@ mod tests {
         let formatted = parameters::format_parameter(parameters::EfxParamId::PlatHighCut, &processor);
         assert_eq!(std::str::from_utf8(&formatted.value_str[..formatted.value_len]).unwrap(), "23520.0 Hz");
     }
+    #[test]
+    fn routed_blocks_match_frames_across_edits_and_path_switches() {
+        let mut block = Box::new(routing::DualEfxProcessor::new());
+        let mut frames = Box::new(routing::DualEfxProcessor::new());
+        block.init(); frames.init();
+        let mut random = 193u32;
+        for step in 0..1300 {
+            if [2, 80, 300, 700, 1000].contains(&step) {
+                let mut p = block.velvet.current;
+                p.length_ms = if step % 3 == 0 { 95.0 } else { 25.0 };
+                p.density = if step % 2 == 0 { 3000.0 } else { 800.0 };
+                p.transition_ms = 7.0;
+                p.refresh_seconds = 0.1;
+                p.amount = if step == 700 { 0.3 } else { 0.8 };
+                block.velvet.set_parameters(p); frames.velvet.set_parameters(p);
+            }
+            let n = [1, 7, 16, 31, 64][step % 5];
+            let mut a = [0.0; 64]; let mut b = [0.0; 64]; let mut c = [0.0; 64];
+            for i in 0..n {
+                random = random.wrapping_mul(1664525).wrapping_add(1013904223);
+                a[i] = if step % 200 < 140 { (random as i32 as f32) / 4294967296.0 } else { 0.0 };
+                random = random.wrapping_mul(1664525).wrapping_add(1013904223);
+                b[i] = (random as i32 as f32) / 8589934592.0;
+                c[i] = if step % 150 < 100 { -a[i] * 0.37 } else { 0.0 };
+            }
+            let mut l = [0.0; 64]; let mut r = [0.0; 64];
+            if step % 250 >= 200 {
+                let mut el = [0.0; 64]; let mut er = [0.0; 64];
+                block.process_stereo_send(&a[..n], &b[..n], &mut l[..n], &mut r[..n], true, true);
+                frames.process_stereo_send(&a[..n], &b[..n], &mut el[..n], &mut er[..n], true, true);
+                assert_eq!((&l[..n], &r[..n]), (&el[..n], &er[..n]), "stereo step {step}");
+            } else {
+                block.process_buses(&a[..n], &b[..n], &c[..n], &mut l[..n], &mut r[..n]);
+                for i in 0..n {
+                    let (el, er) = frames.process_bus_sample(a[i], b[i], c[i]);
+                    assert_eq!((l[i], r[i]), (el, er), "step {step}, sample {i}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn routed_blocks_preserve_near_ring_end_taps() {
+        let mut block = Box::new(routing::DualEfxProcessor::new());
+        let mut frames = Box::new(routing::DualEfxProcessor::new());
+        block.init(); frames.init();
+        for engine in [&mut block, &mut frames] {
+            let mut p = engine.velvet.current; p.dynamic = false; engine.velvet.set_parameters(p);
+            for channel in &mut engine.velvet.channels {
+                channel.banks[0].count = 2;
+                channel.banks[0].storage[0] = velvet::Tap { delay: (velvet::MAX_DELAY_SAMPLES - 1) as u32, gain: 0.5 };
+                channel.banks[0].storage[1] = velvet::Tap { delay: u32::MAX, gain: 0.5 };
+            }
+        }
+        for step in 0..180 {
+            let a = [if step % 13 == 0 { 0.2 } else { 0.0 }; 64];
+            let b = [0.0; 64]; let c = [if step % 23 == 0 { -0.3 } else { 0.0 }; 64];
+            let mut l = [0.0; 64]; let mut r = [0.0; 64];
+            block.process_buses(&a, &b, &c, &mut l, &mut r);
+            for i in 0..64 { assert_eq!((l[i], r[i]), frames.process_bus_sample(a[i], b[i], c[i]), "step {step}, frame {i}"); }
+        }
+    }
 }
