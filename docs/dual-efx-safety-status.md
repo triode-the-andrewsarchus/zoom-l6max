@@ -25,6 +25,8 @@ uses unowned scratch and must never be installed.
 
 Plateau's standalone size control now reaches the Multistomp minimum of
 0.01, with host checks for short delays, maximum modulation, and freeze.
+The 48 kHz left first tank allpass retains its full fractional delay at the
+current maximum size; the preceding capacity clipped roughly 0.6 sample.
 Its upper size limit is still 1.2 rather than the Multistomp's 4.0, and its
 predelay limit is 190 ms rather than 500 ms. These limits also constrain the
 available reverb character; they are not full Plateau parity. Extending them
@@ -101,12 +103,12 @@ The blocking findings for L6max MAIN 1.10
   processor type measures 283,160 bytes for `thumbv7em-none-eabihf`, including
   400 taps per bank for the full Multistomp Velvet range; it still exceeds that
   free block. The current size query object SHA-256 is
-  `9104695cf2bfe626728f8c63f4795fa88b5b51dbf14ac943955a69e2c7b9f5a4`
+  `1c784a1cc1e993c25f2f3d11ef7e59d53ff3bda24bc9acd3dea7133b7d7f75cf`
   using `rustc 1.99.0-nightly (1ed2df61a 2026-08-04)`.
   Of that state, the raw `f32` histories comprise 36,484 bytes of
-  Plateau predelay, 7,024 bytes of Plateau input diffusion, 168,372 bytes of
+  Plateau predelay, 7,024 bytes of Plateau input diffusion, 168,376 bytes of
   Plateau tank delays and 57,624 bytes of Velvet histories (including the
-  separate cascade history). The remaining 13,656 bytes include filter banks,
+  separate cascade history). The remaining 13,652 bytes include filter banks,
   parameters and bookkeeping. These counts describe allocated capacity,
   not a proof that any stock firmware memory can be reused.
   Stock code

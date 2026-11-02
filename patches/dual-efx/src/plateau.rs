@@ -29,7 +29,7 @@ const IN_APF2_MAX: usize = 209;
 const IN_APF3_MAX: usize = 735;
 const IN_APF4_MAX: usize = 538;
 
-const L_APF1_MAX: usize = 1332;
+const L_APF1_MAX: usize = 1333;
 const L_DEL1_MAX: usize = 8620;
 const L_APF2_MAX: usize = 3704; // Includes the 1913-sample output tap.
 const L_DEL2_MAX: usize = 7201;
@@ -1014,6 +1014,7 @@ mod tests {
         reverb.set_size_live(1.2);
         let scale = SR_SCALE * 1.2;
         for (actual, expected) in [
+            (reverb.l_apf1.delay_time as f32 + reverb.l_apf1.delay_fraction, 672.0 * scale),
             (reverb.l_del1.length as f32 + reverb.l_del1_fraction, 4453.0 * scale),
             (reverb.l_del2.length as f32 + reverb.l_del2_fraction, 3720.0 * scale),
             (reverb.r_del1.length as f32 + reverb.r_del1_fraction, 4217.0 * scale),
