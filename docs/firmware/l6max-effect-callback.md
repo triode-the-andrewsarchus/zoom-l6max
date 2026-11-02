@@ -8587,3 +8587,50 @@ All used stock MAIN and QEMU identities from the preceding section, an
 experimental whole-audio admission guard, and unowned scratch; no synthetic
 interrupt was injected. QEMU source provenance is unattested. These images
 must not be installed.
+
+### Live effect buffers during a recorded bounce
+
+A QEMU CPU-memory plugin traced the live arrays at `0x20010210..0x20010410`
+between the diagnostic mix observer's entry marker and completion marker.
+The successful recorded-project bounce executed 6,144 routed callbacks. The
+trace observed 22,895,296 reads and 24,254,464 writes to the live arrays before
+the window, and no CPU accesses overlapping them during the window. As an
+in-window positive control, it observed 34,758,145 reads starting in the
+file-mix track workspace; its per-PC hit table did not overflow. The project
+checker passed, including its single-block send comparison. Counts are memory
+access callbacks, not samples or elapsed time.
+
+This is evidence for that guarded, instrumented schedule, not proof that live
+and file mixing never share buffers. The whole-block admission guard can
+reject live work; the trace cannot show what a rejected block would have done
+without it. It covers CPU accesses, not DMA or other machines, and the
+diagnostic callback replaces the stock effect callback. Other stock or effect
+state, selectors, file-mix configurations, pending interrupts, real timing,
+and physical hardware remain unqualified. It does not make the existing
+rejected-live clearing path safe.
+
+The reusable plugin and its limitations are in the
+[recorded-project probe](../../tools/l6dsp-tests/probe/README.md#recorded-project-file-mix).
+Stock MAIN and source NOR SHA-256 were
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461` and
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`.
+Initial diagnostic NOR and card SHA-256 were
+`2e895fdb979b4623f10387acc48737edfb3b269861a70e5938068773265d1343` and
+`fb1a78fb2bbce8d8abb6e2f87da342e96aad6a02545bf6bfdecf2c564deb2c44`.
+Diagnostic MAIN, ELF, recipe, result, plugin source, plugin binary and trace
+SHA-256 values were respectively
+`9c85d81a17c96e197100e9a99a459a913d750baa310bd879ae5f5d646451df9e`,
+`bff37087d36b0cbe5ddea34d97fbe365fa551699186e7b7551ccee866f83af99`,
+`fa892799b8bc3af3a6a355122836a161a21e55fcf85485c1d90392e259442c2c`,
+`353868817373457dbbee2382df19314ce199e4499447b5799298562220b9a367`,
+`8ced0da9c2783122d107db84349cf6377f4b064e49fe6185232646dcfe4bd653`,
+`7db70ea78cdbd551e2d0ebd6b67e77e82614ee172e928f29b8bb3f92d9719784`, and
+`d799374518cf0dd4dd95d4faabccb6d57d4923b09b4df1552ab80bf740bac5f8`.
+The QEMU and `l6dbg` binaries were
+`4902e96e8375adb69b1ebe0e5572fe1ba3fb6a0e413c8595605128a297dfd910` and
+`ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`;
+the QEMU source is unattested. The initial panel flash, options and RTC were
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
+The modified diagnostic image must not be installed.

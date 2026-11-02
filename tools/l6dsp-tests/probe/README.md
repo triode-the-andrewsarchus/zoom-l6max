@@ -124,6 +124,19 @@ block; output statistics do not establish fidelity. Preserve
 the firmware, NOR, card, recipe, QEMU and result identities separately; the
 external QEMU binary's source is unattested.
 
+To investigate whether this particular bounce touches the live effect buffers,
+compile `file_mix_buffer_trace.c` with the plugin-enabled QEMU headers as in
+the [stock clear trace](#stock-effect-clear-trace), and use the resulting
+plugin in the QEMU wrapper. Inspect `MIX_TRACE` lines in `engine.stderr` as
+well as running the project checker. The trace counts CPU accesses to
+`0x20010210..0x20010410` before and during the mix observer's marked window;
+each in-window hit reports its instruction address and read/write count.
+Require nonzero pre-window counts, a nonzero `workspace_read` count, and zero
+overflow before interpreting an absence of hits. This instruments CPU memory
+accesses, not DMA; it covers one diagnostic workflow and changes timing. The
+observer, diagnostic callback and admission guard all modify stock behavior.
+The result cannot prove non-reentrancy, ownership, or safe hardware operation.
+
 One instrumented run recorded 6,144 routed calls, a maximum offset of 131,008,
 a maximum captured input difference of `1.46e-11` and 785,470 nonzero output
 samples. Left and right peaks were approximately `0.00042172` and
