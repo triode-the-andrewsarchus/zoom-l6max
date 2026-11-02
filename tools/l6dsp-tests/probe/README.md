@@ -71,10 +71,12 @@ masks interrupts during the call and deliberately overwrites stock state and
 unowned QEMU scratch; it is destructive to the copied emulator session and
 must never be installed on hardware. A guarded call-site veneer passes the
 block offset to the experimental callback, which routes the synthetic tracks
-to three buses and runs the standalone effects. A separate ordinary callback
-checks that its original third argument is retained. The checker validates
-the synthetic tracks, stock sum, routed buses and finite stereo output. This
-does not qualify the normal file-mix workflow, callback lifetime, all stock
+with the standalone weighted-routing engine and runs the effects. A separate
+ordinary callback checks that its original third argument is retained. The checker validates
+the synthetic tracks, stock sum, independently reconstructed buses and stereo
+output at four frames against the host reference. The current ARM build uses
+at least 1,152 bytes for the callback's own stack frame, before deeper calls.
+This does not qualify the normal file-mix workflow, callback lifetime, all stock
 callback behavior, concurrency, target deadlines, or physical behavior.
 
 ## Automatic callback diagnostic

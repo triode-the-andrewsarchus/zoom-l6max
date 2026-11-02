@@ -42,32 +42,37 @@ unsafe extern "C" fn offline_observer(_context: u32, descriptor: *const u32, off
             write((OUT + 216 + n * 4) as *mut u32, offset);
             let block = read(descriptor.add(1)) as *mut f32;
             let processor = &mut *(0x80d00000 as *mut crate::routing::DualEfxProcessor);
-            for frame in 0..64 {
-                let edge = if frame == 0 { Some(0) } else if frame == 63 { Some(1) } else { None };
-                if let Some(edge) = edge {
-                    write((OUT + 8 + (n * 2 + edge) * 4) as *mut f32, read(block.add(frame)));
-                }
+            let mut channels = [crate::routing::WeightedChannel { samples: &[], gain: 0.0, ramp: None }; 12];
+            for (slot, channel) in channels.iter_mut().enumerate() {
+                let base = (0x81570400 + slot * 960000 + offset as usize * 4) as *const f32;
+                let gain = read((0x20016170 + slot * 8) as *const f32);
+                let smooth = read((0x20016140 + slot * 4) as *const f32);
+                *channel = crate::routing::WeightedChannel {
+                    samples: core::slice::from_raw_parts(base, 64),
+                    gain: (gain * smooth) * (1.0 / 2147483648.0),
+                    ramp: None,
+                };
+            }
+            // This capture independently checks the inputs and buses. The
+            // actual output below uses the shared weighted-routing engine.
+            for (edge, frame) in [0, 63].into_iter().enumerate() {
+                write((OUT + 8 + (n * 2 + edge) * 4) as *mut f32, read(block.add(frame)));
                 let mut sends = [0.0f32; 3];
-                for slot in 0..12 {
-                    let sample = (0x81570400 + slot * 960000 + (offset as usize + frame) * 4) as *const f32;
-                    let sample = read(sample);
-                    if let Some(edge) = edge {
-                        write((OUT + 24 + (n * 24 + slot * 2 + edge) * 4) as *mut f32, sample);
-                    }
-                    let gain = read((0x20016170 + slot * 8) as *const f32);
-                    let smooth = read((0x20016140 + slot * 4) as *const f32);
-                    sends[slot % 3] += (sample * (1.0 / 2147483648.0) * gain) * smooth;
+                for (slot, channel) in channels.iter().enumerate() {
+                    let sample = channel.samples[frame];
+                    write((OUT + 24 + (n * 24 + slot * 2 + edge) * 4) as *mut f32, sample);
+                    sends[slot % 3] += sample * channel.gain;
                 }
-                let (left, right) = processor.process_bus_sample(sends[0], sends[1], sends[2]);
-                if let Some(edge) = edge {
-                    for bus in 0..3 {
-                        write((OUT + 224 + ((n * 2 + edge) * 3 + bus) * 4) as *mut f32, sends[bus]);
-                    }
-                    write((OUT + 272 + (n * 2 + edge) * 8) as *mut f32, left);
-                    write((OUT + 276 + (n * 2 + edge) * 8) as *mut f32, right);
+                for bus in 0..3 {
+                    write((OUT + 224 + ((n * 2 + edge) * 3 + bus) * 4) as *mut f32, sends[bus]);
                 }
-                write(block.add(frame), left);
-                write(block.add(frame + 64), right);
+            }
+            let output = core::slice::from_raw_parts_mut(block, 128);
+            let (left, right) = output.split_at_mut(64);
+            processor.process_weighted_block(&channels, left, right);
+            for (edge, frame) in [0, 63].into_iter().enumerate() {
+                write((OUT + 272 + (n * 2 + edge) * 8) as *mut f32, left[frame]);
+                write((OUT + 276 + (n * 2 + edge) * 8) as *mut f32, right[frame]);
             }
         }
         write(OUT as *mut u32, (n+1) as u32);
@@ -103,6 +108,10 @@ pub unsafe fn run() {
                 write((0x81570400 + slot*960000 + frame*4) as *mut f32, v);
             }
             if slot < 12 {
+                let processor = &mut *(0x80d00000 as *mut crate::routing::DualEfxProcessor);
+                let mode = [crate::routing::RoutingMode::SendA, crate::routing::RoutingMode::SendB,
+                    crate::routing::RoutingMode::SendAtoB][slot % 3];
+                processor.set_channel_routing(slot, mode);
                 write((0x20015584 + slot*0x18) as *mut u32, 0);
                 write((0x200156a4 + slot*0x28) as *mut u32, 0);
                 write((0x20015884 + slot*0x18) as *mut u32, 0);

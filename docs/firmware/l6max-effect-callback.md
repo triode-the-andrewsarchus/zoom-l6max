@@ -5874,6 +5874,28 @@ the host-reference executable was
 Stock MAIN, initial NOR, panel state, QEMU and `l6dbg` match the preceding
 modeled-input inspector run; the QEMU build's provenance is unattested.
 
+The diagnostic now supplies the twelve synthetic track slices and gains to
+`process_weighted_block`, using the same routing implementation as the
+standalone channel API. A repeated QEMU run matched the four stereo reference
+frames and recorded the same offsets, synthetic sums and ordinary-callback
+arguments. Its ARM disassembly shows a 1,048-byte local allocation and 104
+bytes of saved registers in `offline_observer`, at least 1,152 bytes before
+deeper calls, and retains bounds-check panic paths. These are concrete stack
+and failure risks, not a worst-case stack measurement. The direct synthetic
+call still masks interrupts and uses unowned memory; it must never be
+installed and does not qualify normal file mixing or concurrency.
+
+The diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`bde7b7c548cfd867d74bbfb69148aa0ad9c7fe46b1cbb02d33b8fd2ffb5d63ed`,
+`45dbd221436fb000a93787e638447fc260ac89284b9cc3917bae7c3d4faa1889`,
+`0802dfa889052372e88dc0008c5eb5e5e909a9c458b01f7023f074cd1b56ce2e`, and
+`3ce3ff309909ac3121a75180900bf34ed6fac0493d27f80cf6eb1056ba5c56f2`.
+The callback and checker source hashes were
+`6dea78ad99e77819e010c93f556f971208f443f31a453101c2b113c3b4c6a41e` and
+`6b5cc1f951de28403fc6a872d29ebbe2a95f1aa8b570a0641d4c25a29d51db5f`.
+Stock MAIN, initial NOR, panel state, QEMU and `l6dbg` match the preceding
+modeled-input inspector run; the QEMU build's provenance is unattested.
+
 ### Current full-density selector workload
 
 The maintained selector-load diagnostic can now initialize Velvet at 95 ms
