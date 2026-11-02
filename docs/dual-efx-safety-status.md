@@ -42,8 +42,9 @@ The blocking findings for L6max MAIN 1.10
   call-site veneer passed the block offset to a separate callback and routed
   synthetic tracks through the shared weighted-routing engine. A caller-owned
   workspace reduced the observed ARM callback frame to 408 bytes before deeper
-  calls, but adds 768 bytes of unowned scratch and retains bounds-check panic
-  paths. It does not exercise the normal
+  calls and adds 768 bytes of unowned scratch. The observer's own capture
+  bounds checks now fail to zero, but panic paths remain in DSP callees. It
+  does not exercise the normal
   workflow or establish a safe hook. Stock scheduling and
   exclusion between the two paths are unverified. See the
   [firmware research](https://github.com/derekstavis/zoom-l6max-research/blob/bad532c/docs/firmware/l6max-effects-ainr.md#effects-callback).

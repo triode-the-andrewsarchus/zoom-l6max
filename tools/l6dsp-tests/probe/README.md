@@ -77,6 +77,8 @@ the synthetic tracks, stock sum, independently reconstructed buses and stereo
 output at four frames against the host reference. With the caller-owned
 workspace, the current ARM build uses at least 408 bytes for the callback's
 own stack frame before deeper calls, plus 768 bytes of unowned scratch.
+The capture uses checked fallbacks for its sample reads; this does not remove
+panic paths from the DSP called below it.
 This does not qualify the normal file-mix workflow, callback lifetime, all stock
 callback behavior, concurrency, target deadlines, or physical behavior.
 
