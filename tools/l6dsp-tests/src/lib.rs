@@ -1701,7 +1701,9 @@ mod tests {
         }
         for (delay, capacity) in [
             (reverb.l_apf1.delay_time, reverb.l_apf1.delay.buffer.len()),
+            (reverb.l_apf2.delay_time, reverb.l_apf2.delay.buffer.len()),
             (reverb.r_apf1.delay_time, reverb.r_apf1.delay.buffer.len()),
+            (reverb.r_apf2.delay_time, reverb.r_apf2.delay.buffer.len()),
         ] {
             assert!(delay + params.mod_depth as usize <= capacity - 2);
         }
@@ -1715,6 +1717,12 @@ mod tests {
         ] {
             let tap_samples = (tap * (48_000.0f32 / 29_761.0)) as usize;
             assert!(tap_samples < capacity, "output tap exceeded retained history");
+        }
+        params.size = 0.2;
+        reverb.set_parameters(params);
+        for delay in [reverb.l_apf1.delay_time, reverb.l_apf2.delay_time,
+                      reverb.r_apf1.delay_time, reverb.r_apf2.delay_time] {
+            assert!(delay >= params.mod_depth as usize, "minimum delay would clamp modulation");
         }
     }
 
@@ -1880,6 +1888,32 @@ mod tests {
     }
 
     #[test]
+    fn plateau_modulates_both_second_tank_allpasses() {
+        let mut first = Box::new(plateau::PlateauReverb::new());
+        let mut second = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        params.mod_depth = 16.0;
+        first.init(params);
+        second.init(params);
+        for engine in [&mut first, &mut second] {
+            for (index, sample) in engine.l_apf2.delay.buffer.iter_mut().enumerate() {
+                *sample = index as f32 / 5000.0;
+            }
+            for (index, sample) in engine.r_apf2.delay.buffer.iter_mut().enumerate() {
+                *sample = index as f32 / 6000.0;
+            }
+        }
+        first.lfo2.phase = 0.1;
+        second.lfo2.phase = 0.6;
+        first.lfo4.phase = 0.2;
+        second.lfo4.phase = 0.7;
+        first.process_sample(0.0, 0.0);
+        second.process_sample(0.0, 0.0);
+        assert_ne!(first.l_del2.buffer[0], second.l_del2.buffer[0], "left second allpass");
+        assert_ne!(first.r_del2.buffer[0], second.r_del2.buffer[0], "right second allpass");
+    }
+
+    #[test]
     fn plateau_freeze_preserves_tank_energy_with_maximum_modulation() {
         for size in [0.2, 0.6, 1.0, 1.2] {
             let mut reverb = Box::new(plateau::PlateauReverb::new());
@@ -1926,12 +1960,17 @@ mod tests {
         modulated.set_parameters(params);
         params.mod_depth = 0.0;
         fixed.set_parameters(params);
-        let phase_before = modulated.lfo1.phase;
+        let phases_before = [modulated.lfo1.phase, modulated.lfo2.phase,
+                             modulated.lfo3.phase, modulated.lfo4.phase];
         for frame in 0..20_000 {
             assert_eq!(modulated.process_sample(0.0, 0.0), fixed.process_sample(0.0, 0.0),
                 "modulation affected frozen output at frame {frame}");
         }
-        assert_ne!(modulated.lfo1.phase, phase_before, "LFO must continue advancing");
+        for (before, after) in phases_before.into_iter().zip([
+            modulated.lfo1.phase, modulated.lfo2.phase, modulated.lfo3.phase, modulated.lfo4.phase,
+        ]) {
+            assert_ne!(after, before, "each LFO must continue advancing");
+        }
         params.freeze = false;
         fixed.set_parameters(params);
         params.mod_depth = 16.0;
@@ -2033,6 +2072,8 @@ mod tests {
         assert_eq!(zeroed.return_gain_b, 1.0);
         assert!(zeroed.plateau.lfo1.phase_inc > 0.0);
         assert!(zeroed.plateau.lfo2.phase_inc > 0.0);
+        assert!(zeroed.plateau.lfo3.phase_inc > 0.0);
+        assert!(zeroed.plateau.lfo4.phase_inc > 0.0);
 
         // Compare both effects after initialization, including more than one
         // full delay-buffer rotation, and verify an audible response exists.

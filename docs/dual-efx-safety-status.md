@@ -16,15 +16,15 @@ The blocking findings for L6max MAIN 1.10
   emulator run the largest stock-heap free block was 160,008 bytes, less than
   the then-current payload state of 319,216 bytes; see the
   [callback investigation](firmware/l6max-effect-callback.md). The current
-  processor type measures 272,184 bytes for `thumbv7em-none-eabihf` after a
+  processor type measures 272,272 bytes for `thumbv7em-none-eabihf` after a
   25,824-byte reduction in raw Plateau delay arrays; it still exceeds that free
   block. The current size query object SHA-256 is
-  `a9cf3a40764f2e4254170694cc1673eeac980a245df6279b119a90033013b153`
+  `ef9e38bcf32aba278a8774a859400f682bd0e0135114130110aebb8c8bce9cd4`
   using `rustc 1.99.0-nightly (1ed2df61a 2026-08-04)`.
   Of that state, the raw `f32` histories comprise 36,484 bytes of
-  Plateau predelay, 7,024 bytes of Plateau input diffusion, 168,300 bytes of
+  Plateau predelay, 7,024 bytes of Plateau input diffusion, 168,372 bytes of
   Plateau tank delays and 57,624 bytes of Velvet histories (including the
-  separate cascade history). The remaining 2,752 bytes include filter banks,
+  separate cascade history). The remaining 2,768 bytes include filter banks,
   parameters and bookkeeping. These counts describe allocated capacity,
   not a proof that any stock firmware memory can be reused.
   Stock code
@@ -118,6 +118,9 @@ the reference or physical behavior.
 The input diffuser delay times are now also independent of tank size, as in
 that reference. Host tests cover size edits and retained input history, but
 do not establish musical quality or target execution time.
+All four tank allpasses now receive independent modulation, with sufficient
+history for the maximum configured depth. Host tests cover modulation and
+freeze, but the additional processing cost has not been measured on target.
 The Velvet crossfade now calculates its phase step once per transition;
 host tests compare its weights with the previous calculation. In a disposable
 ARM diagnostic build, the former per-sample divide moved to transition start

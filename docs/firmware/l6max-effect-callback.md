@@ -5819,3 +5819,25 @@ The temporary callback source and Plateau source hashed to
 `c3a3bfebd56084967064770a81503275073959925cef048bc7b3c49b96ec3a9f`.
 Stock MAIN, NOR, panel state, QEMU and `l6dbg` match the preceding
 modeled-input inspector run; the QEMU build's provenance is unattested.
+
+With all four Plateau tank allpasses modulated, a QEMU-only
+`--mixer-input-capture` run used the same stock MAIN, initial NOR, panel state,
+modeled gated tone and QEMU executable as the preceding tap-alignment test.
+The checker reconstructed the captured sends and found finite, nonzero stereo
+returns for both callbacks. Plateau's captured send and return peaks were
+approximately `1.2645e-5` and `2.1468e-5`; Velvet's were `1.2834e-5` and
+`1.3997e-5`. At guest time 56.224 s the Plateau callback count was 4,665,
+versus 4,666 in the earlier tap-alignment run at the same checkpoint. These
+are single modeled observations under a quiet gated test input; they do not
+measure worst-case CPU cost, physical deadlines, audible quality or hardware
+safety. The capture uses unowned scratch and must not be installed.
+
+The diagnostic MAIN, ELF, recipe and diagnostic JSON SHA-256 values were
+`d3f53a7403ea67f6c335ed9027f87777ffc86e29286ddd3642b021566ebe927f`,
+`9773803d93833500ce8110444426d4f4a55abf3310ed9bd65208babf2463eec9`,
+`90cf2f13407e580a74a5032153ae0e3774fcc88088d51f836d8ebc7f0e488ca9`, and
+`44da94f546cf5787d0b521e288d94e0f903b12231bc072ee27428465c19c1589`.
+The QEMU executable was
+`eade074b5d7a6fe9d74bbbe1ad36a34f7356cd200cbfc81e772f2a21892012e8`;
+its full build provenance remains unattested. The `l6dbg` executable was
+`52af793c1d34e927210f99cf49117180121d8bd62885ce0ee7148be5dedbf2f6`.

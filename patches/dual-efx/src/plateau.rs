@@ -31,7 +31,7 @@ const L_DEL2_MAX: usize = 7201;
 
 const R_APF1_MAX: usize = 1790;
 const R_DEL1_MAX: usize = 8163;
-const R_APF2_MAX: usize = 5142;
+const R_APF2_MAX: usize = 5160; // Maximum size plus modulation and interpolation.
 const R_DEL2_MAX: usize = 6123;
 
 #[derive(Clone, Copy)]
@@ -307,6 +307,8 @@ pub struct PlateauReverb {
     // Modulation
     pub lfo1: TriangleLFO,
     pub lfo2: TriangleLFO,
+    pub lfo3: TriangleLFO,
+    pub lfo4: TriangleLFO,
 
     // Output DC blocks
     pub out_hp_l: OnePoleHP,
@@ -354,6 +356,8 @@ impl PlateauReverb {
 
             lfo1: TriangleLFO::new(0.10),
             lfo2: TriangleLFO::new(0.15),
+            lfo3: TriangleLFO::new(0.12),
+            lfo4: TriangleLFO::new(0.18),
 
             out_hp_l: OnePoleHP::new(),
             out_hp_r: OnePoleHP::new(),
@@ -398,6 +402,8 @@ impl PlateauReverb {
         self.r_apf2.gain = 0.50;
         self.lfo1 = TriangleLFO::new(0.10);
         self.lfo2 = TriangleLFO::new(0.15);
+        self.lfo3 = TriangleLFO::new(0.12);
+        self.lfo4 = TriangleLFO::new(0.18);
         self.out_hp_l.set_cutoff(20.0);
         self.out_hp_r.set_cutoff(20.0);
         self.set_parameters(params);
@@ -577,12 +583,16 @@ impl PlateauReverb {
         // 3. Modulations
         let lfo1_val = self.lfo1.step();
         let lfo2_val = self.lfo2.step();
+        let lfo3_val = self.lfo3.step();
+        let lfo4_val = self.lfo4.step();
         // Interpolating a moving delay dissipates energy in the feedback
         // loop. Hold it at an integer delay during freeze while advancing the
         // LFOs, so the tank sustains and modulation resumes on release.
         let depth = if self.params.freeze { 0.0 } else { self.params.mod_depth };
         let l_mod = self.l_apf1.delay_time as f32 + lfo1_val * depth;
-        let r_mod = self.r_apf1.delay_time as f32 + lfo2_val * depth;
+        let l_mod2 = self.l_apf2.delay_time as f32 + lfo2_val * depth;
+        let r_mod = self.r_apf1.delay_time as f32 + lfo3_val * depth;
+        let r_mod2 = self.r_apf2.delay_time as f32 + lfo4_val * depth;
 
         let decay = if self.params.freeze { 1.0 } else { self.params.decay };
 
@@ -598,7 +608,7 @@ impl PlateauReverb {
         let l_damped = self.l_hp.process(self.l_lp.process(l_del1_out));
         let l_filtered = if self.params.freeze { l_del1_out } else { l_damped };
 
-        let l_ap2_out = self.l_apf2.process(l_filtered * decay);
+        let l_ap2_out = self.l_apf2.process_modulated(l_filtered * decay, l_mod2);
         let l_del2_out = self.l_del2.read_history(self.l_del2.length);
         self.l_del2.write(l_ap2_out);
 
@@ -611,7 +621,7 @@ impl PlateauReverb {
         let r_damped = self.r_hp.process(self.r_lp.process(r_del1_out));
         let r_filtered = if self.params.freeze { r_del1_out } else { r_damped };
 
-        let r_ap2_out = self.r_apf2.process(r_filtered * decay);
+        let r_ap2_out = self.r_apf2.process_modulated(r_filtered * decay, r_mod2);
         let r_del2_out = self.r_del2.read_history(self.r_del2.length);
         self.r_del2.write(r_ap2_out);
 
@@ -686,6 +696,8 @@ impl PlateauReverb {
         advance!(self.r_del2);
         self.lfo1.step();
         self.lfo2.step();
+        self.lfo3.step();
+        self.lfo4.step();
         self.advance_diffusion_mix();
         self.transition_remaining = self.transition_remaining.saturating_sub(1);
     }
