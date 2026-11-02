@@ -4,7 +4,7 @@ import subprocess
 import sys
 import unittest
 
-from fixture import MODE_CALL_SITES, install_ainr_selector_veneer, install_boundary_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, install_selector_admission, validate_probe_entry
+from fixture import MODE_CALL_SITES, install_ainr_selector_veneer, install_boundary_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, install_selector_admission, install_selector_feedback, validate_probe_entry
 from thumb_branch import branch
 
 
@@ -29,6 +29,7 @@ class PreparerModeTests(unittest.TestCase):
             (['--selector-admission'], '--selector-admission requires'),
             (['--selector-overlap'], '--selector-overlap requires'),
             (['--selector-timeout'], '--selector-timeout requires'),
+            (['--selector-feedback'], '--selector-feedback requires'),
             (['--callback', '--inspector', '--file-mix-handoff', 'pending'], '--file-mix-handoff requires'),
             (['--callback', '--offline-mix-layout', '--inspector'], '--offline-mix-layout requires'),
             (['--callback', '--offline-mix-layout', '--switches'], '--offline-mix-layout requires'),
@@ -146,6 +147,23 @@ class SelectorVeneerGuardTests(unittest.TestCase):
         self.assertEqual(self.image[0x10543c:0x105444], bytes.fromhex('dff800f001901080'))
         self.assertEqual(self.image[0x10555c:0x105564], bytes.fromhex('dff800f001921080'))
         self.assertEqual(self.image[0x10556e:0x105578], bytes.fromhex('00bfdff800f001911080'))
+
+
+class FeedbackHookGuardTests(unittest.TestCase):
+    def test_verifies_both_calls_before_writing(self):
+        image = bytearray(0x542f2)
+        image[0x542dc:0x542e0] = bytes.fromhex('b8f70cfd')
+        image[0x542ee:0x542f2] = bytes.fromhex('00f027f8')
+        for offset in (0x542dc, 0x542ee):
+            changed = image[:]
+            changed[offset] ^= 1
+            before = changed[:]
+            with self.subTest(offset=offset), self.assertRaises(ValueError):
+                install_selector_feedback(changed, 0x80109000)
+            self.assertEqual(changed, before)
+        install_selector_feedback(image, 0x80109000)
+        self.assertEqual(image[0x542dc:0x542e0], bytes.fromhex('00bf00bf'))
+        self.assertEqual(image[0x542ee:0x542f2], branch(0x800542ee, 0x80109000))
 
 
 class ModeHookGuardTests(unittest.TestCase):

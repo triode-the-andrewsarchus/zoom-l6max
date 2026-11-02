@@ -110,6 +110,15 @@ but does not complete the requested selection. The checker explicitly reports
 the observed effect-selection mismatch and skipped request; a successful check
 means the partial recovery was observed, not that timeout handling is correct.
 
+Add `--selector-feedback` to experiment with rollback in the observed panel
+handler and defer its effect-selection MIDI message until after that handler's
+selector call. Use `--timeout --feedback --midi-trace LOGS/engine.trace` to
+check the Room-to-Spring timeout, next button press, sampled L6max lamps and
+modeled DIN messages. This uses unowned shared status, changes MIDI ordering,
+and does not cover other callers, simultaneous selections or all failure
+cases. A forced timeout entering AINR left its enable flags set while Echo
+remained selected. It is not installable firmware.
+
 ## Synthetic file-mix layout
 
 To examine the candidate file-mix track layout, prepare a separate image with

@@ -6396,3 +6396,42 @@ and result hashes
 `c1846938c3ae9036279c7e1a775c4cf8499b30a07ef7438207cbf2fc7250fa3d`, and
 `fda5e7614074f55d44a8ba8a2fda20ee63860be66f6873f92a288812202dbdee`.
 Stock MAIN, initial fixture, QEMU and `l6dbg` matched the preceding run.
+
+A QEMU-only panel-handler variant records a selector timeout in scratch,
+substitutes the still-selected type in the handler's stack argument, and
+defers that handler's effect-selection MIDI notification until after the
+selector returns. In one forced Room-to-Spring timeout, Room's callback,
+type and mapped L6max indicator remained selected; the next press selected
+Spring and its mapped indicator. The modeled DIN trace contained effect MIDI
+messages `b0 75 2b`, `b0 75 2b`, and `b0 75 40`. A separate full-cycle run
+completed seven balanced selector guards and the forced file-mix check. The
+[diagnostic checker](../../tools/l6dsp-tests/probe/README.md#forced-file-mix-handoff)
+checks the Room/Spring timeout, sampled indicators and MIDI trace; these are
+one scheduled emulator case, not physical output or all control paths.
+
+The panel rollback does not undo all side effects. In a separate forced
+Echo-to-AINR timeout, type and callback remained Echo (`4` and `0x20280781`),
+but both observed AINR enable words at `0x2028ba4c` and `0x2028bad0` changed
+from zero to one. The next press selected AINR. The handler also performs
+different work before leaving AINR. Scratch status is unowned and not scoped
+to concurrent callers; notification ordering, other selection callers,
+failure kinds and physical timing are unqualified. This experiment does not
+solve AINR recovery and must never be installed.
+
+Timeout panel MAIN, ELF, recipe, result and trace SHA-256 values were
+`efa9a2a1f19652b37617901afbedd6a2cdd7ecd9e4e0e9058278842ebae9a6b5`,
+`dedd92b4db6ff33aee2e035e2af890c48cc96bf8ea448e72ba10ed05762b6926`,
+`2c42c85d4fa537f8afe56bd7cfb7f3cb3187d4853eac33fcd57a5c4b8eb2a688`,
+`79caf03e647141a65622024b11add6c9641e0be7003e6c596d9578b0b3ab5fa0`, and
+`79127728e01ff9b806850ba66fa55ab318a7587d62a1129e676e25b62769a300`.
+The separate ordinary-cycle MAIN, ELF, recipe and result were
+`c90e3d55bcafbda7a812d0b277dd59e3c558c0e0430f131e05579894f21a5e98`,
+`417f0424bffd5e43897dd972ef6267d6e72c3c1bd1e0df85923a718bf32fb5e8`,
+`5dd25ca06d7873f8ec41faea7459503161a688a3f46190abd301051dccf3a483`, and
+`521b660dbe12a2144ff15d42a3cea2eacb318231901c2e07b49917f4fd167653`.
+The AINR timeout used the same MAIN and ELF as the panel run; its custom
+recipe, result and trace hashes were
+`14cb60b4e216d04d60e5b9de183fce070c1b6a8e7045ba5a5216e92d2de5c140`,
+`d03b1a8c83ec120dd25bf3e0fe3a6501479d8438640a8fdc791abcdbde1b4f32`, and
+`0f08603f72ac20925d1d0e7f102ede4be530a2e07accee9ff800b372a764314b`.
+Stock MAIN, initial fixture, QEMU and `l6dbg` matched the preceding run.

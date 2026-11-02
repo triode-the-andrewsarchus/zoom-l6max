@@ -63,6 +63,8 @@ pub unsafe extern "C" fn selector_handoff_begin() -> u32 {
         }
         drop(guard);
         increment(2);
+        #[cfg(selector_feedback)]
+        write(0x83e0b028 as *mut u32, 1);
         2
     }
 }
@@ -155,4 +157,45 @@ selector_handoff_exit:
 .Lfade_call: .word 0x8002c011
 .Lflag_clear: .word 0x8002e749
 .Lfade_continue: .word 0x202806f5
+"#, options(raw));
+
+// QEMU-only panel handler experiment. The original handler's stack argument
+// is at caller SP+4; only the forced timeout is reported through scratch.
+#[cfg(selector_feedback)]
+core::arch::global_asm!(r#"
+.syntax unified
+.thumb
+.section .text.selector_handoff_feedback,"ax",%progbits
+.global selector_handoff_feedback
+.thumb_func
+selector_handoff_feedback:
+    push {r4, r6, r7, lr}
+    push {r0, r1, r2, r3}
+    ldr.w r4, .Lfeedback_status
+    movs r2, #0
+    str r2, [r4]
+    pop {r0, r1, r2, r3}
+    ldr.w r12, .Lfeedback_select
+    blx r12
+    ldr r2, [r4]
+    cmp r2, #1
+    bne .Lfeedback_send
+    movs r0, #0
+    ldr.w r12, .Lfeedback_get_type
+    blx r12
+    str r0, [sp, #20]
+.Lfeedback_send:
+    cmp r5, #0
+    bne .Lfeedback_done
+    ldr r0, [sp, #20]
+    uxtb r0, r0
+    ldr.w r12, .Lfeedback_midi
+    blx r12
+.Lfeedback_done:
+    pop {r4, r6, r7, pc}
+.align 2
+.Lfeedback_status: .word 0x83e0b028
+.Lfeedback_select: .word 0x80054341
+.Lfeedback_get_type: .word 0x8000b271
+.Lfeedback_midi: .word 0x8000ccf9
 "#, options(raw));

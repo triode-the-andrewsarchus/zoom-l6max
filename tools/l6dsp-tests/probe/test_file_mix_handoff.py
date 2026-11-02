@@ -3,7 +3,7 @@ import copy
 import struct
 import unittest
 
-from file_mix_handoff import check, check_timeout
+from file_mix_handoff import check, check_midi_trace, check_timeout
 
 
 def report(bypass):
@@ -41,6 +41,25 @@ class FileMixHandoffTests(unittest.TestCase):
         next(event for event in bad['events'] if event['observation']['name'] == 'fade_after')['observation']['bytes'] = [0, 0, 0, 0]
         with self.assertRaises(ValueError):
             check_timeout(bad)
+        for event in value['events']:
+            if event['observation']['name'] == 'type_after':
+                event['observation']['bytes'] = [1]
+        for name, fmt, data in (('type_next', '<B', (2,)),
+                                ('next', '<3I', (0x494e4954, 0x2028b8f8, 5))):
+            value['events'].append({'observation': {'name': name, 'bytes': list(struct.pack(fmt, *data))}})
+        for suffix, rows in (('before', [1 << 18, 0]), ('after', [1 << 18, 0]),
+                             ('next', [0, 1 << 19])):
+            value['events'].append({'observation': {'name': f'selector_feedback_{suffix}', 'indicators': rows}})
+        self.assertFalse(check_timeout(value, True)['selection_mismatch'])
+        bad = copy.deepcopy(value)
+        bad['events'][-1]['observation']['indicators'] = [1 << 18, 0]
+        with self.assertRaises(ValueError):
+            check_timeout(bad, True)
+        trace = ''.join(f'l6 main LPUART3 (MIDI jacks) TX {byte}\n'
+                        for byte in 'b0 75 2b b0 75 2b b0 75 40'.split())
+        self.assertEqual(check_midi_trace(trace), 3)
+        with self.assertRaises(ValueError):
+            check_midi_trace(trace.rsplit('\n', 2)[0])
 
     def test_checks_each_forced_interleaving(self):
         self.assertEqual(check(report(False), False)['after_signal'], 29)

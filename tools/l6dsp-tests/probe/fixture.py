@@ -79,6 +79,16 @@ def install_selector_admission(image, entry, fade_target, exit_target):
     image[offset:offset + 10] = bytes.fromhex("00bfdff800f0") + (exit_target | 1).to_bytes(4, "little")
 
 
+def install_selector_feedback(image, target):
+    """Defer panel MIDI and wrap its selector call in a disposable image."""
+    if (target is None or target & 1 or not 0x80108000 <= target < 0x801a2ff8
+            or image[0x542dc:0x542e0] != bytes.fromhex("b8f70cfd")
+            or image[0x542ee:0x542f2] != bytes.fromhex("00f027f8")):
+        raise ValueError("selector feedback call sites or target mismatch")
+    image[0x542dc:0x542e0] = bytes.fromhex("00bf00bf")
+    image[0x542ee:0x542f2] = branch(0x800542ee, target)
+
+
 def install_boundary_hook(image, target):
     """Guard the observed L6max 1.10 panel pre-disable call."""
     offset = 0x5435c

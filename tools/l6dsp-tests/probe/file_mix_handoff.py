@@ -2,6 +2,7 @@
 """Check one forced file-mix handoff observation; not hardware qualification."""
 import argparse
 import json
+import re
 from pathlib import Path
 
 from submix_return import observations, words
@@ -41,7 +42,21 @@ def check_timeout_audio(items):
         raise ValueError('observed fade gain or selector flag was not restored')
 
 
-def check_timeout(report):
+def check_feedback_lamps(items):
+    # L6max GUI LED indices 35 and 36: Room=(row 0, bit 18),
+    # Spring=(row 1, bit 19), respectively.
+    for suffix, expected in (('before', (True, False)), ('after', (True, False)),
+                             ('next', (False, True))):
+        try:
+            rows = items[f'selector_feedback_{suffix}']['indicators']
+            actual = (bool(rows[0] & (1 << 18)), bool(rows[1] & (1 << 19)))
+        except (KeyError, TypeError, IndexError) as error:
+            raise ValueError(f'invalid {suffix} panel snapshot') from error
+        if actual != expected:
+            raise ValueError(f'unexpected {suffix} effect lamps: {actual}')
+
+
+def check_timeout(report, feedback=False):
     items = observations(report)
     check_timeout_audio(items)
     attempts, acquired, failed, released, _, active = words(items, 'selector_handoff', '<6I')
@@ -49,12 +64,27 @@ def check_timeout(report):
         raise ValueError('forced timeout did not release its guard')
     if words(items, 'selector_overlap', '<6I') != (2, 1, 2, 5, 20, 0):
         raise ValueError('live lease did not outlast the selector timeout')
-    if (words(items, 'type_before', '<B') != (1,)
-            or words(items, 'type_after', '<B') != (2,)
+    if words(items, 'type_before', '<B') != (1,):
+        raise ValueError('unexpected starting effect')
+    if feedback:
+        if (words(items, 'type_after', '<B') != (1,)
+                or words(items, 'type_next', '<B') != (2,)
+                or words(items, 'next', '<3I')[:2] != (0x494e4954, 0x2028b8f8)):
+            raise ValueError('panel rollback or next requested effect was not observed')
+        check_feedback_lamps(items)
+    elif (words(items, 'type_after', '<B') != (2,)
             or words(items, 'pointer_next', '<I') != (0x8002c041,)):
         raise ValueError('expected unresolved effect-selection mismatch was not observed')
     return {'fade_restored': True, 'old_callback_continues': True,
-            'selection_mismatch': True, 'requested_effect_skipped': True}
+            'selection_mismatch': not feedback, 'requested_effect_skipped': not feedback}
+
+
+def check_midi_trace(trace):
+    payload = re.findall(r'l6 main LPUART3 \(MIDI jacks\) TX ([0-9a-f]{2})', trace)
+    expected = 'b0 75 2b b0 75 2b b0 75 40'.split()
+    if payload != expected:
+        raise ValueError(f'unexpected modeled MIDI output: {" ".join(payload)}')
+    return len(payload) // 3
 
 
 def check(report, bypass, selector=False, overlap=False):
@@ -82,6 +112,17 @@ def check(report, bypass, selector=False, overlap=False):
     return outcome
 
 
+def validate_options(args):
+    if args.timeout and (args.bypass or args.selector or args.overlap):
+        raise ValueError('--timeout cannot be combined with other checks')
+    if args.overlap and not args.selector:
+        raise ValueError('--overlap requires --selector')
+    if args.feedback and (not args.timeout or not args.midi_trace):
+        raise ValueError('--feedback requires --timeout and --midi-trace')
+    if args.midi_trace and not args.feedback:
+        raise ValueError('--midi-trace requires --feedback')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('report', type=Path)
@@ -89,14 +130,15 @@ def main():
     parser.add_argument('--selector', action='store_true')
     parser.add_argument('--overlap', action='store_true')
     parser.add_argument('--timeout', action='store_true', help='check a known-incomplete timeout recovery experiment')
+    parser.add_argument('--feedback', action='store_true', help='check experimental panel rollback')
+    parser.add_argument('--midi-trace', type=Path, help='check the modeled DIN output trace')
     args = parser.parse_args()
     try:
-        if args.timeout and (args.bypass or args.selector or args.overlap):
-            raise ValueError('--timeout cannot be combined with other checks')
-        if args.overlap and not args.selector:
-            raise ValueError('--overlap requires --selector')
+        validate_options(args)
         report = json.loads(args.report.read_text())
-        result = check_timeout(report) if args.timeout else check(report, args.bypass, args.selector, args.overlap)
+        result = check_timeout(report, args.feedback) if args.timeout else check(report, args.bypass, args.selector, args.overlap)
+        if args.feedback:
+            result['midi_packets'] = check_midi_trace(args.midi_trace.read_text())
     except (OSError, json.JSONDecodeError, KeyError, ValueError) as error:
         parser.exit(1, f'check failed: {error}\n')
     print(json.dumps(result, indent=2))
