@@ -22,6 +22,8 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("firmware", type=Path, help="unpacked stock firmware directory")
 parser.add_argument("state", type=Path, help="disposable stock emulator state directory")
 parser.add_argument("output", type=Path, help="new directory under the system temporary directory")
+parser.add_argument("--opt-level", choices=("z", "3"), default="z", help="diagnostic compiler optimization (default: z)")
+parser.add_argument("--stack-sizes", action="store_true", help="emit per-function stack-size metadata in the diagnostic ELF")
 parser.add_argument("--callback", action="store_true", help="observe automatic effect callback installation")
 parser.add_argument("--admission-probe", action="store_true", help="exercise the standalone callback admission model in QEMU")
 parser.add_argument("--switches", action="store_true", help="observe all six effect selections")
@@ -172,9 +174,11 @@ blob = out / "probe.bin"
 rustc = [
     "rustc", str(PROBE / ("callback.rs" if args.callback else "payload.rs")),
     "--edition=2024", "--target=thumbv7em-none-eabihf",
-    "-C", "opt-level=z", "-C", "panic=abort", "-C", "relocation-model=static",
+    "-C", f"opt-level={args.opt_level}", "-C", "panic=abort", "-C", "relocation-model=static",
     "-C", f"link-arg=-T{PROBE / 'link.ld'}", "-o", str(elf),
 ]
+if args.stack_sizes:
+    rustc += ["-Z", "emit-stack-sizes=yes"]
 if args.mixer_input_capture:
     rustc += ["--cfg", "mixer_input_capture"]
 if args.admission_probe:

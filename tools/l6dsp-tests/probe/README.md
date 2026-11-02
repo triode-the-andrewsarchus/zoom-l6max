@@ -25,6 +25,11 @@ MAIN and the displaced veneer hash. It writes only to the new directory and
 reports the input NOR, probe ELF and modified MAIN hashes. Record those and the
 exact QEMU hash with any result. The Rust toolchain, target and `llvm-objcopy`
 must be installed; Cargo and `l6dbg` use the repository's pinned toolchain.
+For a diagnostic comparison, `--opt-level 3` selects speed optimization
+instead of the default `z`; `--stack-sizes` emits per-function stack metadata
+that can be inspected with `llvm-readobj --stack-sizes OUTPUT/probe.elf`.
+Individual frame sizes exclude callers, nested functions and interrupts and
+are not a stack bound. These flags do not change the patch builders.
 
 An observed result is approximately `(0.30966336, 0.03750144, 1180192817)`:
 the first two numbers are Velvet and Plateau peak magnitudes and the last is

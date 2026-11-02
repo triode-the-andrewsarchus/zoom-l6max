@@ -168,6 +168,10 @@ bit for bit. Two matched high-density QEMU runs improved from about 416 to
 444–445 callbacks per modeled second; the inspector stayed closed in both
 variants. These observations do not establish a target deadline or physical
 audio behavior.
+A speed-optimized diagnostic of the same full-density workload reached about
+497 modeled callbacks per second with the inspector still closed. Compiler
+stack metadata covers individual functions, not the complete callback stack;
+the patch builder still uses its existing settings and remains disabled.
 An instrumented current QEMU diagnostic with the 285 taps needed at 95 ms
 and 3,000 pps ran at about 416 callbacks per modeled second against 750;
 its selector hold did not reach the traced handler by the later snapshot.

@@ -22,6 +22,7 @@ class PreparerModeTests(unittest.TestCase):
         preparer = Path(__file__).with_name('prepare.py')
         selector = ['--callback', '--inspector', '--selector-load-trace']
         cases = [
+            (['--opt-level', '0'], 'invalid choice'),
             (['--callback', '--admission-probe'], '--admission-probe cannot'),
             (['--offline-mix-layout'], '--offline-mix-layout requires'),
             (['--offline-effect-workspace'], '--offline-effect-workspace requires'),

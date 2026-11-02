@@ -6775,3 +6775,53 @@ The saved original Velvet source and the current source, which includes the
 subsequently added boundary test, hashed to
 `6a29a03b904099f38a9a9dee76692ea8a254f6a6e2be24bc41457c3f7fa43bf0` and
 `3fd8ac3c9fc9deefeb0e3d32a018b01a5774961a955de9a56d39a45b4e151ea1`.
+
+With the revised index calculation, a speed-optimized diagnostic built from
+the same source counted 2,483 callbacks over five modeled seconds, versus
+2,222 for the size-optimized run above. Both had 285 taps and the inspector
+remained closed. A second speed build from a temporary source copy counted
+2,482; a matching temporary size build counted 2,224. These comparisons omit
+pre-AINR and do not measure target timing or qualify controls. A 40,000-frame
+host render built at both optimization levels matched the preceding output
+hash. A separate speed-optimized synthetic ARM file-mix run matched the
+earlier size-build's 316-byte captured observation; these bounded output
+checks do not prove equivalence for all inputs or builds.
+
+Per-function compiler stack metadata for the full-load diagnostic reports
+1,248 bytes for `diagnostic_audio` with size optimization and 992 bytes with
+speed optimization. The separately emitted Plateau processing frame was 128
+versus 160 bytes; speed optimization also emitted a 176-byte shared Velvet
+frame that was inlined in the size build. The metadata does not supply a
+complete call-chain bound or include interrupts and cannot establish stack
+safety. The respective ELF text sizes were 24,943 and 30,076 bytes. The
+production patch builder remains unchanged and disabled.
+
+The speed diagnostic MAIN, ELF, recipe, result and trace hashes were
+`514895577b817be8a9710a0a8d066a4daad943cf98f763570348d2999e2cb906`,
+`eddf761d6f49323906dcf9616b179b90f669fdb29701f0b96117469ce030de7e`,
+`939ca77c24767e7c2bc1abe92049bc338b29405c6a6ed773dd591dfabf284797`,
+`2ec502dc5bc8a1a649aef2b839c72f9e5a30cd0adfb2e9183b01a70f580d6856`, and
+`2734064c2be3b83a4b02a64178ba4b13439cbda3b09ed6c07d51466801e97270`.
+The diagnostic NOR was
+`b190bd29d152491b7cbcdeb8770d53e781d74cbb0857b4d38be259c8823aa3bb`;
+the size-build MAIN and runtime identities match the preceding experiment.
+The stack-metadata size ELF was
+`1ae5722b353b6d2c4f8ebecdb970292205a35cb726c7f9fd637d6677958e8a24`;
+its MAIN matched the preceding size-build MAIN.
+
+The speed file-mix MAIN, ELF, recipe, result and trace were
+`6ec3468350644b76e274364a666a3bbedb7a6794dcfe4e3bedf14ee5a312d6ed`,
+`74c21d4355da877c0ed066f163d9ea7aec8a2adb7063d7554dbdfbcc65ddf2b7`,
+`23e292bbdac85564f6505c6da192c1b3321f24fa721ef5b6954cc15f190ed1f8`,
+`a70fcb92a38c7da24435467b0f936a89116e9e796ca227f9eab6233b3a7ac934`, and
+`08050f2077e5064022802b34fb2135947b9537ed394b61fd566d6bd6060fe2b7`.
+Its initial diagnostic NOR was
+`29062354c1ce195ee53e22726317721c72271f9afb1496343393715ca9242d99`.
+The matched file-mix capture hash was
+`9dea592e4b93e6fe00490791a5448d32520a82a1a4eeec901ced709626abd39a`.
+The size- and speed-optimized host comparison executables were
+`3cc67b0dbe1b14a164063ea02fbb5e740d05549fad4708d939a41fe854436452` and
+`a760f142ad2cfd402da7e905055546bd7dac27f1d453e0f9a30154bbc9d57eb7`,
+using source `5c8c48d5289dc0c2943e5b67cad0201047b9db42458cc22885c55dfac12f2432`.
+Rust was `1.99.0-nightly (1ed2df61a 2026-08-04)`; stock fixture, QEMU and
+`l6dbg` match the preceding experiment.
