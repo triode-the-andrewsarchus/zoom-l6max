@@ -5609,3 +5609,42 @@ The temporary routing source SHA-256 was
 its callback and Velvet sources matched the scalar 285-tap build. The stock
 MAIN, input state, `l6dbg`, and unattested QEMU matched the integrated
 experiment above.
+
+
+### Mirrored scalar Velvet histories
+
+A disposable scalar prototype mirrored each of the three existing Velvet
+histories and read each tap from the second half of its ring. This removes
+the wrap-selection branch inside convolution while retaining per-frame
+processing and control-word ordering. It adds 57,624 bytes of persistent
+delay storage. At the normal 64-tap limit all 85 host tests passed. With an
+experimental 285-tap limit, a 40,000-frame host comparison against the
+scalar source produced bit-identical mixed output through filter edits,
+transitions, ring wraps and stereo/routed path switches. Both output hashes
+were `cb8a594b4739baae36fb47d40df98eb680af7c76fbc431412c9b1e6e20df6600`.
+This comparison does not cover all signals or physical timing.
+
+The speed-optimized, 285-tap full-effects diagnostic counted 2,632 callbacks
+over five guest seconds (about 526/s), versus 2,303 (about 461/s) for the
+matched original scalar workload and a nominal 750/s. The work snapshot
+recorded 3,816 completed callbacks; if all processed 64 frames since
+initialization, it included approximately 4,224 frames after the default
+renewal point. It did not directly trace filter state or cover a complete
+transition and rebuild. The IRQ trace saw both selector hold edges, but the
+traced enqueue and handler did not see them by the later snapshot; the
+inspector remained closed. The modeled improvement and extra memory are not
+a target deadline, memory ownership, UI, or installation qualification.
+
+The diagnostic MAIN, ELF, recipe, and result SHA-256 values were respectively
+`af800d3a3100d222f3453659178480834a233b38182efd6b3a2627e5afd038b5`,
+`296bbb583c9d1a1924e86a21a8334b5d97cdef19c1c3b242579b638c6505515e`,
+`e4454236747443528f516c4dda7a029dd11290de378ba4d43cb0f2ededf8f1c1`, and
+`cfb8f364cb2cb8a860b68486ce685deed8efbddbce6aa8bfee443da8d11b0f37`.
+The temporary Velvet source SHA-256 was
+`1a9e2125c32c93bc9166b07ea9c9979670c45a2f5f99a922c0bf1abfeb97a158`.
+The host comparison executables hashed to
+`ab69d77fdbbd19a81b140185bc800ad070280d5e347bcecbcfef54bae0ecf9b5` and
+`8572d9cd110cb61e294a695dc17e5209a35bef08f8c72b274e25b84077fb18d2`;
+Rust was `1.99.0-nightly (1ed2df61a 2026-08-04)`. Callback and routing
+sources, stock MAIN, input state, `l6dbg`, and unattested QEMU matched the
+scalar comparison above.
