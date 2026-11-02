@@ -841,9 +841,9 @@ impl PlateauReverb {
             - self.l_apf2.delay.tap(tap(187.0))
             - self.l_del2.tap(tap(1066.0));
 
-        // DC blocking highpass
-        out_l = self.out_hp_l.process(out_l * 0.6);
-        out_r = self.out_hp_r.process(out_r * 0.6);
+        // Plateau's tank output is halved after the DC-blocking filters.
+        out_l = self.out_hp_l.process(out_l) * 0.5;
+        out_r = self.out_hp_r.process(out_r) * 0.5;
 
         // Continuous cubic soft clipper to prevent harsh digital clipping
         out_l = soft_clip(out_l);

@@ -320,6 +320,31 @@ showing why a single block is insufficient to assess output level. The
 extended checker also requires each channel's peak to exceed 1% of the send
 peak and rejects invalid or out-of-range samples; this is a diagnostic floor,
 not an audio quality or hardware qualification.
+The Plateau tank output now uses the Multistomp core's 0.5 scale after its
+DC blocker, replacing 0.6 before the blocker. This lowers the small-signal
+return by approximately 1.6 dB; this port still uses different filters and
+output saturation. A QEMU-only modeled-input run passed the reconstructed-send
+and bounded stereo-return checks for both effects. Plateau's maximum send
+was `3.92e-5`, and left/right peaks across 1,589 active blocks were
+`1.16e-4` and `9.63e-5`. This is not a listening or hardware test. The stock
+MAIN and initial NOR were
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461` and
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`.
+Diagnostic MAIN, ELF, initial NOR, recipe and result were
+`0ee84be5a0ea6b06e2ee2e6ac540c8dc58c88e7f95dc008b23e30a7fe255e8fa`,
+`46e5008f3ef946bb28c474e53b983ffae152fe36d71ee1d82a9725099d49bff4`,
+`ce73aedae43a70d8bde51d7c30e45cdf77425127b0997418186e764dd28eb39f`,
+`6d19ef2769b7cd0445ed9629398286bd93f7a064c17d0140cccfb5ae90f9b7ce`, and
+`d072812c1207a1d7d5df2e2bf80d6fe63e223140a84d85290998e65bd9164559`.
+Panel flash, options and RTC were
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
+Instrumented external QEMU was
+`eade074b5d7a6fe9d74bbbe1ad36a34f7356cd200cbfc81e772f2a21892012e8`
+and `l6dbg` was
+`ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`;
+QEMU source provenance is unattested. Never install the diagnostic image.
 The diagnostic MAIN, ELF, initial NOR, recipe and result SHA-256 values were
 `d6b7b798390eb43fdddbfd41542ac6dbbe5bfb058304ed74994dd1d454f38b14`,
 `4ec3bb636a8208ab3fd3504240c9df6a01d75824e21a9d1f39d3eadb8fe7f12a`,

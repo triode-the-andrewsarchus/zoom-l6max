@@ -1705,7 +1705,7 @@ mod tests {
             let (left, right) = reverb.process_sample(0.0, 0.0);
             let mut dc = plateau::OnePoleHP::new();
             dc.set_cutoff(20.0);
-            let expected = math::soft_clip(dc.process(sign * 0.5 * 0.6));
+            let expected = math::soft_clip(dc.process(sign * 0.5) * 0.5);
             let (actual, other) = if right_channel { (right, left) } else { (left, right) };
             assert!(other.abs() < 1e-7, "line {line}, tap {tap}: opposite channel {other}");
             assert!((actual - expected).abs() < 1e-6,
@@ -1733,8 +1733,8 @@ mod tests {
         right_hp.set_cutoff(20.0);
         let wet = reverb.params.wet;
         let expected = (
-            math::soft_clip(left_hp.process(0.35 * 0.6)) * wet,
-            math::soft_clip(right_hp.process(-0.175 * 0.6)) * wet,
+            math::soft_clip(left_hp.process(0.35) * 0.5) * wet,
+            math::soft_clip(right_hp.process(-0.175) * 0.5) * wet,
         );
         let actual = reverb.process_sample(0.0, 0.0);
         assert!(

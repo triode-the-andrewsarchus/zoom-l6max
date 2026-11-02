@@ -76,6 +76,8 @@ cutoffs remain fixed. The filters use this port's one-pole implementation,
 so matching the Multistomp control mapping does not establish audio parity.
 Damping edits ramp their tank-filter coefficients over 64 samples; the
 transition and its target execution time have not been qualified on hardware.
+The tank output uses the Multistomp core's 0.5 gain after its DC blocker;
+this port's output soft clipper and filters differ from the pedal's wrapper.
 Predelay edits crossfade over 64 frames; changes during freeze take effect
 without retaining frozen input. The transition has not been auditioned or
 timed on the physical device.
