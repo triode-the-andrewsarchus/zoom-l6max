@@ -135,8 +135,8 @@ enables the IRQ, enqueue and gesture traces and creates the same hold sequence
 for each image. Inspect `start`, `end`, `work`, `inspector`, `inspector_later`,
 `irq`, `enqueue`, `gesture` and `selected` in each result; the runner collecting
 them is not an assertion that the interaction passed. Both images perturb
-timing and use unowned scratch. The normal preparer uses the current 64-tap
-limit; a separate modified source was used for the 285-tap observations below.
+timing and use unowned scratch. A separate modified source was used for the
+historical 285-tap observations below.
 
 For a paired Sub-Mix observation, copy the same Hall-selected 1.10 state to
 two disposable directories and use `l6nor set` to set

@@ -27,8 +27,8 @@ impl ParameterHandoff {
         // Store native units so restoring percentages does not round twice.
         let value = match id {
             VndAmount => processor.velvet.current.amount,
-            // The display can show the tap-limited target; preserve the
-            // requested value so shortening the spread can restore it.
+            // Preserve the request even when the displayed density is rounded
+            // to the number of taps that fit the current spread.
             VndDensity => processor.velvet.current.density,
             PlatSize => processor.plateau.params.size,
             PlatDecay => processor.plateau.params.decay,
