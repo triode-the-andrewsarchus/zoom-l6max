@@ -2,6 +2,9 @@
 #![no_std]
 #![no_main]
 #![allow(dead_code)]
+#[cfg(file_mix_project)]
+#[path = "file_mix_effect.rs"]
+mod file_mix_effect;
 #[cfg(all(combined_admission_refresh, not(all(file_mix_atomic, selector_admission,
     ainr_admission, ainr_pair, owner_refresh_probe, heap_refresh_probe,
     release_heap_refresh_probe, inspector_probe, pre_ainr_probe))))]

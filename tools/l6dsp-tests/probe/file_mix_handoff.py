@@ -2,10 +2,43 @@
 """Check one forced file-mix handoff observation; not hardware qualification."""
 import argparse
 import json
+import math
 import re
 from pathlib import Path
 
 from submix_return import observations, words
+
+
+def check_project_capture(items):
+    capture = words(items, 'file_mix_sends', '<4I256f')
+    if capture[0] != 0x43415054:
+        raise ValueError('no nonzero stock effect input was captured')
+    samples = capture[4:]
+    if not all(math.isfinite(sample) for sample in samples):
+        raise ValueError('captured input or sends are nonfinite')
+    stock, send_a, send_b, cascade = (samples[i:i + 64] for i in range(0, 256, 64))
+    if not any(stock) or not any(send_b) or any(send_a) or any(cascade):
+        raise ValueError('captured routing differs from the expected B-only setup')
+    error = max(abs(a - b) for a, b in zip(stock, send_b))
+    if error > 1e-6:
+        raise ValueError('reconstructed B send differs from stock input')
+    return error
+
+
+def check_project(report):
+    items = observations(report)
+    if words(items, 'selected_type', '<B') != (2,):
+        raise ValueError('expected diagnostic effect was not selected')
+    if not all(words(items, name, '<B')[0] for name in ('send_1', 'send_2')):
+        raise ValueError('channel sends were not enabled')
+    handoff = words(items, 'mix_handoff', '<11I')
+    if handoff[0] != 0x4d495831 or handoff[7:9] != (0, 0x444f4e45):
+        raise ValueError('file mix did not complete successfully')
+    count, maximum, out_of_range, _, _, misaligned = words(items, 'file_mix_routed_calls', '<6I')
+    if not count or maximum > 239936 or out_of_range or misaligned:
+        raise ValueError('file mix did not use valid workspace offsets')
+    error = check_project_capture(items)
+    return {'routed_calls': count, 'max_offset': maximum, 'max_input_error': error}
 
 
 def check_selector(items):
@@ -188,6 +221,11 @@ def run_ainr_check(args, report):
 
 
 def run_check(args):
+    if args.project:
+        if any((args.bypass, args.selector, args.overlap, args.timeout, args.feedback,
+                args.midi_trace, args.ainr_timeout, args.ainr_learned, args.ainr_admission)):
+            raise ValueError('--project cannot be combined with other checks')
+        return check_project(json.loads(args.report.read_text()))
     validate_options(args)
     validate_ainr_options(args)
     report = json.loads(args.report.read_text())
@@ -202,6 +240,7 @@ def run_check(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('report', type=Path)
+    parser.add_argument('--project', action='store_true', help='check the recorded-project workspace probe')
     parser.add_argument('--bypass', action='store_true')
     parser.add_argument('--selector', action='store_true')
     parser.add_argument('--overlap', action='store_true')
@@ -217,7 +256,7 @@ def main():
     except (OSError, json.JSONDecodeError, KeyError, ValueError) as error:
         parser.exit(1, f'check failed: {error}\n')
     print(json.dumps(result, indent=2))
-    print('Forced QEMU interleaving only; verify fixture and executable identities separately.')
+    print('QEMU-only observation; verify fixture and executable identities separately.')
 
 
 if __name__ == '__main__':

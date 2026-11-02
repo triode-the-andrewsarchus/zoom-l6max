@@ -60,6 +60,51 @@ pointer or touching shared scratch; at most one may hold a lease. Storage owners
 rejected-entry behavior, time bounds, other users and hardware synchronization
 remain unresolved.
 
+## Recorded-project file mix
+
+The opt-in project probe reconstructs effect sends from the file-mix track
+workspace and compares one captured block with the stock effect input. It
+uses unowned memory, guards the whole audio block experimentally, and drops a
+rejected block; it is **not safe to install**. It does not test real-time
+deadlines, physical memory ownership, the routing UI, output fidelity, or
+concurrency across all users. It does not inject a synthetic interrupt.
+
+Use a fresh output directory and a disposable state matching the stock
+firmware. The generated card starts with EFX off; the recipe selects a custom
+effect before raising sends on channels 1 and 2:
+
+```sh
+python3 tools/l6dsp-tests/probe/prepare.py FIRMWARE STATE OUTPUT \
+  --callback --file-mix-handoff atomic --file-mix-project --opt-level 3
+cargo run --offline --locked -p l6fs -- card build OUTPUT/card.img \
+  --spec tools/l6dsp-tests/probe/bounce-card.toml
+L6_SERVICE_AUDIO_QUEUE=0 target/debug/l6dbg OUTPUT/recipe.toml \
+  --firmware-dir OUTPUT/firmware --state-dir OUTPUT/state --logs OUTPUT/logs \
+  --qemu QEMU --gdb-socket OUTPUT/gdb.sock --sd-image OUTPUT/card.img
+python3 tools/l6dsp-tests/probe/file_mix_handoff.py OUTPUT/logs/diagnostic.json --project
+```
+
+The checker requires a completed bounce, nonzero channel sends, bounded and
+aligned offsets, finite input and a nonzero B-only send matching the first
+captured stock block. Its pass is limited to that block and setup. Preserve
+the firmware, NOR, card, recipe, QEMU and result identities separately; the
+external QEMU binary's source is unattested.
+
+One run recorded 6,144 routed calls, a maximum offset of 131,008 and a
+maximum captured input difference of `1.46e-11`. Its stock MAIN SHA-256 was
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`;
+initial patched NOR, diagnostic MAIN, initial card and recipe were
+`48950155714d9f508fed36c1366b3d9deaf2b257421b59123f297aed2d13580d`,
+`5c17fecdbcb39ac4345e60f48a7b7a3ac034727afaac47eb1b17bd0a33f5fb05`,
+`fb1a78fb2bbce8d8abb6e2f87da342e96aad6a02545bf6bfdecf2c564deb2c44`, and
+`1fb0a6b6ab4cc310b92b4ce8cb3b4fa776d7a01a97316ff9b61018e1e992b87d`.
+The QEMU executable, `l6dbg` and `diagnostic.json` hashes were
+`4902e96e8375adb69b1ebe0e5572fe1ba3fb6a0e413c8595605128a297dfd910`,
+`ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`, and
+`bc21a07b826ec8806b0250b97a33c427eea99355c532111f656e276522aadee1`.
+The input NOR was
+`1f2df1149cd7f7d028653d25e0e0f42c6de6b4b92b43595e5e089ad9c11e1a91`.
+
 ## Forced file-mix handoff
 
 `--callback --file-mix-handoff pending` queues a stock file-mix workflow

@@ -1,0 +1,10 @@
+# Diagnostic fixture: keep the eight equal tones below full scale when summed.
+version = 1
+model = "l6max"
+
+[[project]]
+name = "260101_000000"
+hz = 10000.0
+seconds = 3.0
+amplitude = 0.005
+level = 64

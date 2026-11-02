@@ -3,7 +3,7 @@ import copy
 import struct
 import unittest
 
-from file_mix_handoff import check, check_ainr_admission, check_ainr_timeout, check_learned_marker, check_midi_trace, check_timeout
+from file_mix_handoff import check, check_ainr_admission, check_ainr_timeout, check_learned_marker, check_midi_trace, check_project, check_timeout
 
 
 def capture_report(captures):
@@ -26,6 +26,29 @@ def report(bypass):
 
 
 class FileMixHandoffTests(unittest.TestCase):
+    def test_project_check_rejects_missing_calls_and_bad_audio(self):
+        stock = [0.01] * 64
+        samples = stock + [0.0] * 64 + stock + [0.0] * 64
+        captures = {
+            'selected_type': ('<B', (2,)), 'send_1': ('<B', (50,)), 'send_2': ('<B', (50,)),
+            'mix_handoff': ('<11I', (0x4d495831, 1, 0, 0, 1, 1, 1, 0, 0x444f4e45, 0, 0)),
+            'file_mix_routed_calls': ('<6I', (100, 6400, 0, 1, 6400, 0)),
+            'file_mix_sends': ('<4I256f', (0x43415054, 0, 0, 0, *samples)),
+        }
+        check_project(capture_report(captures))
+        for name, value in (
+            ('send_1', ('<B', (0,))),
+            ('file_mix_routed_calls', ('<6I', (0, 0, 0, 0, 0, 0))),
+            ('file_mix_routed_calls', ('<6I', (100, 240000, 1, 1, 240000, 0))),
+            ('file_mix_sends', ('<4I256f', (0, 0, 0, 0, *samples))),
+            ('file_mix_sends', ('<4I256f', (0x43415054, 0, 0, 0, *([float('nan')] + samples[1:])))),
+            ('file_mix_sends', ('<4I256f', (0x43415054, 0, 0, 0, *(stock + [0.0] * 192)))),
+        ):
+            bad = dict(captures)
+            bad[name] = value
+            with self.subTest(name=name, value=value[1][0]), self.assertRaises(ValueError):
+                check_project(capture_report(bad))
+
     def test_ainr_admission_requires_both_channels_and_no_unknown_callers(self):
         items = {'ainr_admission': {'bytes': list(struct.pack('<7I', 10, 10, 3, 3, 2, 2, 0))}}
         self.assertEqual(check_ainr_admission(items, 'exit')['rejected_during_teardown'], [2, 2])

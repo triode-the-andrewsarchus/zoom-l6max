@@ -31,6 +31,7 @@ parser.add_argument("--mixer-input-capture", action="store_true", help="capture 
 parser.add_argument("--offline-mix-layout", action="store_true", help="run a destructive synthetic file-mix layout probe in QEMU")
 parser.add_argument("--offline-effect-workspace", action="store_true", help="place file-mix workspace at the end of the candidate effect buffer (QEMU only)")
 parser.add_argument("--file-mix-handoff", choices=("pending", "bypass", "atomic"), help="force a late audio signal in the stock file-mix workflow (QEMU only)")
+parser.add_argument("--file-mix-project", action="store_true", help="route a recorded project through a QEMU-only file-mix workspace probe")
 parser.add_argument("--selector-admission", action="store_true", help="also gate effect selection after the stock fade (QEMU only)")
 parser.add_argument("--selector-overlap", action="store_true", help="force a live lease across selector closure (QEMU only)")
 parser.add_argument("--selector-timeout", action="store_true", help="force a selector timeout and inspect partial recovery (QEMU only)")
@@ -71,6 +72,10 @@ parser.add_argument("--passthrough-unready", action="store_true", help="keep syn
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
 parser.add_argument("--bank-stress-count", type=int, default=10, help="number of bank changes (1..64)")
 args = parser.parse_args()
+if args.file_mix_project and (not args.callback or args.file_mix_handoff != "atomic"):
+    parser.error("--file-mix-project requires --callback --file-mix-handoff atomic")
+if args.file_mix_project and (args.selector_admission or args.combined_admission_refresh):
+    parser.error("--file-mix-project cannot be combined with selector or refresh admission")
 if args.selector_admission and args.file_mix_handoff != "atomic":
     parser.error("--selector-admission requires --file-mix-handoff atomic")
 if args.selector_overlap and not args.selector_admission:
@@ -218,6 +223,8 @@ if args.offline_mix_layout:
     rustc += ["--cfg", "offline_mix_layout"]
 if args.offline_effect_workspace:
     rustc += ["--cfg", "offline_effect_workspace"]
+if args.file_mix_project:
+    rustc += ["--cfg", "file_mix_project"]
 if args.file_mix_handoff:
     rustc += ["--cfg", "file_mix_handoff"]
     if args.file_mix_handoff == "bypass":
@@ -300,14 +307,17 @@ if args.file_mix_handoff:
     symbols = {}
     for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines():
         parts = line.split()
-        if len(parts) == 3 and parts[2] in ("mix_handoff_observer", "mix_handoff_bypass"):
+        if len(parts) == 3 and parts[2] in ("mix_handoff_observer", "mix_handoff_bypass", "file_mix_outer_audio", "file_mix_effect_veneer"):
             if parts[2] in symbols:
                 raise ValueError("duplicate file-mix handoff symbol")
             symbols[parts[2]] = int(parts[0], 16) & ~1
-    bypass = symbols.get("mix_handoff_bypass") if args.file_mix_handoff != "pending" else None
-    if args.file_mix_handoff != "pending" and bypass is None:
+    bypass = symbols.get("mix_handoff_bypass") if args.file_mix_handoff != "pending" and not args.file_mix_project else None
+    if args.file_mix_handoff != "pending" and not args.file_mix_project and bypass is None:
         raise ValueError("missing file-mix bypass symbol")
     install_file_mix_handoff(image, symbols.get("mix_handoff_observer"), bypass)
+    if args.file_mix_project:
+        install_outer_audio_hook(image, symbols.get("file_mix_outer_audio"))
+        install_offline_mix_hook(image, symbols.get("file_mix_effect_veneer"))
 if args.selector_admission:
     symbols = {}
     for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines():
@@ -693,7 +703,7 @@ if args.offline_mix_layout:
         add("memory", name="offline_workspace_guards", address=0x83e0713c, length=12)
 if args.admission_probe:
     recipe = recipe.replace('name = "impulse_peaks"', 'name = "admission_result"', 1)
-if args.file_mix_handoff and not args.selector_timeout and not args.combined_admission_refresh:
+if args.file_mix_handoff and not args.file_mix_project and not args.selector_timeout and not args.combined_admission_refresh:
     recipe = recipe.replace('wall_timeout_s = 180', 'wall_timeout_s = 400', 1)
     add("memory-write", name="trigger", address=0x81fff000, bytes=[71, 73, 82, 84])
     add("press", target=40, hold_ms=150)
@@ -778,6 +788,30 @@ if args.ainr_pair_replay:
     marker = '[[step]]\naction = "wait"\nguest_ms = 4000'
     recipe = recipe[:recipe.index(marker, recipe.index('name = "learned_ready"'))]
     recipe += '[[step]]\naction = "wait"\nguest_ms = 120000\n'
+if args.file_mix_project:
+    # The matching card starts with EFX off. Select the effect before editing
+    # sends: turns made while EFX is off do not establish nonzero sends.
+    recipe = f'version = 1\nmodel = "l6max"\nmain_sha256 = "{image_sha}"\nwall_timeout_s = 900\n'
+    add("wait", guest_ms=45000)
+    for _ in range(3):
+        add("press", target=40, hold_ms=150)
+        add("wait", guest_ms=3000)
+    add("memory", name="selected_type", address=0x804600b2, length=1)
+    add("press", target=20, hold_ms=150)
+    for channel in (1, 2):
+        add("encoder", channel=channel, steps=8)
+    add("wait", guest_ms=2000)
+    add("memory", name="send_1", address=0x8045ff90, length=1)
+    add("memory", name="send_2", address=0x8045ffa8, length=1)
+    add("press", target=6, hold_ms=150)
+    add("wait", guest_ms=2000)
+    add("snapshot", name="bounce_prompt")
+    add("press", target=3, hold_ms=150)
+    add("wait", guest_ms=45000)
+    add("snapshot", name="after_bounce")
+    add("memory", name="mix_handoff", address=0x83e0a000, length=44)
+    add("memory", name="file_mix_sends", address=0x83e0c000, length=1040)
+    add("memory", name="file_mix_routed_calls", address=0x83e0a060, length=24)
 (out / "recipe.toml").write_text(recipe)
 if args.pre_ainr:
     metadata = {"stock_main_sha256": MAIN_SHA, "diagnostic_main_sha256": image_sha,

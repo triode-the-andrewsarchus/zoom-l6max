@@ -48,6 +48,23 @@ pub unsafe fn queue_if_requested() {
     }
 }
 
+// QEMU only: exclude the complete observed AudioProcess block during file mix.
+// A rejected block is discarded, so this is not a production fallback.
+#[cfg(file_mix_project)]
+#[unsafe(no_mangle)]
+#[unsafe(link_section = ".text.mix_handoff_outer_audio")]
+pub unsafe extern "C" fn file_mix_outer_audio(input: u32) {
+    unsafe {
+        if !ensure_gate() { return; }
+        if let Some(_lease) = (&*(GATE as *const CallbackAdmission)).try_enter(CallbackPath::Live) {
+            let stock: unsafe extern "C" fn(u32) = core::mem::transmute(0x800149b1usize);
+            stock(input);
+        } else {
+            (&*(0x83e0b004 as *const AtomicU32)).fetch_add(1, Ordering::Relaxed);
+        }
+    }
+}
+
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".text.mix_handoff_observer")]
 pub unsafe extern "C" fn mix_handoff_observer(a: u32, b: u32, c: u32, d: u32) -> u32 {
@@ -73,9 +90,12 @@ pub unsafe extern "C" fn mix_handoff_observer(a: u32, b: u32, c: u32, d: u32) ->
             write(0x83e0b004 as *mut u32, 0);
             write(0x83e0b000 as *mut u32, 1);
         }
-        let give: unsafe extern "C" fn(u32, u32, u32, u32) -> u32 = core::mem::transmute(0x80090ad1usize);
-        let semaphore = read(0x20007cf8 as *const u32);
-        write(out.add(9), give(semaphore, 0, 0, 0));
+        #[cfg(not(file_mix_project))]
+        {
+            let give: unsafe extern "C" fn(u32, u32, u32, u32) -> u32 = core::mem::transmute(0x80090ad1usize);
+            let semaphore = read(0x20007cf8 as *const u32);
+            write(out.add(9), give(semaphore, 0, 0, 0));
+        }
         let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
         delay(50);
         write(out.add(6), read(0x83e00008 as *const u32));
