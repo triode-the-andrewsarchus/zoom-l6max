@@ -40,6 +40,27 @@ pub struct WeightedChannel<'a> {
     pub ramp: Option<&'a [f32]>,
 }
 
+/// Scratch buses for weighted routing. Each concurrent processor needs its
+/// own exclusively borrowed workspace.
+pub struct RoutingWorkspace {
+    buses: [[f32; BLOCK_SIZE]; 3],
+}
+
+impl RoutingWorkspace {
+    pub const fn new() -> Self {
+        Self { buses: [[0.0; BLOCK_SIZE]; 3] }
+    }
+
+    /// Initializes caller-owned storage without constructing a large stack value.
+    pub fn initialize_in_place(storage: &mut core::mem::MaybeUninit<Self>) -> &mut Self {
+        // Every field is an f32 array, so all-zero bytes are valid zeros.
+        unsafe {
+            core::ptr::write_bytes(storage.as_mut_ptr(), 0, 1);
+            storage.assume_init_mut()
+        }
+    }
+}
+
 fn strip_slots(strip: usize) -> Option<core::ops::Range<usize>> {
     match strip {
         0..=3 => Some(strip..strip + 1),
@@ -271,13 +292,21 @@ impl DualEfxProcessor {
     /// beyond their lengths; effects still run to preserve their tails. Invalid
     /// or extreme weighted contributions are discarded before bus summation.
     pub fn process_weighted_block(&mut self, channels: &[WeightedChannel<'_>], out_l: &mut [f32], out_r: &mut [f32]) {
+        let mut workspace = RoutingWorkspace::new();
+        self.process_weighted_with_workspace(channels, out_l, out_r, &mut workspace);
+    }
+
+    /// Routes weighted channels using caller-owned scratch, avoiding the
+    /// block-sized temporary buses in the caller's stack frame.
+    pub fn process_weighted_with_workspace(&mut self, channels: &[WeightedChannel<'_>], out_l: &mut [f32], out_r: &mut [f32], workspace: &mut RoutingWorkspace) {
         let frames = out_l.len().min(out_r.len());
         let mut offset = 0;
         while offset < frames {
             // Each physical input is mono here, so accumulate it only once per bus.
-            let mut send_a = [0.0f32; BLOCK_SIZE];
-            let mut send_b = [0.0f32; BLOCK_SIZE];
-            let mut send_cascade = [0.0f32; BLOCK_SIZE];
+            let [send_a, send_b, send_cascade] = &mut workspace.buses;
+            send_a.fill(0.0);
+            send_b.fill(0.0);
+            send_cascade.fill(0.0);
             let n = (frames - offset).min(BLOCK_SIZE);
 
             for ch in 0..channels.len().min(MAX_CHANNELS) {
@@ -287,9 +316,9 @@ impl DualEfxProcessor {
                 }
                 let bus = match self.channel_routing[ch] {
                     RoutingMode::Neither => continue,
-                    RoutingMode::SendA => &mut send_a,
-                    RoutingMode::SendB => &mut send_b,
-                    RoutingMode::SendAtoB => &mut send_cascade,
+                    RoutingMode::SendA => &mut *send_a,
+                    RoutingMode::SendB => &mut *send_b,
+                    RoutingMode::SendAtoB => &mut *send_cascade,
                 };
                 let input = channel.samples.get(offset..).unwrap_or(&[]);
                 if let Some(ramp) = channel.ramp {
