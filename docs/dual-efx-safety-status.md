@@ -134,6 +134,13 @@ The blocking findings for L6max MAIN 1.10
   after selection; under injected signal the resulting state differed from
   its capture-time observation despite a successful handoff status. That
   reconstruction was discarded.
+- A QEMU-only attempt to retain the candidate snapshot in two slices of the
+  stock effect buffer also failed. The sampled source was nonzero during
+  capture, but both slices were zero by installation even though the capture
+  protocol still held a completed token. Stock effect accesses to the second
+  slice were independently observed between selections. Skipping the stock
+  clear is not sufficient to reserve those slices; see the
+  [transition investigation](firmware/l6max-effect-callback.md#split-effect-buffer-snapshot-experiment).
 
 Some standalone DSP defects have been fixed and tested on the host. Those
 tests do not exercise the firmware bindings or establish hardware safety.

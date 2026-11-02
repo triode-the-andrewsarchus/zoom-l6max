@@ -5437,6 +5437,46 @@ boundary-source and instrumented handoff-source hashes were
 All four runs used stock MAIN, initial NOR, panel state, `l6dbg` and the
 unattested QEMU executable identified in the preceding packed-tail run.
 
+#### Split effect-buffer snapshot experiment
+
+A disposable prototype placed the 56,264-byte candidate snapshot in two
+pieces at `0x80d44340..0x80d50000` and `0x80db0000..0x80db1f08`, leaving
+the existing three clone addresses unchanged. When the capture claim was
+complete, its replacement clear skipped those slices. It was not integrated
+into the builder or considered safe for hardware.
+
+With synthetic AINR input, the prototype observed a completed capture and a
+completed protocol token `0x7e` immediately before installation. It sampled
+the source tail immediately after the capture copies and separately sampled
+both proposed slices before attempting installation. The first sample had
+19,997 nonzero bytes; the second was entirely zero. The sampled source and
+pre-installation slice hashes were
+`54f7b399bde69facd9614a7371fa2e53d1d28eedd15f0b43c8b5894cbedf2378` and
+`344c37fdf6b3dada4d5fc74c540266832bdc90b88a735da1d6d0f8cd285ce685`.
+The source sample was a separate, non-atomic copy, not a byte-for-byte record
+of what was initially stored in the slices. Nonetheless, this run does not
+support a useful retained snapshot: the cloned descriptors were zero and the
+sampled pre-AINR outputs matched their inputs while the processing counter
+advanced. A separate stock-effect CPU trace observed writes within the
+second proposed slice between selection clears; its scope and hashes are in
+the [shared research](https://github.com/derekstavis/zoom-l6max-research/blob/1008c9d/docs/firmware/l6max-effects-ainr.md#effect-storage-and-adjacent-conversion-buffers).
+The trace does not by itself attribute the prototype's zeroed slices to a
+specific writer. The split prototype was discarded.
+
+The diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`a9b5c341e313823d5a2543a6ee562b24ecf53b58e0dcdafbf7cdeee16defc4d5`,
+`1f15e87f44464039dc80b7e72bc5271eca6a860c7cf2140d1b88312ee1dc4f5b`,
+`fcf777e6b1ae7273bcb4b7faf86997f590dda2f62521bba30a7270bb5456b027`, and
+`f99e818490d8212ad86648173bf66c0d9d6e43f94b24ef41bcdbc0e53c53936c`.
+The temporary callback, handoff and boundary source hashes were
+`3e6a4f5dd965d02fdb4a95e475f4e9b5742ab75fa8a9bc48a77e5f96eaedd416`,
+`3e6b7756f424ea18ec1445e690e4807ab71809598e53931c468e7c0ae87f2a2e`, and
+`b66b9176a88cf684b133216d217ae5fc6972263086d6434dc025faa6ce509af2`.
+Stock MAIN, initial NOR and QEMU matched the earlier packed-tail experiment;
+the QEMU binary's source is unattested. `l6dbg` SHA-256 was
+`aed900b0f7f43f225233f7f1a33e5ba8e159d4a698905297e0fb48c5c8519cc0`.
+
+#### Pause invalidation after copying
 
 A later forced-interleaving test invalidated the pause immediately after the
 selector's last validity check. The old diagnostic nevertheless marked the
