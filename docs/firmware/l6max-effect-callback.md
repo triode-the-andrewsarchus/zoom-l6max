@@ -5841,3 +5841,25 @@ The QEMU executable was
 `eade074b5d7a6fe9d74bbbe1ad36a34f7356cd200cbfc81e772f2a21892012e8`;
 its full build provenance remains unattested. The `l6dbg` executable was
 `52af793c1d34e927210f99cf49117180121d8bd62885ce0ee7148be5dedbf2f6`.
+
+A combined QEMU-only modeled-input inspector run exercised the specialized
+Plateau live setters for predelay, size and diffusion. The edited recipe sent
+four encoder-1 steps, four encoder-2 steps and two negative encoder-6 steps.
+Afterward, the saved-parameter pointer matched the captured sidecar block at
+`0x808cb68c`; its recorded predelay, size and diffusion were `18.0` ms,
+`1.0799999237060547` and `0.6499999761581421`. The summary recorded ten
+parameter edits; after three routing edits, the queue was 13/13 with no drops.
+The route checker observed clean nonzero modeled sends on B, A→B and B.
+These observations do not isolate the effect return or establish hardware
+responsiveness, worst-case timing, ownership or audio quality. The diagnostic
+uses unowned scratch and must not be installed.
+
+The diagnostic MAIN, effect ELF, popup ELF, edited recipe and diagnostic JSON
+SHA-256 values were respectively
+`1e07cfac9809978699b05d52c3fabba4ce9264826e9156c1d849756ccc8f86c6`,
+`2157d5ca6146bc931361a9b577dfae6ae6b01886d501f383ae20c8ce04da953c`,
+`b22eb39c1ffb970f375a01345e6bfc68e3a179e19321560c2e46f5b7fe465d62`,
+`aa75cae7926a11fda5f610ee23ae442a57bf15945a6556a1fe511652946e83d2`, and
+`61412f22d3360e3a60f5f1a6498beceb8de1190e61442ef2b6007ddb364855b9`.
+Stock MAIN, initial NOR, panel state, QEMU and `l6dbg` match the preceding
+modeled-input inspector run; the QEMU build's provenance is unattested.
