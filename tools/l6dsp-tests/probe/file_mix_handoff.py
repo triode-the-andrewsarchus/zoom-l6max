@@ -127,7 +127,7 @@ def check_ainr_timeout(report, transition):
     return {'transition': transition, 'sampled_state_preserved': True, 'retry_selected': True}
 
 
-def check(report, bypass, selector=False, overlap=False):
+def check(report, bypass, selector=False, overlap=False, injected=True):
     items = observations(report)
     marker, first, before = words(items, 'callback_state', '<III')
     after_marker, second, after = words(items, 'callback_after', '<III')
@@ -141,7 +141,8 @@ def check(report, bypass, selector=False, overlap=False):
         raise ValueError('SAI stream was not stopped at the observed call')
     if (mix_marker, done, result, signaled) != (0x4d495831, 0x444f4e45, 9, 1):
         raise ValueError('forced no-card workflow did not finish as expected')
-    if (delayed - initial) % (1 << 32) != (0 if bypass else 1) or bypasses != int(bypass):
+    if ((delayed - initial) % (1 << 32) != int(injected and not bypass)
+            or bypasses != int(injected and bypass)):
         raise ValueError('late callback or bypass count differs')
     outcome = {'before_stop': initial, 'after_signal': delayed, 'bypasses': bypasses,
                'after_restart': after}

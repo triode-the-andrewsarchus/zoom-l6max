@@ -1,12 +1,14 @@
 --- a/tools/l6dsp-tests/probe/file_mix_handoff.rs
 +++ b/tools/l6dsp-tests/probe/file_mix_handoff.rs
-@@ -73,11 +73,18 @@
+@@ -73,11 +73,27 @@
              write(0x83e0b004 as *mut u32, 0);
              write(0x83e0b000 as *mut u32, 1);
          }
 -        let give: unsafe extern "C" fn(u32, u32, u32, u32) -> u32 = core::mem::transmute(0x80090ad1usize);
 -        let semaphore = read(0x20007cf8 as *const u32);
 -        write(out.add(9), give(semaphore, 0, 0, 0));
++        // Synthetic live-array ownership marker; this is not real file input.
++        for i in 0..128 { write((0x20010210 as *mut u32).add(i), 0x3fa00000); }
 +        // Disposable custom-QEMU MMIO request: inject a real guest DMA IRQ
 +        // only after recording the stopped transfer state.
 +        write(out.add(11), read(0x400e8024 as *const u32));
@@ -14,21 +16,55 @@
 +        write(out.add(13), read(0x400e91fc as *const u16) as u32);
 +        write(out.add(9), 1);
 +        write(0x83e0e000 as *mut u32, 0x4254474e);
++        #[cfg(not(late_dma_control))]
 +        write(0x400e80f0 as *mut u32, 0x4c364951);
 +        write(out.add(14), read(0x400e8024 as *const u32));
          let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
          delay(50);
 +        write(0x83e0e000 as *mut u32, 0x454e4421);
++        let mut first = 0u32; let mut second = 0u32;
++        for i in 0..64 {
++            if read((0x20010210 as *const u32).add(i)) != 0x3fa00000 { first += 1; }
++            if read((0x20010310 as *const u32).add(i)) != 0x3fa00000 { second += 1; }
++        }
++        write(out.add(15), first); write(out.add(16), second);
          write(out.add(6), read(0x83e00008 as *const u32));
          #[cfg(file_mix_bypass)]
          write(out.add(10), read(0x83e0b004 as *const u32));
 --- a/tools/l6dsp-tests/probe/prepare.py
 +++ b/tools/l6dsp-tests/probe/prepare.py
-@@ -700,6 +700,7 @@
+@@ -31,6 +31,7 @@
+ parser.add_argument("--offline-mix-layout", action="store_true", help="run a destructive synthetic file-mix layout probe in QEMU")
+ parser.add_argument("--offline-effect-workspace", action="store_true", help="place file-mix workspace at the end of the candidate effect buffer (QEMU only)")
+ parser.add_argument("--file-mix-handoff", choices=("pending", "bypass", "atomic"), help="force a late audio signal in the stock file-mix workflow (QEMU only)")
++parser.add_argument("--late-dma-control", action="store_true", help="leave the QEMU-only late-DMA interrupt unforced")
+ parser.add_argument("--selector-admission", action="store_true", help="also gate effect selection after the stock fade (QEMU only)")
+ parser.add_argument("--selector-overlap", action="store_true", help="force a live lease across selector closure (QEMU only)")
+ parser.add_argument("--selector-timeout", action="store_true", help="force a selector timeout and inspect partial recovery (QEMU only)")
+@@ -109,6 +110,8 @@
+         args.retain_custom_state, args.pre_ainr, args.effect_buffer, args.auto_handoff,
+         args.channel0_prefix, args.hybrid_handoff, args.boundary_handoff, args.outer_audio_pause, args.audio_owner_refresh, args.heap_refresh, args.release_heap_refresh, args.boundary_noise,
+         args.passthrough_unready, args.bank_stress)
++if args.late_dma_control and args.file_mix_handoff != "atomic":
++    parser.error("--late-dma-control requires --file-mix-handoff atomic")
+ if args.file_mix_handoff and (not args.callback or args.admission_probe
+         or args.offline_mix_layout or (any(other_diagnostics) and not args.combined_admission_refresh)):
+     parser.error("--file-mix-handoff requires --callback alone")
+@@ -218,6 +221,8 @@
+     rustc += ["--cfg", "offline_mix_layout"]
+ if args.offline_effect_workspace:
+     rustc += ["--cfg", "offline_effect_workspace"]
++if args.late_dma_control:
++    rustc += ["--cfg", "late_dma_control"]
+ if args.file_mix_handoff:
+     rustc += ["--cfg", "file_mix_handoff"]
+     if args.file_mix_handoff == "bypass":
+@@ -700,6 +705,8 @@
      add("wait", guest_ms=4000)
      add("memory", name="callback_after", address=0x83e00000, length=12)
      add("memory", name="mix_handoff", address=0x83e0a000, length=44)
 +    add("memory", name="mix_irq", address=0x83e0a02c, length=16)
++    add("memory", name="mix_buffers", address=0x83e0a03c, length=8)
  if args.selector_admission and not args.selector_timeout and not args.combined_admission_refresh:
      for index in range(4):
          if args.selector_overlap and index == 0:

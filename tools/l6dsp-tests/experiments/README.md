@@ -64,14 +64,21 @@ stock firmware and state to build `--callback --file-mix-handoff pending` and
 `--callback --file-mix-handoff atomic` into separate fresh directories. Run
 each generated recipe with `l6dbg`, the custom QEMU wrapper, and a private
 GDB socket, as described in the [handoff diagnostic](../probe/README.md#forced-file-mix-handoff).
-Then check the two results:
+Build a third atomic fixture with `--late-dma-control` for the no-interrupt
+control. The probe also fills the live audio block's two scratch arrays with
+synthetic markers while its file-mix lease is held and checks them after the
+injection window. These arrays are not established file-mix buffers; the
+markers do not constitute a successful file mix.
+
+Then check the results:
 
 ```sh
 python3 tools/l6dsp-tests/experiments/late_dma_irq/check.py PENDING_RESULT PENDING_ENGINE_STDERR
 python3 tools/l6dsp-tests/experiments/late_dma_irq/check.py ATOMIC_RESULT ATOMIC_ENGINE_STDERR --guarded
+python3 tools/l6dsp-tests/experiments/late_dma_irq/check.py CONTROL_RESULT CONTROL_ENGINE_STDERR --control
 ```
 
-In one such paired run, both interrupt traces recorded each watched guest entry
+Before the scratch markers were added, one paired run recorded each watched guest entry
 once. The unguarded callback count increased from 28 to 29; the atomic guard
 held it at 28 and recorded one bypass. Both no-card mix calls returned 9 and
 callback activity resumed after restart. The custom QEMU SHA-256 was
@@ -97,3 +104,24 @@ Initial panel flash, options and RTC were
 `bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
 `473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`;
 `l6dbg` was `aed900b0f7f43f225233f7f1a33e5ba8e159d4a698905297e0fb48c5c8519cc0`.
+
+In a later marked-buffer pair, the no-interrupt control retained all 128
+markers and recorded no watched guest entries. The forced-IRQ atomic run
+recorded all five entries once, rejected one callback, and changed all 64
+words in each live scratch array while the file-mix lease was held. Both
+no-card calls returned 9 and audio callbacks resumed. This confirms the guard
+does not cover the whole live audio block in that modeled schedule; it does
+not show that a real file mix uses those arrays or that normal execution
+corrupts file output. The earlier pre-marker result files above lack the new
+`mix_buffers` observation and cannot pass the revised checker.
+
+For the marked atomic/control runs respectively, MAIN hashes were
+`74a0de26a61f79dc7220d166c8b244d7048ea43c342f56f596f56cb092512739` and
+`67415b89cdcbf515f217c6ef31ab37cc4792895da49148bb319b84f2b303855f`;
+ELFs were `5361fc2365b5df33fcc3408387021a51dd94d2fb6fd76030faf7cda9d90573f1`
+and `5b15d33ed0fc7f3fb441a741d114aa598ebbce7cf9b3844c53fd0ac7dbbabae4`;
+recipes were `65084459b593c8a80f80586424ec8577939310e0e0034acad5d0f2dda2c955ec`
+and `854620750836d6d1de830ebcd28bb49cc7b8d16b9542b56c0d822cfa6781f04c`;
+results were `cfae56431d13fb421a3448c51f622417568a49f79b4020e7f321c2ec0da5cd5d`
+and `0c305c5fa7e18fed2a49f2a0665e007728baf5967c4849f700916c8596166e5b`.
+The custom QEMU, stock fixture and `l6dbg` identities match those above.

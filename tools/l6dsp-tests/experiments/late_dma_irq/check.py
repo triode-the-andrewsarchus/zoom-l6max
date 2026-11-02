@@ -14,11 +14,20 @@ from submix_return import observations, words
 EXPECTED = ('80024b70', '80026658', '80043af8', '8001f360', '800149b0')
 
 
-def validate(report, trace, guarded):
-    result = check(report, guarded)
-    before, destination, csr, after = words(observations(report), 'mix_irq', '<4I')
+def validate(report, trace, guarded, control=False):
+    items = observations(report)
+    result = check(report, guarded or control, injected=not control)
+    changed = words(items, 'mix_buffers', '<2I')
+    if changed != ((0, 0) if control else (64, 64)):
+        raise ValueError('unexpected live scratch-array marker changes')
+    before, destination, csr, after = words(items, 'mix_irq', '<4I')
     if (before | after) & (1 << 15) or csr or not 0x2000a740 <= destination <= 0x2000c740:
         raise ValueError('stopped DMA state did not match the observed experiment')
+    check_trace(trace, control)
+    return result
+
+
+def check_trace(trace, control):
     lines = trace.splitlines()
     if lines.count('IRQ_PROFILE_BEGIN') != 1 or lines.count('IRQ_PROFILE_END') != 1:
         raise ValueError('missing or repeated IRQ observation window')
@@ -30,9 +39,8 @@ def validate(report, trace, guarded):
     if any(match is None for match in matches):
         raise ValueError('unexpected IRQ trace entry')
     counts = [(match.group(1), int(match.group(2))) for match in matches]
-    if counts != [(address, 1) for address in EXPECTED]:
+    if counts != [(address, 0 if control else 1) for address in EXPECTED]:
         raise ValueError('expected IRQ-to-audio instruction entries were not observed once')
-    return result
 
 
 def main():
@@ -40,13 +48,16 @@ def main():
     parser.add_argument('report', type=Path)
     parser.add_argument('trace', type=Path)
     parser.add_argument('--guarded', action='store_true')
+    parser.add_argument('--control', action='store_true')
     args = parser.parse_args()
+    if args.control and args.guarded:
+        parser.error('--control and --guarded are mutually exclusive')
     try:
-        result = validate(json.loads(args.report.read_text()), args.trace.read_text(), args.guarded)
+        result = validate(json.loads(args.report.read_text()), args.trace.read_text(), args.guarded, args.control)
     except (OSError, json.JSONDecodeError, KeyError, ValueError) as error:
         parser.exit(1, f'check failed: {error}\n')
     print(json.dumps(result, indent=2))
-    print('Forced QEMU-only IRQ; this does not qualify real hardware or memory ownership.')
+    print('QEMU-only handoff experiment; this does not qualify real hardware or memory ownership.')
 
 
 if __name__ == '__main__':
