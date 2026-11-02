@@ -117,6 +117,8 @@ pub struct Allpass<const N: usize> {
     pub delay: Delay<N>,
     pub gain: f32,
     pub delay_time: usize,
+    // The reference allpass consumes the delay output from the prior frame.
+    delayed: f32,
 }
 
 impl<const N: usize> Allpass<N> {
@@ -125,27 +127,36 @@ impl<const N: usize> Allpass<N> {
             delay: Delay::new(),
             gain,
             delay_time,
+            delayed: 0.0,
         }
     }
 
     pub fn clear(&mut self) {
         self.delay.clear();
+        self.delayed = 0.0;
     }
 
     #[inline(always)]
     pub fn process(&mut self, input: f32) -> f32 {
-        let delayed = self.delay.read(self.delay_time);
+        let delayed = self.delayed;
         let in_sum = input + delayed * self.gain;
         let output = delayed - in_sum * self.gain;
+        self.delayed = if self.delay_time == 0 { in_sum } else { self.delay.read(self.delay_time) };
         self.delay.write(in_sum);
         output
     }
 
     #[inline(always)]
     pub fn process_modulated(&mut self, input: f32, mod_delay: f32) -> f32 {
-        let delayed = self.delay.read_interpolated(mod_delay);
+        let delayed = self.delayed;
         let in_sum = input + delayed * self.gain;
         let output = delayed - in_sum * self.gain;
+        let d = clamp(mod_delay, 0.0, (self.delay.length - 2) as f32);
+        self.delayed = if d < 1.0 {
+            in_sum + d * (self.delay.read_history(1) - in_sum)
+        } else {
+            self.delay.read_interpolated(d)
+        };
         self.delay.write(in_sum);
         output
     }
@@ -862,5 +873,50 @@ impl PlateauReverb {
             left[i] = out_l;
             right[i] = out_r;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Allpass;
+
+    #[test]
+    fn allpass_impulse_timing_matches_multistomp_core() {
+        // AllpassFilter from ZoomMultistompZDL commit 7ea50ae6, with a
+        // 16-sample ring, gain 0.5 and delay 3, processing a unit impulse.
+        let mut ap = Allpass::<16>::new(0.5, 3);
+        let expected = [-0.5, 0.0, 0.0, 0.0, 0.75, 0.0, 0.0, 0.0, 0.375, 0.0];
+        for (frame, expected) in expected.into_iter().enumerate() {
+            assert_eq!(ap.process(if frame == 0 { 1.0 } else { 0.0 }), expected);
+        }
+    }
+
+    #[test]
+    fn modulated_allpass_uses_the_preceding_delay_read() {
+        // Same reference, changing its fractional delay before each frame.
+        let times = [3.0, 3.5, 2.25, 4.0, 3.0, 2.5, 3.75, 2.0, 3.0, 4.0, 2.5, 3.0];
+        let expected = [-0.5, 0.0, 0.0, 0.5625, 0.0, 0.0, 0.140625, 0.0703125,
+                        0.0, 0.0, 0.0, 0.017578125];
+        let mut ap = Allpass::<16>::new(0.5, 3);
+        for (frame, (delay, expected)) in times.into_iter().zip(expected).enumerate() {
+            assert_eq!(ap.process_modulated(if frame == 0 { 1.0 } else { 0.0 }, delay), expected);
+        }
+    }
+
+    #[test]
+    fn modulated_allpass_handles_subsample_delay_and_clear() {
+        // Short-delay reference exercises the just-written sample as well as
+        // interpolation; ordinary Plateau settings are longer.
+        let times = [0.0, 0.5, 1.0, 0.25, 0.0, 1.5, 0.75, 0.0, 2.0, 1.0, 0.5, 0.0];
+        let expected = [-0.5, 0.75, 0.5625, 0.375, 0.2109375, 0.10546875,
+                        0.146484375, 0.0578613281, 0.0289306641, 0.0732421875,
+                        0.014465332, 0.0219268799];
+        let mut ap = Allpass::<16>::new(0.5, 0);
+        for (frame, (delay, expected)) in times.into_iter().zip(expected).enumerate() {
+            let actual = ap.process_modulated(if frame == 0 { 1.0 } else { 0.0 }, delay);
+            assert!((actual - expected).abs() < 1e-7, "frame {frame}: {actual}");
+        }
+        ap.clear();
+        assert_eq!(ap.process_modulated(0.0, 0.0), 0.0);
     }
 }

@@ -16,15 +16,15 @@ The blocking findings for L6max MAIN 1.10
   emulator run the largest stock-heap free block was 160,008 bytes, less than
   the then-current payload state of 319,216 bytes; see the
   [callback investigation](firmware/l6max-effect-callback.md). The current
-  processor type measures 279,384 bytes for `thumbv7em-none-eabihf` after a
+  processor type measures 279,416 bytes for `thumbv7em-none-eabihf` after a
   25,824-byte reduction in raw Plateau delay arrays; it still exceeds that free
   block. The current size query object SHA-256 is
-  `9741a7d1d19a74bfd731655de9f0d53f2cba6aa3ae6331fa88882fde5dc41c1a`
+  `5345b512683381ed642e94a5bbc07c9a97c2053dead07dc7619d41a4ea3e2d1b`
   using `rustc 1.99.0-nightly (1ed2df61a 2026-08-04)`.
   Of that state, the raw `f32` histories comprise 36,484 bytes of
   Plateau predelay, 7,024 bytes of Plateau input diffusion, 168,372 bytes of
   Plateau tank delays and 57,624 bytes of Velvet histories (including the
-  separate cascade history). The remaining 9,880 bytes include filter banks,
+  separate cascade history). The remaining 9,912 bytes include filter banks,
   parameters and bookkeeping. These counts describe allocated capacity,
   not a proof that any stock firmware memory can be reused.
   Stock code
@@ -89,7 +89,7 @@ The blocking findings for L6max MAIN 1.10
   `0x19514` bytes. That weakens the omitted-update hypothesis; the earlier
   divergence remains unexplained. The smaller copy is only a candidate, not
   established independent learning or safe memory ownership. Three such
-  prefixes plus the 279,384-byte processor would occupy 590,484 bytes of the
+  prefixes plus the 279,416-byte processor would occupy 590,516 bytes of the
   768,000-byte effect buffer before any snapshot or other storage; this is
   arithmetic, not an allocation or ownership proof. See the
   [research observation](https://github.com/derekstavis/zoom-l6max-research/blob/0621038/docs/firmware/l6max-effects-ainr.md#selection-learning-and-processing).
@@ -278,6 +278,23 @@ do not establish musical quality or target execution time.
 All four tank allpasses now receive independent modulation, with sufficient
 history for the maximum configured depth. Host tests cover modulation and
 freeze, but the additional processing cost has not been measured on target.
+The allpasses now consume the preceding frame's delay output, matching the
+supplied Multistomp core's ordering. Fixed, modulated and short-delay impulse
+checks match that core; this adds 32 bytes of processor state and does not
+establish whole-effect parity, physical timing or audible quality.
+An active modeled-input QEMU capture passed the existing send reconstruction
+and finite, nonzero stereo return checks for both effects. The diagnostic
+MAIN, ELF, initial diagnostic NOR, recipe and result SHA-256 values were
+`64cc0b3f69cc9f35e78d14ef4dac577e1eaa40b6ebaa32137d8c894b1c8e865d`,
+`2e7227321e13aba7115a5e925b707503d7d65e3d19bdae771852eba8d51e1a2e`,
+`6fbea7311281a85efa6928504d5dc79b7bf6ea9ad36c7d04abc8e469786607e4`,
+`c943e41053e889e05bca8dc842317af50e415c83d9fff50154df2fa41eb7df5a`, and
+`2e686440a968fdd3d9349280412eabaab2f030cf5e8c6d22cbaac5922a8a9b00`.
+Stock MAIN and input NOR matched the identities above; QEMU was
+`eade074b5d7a6fe9d74bbbe1ad36a34f7356cd200cbfc81e772f2a21892012e8`
+with unattested source and `l6dbg` was
+`ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`.
+The diagnostic uses unowned scratch and must not be installed.
 The inspector's Plateau predelay, size and diffusion edits now update only
 the affected state instead of recalculating unrelated cutoff coefficients.
 Host comparisons exercise mixed edits and endpoint clamps sample by sample;

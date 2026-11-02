@@ -2627,8 +2627,11 @@ mod tests {
         second.lfo4.phase = 0.7;
         first.process_sample(0.0, 0.0);
         second.process_sample(0.0, 0.0);
-        assert_ne!(first.l_del2.buffer[0], second.l_del2.buffer[0], "left second allpass");
-        assert_ne!(first.r_del2.buffer[0], second.r_del2.buffer[0], "right second allpass");
+        // Each allpass consumes the preceding frame's interpolated delay read.
+        first.process_sample(0.0, 0.0);
+        second.process_sample(0.0, 0.0);
+        assert_ne!(first.l_del2.buffer[1], second.l_del2.buffer[1], "left second allpass");
+        assert_ne!(first.r_del2.buffer[1], second.r_del2.buffer[1], "right second allpass");
     }
 
     #[test]
