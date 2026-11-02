@@ -5942,3 +5942,31 @@ SHA-256 values were respectively
 `61412f22d3360e3a60f5f1a6498beceb8de1190e61442ef2b6007ddb364855b9`.
 Stock MAIN, initial NOR, panel state, QEMU and `l6dbg` match the preceding
 modeled-input inspector run; the QEMU build's provenance is unattested.
+
+### Standalone callback admission model
+
+The standalone model admits at most one lease for each of the live and
+file-mix paths. A selector can close admission, wait for both leases to
+finish, then reopen it. Host tests cover a callback paused before loading
+its pointer, a close timeout, a competing closer and simultaneous callers.
+A sequential QEMU ARM diagnostic reported all eleven modeled checks passing
+(`0x7ff`, marker `0x41444d31`); the target object contains exclusive-load,
+exclusive-store and memory-barrier instructions. The model is not connected
+to either firmware path. It requires disjoint mutable DSP state for the two
+paths, acquisition before pointer load, safe handling of rejected entry, and
+owned state across reset. Atomic retry and wait times are unbounded here.
+The test does not establish those requirements, all other stock users, DMA
+exclusion or physical behavior; its scratch is unowned and its image must
+never be installed.
+
+The diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`44a79b88713aa62b7dc330e6fbd87e5b2a9a3156c22bf5c0f7691eaa24edbff8`,
+`a564627584463c8ad852a7db01a2025322af682c1a7984b92f809158c4049302`,
+`f3b8d9fce740d53c984a2f8563f9fd7cd33b706c6de22c7075d2e37302953536`, and
+`fbfecd2d99aead09b1cae0aac6446e5ad3dfcc8fcafad40028882cf92a610e61`.
+The admission and diagnostic payload sources hashed to
+`527837ad05c362942ed5c0071e4a22414fbcae325292d69416d08a2e9621048d` and
+`ceec2b5bd841d770cacc9bff00ebaded73ce61e6aac3d9628f25560e06d3fdca`.
+The rebuilt ELF and MAIN matched the measured versions. Stock MAIN, initial
+NOR, panel state, QEMU and `l6dbg` match the preceding modeled-input run;
+the QEMU build's provenance is unattested.

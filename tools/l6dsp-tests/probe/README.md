@@ -42,6 +42,19 @@ A successful recipe only collects this observation. It does not prove live
 signal routing, effect-switch safety, callback timing, UI behavior, or
 physical-device compatibility.
 
+## Callback admission model
+
+Prepare a separate image with `--admission-probe` to exercise the standalone
+atomic admission model on the emulated ARM target. The `admission_result`
+observation should contain `0x7ff` and marker `0x41444d31` in its first two
+32-bit words. This is a sequential interleaving test, not an integrated
+callback or real-time test. It uses unowned QEMU scratch; never install it.
+Host tests also force a delayed pointer load and concurrent entry and close
+operations. Both callback paths must participate before loading a callback
+pointer, and their mutable DSP state must be disjoint. Storage ownership,
+rejected-entry behavior, time bounds, other users and hardware synchronization
+remain unresolved.
+
 ## Synthetic file-mix layout
 
 To examine the candidate file-mix track layout, prepare a separate image with
