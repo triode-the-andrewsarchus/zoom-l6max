@@ -349,19 +349,19 @@ impl PlateauReverb {
             in_lp: OnePoleLP::new(),
             in_hp: OnePoleHP::new(),
 
-            l_apf1: Allpass::new(-0.70, 1084),
+            l_apf1: Allpass::new(-0.525, 1084),
             l_del1: Delay::new(),
             l_lp: OnePoleLP::new(),
             l_hp: OnePoleHP::new(),
-            l_apf2: Allpass::new(0.50, 2903),
+            l_apf2: Allpass::new(0.525, 2903),
             l_del2: Delay::new(),
             l_sum: 0.0,
 
-            r_apf1: Allpass::new(-0.70, 1465),
+            r_apf1: Allpass::new(-0.525, 1465),
             r_del1: Delay::new(),
             r_lp: OnePoleLP::new(),
             r_hp: OnePoleHP::new(),
-            r_apf2: Allpass::new(0.50, 4284),
+            r_apf2: Allpass::new(0.525, 4284),
             r_del2: Delay::new(),
             r_sum: 0.0,
 
@@ -396,7 +396,7 @@ impl PlateauReverb {
     }
 
     pub fn init(&mut self, params: PlateauParameters) {
-        // These lengths and tank gains normally come from `new()`. Restore
+        // These lengths and input gains normally come from `new()`. Restore
         // them explicitly so initialization also works on zeroed storage.
         self.predelay.length = PREDELAY_MAX;
         self.in_apf1.delay.length = IN_APF1_MAX;
@@ -407,10 +407,10 @@ impl PlateauReverb {
         self.l_apf2.delay.length = L_APF2_MAX;
         self.r_apf1.delay.length = R_APF1_MAX;
         self.r_apf2.delay.length = R_APF2_MAX;
-        self.l_apf1.gain = -0.70;
-        self.r_apf1.gain = -0.70;
-        self.l_apf2.gain = 0.50;
-        self.r_apf2.gain = 0.50;
+        self.in_apf1.gain = 0.75;
+        self.in_apf2.gain = 0.75;
+        self.in_apf3.gain = 0.625;
+        self.in_apf4.gain = 0.625;
         self.lfo1 = TriangleLFO::new(0.10);
         self.lfo2 = TriangleLFO::new(0.15);
         self.lfo3 = TriangleLFO::new(0.12);
@@ -579,10 +579,11 @@ impl PlateauReverb {
 
     #[inline(always)]
     fn apply_diffusion_gain(&mut self) {
-        self.in_apf1.gain = 0.75 * self.diffusion_current;
-        self.in_apf2.gain = 0.75 * self.diffusion_current;
-        self.in_apf3.gain = 0.625 * self.diffusion_current;
-        self.in_apf4.gain = 0.625 * self.diffusion_current;
+        let gain = 0.7 * self.diffusion_current;
+        self.l_apf1.gain = -gain;
+        self.l_apf2.gain = gain;
+        self.r_apf1.gain = -gain;
+        self.r_apf2.gain = gain;
     }
 
     #[inline(always)]

@@ -193,10 +193,26 @@ recipe and result SHA-256 values were
 The stock MAIN and QEMU binary were the identities used in the recorded-project
 probe; the QEMU source is unattested. The diagnostic image must not be installed.
 Plateau's zero-diffusion setting now bypasses its input diffuser chain while
-advancing that chain's history. Its bypass and allpass gains ramp over 64
-frames on diffusion edits. Host tests cover the immediate impulse path, an
-active-signal first-frame edit, reversals and edits while idle; target
-execution time and audible transitions remain unqualified.
+advancing that chain's history. Its input allpass gains stay fixed, while its
+four tank allpass gains follow ±0.7 times diffusion, as in the supplied
+Multistomp control implementation. The input bypass and tank gains ramp over
+64 frames on edits. Host tests cover the input-to-tank path, tank impulse
+response, an active-signal first-frame edit, reversals, freeze and idle edits;
+target execution time and audible transitions remain unqualified.
+An ARM QEMU impulse diagnostic after this correction reported Velvet and
+Plateau peaks of approximately 0.302 and 0.034 with completion marker
+`0x46585031`. The stock MAIN and initial NOR SHA-256 values were
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461` and
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`.
+The diagnostic MAIN, ELF, recipe and result were
+`b7b2b2e4cc0767904abd0b03cb0042c0853dd20c134c3789a452221285d8cd1a`,
+`f0a2528969064c19b28a99a109ab5a997c5a9a71de322d42b4241a7420997f7d`,
+`75dec91ec4132a16a712cd28da523cd89b48174a6f677197e13eefe0fb45842b` and
+`7b31cec633e51b192a5fef1f8c7a580f5281cbb0be9ebcd7c8b39e445bad628e`.
+QEMU was `eade074b5d7a6fe9d74bbbe1ad36a34f7356cd200cbfc81e772f2a21892012e8`
+with unattested source; `l6dbg` was
+`ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`.
+The impulse alone does not establish audible quality or hardware safety.
 Plateau predelay edits now crossfade read positions over 64 frames; a rapid
 retarget starts from the preceding predelay output, and freeze cancels the
 transition without retaining frozen input. Host tests cover reversal, idle

@@ -1364,9 +1364,9 @@ mod tests {
         params.predelay_ms = 0.0;
         params.diffusion = 0.0;
         reverb.init(params);
-        let first = reverb.process_sample(0.5, 0.5);
-        assert!(first.0.abs() > 0.01 && first.1.abs() > 0.01,
-                "zero diffusion should reach the tank without the input delay chain: {first:?}");
+        reverb.process_sample(0.5, 0.5);
+        assert!(reverb.l_apf1.delay.buffer[0].abs() > 0.01 && reverb.r_apf1.delay.buffer[0].abs() > 0.01,
+                "zero diffusion should reach both tanks without the input delay chain");
         for _ in 0..2500 { reverb.process_sample(0.0, 0.0); }
         assert!(reverb.in_apf4.delay.buffer.iter().any(|x| *x != 0.0),
                 "bypassed diffusers must continue receiving input");
@@ -1406,25 +1406,58 @@ mod tests {
         let mut reverb = Box::new(plateau::PlateauReverb::new());
         let mut params = plateau::PlateauParameters::default();
         reverb.init(params);
-        let initial = reverb.in_apf1.gain;
+        let initial = reverb.l_apf2.gain;
+        assert_eq!(initial, 0.7 * params.diffusion);
+        assert_eq!(reverb.l_apf1.gain, -initial);
+        assert_eq!(reverb.r_apf1.gain, -initial);
+        assert_eq!(reverb.r_apf2.gain, initial);
+        assert_eq!([reverb.in_apf1.gain, reverb.in_apf2.gain, reverb.in_apf3.gain, reverb.in_apf4.gain],
+                   [0.75, 0.75, 0.625, 0.625]);
         params.diffusion = 0.0;
         reverb.set_parameters(params);
-        assert_eq!(reverb.in_apf1.gain, initial, "the setter must not jump the coefficient");
+        assert_eq!(reverb.l_apf2.gain, initial, "the setter must not jump the coefficient");
         for _ in 0..20 { reverb.process_sample(0.0, 0.0); }
-        let halfway = reverb.in_apf1.gain;
+        let halfway = reverb.l_apf2.gain;
         assert!(halfway > 0.0 && halfway < initial);
         params.diffusion = 1.0;
         reverb.set_parameters(params);
-        assert_eq!(reverb.in_apf1.gain, halfway, "reversal must start at the applied gain");
+        assert_eq!(reverb.l_apf2.gain, halfway, "reversal must start at the applied gain");
         for _ in 0..64 { reverb.process_sample(0.0, 0.0); }
-        assert_eq!(reverb.in_apf1.gain, 0.75);
-        assert_eq!(reverb.in_apf2.gain, 0.75);
-        assert_eq!(reverb.in_apf3.gain, 0.625);
-        assert_eq!(reverb.in_apf4.gain, 0.625);
+        assert_eq!([reverb.l_apf1.gain, reverb.l_apf2.gain, reverb.r_apf1.gain, reverb.r_apf2.gain],
+                   [-0.7, 0.7, -0.7, 0.7]);
+        assert_eq!([reverb.in_apf1.gain, reverb.in_apf2.gain, reverb.in_apf3.gain, reverb.in_apf4.gain],
+                   [0.75, 0.75, 0.625, 0.625]);
         params.diffusion = 0.0;
         reverb.set_parameters(params);
         reverb.clear();
-        assert_eq!(reverb.in_apf1.gain, 0.0, "clear should apply the latest setting");
+        assert_eq!([reverb.l_apf1.gain, reverb.l_apf2.gain, reverb.r_apf1.gain, reverb.r_apf2.gain],
+                   [0.0; 4], "clear should apply the latest setting");
+    }
+
+    #[test]
+    fn plateau_diffusion_changes_tank_response_after_input_diffusers() {
+        let mut dry_tank = Box::new(plateau::PlateauReverb::new());
+        let mut diffused_tank = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        params.predelay_ms = 0.0;
+        params.diffusion = 1.0;
+        dry_tank.init(params);
+        diffused_tank.init(params);
+        // Isolate the tank: keep both input-diffuser paths enabled and identical.
+        params.diffusion = 0.5;
+        dry_tank.set_parameters(params);
+        for _ in 0..64 {
+            dry_tank.process_sample(0.0, 0.0);
+            diffused_tank.process_sample(0.0, 0.0);
+        }
+        let mut difference = 0.0f32;
+        for frame in 0..32_000 {
+            let input = if frame == 0 { 0.5 } else { 0.0 };
+            let a = dry_tank.process_sample(input, input);
+            let b = diffused_tank.process_sample(input, input);
+            difference = difference.max((a.0 - b.0).abs()).max((a.1 - b.1).abs());
+        }
+        assert!(difference > 0.001, "tank diffusion did not change the impulse response: {difference}");
     }
 
     #[test]
@@ -1502,7 +1535,9 @@ mod tests {
     #[test]
     fn plateau_first_tank_allpass_reaches_each_output() {
         let mut reverb = Box::new(plateau::PlateauReverb::new());
-        reverb.init(plateau::PlateauParameters::default());
+        let mut params = plateau::PlateauParameters::default();
+        params.diffusion = 1.0;
+        reverb.init(params);
         reverb.params.freeze = true;
         reverb.l_sum = 0.5;
         reverb.r_sum = -0.25;
@@ -1534,7 +1569,9 @@ mod tests {
     #[test]
     fn plateau_tank_delays_match_their_configured_ring_lengths() {
         let mut reverb = Box::new(plateau::PlateauReverb::new());
-        reverb.init(plateau::PlateauParameters::default());
+        let mut params = plateau::PlateauParameters::default();
+        params.diffusion = 1.0;
+        reverb.init(params);
         reverb.params.freeze = true;
         reverb.l_del1.length = 10;
         reverb.l_del2.length = 10;
@@ -1552,7 +1589,7 @@ mod tests {
             let expected = if frame == 10 { 0.7 } else { 0.0 };
             assert!((l - expected).abs() < 1e-6, "left first tank delay frame {frame}: {l}");
             assert!((r - expected).abs() < 1e-6, "right first tank delay frame {frame}: {r}");
-            let feedback = if frame == 20 { -0.35 } else { 0.0 };
+            let feedback = if frame == 20 { -0.49 } else { 0.0 };
             assert!((reverb.l_sum - feedback).abs() < 1e-6, "left cross-feedback frame {frame}: {}", reverb.l_sum);
             assert!((reverb.r_sum - feedback).abs() < 1e-6, "right cross-feedback frame {frame}: {}", reverb.r_sum);
         }
