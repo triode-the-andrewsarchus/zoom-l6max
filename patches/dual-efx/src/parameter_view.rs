@@ -66,7 +66,7 @@ impl ParameterSnapshot {
             VndRefresh => (0.1, 60.0),
             VndTransition => (1.0, 54000.0),
             PlatPreDelay => (0.0, 190.0),
-            PlatSize => (0.2f32 * 100.0, 1.2f32 * 100.0),
+            PlatSize => (0.01f32 * 100.0, 1.2f32 * 100.0),
             PlatDecay => (0.1f32 * 100.0, 0.999f32 * 100.0),
             PlatLowCut | PlatHighCut => (20.0, 48000.0 * 0.49),
             PlatModDepth => (0.0, 16.0),

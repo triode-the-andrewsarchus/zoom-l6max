@@ -290,7 +290,7 @@ impl TriangleLFO {
 #[derive(Clone, Copy)]
 pub struct PlateauParameters {
     pub predelay_ms: f32,     // 0.0 to 190.0 ms
-    pub size: f32,             // 0.2 to 1.2 (time scale)
+    pub size: f32,             // 0.01 to 1.2 (time scale; upper range incomplete)
     pub decay: f32,            // 0.1 to 0.999 (tail duration)
     pub low_cut_hz: f32,       // 20.0 to 1000.0 Hz
     pub high_cut_hz: f32,      // 1000.0 to 18000.0 Hz
@@ -547,7 +547,7 @@ impl PlateauReverb {
     }
 
     pub fn set_parameters(&mut self, mut params: PlateauParameters) {
-        params.size = clamp(params.size, 0.2, 1.2);
+        params.size = clamp(params.size, 0.01, 1.2);
         params.decay = clamp(params.decay, 0.1, 0.999);
         params.diffusion = clamp(params.diffusion, 0.0, 1.0);
         params.mod_depth = clamp(params.mod_depth, 0.0, 16.0);
@@ -668,7 +668,7 @@ impl PlateauReverb {
     }
 
     pub(crate) fn set_size_live(&mut self, value: f32) {
-        let value = clamp(value, 0.2, 1.2);
+        let value = clamp(value, 0.01, 1.2);
         if self.params.size != value { self.begin_output_transition(); }
         self.params.size = value;
         self.apply_tank_size(value);

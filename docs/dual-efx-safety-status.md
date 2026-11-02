@@ -23,6 +23,15 @@ The stock MAIN, initial NOR, panel state, QEMU and `l6dbg` identities match the
 following guard experiment; QEMU's build source is unattested. This diagnostic
 uses unowned scratch and must never be installed.
 
+Plateau's standalone size control now reaches the Multistomp minimum of
+0.01, with host checks for short delays, maximum modulation, and freeze.
+Its upper size limit is still 1.2 rather than the Multistomp's 4.0, and its
+predelay limit is 190 ms rather than 500 ms. These limits also constrain the
+available reverb character; they are not full Plateau parity. Extending them
+requires a storage and processing design compatible with the other effects
+and AINR. Neither the short-size tests nor the existing allocations prove it
+will fit or meet a physical deadline.
+
 The normal Plateau sample path checks all 13 delay cursor and length pairs
 before changing reverb state, returning silence on invalid metadata. Host
 tests cover each cursor, zero and oversized lengths, too-short interpolated
@@ -162,7 +171,7 @@ The blocking findings for L6max MAIN 1.10
   `0x19514` bytes. That weakens the omitted-update hypothesis; the earlier
   divergence remains unexplained. The smaller copy is only a candidate, not
   established independent learning or safe memory ownership. Three such
-  prefixes plus the 279,480-byte processor would occupy 590,580 bytes of the
+  prefixes plus the 283,160-byte processor would occupy 594,260 bytes of the
   768,000-byte effect buffer before any snapshot or other storage; this is
   arithmetic, not an allocation or ownership proof. See the
   [research observation](https://github.com/derekstavis/zoom-l6max-research/blob/0621038/docs/firmware/l6max-effects-ainr.md#selection-learning-and-processing).

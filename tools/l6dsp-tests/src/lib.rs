@@ -965,6 +965,9 @@ mod tests {
             assert_eq!(fast.plateau.params.predelay_ms, reference.plateau.params.predelay_ms);
             assert_eq!(fast.plateau.params.size, reference.plateau.params.size);
             assert_eq!(fast.plateau.params.diffusion, reference.plateau.params.diffusion);
+            if encoder == 1 && delta == i32::MIN {
+                assert_eq!(fast.plateau.params.size, 0.01);
+            }
             for frame in 0..128 {
                 let input = if frame == 0 { 0.5 } else { 0.0 };
                 assert_eq!(fast.process_bus_sample(0.0, input, 0.0),
@@ -1316,7 +1319,7 @@ mod tests {
             (Id::VndAmount, 0.0, 100.0), (Id::VndTimeSpread, 1.0, 100.0),
             (Id::VndDensity, 10.0, 4600.0), (Id::VndDecay, -120.0, 0.0),
             (Id::VndRefresh, 0.1, 60.0), (Id::VndTransition, 1.0, 54000.0),
-            (Id::PlatPreDelay, 0.0, 190.0), (Id::PlatSize, 0.2 * 100.0, 1.2 * 100.0),
+            (Id::PlatPreDelay, 0.0, 190.0), (Id::PlatSize, 0.01 * 100.0, 1.2 * 100.0),
             (Id::PlatDecay, 0.1 * 100.0, 0.999 * 100.0),
             (Id::PlatLowCut, 20.0, 48000.0 * 0.49),
             (Id::PlatHighCut, 20.0, 48000.0 * 0.49),
@@ -2538,7 +2541,7 @@ mod tests {
         reverb.set_parameters(params);
         for delay in [reverb.l_apf1.delay_time, reverb.l_apf2.delay_time,
                       reverb.r_apf1.delay_time, reverb.r_apf2.delay_time] {
-            assert!(delay >= params.mod_depth as usize, "minimum delay would clamp modulation");
+            assert!(delay >= params.mod_depth as usize, "size 0.2 would clamp modulation");
         }
     }
 
@@ -2608,7 +2611,7 @@ mod tests {
             .map(|time| (time * (48_000.0f32 / 29_761.0)) as usize);
         assert_eq!(initial, expected);
         reverb.in_apf1.delay.write(0.75);
-        for size in [0.2, 0.55, 1.0, 1.2] {
+        for size in [0.01, 0.2, 0.55, 1.0, 1.2] {
             params.size = size;
             reverb.set_parameters(params);
             assert_eq!([reverb.in_apf1.delay_time, reverb.in_apf2.delay_time,
@@ -2789,7 +2792,7 @@ mod tests {
 
     #[test]
     fn plateau_freeze_preserves_tank_energy_with_maximum_modulation() {
-        for size in [0.2, 0.6, 1.0, 1.2] {
+        for size in [0.01, 0.2, 0.6, 1.0, 1.2] {
             let mut reverb = Box::new(plateau::PlateauReverb::new());
             let mut params = plateau::PlateauParameters::default();
             params.size = size;

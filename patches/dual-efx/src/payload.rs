@@ -256,7 +256,7 @@ pub unsafe extern "C" fn knob_changed(
                         let mut params = proc.plateau.params;
                         params.size = math::clamp(
                             params.size + (delta as f32 * 0.02),
-                            0.2,
+                            0.01,
                             1.2,
                         );
                         proc.plateau.set_parameters(params);
