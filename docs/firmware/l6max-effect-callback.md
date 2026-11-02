@@ -5751,3 +5751,25 @@ SHA-256 values were respectively
 `6e5c224a66cb60e98daaf6b06f7369988b500953e3eee93cb2787ec2f8c0bf96`.
 Stock MAIN, initial NOR, panel state, QEMU and `l6dbg` identities match the
 preceding modeled-input routing run; QEMU build provenance remains unattested.
+
+A follow-up QEMU-only run used the gain-ramped diffusion implementation and
+added a capture of the diagnostic's saved-parameter pointer and its candidate
+64-byte block after the same sixteen encoder-6 decrements. The pointer matched
+the captured block at `0x808cb68c`, and its diffusion word (index 11) was
+`0x00000000`, i.e. 0.0. The inspector summary recorded 16 edits, the queue
+finished at 19/19 with no drops, and the modeled route checker passed the
+B, A→B, B sequence with 13,591 callbacks. These observations confirm the
+saved setting and modeled sends for this run; they do not isolate the effect
+return, establish audible transition quality, or qualify timing or hardware.
+The saved handoff is an experimental heap sidecar and other diagnostic state
+still uses unowned scratch. Never install the diagnostic image.
+
+The diagnostic MAIN, effect ELF, edited recipe and diagnostic JSON SHA-256
+values were respectively
+`b34f16b258f00fecb02ad129650b3f0c6ec9fc3002dd17e0dae2e30844ac1e83`,
+`c1972de13eab9d79b50b75d5371f2616ade6da70b9e70cfe3f69f882ab037e85`,
+`476ecddb9836df898099cdc15c6ab9704fb03bda4d0a8227a9719115852f1bdd`, and
+`e687a01233d0e892778b51ce6e22efa092d53e14c37cd623c7a225477cde3d94`.
+The stock MAIN, initial NOR, panel state, popup ELF, QEMU and `l6dbg` match
+the preceding modeled-input routing experiment; QEMU's build provenance is
+unattested.

@@ -1045,6 +1045,54 @@ mod tests {
     }
 
     #[test]
+    fn plateau_diffusion_edit_avoids_first_frame_jump() {
+        let mut changed = Box::new(plateau::PlateauReverb::new());
+        let mut unchanged = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        params.predelay_ms = 0.0;
+        changed.init(params);
+        unchanged.init(params);
+        let input = |frame: usize| ((frame * 7919 % 127) as f32 - 63.0) / 90.0;
+        for frame in 0..10_000 {
+            let sample = input(frame);
+            assert_eq!(changed.process_sample(sample, sample), unchanged.process_sample(sample, sample));
+        }
+        params.diffusion = 0.0;
+        changed.set_parameters(params);
+        let sample = input(10_000);
+        let actual = changed.process_sample(sample, sample);
+        let reference = unchanged.process_sample(sample, sample);
+        let difference = (actual.0 - reference.0).abs().max((actual.1 - reference.1).abs());
+        assert!(difference < 0.002, "first-frame change {difference}");
+    }
+
+    #[test]
+    fn plateau_diffusion_edits_ramp_allpass_gains_and_retarget() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        reverb.init(params);
+        let initial = reverb.in_apf1.gain;
+        params.diffusion = 0.0;
+        reverb.set_parameters(params);
+        assert_eq!(reverb.in_apf1.gain, initial, "the setter must not jump the coefficient");
+        for _ in 0..20 { reverb.process_sample(0.0, 0.0); }
+        let halfway = reverb.in_apf1.gain;
+        assert!(halfway > 0.0 && halfway < initial);
+        params.diffusion = 1.0;
+        reverb.set_parameters(params);
+        assert_eq!(reverb.in_apf1.gain, halfway, "reversal must start at the applied gain");
+        for _ in 0..64 { reverb.process_sample(0.0, 0.0); }
+        assert_eq!(reverb.in_apf1.gain, 0.75);
+        assert_eq!(reverb.in_apf2.gain, 0.75);
+        assert_eq!(reverb.in_apf3.gain, 0.625);
+        assert_eq!(reverb.in_apf4.gain, 0.625);
+        params.diffusion = 0.0;
+        reverb.set_parameters(params);
+        reverb.clear();
+        assert_eq!(reverb.in_apf1.gain, 0.0, "clear should apply the latest setting");
+    }
+
+    #[test]
     fn plateau_diffusion_bypass_tracks_edits_while_idle() {
         let mut idle = Box::new(routing::IdlePlateau::new());
         let mut full = Box::new(plateau::PlateauReverb::new());

@@ -316,6 +316,8 @@ pub struct PlateauReverb {
     previous_output: [f32; 2],
     diffusion_mix: f32,
     diffusion_step: f32,
+    diffusion_current: f32,
+    diffusion_gain_step: f32,
     diffusion_remaining: u32,
     pub params: PlateauParameters,
 }
@@ -359,6 +361,8 @@ impl PlateauReverb {
             previous_output: [0.0; 2],
             diffusion_mix: 1.0,
             diffusion_step: 0.0,
+            diffusion_current: 0.75,
+            diffusion_gain_step: 0.0,
             diffusion_remaining: 0,
             params: PlateauParameters {
                 predelay_ms: 10.0,
@@ -430,7 +434,10 @@ impl PlateauReverb {
         self.previous_output = [0.0; 2];
         self.diffusion_mix = if self.params.diffusion == 0.0 { 0.0 } else { 1.0 };
         self.diffusion_step = 0.0;
+        self.diffusion_current = self.params.diffusion;
+        self.diffusion_gain_step = 0.0;
         self.diffusion_remaining = 0;
+        self.apply_diffusion_gain();
     }
 
     pub fn set_parameters(&mut self, mut params: PlateauParameters) {
@@ -445,9 +452,10 @@ impl PlateauReverb {
         params.low_cut_hz = clamp(params.low_cut_hz, 20.0, SAMPLE_RATE * 0.49);
         params.high_cut_hz = clamp(params.high_cut_hz, 20.0, SAMPLE_RATE * 0.49);
 
-        if (self.params.diffusion == 0.0) != (params.diffusion == 0.0) {
+        if self.params.diffusion != params.diffusion {
             let target = if params.diffusion == 0.0 { 0.0 } else { 1.0 };
             self.diffusion_step = (target - self.diffusion_mix) / DIFFUSION_BYPASS_FADE_SAMPLES as f32;
+            self.diffusion_gain_step = (params.diffusion - self.diffusion_current) / DIFFUSION_BYPASS_FADE_SAMPLES as f32;
             self.diffusion_remaining = DIFFUSION_BYPASS_FADE_SAMPLES;
         }
         if self.params.size != params.size || self.params.freeze != params.freeze {
@@ -463,11 +471,6 @@ impl PlateauReverb {
         self.in_apf2.delay_time = clamp_usize((107.0 * scale) as usize, 1, IN_APF2_MAX - 1);
         self.in_apf3.delay_time = clamp_usize((379.0 * scale) as usize, 1, IN_APF3_MAX - 1);
         self.in_apf4.delay_time = clamp_usize((277.0 * scale) as usize, 1, IN_APF4_MAX - 1);
-
-        self.in_apf1.gain = 0.75 * params.diffusion;
-        self.in_apf2.gain = 0.75 * params.diffusion;
-        self.in_apf3.gain = 0.625 * params.diffusion;
-        self.in_apf4.gain = 0.625 * params.diffusion;
 
         // Tank delays
         self.l_apf1.delay_time = clamp_usize((672.0 * scale) as usize, 1, L_APF1_MAX - 32);
@@ -500,14 +503,25 @@ impl PlateauReverb {
     }
 
     #[inline(always)]
+    fn apply_diffusion_gain(&mut self) {
+        self.in_apf1.gain = 0.75 * self.diffusion_current;
+        self.in_apf2.gain = 0.75 * self.diffusion_current;
+        self.in_apf3.gain = 0.625 * self.diffusion_current;
+        self.in_apf4.gain = 0.625 * self.diffusion_current;
+    }
+
+    #[inline(always)]
     fn advance_diffusion_mix(&mut self) -> f32 {
         if self.diffusion_remaining != 0 {
             self.diffusion_remaining -= 1;
             if self.diffusion_remaining == 0 {
                 self.diffusion_mix = if self.params.diffusion == 0.0 { 0.0 } else { 1.0 };
+                self.diffusion_current = self.params.diffusion;
             } else {
                 self.diffusion_mix += self.diffusion_step;
+                self.diffusion_current += self.diffusion_gain_step;
             }
+            self.apply_diffusion_gain();
         }
         self.diffusion_mix
     }
@@ -543,6 +557,7 @@ impl PlateauReverb {
         let tank_in = if self.params.freeze { 0.0 } else { predelayed };
 
         // 2. Input Diffusers
+        let mix = self.advance_diffusion_mix();
         let filtered_in = self.in_hp.process(self.in_lp.process(tank_in));
         let diff1 = self.in_apf1.process(filtered_in);
         let diff2 = self.in_apf2.process(diff1);
@@ -550,7 +565,6 @@ impl PlateauReverb {
         let diffused = self.in_apf4.process(diff3);
         // A zero-gain allpass is still a delay. Bypass the input diffusers
         // at zero, but keep their histories advancing for subsequent edits.
-        let mix = self.advance_diffusion_mix();
         let diffused = if mix == 0.0 { filtered_in } else if mix == 1.0 { diffused }
             else { filtered_in * (1.0 - mix) + diffused * mix };
         // The diffusers may still contain pre-freeze audio. Do not inject it
