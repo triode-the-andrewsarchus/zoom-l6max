@@ -29,10 +29,22 @@ impl CaptureProtocol<'_> {
     /// Hold a completed snapshot against reuse while installation copies it.
     pub fn claim_install(&self) -> Option<u32> {
         let state = self.0.load(Ordering::Acquire);
+        self.claim_install_for(state)
+    }
+
+    /// Hold only the completed snapshot identified by this exact token.
+    pub fn claim_install_for(&self, state: u32) -> Option<u32> {
         if state & (PHASE | STEP_MASK) != DONE | STEP_MASK { return None; }
         let claim = (state & !PHASE) | COPYING;
         self.0.compare_exchange(state, claim, Ordering::AcqRel, Ordering::Acquire).ok()?;
         Some(claim)
+    }
+
+    /// Token a fresh single-step capture will have when published.
+    pub fn pending_done_token(&self) -> Option<u32> {
+        let state = self.0.load(Ordering::Acquire);
+        if state & (PHASE | STEP_MASK) != WAIT || state & EPOCH_MASK == EPOCH_MASK { return None; }
+        Some(state | STEP_MASK | DONE)
     }
 
     pub fn finish(&self, claim: u32, next_step: usize, complete: bool) -> bool {
@@ -58,8 +70,18 @@ impl CaptureProtocol<'_> {
 
     /// Invalidates an incomplete claim; a completed snapshot may be retained.
     pub fn cancel(&self, preserve_done: bool) -> bool {
+        self.cancel_matching(None, preserve_done)
+    }
+
+    /// Invalidate only the generation identified by a capture token.
+    pub fn cancel_epoch(&self, token: u32, preserve_done: bool) -> bool {
+        self.cancel_matching(Some(token & EPOCH_MASK), preserve_done)
+    }
+
+    fn cancel_matching(&self, expected_epoch: Option<u32>, preserve_done: bool) -> bool {
         let mut state = self.0.load(Ordering::Acquire);
         loop {
+            if expected_epoch.is_some_and(|epoch| state & EPOCH_MASK != epoch) { return false; }
             if preserve_done && state & PHASE == DONE { return false; }
             let epoch = state & EPOCH_MASK;
             let already_cancelled = state & PHASE == CANCELLED;

@@ -20,6 +20,8 @@ pub mod event_queue;
 pub mod handoff_protocol;
 #[path = "../probe/boundary_pause.rs"]
 pub mod boundary_pause;
+#[path = "../probe/refresh_handoff.rs"]
+pub mod refresh_handoff;
 
 #[cfg(test)]
 mod tests {
@@ -224,6 +226,73 @@ mod tests {
         assert!(pause.finish(timeout));
         assert!(!pause.publish_capture(timeout, &capture, timeout_claim));
         assert!(!capture.done());
+    }
+
+    #[test]
+    fn refresh_retries_exclude_stale_writers_and_readers() {
+        use core::sync::atomic::AtomicU32;
+        let pause = AtomicU32::new(0);
+        let capture = AtomicU32::new(0);
+        let refresh = refresh_handoff::RefreshHandoff { pause: &pause, capture: &capture };
+
+        // Cancellation before the audio task claims the request.
+        let unclaimed = refresh.request().unwrap();
+        refresh.cancel(unclaimed);
+        assert!(refresh.claim().is_none());
+
+        // A claimed writer must retire before its scratch is reused.
+        let old = refresh.request().unwrap();
+        let (boundary, writer) = refresh.claim().unwrap();
+        refresh.cancel(old);
+        assert!(refresh.claim_completed(old).is_none());
+        assert!(refresh.request().is_none(), "timed-out writer still owns scratch");
+        assert!(!refresh.publish(boundary, writer));
+
+        // A late timeout cannot cancel a newer generation.
+        let next = refresh.request().unwrap();
+        refresh.cancel(old);
+        let (boundary, writer) = refresh.claim().unwrap();
+        assert!(refresh.publish(boundary, writer));
+        assert!(refresh.claim_completed(old).is_none());
+        let reader = refresh.claim_completed(next).unwrap();
+        assert!(refresh.claim_completed(next).is_none());
+
+        // Scratch remains unavailable while an installer holds the reader.
+        assert!(refresh.request().is_none(), "reader still owns scratch");
+        assert!(!refresh.release(reader));
+        let retry = refresh.request().unwrap();
+        let (boundary, writer) = refresh.claim().unwrap();
+        assert!(refresh.publish(boundary, writer));
+        assert!(refresh.claim_completed(next).is_none());
+        assert!(refresh.release(refresh.claim_completed(retry).unwrap()));
+    }
+
+    #[test]
+    fn refresh_timeout_cannot_reuse_scratch_while_other_thread_writes() {
+        use core::sync::atomic::AtomicU32;
+        use std::sync::Barrier;
+        let pause = AtomicU32::new(0);
+        let capture = AtomicU32::new(0);
+        let refresh = refresh_handoff::RefreshHandoff { pause: &pause, capture: &capture };
+        let request = refresh.request().unwrap();
+        let barrier = Barrier::new(2);
+        std::thread::scope(|scope| {
+            let worker = scope.spawn(|| {
+                let (boundary, writer) = refresh.claim().unwrap();
+                barrier.wait();
+                barrier.wait();
+                assert!(!refresh.publish(boundary, writer));
+            });
+            barrier.wait();
+            refresh.cancel(request);
+            assert!(refresh.request().is_none());
+            barrier.wait();
+            worker.join().unwrap();
+        });
+        let retry = refresh.request().unwrap();
+        let (boundary, writer) = refresh.claim().unwrap();
+        assert!(refresh.publish(boundary, writer));
+        assert!(refresh.release(refresh.claim_completed(retry).unwrap()));
     }
 
     #[test]
