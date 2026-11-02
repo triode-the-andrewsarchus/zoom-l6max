@@ -35,6 +35,7 @@ parser.add_argument("--ring-drop", choices=("pair", "release"), help="QEMU-only 
 parser.add_argument("--timing-control", action="store_true", help="bypass effects in a QEMU timing comparison")
 parser.add_argument("--active-sends", action="store_true", help="inject nonzero QEMU-only effect buses")
 parser.add_argument("--selector-load-trace", action="store_true", help="trace a selector hold under active or bypassed effects")
+parser.add_argument("--max-velvet-density", action="store_true", help="initialize Velvet at 95 ms and 3000 pps in the selector-load trace")
 parser.add_argument("--submix-return", action="store_true", help="capture active DSP output with the modeled Sub-Mix switch held")
 parser.add_argument("--retain-custom-state", action="store_true", help="experimentally retain state across adjacent custom effects")
 parser.add_argument("--pre-ainr", action="store_true", help="run a debugger-installed AINR copy on each test send")
@@ -48,6 +49,8 @@ parser.add_argument("--passthrough-unready", action="store_true", help="keep syn
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
 parser.add_argument("--bank-stress-count", type=int, default=10, help="number of bank changes (1..64)")
 args = parser.parse_args()
+if args.max_velvet_density and not args.selector_load_trace:
+    parser.error("--max-velvet-density requires --selector-load-trace")
 if args.mixer_input_capture and (not args.callback or args.switches or args.inspector
         or args.active_sends or args.timing_control or args.pre_ainr or args.submix_return
         or args.bank_stress or args.retain_custom_state or args.selector_load_trace):
@@ -146,6 +149,8 @@ if args.timing_control:
     rustc += ["--cfg", "timing_control"]
 if args.active_sends:
     rustc += ["--cfg", "active_sends"]
+if args.max_velvet_density:
+    rustc += ["--cfg", "max_velvet_density"]
 if args.retain_custom_state:
     rustc += ["--cfg", "retain_custom_state"]
 if args.pre_ainr:
@@ -451,6 +456,8 @@ wall_timeout_s = 300
         memory("enqueue", 0x83e00600, 260)
         memory("irq", 0x83e00900, 276)
         memory("selected", 0x83e00004, 4)
+        if args.max_velvet_density:
+            memory("tap_count", 0x83e03f00, 4)
 if args.pre_ainr:
     # The observer or auto-handoff prototype installs learned AINR copies.
     recipe = f'''version = 1

@@ -142,8 +142,10 @@ Velvet now supports the full requested density range with up to 285 taps;
 its minimum of two taps and integer rounding constrain short spreads. The
 parameter model displays the resulting target density while retaining the
 requested setting. Meeting the audio deadline remains unresolved.
-An instrumented QEMU prototype with the 285 taps needed at 95 ms and 3,000
-pps ran substantially below the modeled nominal audio cadence. That result
+An instrumented current QEMU diagnostic with the 285 taps needed at 95 ms
+and 3,000 pps ran at about 416 callbacks per modeled second against 750;
+its selector hold did not reach the traced handler by the later snapshot.
+That result
 does not measure the target, but rules out treating a larger bank alone as a
 qualified solution.
 The stereo adapter now advances disabled effects on silence to avoid resuming

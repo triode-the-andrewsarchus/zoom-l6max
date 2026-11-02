@@ -867,8 +867,8 @@ probe ELF, modified MAIN, recipe and result hashes were
 
 The Velvet bank builder now spreads generation and normalization across audio
 frames rather than generating a whole bank at transition completion. An edited
-bank remains inactive until both channels are complete; the maximum 64-tap
-bank takes 128 frames to prepare. This adds state to the DSP to bound the
+bank remains inactive until both channels are complete; at the then-maximum
+64 taps, a bank took 128 frames to prepare. This adds state to the DSP to bound the
 construction work per frame. On the host, a 30,000-frame dynamic sequence
 without parameter edits matched the preceding implementation bit-for-bit;
 both output byte streams hashed to
@@ -3212,7 +3212,7 @@ the bypass hashes in the same order were
 Two later QEMU-only experiments used the same cadence sequence with active
 synthetic sends and set Velvet length to 95 ms and density to 3,000 pulses/s
 at diagnostic initialization. These are reachable parameter limits; the
-generated filter is capped at 64 taps. At the four sampling times above, the
+generated filter in those experiments was capped at 64 taps. At the four sampling times above, the
 first callback counts were 734, 2,525, 4,224 and 6,015; the second were 734,
 2,524, 4,222 and 6,014. Both average about 352 callbacks per guest second
 over the 15-second interval, below the earlier default-load observation of
@@ -4480,8 +4480,8 @@ and 3,748. These hooks perturb execution, and the bypass also skips input
 reconstruction. The observation locates this modeled delay between the UART
 hook and the traced enqueue; it does not establish physical scheduling, a
 complete parser path, or the cause of every missed control event. The
-maintained `--selector-load-trace` recipe uses the normal 64-tap limit unless
-the source is separately modified, as it was for this experiment.
+`--selector-load-trace` recipe at that time used a 64-tap limit unless the
+source was separately modified, as it was for this experiment.
 
 The active and bypass MAIN hashes were
 `9cf2b8f69d6921969eb62ebce5e5d367d2853c5f32681760650190719bd50cfd` and
@@ -4498,7 +4498,7 @@ The initial diagnostic NOR hashes were
 The stock MAIN, panel state, `l6dbg`, temporary preparation and callback
 sources, and unattested QEMU matched the preceding full-density observations.
 
-The maintained recipe was then exercised with the current 64-tap,
+The maintained recipe was then exercised with the then-current 64-tap,
 size-optimized diagnostic. Both active and bypass runs delivered the hold to
 all three trace points and opened the inspector by the first snapshot. Their
 five-second callback counts advanced by 3,751 and 3,749 respectively; the
@@ -4891,7 +4891,7 @@ were 293 and 173 samples. A host test now matches the first four reference
 delays on each channel and checks regeneration. The shared first tap increases
 zero-lag correlation: the reference's default is about 0.373, and the port's
 impulse test measures about 0.356 after its output clipper. The port remains
-wet-only, single precision and limited to 64 taps; this is not full reference
+wet-only and single precision; at the time it was limited to 64 taps. This is not full reference
 equivalence.
 
 In a disposable ARM/QEMU impulse diagnostic at those settings, an input of
@@ -5818,6 +5818,31 @@ The temporary callback source and Plateau source hashed to
 `2d7f2c530dc1ab02e89f811d6fd121b7abd0d61fddbd3bb35a4741e6b4dd730c` and
 `c3a3bfebd56084967064770a81503275073959925cef048bc7b3c49b96ec3a9f`.
 Stock MAIN, NOR, panel state, QEMU and `l6dbg` match the preceding
+modeled-input inspector run; the QEMU build's provenance is unattested.
+
+### Current full-density selector workload
+
+The maintained selector-load diagnostic can now initialize Velvet at 95 ms
+and 3,000 pps using `--max-velvet-density`. In one QEMU run with all three
+synthetic sends active, the diagnostic recorded 285 taps and its callback
+counter advanced from 922 to 3,004 over five guest seconds, about 416 per
+second against a nominal 750. The sampled output was nonzero. The IRQ trace
+saw the hold edges at ticks 52,192 and 53,696, but the traced stock enqueue
+and gesture handler did not record those edges by the later snapshot; the
+inspector remained closed. The count had not reached the default 240,000-frame
+renewal point at the timing snapshot. This instrumented result does not
+establish physical execution time, all control behavior or safety. The
+diagnostic uses unowned scratch and must not be installed.
+
+The diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`775d34b0f359a63935c17fce634f0ea49795cea98d898175edaef6a89fe67435`,
+`e69baf748e4d2b33815781c1dbff7daf840435d37221b851c8bb0046acfa00a0`,
+`22a3dd8010873b939a8410234e9f6197340adb64198577b850b66e9b1e30f24e`, and
+`5cd8be0eadf77bceefd36c68a58f7790a6061efd18dcfac7b10ab82562f18327`.
+The callback and preparer sources hashed to
+`1918e3624dc36a0ecc9582ada311cc45560f1305745ccbdf39c5998ffc04cf45` and
+`8715356cd9f61de1d304c5dda09999a095488e1fd569511af5d4b17d3f0a5893`.
+Stock MAIN, initial NOR, panel state, QEMU and `l6dbg` match the preceding
 modeled-input inspector run; the QEMU build's provenance is unattested.
 
 With all four Plateau tank allpasses modulated, a QEMU-only
