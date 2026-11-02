@@ -9,7 +9,7 @@ import shlex
 import struct
 import subprocess
 from thumb_branch import branch
-from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_boundary_hook, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks
+from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_boundary_hook, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, validate_probe_entry
 
 ROOT = Path(__file__).resolve().parents[3]
 PROBE = Path(__file__).resolve().parent
@@ -186,6 +186,7 @@ if args.boundary_noise:
 if args.passthrough_unready:
     rustc += ["--cfg", "unready_passthrough_probe"]
 subprocess.run(rustc, cwd=ROOT, check=True)
+validate_probe_entry(subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True))
 subprocess.run(["llvm-objcopy", "-O", "binary", str(elf), str(blob)], check=True)
 payload = blob.read_bytes()
 if not payload or 0x108000 + len(payload) > 0x1a2ff8:

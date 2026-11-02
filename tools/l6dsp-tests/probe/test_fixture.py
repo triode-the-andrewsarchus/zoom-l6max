@@ -4,8 +4,17 @@ import subprocess
 import sys
 import unittest
 
-from fixture import MODE_CALL_SITES, install_ainr_selector_veneer, install_boundary_hook, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks
+from fixture import MODE_CALL_SITES, install_ainr_selector_veneer, install_boundary_hook, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, validate_probe_entry
 from thumb_branch import branch
+
+
+class ProbeEntryTests(unittest.TestCase):
+    def test_fixed_redirect_rejects_missing_moved_or_ambiguous_entry(self):
+        validate_probe_entry('80108000 A PROBE_BASE\n80108000 T probe\n')
+        for output in ('', '80108078 T probe\n', '80108000 D probe\n',
+                       '80108000 T probe\n80108078 T probe\n'):
+            with self.subTest(output=output), self.assertRaises(ValueError):
+                validate_probe_entry(output)
 
 
 class PreparerModeTests(unittest.TestCase):
