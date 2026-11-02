@@ -5557,8 +5557,11 @@ trace saw both selector-hold edges, but the traced enqueue and handler did not
 see them by the later snapshot, and the inspector remained closed. The
 prototype wrote control words in groups before each 16-frame block, unlike the
 scalar callback; this limits the comparison and is not suitable for firmware.
-The sampling interval ended before the default filter renewal, so transition
-and rebuild cost were not measured. Neither workload includes AINR, and
+The callback counter reached 3,794 (3,793 completed at the work snapshot),
+so up to 2,752 frames had passed the default 240,000-frame renewal point if
+every counted callback processed all 64 frames. No direct filter-state trace
+was recorded, and the sample did not measure a complete transition and bank
+rebuild. Neither workload includes AINR, and
 the QEMU executable's source is unattested. The results do not qualify
 physical timing, controls, memory ownership, or installation.
 
@@ -5582,3 +5585,27 @@ The stock MAIN, input NOR, panel flash, options, and RTC hashed to
 The QEMU and `l6dbg` executables hashed to
 `6d16a74074f46732f03630c7e827f8d052e61ef4ae6585221e78d0d82d20263e` and
 `52af793c1d34e927210f99cf49117180121d8bd62885ce0ee7148be5dedbf2f6`.
+
+A second temporary diagnostic retained the scalar 285-tap Velvet callback,
+control-word ordering, synthetic sends and tracing, but replaced Plateau's
+per-frame processing with zero-valued return expressions. It counted 2,367
+callbacks in five guest seconds (about 473/s), against 2,303 (about 461/s)
+for the traced full-effects diagnostic. The IRQ saw both hold edges but the
+traced enqueue and handler did not see them by the later snapshot; the
+inspector stayed closed. This comparison points toward the dense Velvet
+workload as a higher-priority optimization target in this emulator, but the
+compiler and audio signal path also changed. It does not quantify physical
+CPU cost, prove the cause of the delayed events, or qualify the device. The
+callback count had not reached the 240,000-frame renewal point at the end of
+the five-second sample.
+
+The no-Plateau MAIN, ELF, recipe, and result SHA-256 values were respectively
+`db0c8cc66b9e18f590232d2a96e61d898c2fad943b37c7343d685a05690b093a`,
+`9b1030b57282c3a51607568672213759143f7211411a9af7a9824b59d8692f97`,
+`f722da850f556cce9b974c0dae092771f040104b3920972600a3089a0882ac8d`, and
+`ec6526681d9faafc0afb8c65dd24cbac1ccfcc864340c2f74eee57a9e15ecd5b`.
+The temporary routing source SHA-256 was
+`11b679e391130fe4e081b4107c13edd0c775ded50d965f2fd58b53409158a07d`;
+its callback and Velvet sources matched the scalar 285-tap build. The stock
+MAIN, input state, `l6dbg`, and unattested QEMU matched the integrated
+experiment above.
