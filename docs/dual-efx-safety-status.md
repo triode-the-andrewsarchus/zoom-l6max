@@ -260,6 +260,9 @@ Diagnostic MAIN, ELF, recipe and result SHA-256 values were
 `758dc5d661fb6bb4bdb17cc831721a1df8601532eac812a09298706a59b0c8d4`,
 `2fb50935ab6f119f5c2447a5a45ed2f1ba4a7e72ab7afcd781bbffb004025e9a` and
 `57a8721b2cbfa3bd80193bcccd973a9cfa87718c868bbe086e00a015bc3eb681`.
+An additional host comparison records all 16 inspector values and compares
+both effects and the cascade from the first frame over four parameter sets.
+This exercises saved values, not concurrent edits or firmware integration.
 Plateau predelay edits now crossfade read positions over 64 frames; a rapid
 retarget starts from the preceding predelay output, and freeze cancels the
 transition without retaining frozen input. Host tests cover reversal, idle

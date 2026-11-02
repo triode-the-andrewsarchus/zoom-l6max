@@ -992,6 +992,59 @@ mod tests {
     }
 
     #[test]
+    fn parameter_handoff_replays_full_control_state_from_first_frame() {
+        use parameters::{EfxParamId as Id, ParameterHandoff};
+        let ids = [Id::VndAmount, Id::VndTimeSpread, Id::VndDensity, Id::VndDecay,
+            Id::VndRefresh, Id::VndMode, Id::VndTransition, Id::PlatPreDelay,
+            Id::PlatSize, Id::PlatDecay, Id::PlatLowCut, Id::PlatHighCut,
+            Id::PlatDiffusion, Id::PlatModDepth, Id::PlatFreeze, Id::GlobalCascade];
+        for case in 0..4 {
+            let mut source = Box::new(routing::DualEfxProcessor::new());
+            let mut actual = Box::new(routing::DualEfxProcessor::new());
+            let mut expected = Box::new(routing::DualEfxProcessor::new());
+            source.init();
+            actual.init();
+            expected.init();
+            let mut velvet = source.velvet.current;
+            velvet.amount = [0.0, 0.2, 0.8, 1.0][case];
+            velvet.length_ms = [1.0, 25.0, 60.0, 95.0][case];
+            velvet.density = [10.0, 500.0, 2000.0, 3000.0][case];
+            velvet.decay_db = [-120.0, -60.0, -20.0, 0.0][case];
+            velvet.refresh_seconds = [0.1, 0.5, 5.0, 60.0][case];
+            velvet.transition_ms = [90.0, 100.0, 500.0, 2000.0][case];
+            velvet.dynamic = case % 2 == 0;
+            source.velvet.set_parameters(velvet);
+            let mut plateau = source.plateau.params;
+            plateau.predelay_ms = [0.0, 10.0, 100.0, 190.0][case];
+            plateau.size = [0.2, 0.5, 1.0, 1.2][case];
+            plateau.decay = [0.1, 0.4, 0.8, 0.999][case];
+            plateau.low_cut_hz = [20.0, 80.0, 500.0, 1000.0][case];
+            plateau.high_cut_hz = [1000.0, 6500.0, 12000.0, 16000.0][case];
+            plateau.diffusion = [0.0, 0.25, 0.75, 1.0][case];
+            plateau.mod_depth = [0.0, 4.0, 8.0, 16.0][case];
+            plateau.freeze = case == 3;
+            source.plateau.set_parameters(plateau);
+            source.cascade_gain = [0.0, 0.25, 0.75, 1.0][case];
+            let handoff = ParameterHandoff::new();
+            for id in ids { handoff.record(id, &source); }
+            handoff.restore(&mut actual);
+            expected.velvet.init(source.velvet.current);
+            expected.plateau.init(source.plateau.params);
+            expected.cascade_gain = source.cascade_gain;
+            let mut peak = 0.0f32;
+            for frame in 0..14_000 {
+                let a = if frame % 257 == 0 { 0.3 } else { 0.0 };
+                let b = if frame % 113 == 0 { -0.2 } else { 0.0 };
+                let cascade = if frame % 379 == 0 { 0.1 } else { 0.0 };
+                let output = actual.process_bus_sample(a, b, cascade);
+                assert_eq!(output, expected.process_bus_sample(a, b, cascade), "case {case}, frame {frame}");
+                peak = peak.max(output.0.abs()).max(output.1.abs());
+            }
+            assert!(peak > 0.0001, "case {case} did not exercise output");
+        }
+    }
+
+    #[test]
     fn velvet_density_display_tracks_the_generated_tap_count() {
         use parameters::{snapshot_parameter, EfxParamId, ParameterSnapshot};
         let mut processor = Box::new(routing::DualEfxProcessor::new());
