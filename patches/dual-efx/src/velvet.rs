@@ -11,7 +11,8 @@ use super::math::*;
 
 pub const SAMPLE_RATE: f32 = 48000.0;
 pub const MAX_DELAY_SAMPLES: usize = 4802; // Up to 100 ms at 48 kHz
-pub const MAX_TAPS: usize = 64; // Plenty for 30–60 taps
+// 95 ms at the maximum requested density of 3,000 impulses per second.
+pub const MAX_TAPS: usize = 285;
 const AMOUNT_FADE_SAMPLES: u32 = 64;
 
 #[cold]
@@ -137,7 +138,7 @@ impl Channel {
 pub struct Parameters {
     pub dynamic: bool,
     pub amount: f32,          // 0.0 to 1.0 (wet mix)
-    pub length_ms: f32,       // 5.0 to 80.0 ms (default ~27.56 ms)
+    pub length_ms: f32,       // 1.0 to 95.0 ms (default ~27.56 ms)
     pub density: f32,         // pulses per second (default ~1088.4)
     pub refresh_seconds: f32, // time between renewals (default 5.0 s)
     pub transition_ms: f32,   // crossfade time (default 250.0 ms)

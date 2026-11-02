@@ -10,7 +10,7 @@ Replaces the stock mono/reconstructed send effects with high-end modern DSP engi
    Ported from [115dkk/Velvet-Noise-Decorrelator-VST3](https://github.com/115dkk/Velvet-Noise-Decorrelator-VST3) to bare-metal `no_std` ARM Cortex-M7. Replaces Spring Reverb (`efx_type = 2`). Generates a sparse, unit-energy impulse sequence to decorrelate stereo audio channels without comb filtering or transient smearing.
    Each generated bank begins with the reference's positive zero-delay tap.
    This send-effect adaptation uses a wet-only output, single-precision math,
-   and at most 64 taps; it is not bit-identical to the reference plug-in.
+   and up to 285 taps; it is not bit-identical to the reference plug-in.
 2. **Valley Plateau Plate Reverb** (Effect B):
    Ported from [digitalartifactmusic/PlateauNEVersio](https://github.com/digitalartifactmusic/PlateauNEVersio) / Dattorro 1997 topology to bare-metal `no_std` ARM Cortex-M7. Replaces Room Reverb (`efx_type = 1`). Features 4 input diffusers, 2 cross-coupled modulated feedback delay loops, predelay, damping, and freeze mode.
 3. **Dual Concurrent Send & Routing Matrix**:
@@ -62,11 +62,11 @@ off. The model and value formatter are host-tested; firmware event handling,
 display presentation, bank selection and routing controls are not connected.
 Plateau holds its tank modulation delays fixed while frozen to preserve the
 tail, and resumes modulation when freeze is released.
-The density display reports the target limited by the 64-tap bank; the
-requested setting is retained and can become effective if the spread is
-shortened. Density edits that leave the rounded tap count unchanged do not
-regenerate the filter. The audible bank may still be transitioning to the
-target.
+The density display reports the target after rounding to a whole number of
+taps. The requested setting is retained. Density edits that leave the rounded
+tap count unchanged do not regenerate the filter. The audible bank may still
+be transitioning to the target. A prior maximum-density diagnostic ran below
+modeled audio cadence; the full range has not been qualified on hardware.
 
 ## Build & Test
 

@@ -637,7 +637,7 @@ mod tests {
         assert_eq!(restored.velvet.current.refresh_seconds, source.velvet.current.refresh_seconds);
         assert_eq!(restored.velvet.current.transition_ms, source.velvet.current.transition_ms);
 
-        // Display the tap-limited target without discarding the request.
+        // Preserve the requested density across a parameter handoff.
         source.init();
         restored.init();
         let mut params = source.velvet.current;
@@ -645,9 +645,9 @@ mod tests {
         params.density = 3000.0;
         source.velvet.set_parameters(params);
         let displayed = snapshot_parameter(Id::VndDensity, &source);
-        assert!((displayed.value - 64_000.0 / 95.0).abs() < 0.01);
+        assert!((displayed.value - 3000.0).abs() < 0.01);
         let formatted = format_parameter(Id::VndDensity, &source);
-        assert_eq!(&formatted.value_str[..formatted.value_len], b"673.7 pps");
+        assert_eq!(&formatted.value_str[..formatted.value_len], b"3000.0 pps");
         let handoff = ParameterHandoff::new();
         handoff.record(Id::VndTimeSpread, &source);
         handoff.record(Id::VndDensity, &source);
@@ -668,7 +668,7 @@ mod tests {
             (1.0, 100.0, 2, 2000.0),
             (1.2, 3000.0, 4, 192_000.0 / 57.0),
             (10.0, 440.0, 4, 400.0),
-            (95.0, 3000.0, 64, 64_000.0 / 95.0),
+            (95.0, 3000.0, 285, 3000.0),
         ] {
             let mut params = processor.velvet.current;
             params.length_ms = spread;
@@ -1423,10 +1423,10 @@ mod tests {
         let mut params = velvet::Parameters::default();
         params.dynamic = false;
         params.length_ms = 95.0;
-        params.density = 1000.0;
+        params.density = 2996.0;
         edited.init(params);
         reference.init(params);
-        assert_eq!(edited.channels[0].banks[edited.active_bank].count, 64);
+        assert_eq!(edited.channels[0].banks[edited.active_bank].count, 285);
         params.density = 3000.0;
         edited.set_parameters(params);
         assert_eq!(edited.current.density, 3000.0);
@@ -1434,9 +1434,9 @@ mod tests {
         for frame in 0..16_000 {
             let sample = (frame as f32 * 0.031).sin() * 0.2;
             assert_eq!(edited.process_sample(sample, sample), reference.process_sample(sample, sample),
-                "capped density edit changed audio at frame {frame}");
+                "equivalent density edit changed audio at frame {frame}");
         }
-        // A spread change still rebuilds even when both counts are capped.
+        // A spread change still rebuilds the filter.
         params.length_ms = 90.0;
         let before = edited.generation;
         edited.set_parameters(params);
@@ -1613,6 +1613,42 @@ mod tests {
         assert!(!edited.filter_update_pending);
         assert_eq!(edited.channels[0].banks[edited.active_bank].count, 19);
         assert_eq!(edited.channels[1].banks[edited.active_bank].count, 19);
+    }
+
+    #[test]
+    fn velvet_maximum_density_builds_normalized_banks_and_renews() {
+        let mut effect = Box::new(velvet::VelvetDecorrelator::new());
+        let params = velvet::Parameters {
+            length_ms: 95.0, density: 3000.0, refresh_seconds: 0.1,
+            transition_ms: 1.0, ..velvet::Parameters::default()
+        };
+        effect.init(params);
+        let check_banks = |effect: &velvet::VelvetDecorrelator| {
+            for channel in &effect.channels {
+                for bank in &channel.banks {
+                    assert_eq!(bank.count, 285);
+                    let taps = &bank.storage[..bank.count];
+                    assert_eq!(taps[0].delay, 0);
+                    assert!(taps[0].gain > 0.0);
+                    assert!(taps.windows(2).all(|pair| pair[0].delay < pair[1].delay));
+                    assert!(taps.last().unwrap().delay <= 4560);
+                    let energy: f32 = taps.iter().map(|tap| tap.gain * tap.gain).sum();
+                    assert!((energy - 1.0).abs() < 0.0001, "energy {energy}");
+                }
+            }
+        };
+        check_banks(&effect);
+        for i in 0..12_000 {
+            let input = (i as f32 * 0.037).sin() * 0.1;
+            let (left, right) = effect.process_sample(input, input);
+            assert!(left.is_finite() && right.is_finite());
+            assert!(left.abs() < 5.0 && right.abs() < 5.0);
+        }
+        assert!(effect.generation > 2, "maximum-density banks did not renew");
+        // Wait until neither bank is being rebuilt before checking normalization.
+        effect.set_parameters(velvet::Parameters { dynamic: false, ..params });
+        for _ in 0..1000 { effect.process_sample(0.0, 0.0); }
+        check_banks(&effect);
     }
 
     #[test]
@@ -2660,7 +2696,7 @@ mod tests {
         for (id, expected) in [
             (Id::VndAmount, "100.0 %"),
             (Id::VndTimeSpread, "95.0 ms"),
-            (Id::VndDensity, "673.7 pps"),
+            (Id::VndDensity, "1084.2 pps"),
             (Id::VndDecay, "-0.5 dB"),
             (Id::VndRefresh, "5.0 s"),
             (Id::VndTransition, "17.5 ms"),

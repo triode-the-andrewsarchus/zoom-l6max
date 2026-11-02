@@ -16,15 +16,15 @@ The blocking findings for L6max MAIN 1.10
   emulator run the largest stock-heap free block was 160,008 bytes, less than
   the then-current payload state of 319,216 bytes; see the
   [callback investigation](firmware/l6max-effect-callback.md). The current
-  processor type measures 272,272 bytes for `thumbv7em-none-eabihf` after a
+  processor type measures 279,344 bytes for `thumbv7em-none-eabihf` after a
   25,824-byte reduction in raw Plateau delay arrays; it still exceeds that free
   block. The current size query object SHA-256 is
-  `ef9e38bcf32aba278a8774a859400f682bd0e0135114130110aebb8c8bce9cd4`
+  `1d917a7f8698898ff4e71c00824b9bf6896e6188432d3e57663f6302eba034e4`
   using `rustc 1.99.0-nightly (1ed2df61a 2026-08-04)`.
   Of that state, the raw `f32` histories comprise 36,484 bytes of
   Plateau predelay, 7,024 bytes of Plateau input diffusion, 168,372 bytes of
   Plateau tank delays and 57,624 bytes of Velvet histories (including the
-  separate cascade history). The remaining 2,768 bytes include filter banks,
+  separate cascade history). The remaining 9,840 bytes include filter banks,
   parameters and bookkeeping. These counts describe allocated capacity,
   not a proof that any stock firmware memory can be reused.
   Stock code
@@ -131,11 +131,10 @@ ARM diagnostic build, the former per-sample divide moved to transition start
 (old and new ELF SHA-256 values `a58c0d242fafc5bbd5f61b8fc4aecd46a4fe1f55022a82b69e45e9c09a96d398`
 and `197bafc27f9023b26c1b1a73a53c8d9150577343e6a53dd2d15ebc60b44cc5da`).
 This instruction inspection does not measure workload or establish a deadline.
-Velvet's 64-tap limit prevents the full requested density range at long
-spreads; its minimum of two taps and integer rounding also constrain short
-spreads. The parameter model displays the resulting target density while
-retaining the requested setting. Meeting the full range and its deadline
-remains unresolved.
+Velvet now supports the full requested density range with up to 285 taps;
+its minimum of two taps and integer rounding constrain short spreads. The
+parameter model displays the resulting target density while retaining the
+requested setting. Meeting the audio deadline remains unresolved.
 An instrumented QEMU prototype with the 285 taps needed at 95 ms and 3,000
 pps ran substantially below the modeled nominal audio cadence. That result
 does not measure the target, but rules out treating a larger bank alone as a
