@@ -6047,14 +6047,14 @@ unattested.
 
 ### Standalone callback admission model
 
-The standalone model admits at most one lease for each of the live and
-file-mix paths. A selector can close admission, wait for both leases to
+The original standalone model admitted at most one lease for each of the live
+and file-mix paths. A selector could close admission, wait for both leases to
 finish, then reopen it. Host tests cover a callback paused before loading
 its pointer, a close timeout, a competing closer and simultaneous callers.
 A sequential QEMU ARM diagnostic reported all eleven modeled checks passing
 (`0x7ff`, marker `0x41444d31`); the target object contains exclusive-load,
 exclusive-store and memory-barrier instructions. The model is not connected
-to either firmware path. It requires disjoint mutable DSP state for the two
+to either firmware path. The original model required disjoint mutable DSP state for the two
 paths, acquisition before pointer load, safe handling of rejected entry, and
 owned state across reset. Atomic retry and wait times are unbounded here.
 The test does not establish those requirements, all other stock users, DMA
@@ -6071,4 +6071,27 @@ The admission and diagnostic payload sources hashed to
 `ceec2b5bd841d770cacc9bff00ebaded73ce61e6aac3d9628f25560e06d3fdca`.
 The rebuilt ELF and MAIN matched the measured versions. Stock MAIN, initial
 NOR, panel state, QEMU and `l6dbg` match the preceding modeled-input run;
-the QEMU build's provenance is unattested.
+the QEMU build's provenance is unattested. These observations apply to the
+original model, which allowed the two paths to overlap. The current model
+instead admits at most one path at a time because the stock wrappers also
+share effect scratch, regardless of whether DSP state is separate. This
+change still does not connect the gate to firmware or define safe rejection.
+
+The revised model's sequential QEMU ARM probe also reported `0x7ff` with
+marker `0x41444d31`; host tests additionally exercise opposing-path exclusion
+and concurrent closers. The diagnostic MAIN, ELF, recipe and result SHA-256
+values were respectively
+`73739d256d23c0d77253d3d48fc68531a5222ff133dbe230a907a6f1041c9a86`,
+`3568d3d96c0cbd61b7a27934b58e8c3f9903e2d3bd6c748b730f61a4e22bae75`,
+`efcc35df6e9c10fece8588e447eff5af7cfa2f652369d65ec62c3c8c7856bf38`, and
+`793b852457cdba946ded176ab1c85ad90be260c1efd74f55a9ca2f13e05fdde1`.
+The admission and diagnostic payload source hashes were
+`90f20cc4218139f6825c634349fe36a36613ce7af32ff835e2986d0ac1b4e427` and
+`923dd6f482e2edd99c15b175aafc203458d3e54e9940e856f5616949b8720822`.
+The stock MAIN and initial NOR, panel flash, options and RTC were the same as
+the preceding experiment. QEMU SHA-256 was
+`eade074b5d7a6fe9d74bbbe1ad36a34f7356cd200cbfc81e772f2a21892012e8`
+with unattested build provenance; `l6dbg` was
+`52af793c1d34e927210f99cf49117180121d8bd62885ce0ee7148be5dedbf2f6`.
+This remains a sequential diagnostic, not integrated concurrency or hardware
+qualification.

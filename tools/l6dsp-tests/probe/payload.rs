@@ -41,9 +41,8 @@ pub unsafe extern "C" fn probe() {
     let gate = CallbackAdmission::new();
     let mut passed = 0u32;
     let live = gate.try_enter(CallbackPath::Live);
-    let file = gate.try_enter(CallbackPath::FileMix);
     if live.is_some() { passed |= 1; }
-    if file.is_some() { passed |= 2; }
+    if gate.try_enter(CallbackPath::FileMix).is_none() { passed |= 2; }
     if gate.try_enter(CallbackPath::Live).is_none() { passed |= 4; }
     let close = gate.try_close();
     if close.is_some() { passed |= 8; }
@@ -51,15 +50,14 @@ pub unsafe extern "C" fn probe() {
     if gate.try_enter(CallbackPath::Live).is_none() { passed |= 32; }
     if close.as_ref().is_some_and(|guard| !guard.is_drained()) { passed |= 64; }
     drop(live);
-    if close.as_ref().is_some_and(|guard| !guard.is_drained()) { passed |= 128; }
-    drop(file);
-    if close.as_ref().is_some_and(|guard| guard.is_drained()) { passed |= 256; }
+    if close.as_ref().is_some_and(|guard| guard.is_drained()) { passed |= 128; }
+    if gate.try_enter(CallbackPath::FileMix).is_none() { passed |= 256; }
     drop(close);
     if gate.try_enter(CallbackPath::Live).is_some() { passed |= 512; }
     let file = gate.try_enter(CallbackPath::FileMix);
     let timed_out = gate.try_close();
     drop(timed_out);
-    if file.is_some() && gate.try_enter(CallbackPath::FileMix).is_none() { passed |= 1024; }
+    if file.is_some() && gate.try_enter(CallbackPath::Live).is_none() { passed |= 1024; }
     drop(file);
     unsafe {
         core::ptr::write_volatile(0x83e00000 as *mut u32, passed);

@@ -72,10 +72,11 @@ The blocking findings for L6max MAIN 1.10
   A forced emulator interleaving has shown that audio can reach a newly
   published callback before the selecting task continues, so callback state
   must be ready before that publication. A standalone admission model now
-  closes both candidate paths and drains their leases in host tests, but is
-  not connected to firmware. It requires independent mutable state per path,
-  a safe response to rejected entry, owned persistent storage, and all users
-  to acquire a lease before loading a callback; these remain unproven. Its
+  excludes simultaneous live and file-mix leases and drains the active lease
+  in host tests, but is not connected to firmware. It requires a safe response
+  to rejected entry, owned persistent storage, appropriate state handling for
+  both paths, and all users to acquire a lease before loading a callback or
+  touching shared scratch; these remain unproven. Its
   atomic retries and selector wait have no established target deadline.
 - In QEMU, the inspector's long-hold gesture was misclassified during a
   stress run with nonzero synthetic sends on all three effect buses. Silent
