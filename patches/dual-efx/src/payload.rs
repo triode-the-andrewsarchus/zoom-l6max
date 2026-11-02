@@ -9,6 +9,8 @@ mod math;
 mod parameter_view;
 mod parameters;
 mod plateau;
+#[cfg(experimental_plateau_32k)]
+mod plateau_rate;
 mod routing;
 mod trampolines;
 mod velvet;
@@ -237,7 +239,7 @@ pub unsafe extern "C" fn knob_changed(
                         params.predelay_ms = math::clamp(
                             params.predelay_ms + (delta as f32 * 2.0),
                             0.0,
-                            150.0,
+                            plateau::MAX_PREDELAY_MS,
                         );
                         proc.plateau.set_parameters(params);
                     }
@@ -257,7 +259,7 @@ pub unsafe extern "C" fn knob_changed(
                         params.size = math::clamp(
                             params.size + (delta as f32 * 0.02),
                             0.01,
-                            1.2,
+                            plateau::MAX_SIZE,
                         );
                         proc.plateau.set_parameters(params);
                     }

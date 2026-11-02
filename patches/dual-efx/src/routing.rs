@@ -77,19 +77,35 @@ fn strip_slots(strip: usize) -> Option<core::ops::Range<usize>> {
 pub struct IdlePlateau {
     inner: PlateauReverb,
     pristine: bool,
+    #[cfg(experimental_plateau_32k)]
+    rate: super::plateau_rate::PlateauRate,
 }
 
 impl IdlePlateau {
     pub const fn new() -> Self {
-        Self { inner: PlateauReverb::new(), pristine: false }
+        Self { inner: PlateauReverb::new(), pristine: false,
+            #[cfg(experimental_plateau_32k)]
+            rate: super::plateau_rate::PlateauRate::new(),
+        }
     }
 
     pub fn init(&mut self, params: PlateauParameters) {
         self.inner.init(params);
         self.pristine = true;
+        #[cfg(experimental_plateau_32k)]
+        self.rate.clear();
+    }
+
+    #[cfg(experimental_plateau_32k)]
+    pub fn clear(&mut self) {
+        self.inner.clear();
+        self.rate.clear();
+        self.pristine = true;
     }
 
     pub fn set_parameters(&mut self, params: PlateauParameters) {
+        #[cfg(experimental_plateau_32k)]
+        if params.freeze && !self.inner.params.freeze { self.rate.clear_input(); }
         self.inner.set_parameters(params);
     }
 
@@ -105,17 +121,34 @@ impl IdlePlateau {
     /// Update controls consumed directly per sample, without recalculating
     /// delay lengths or filter coefficients on the audio task.
     pub(crate) fn set_live_parameters(&mut self, params: PlateauParameters) {
+        #[cfg(experimental_plateau_32k)]
+        if params.freeze && !self.inner.params.freeze { self.rate.clear_input(); }
         self.inner.set_live_parameters(params);
     }
 
     pub fn process_sample(&mut self, l: f32, r: f32) -> (f32, f32) {
+        #[cfg(experimental_plateau_32k)]
+        {
+            let inner = &mut self.inner;
+            let pristine = &mut self.pristine;
+            let (l, r) = if inner.params.freeze { (0.0, 0.0) } else { (l, r) };
+            self.rate.process(l, r, |l, r| Self::process_internal(inner, pristine, l, r))
+        }
+        #[cfg(not(experimental_plateau_32k))]
+        {
+            Self::process_internal(&mut self.inner, &mut self.pristine, l, r)
+        }
+    }
+
+    #[inline(always)]
+    fn process_internal(inner: &mut PlateauReverb, pristine: &mut bool, l: f32, r: f32) -> (f32, f32) {
         // Requiring positive zero preserves the ordinary path for signed zero.
-        if self.pristine && l.to_bits() == 0 && r.to_bits() == 0 {
-            self.inner.advance_pristine();
+        if *pristine && l.to_bits() == 0 && r.to_bits() == 0 {
+            inner.advance_pristine();
             (0.0, 0.0)
         } else {
-            self.pristine = false;
-            self.inner.process_sample(l, r)
+            *pristine = false;
+            inner.process_sample(l, r)
         }
     }
 }

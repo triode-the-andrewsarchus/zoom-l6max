@@ -15,15 +15,17 @@ The matching experimental Rust converter is checked with
 `RUSTFLAGS='--cfg experimental_plateau_32k' cargo test --offline --locked -p l6dsp-tests plateau_rate::tests`.
 The committed filter tables can be verified with
 `PYTHONDONTWRITEBYTECODE=1 python3 tools/l6dsp-tests/experiments/plateau_rate_coeffs.py --check`.
-The converter is not yet connected to the reverb or firmware, and its
-per-frame CPU cost has not been qualified on target.
+Under `experimental_plateau_32k` the standalone routed reverb uses this
+converter. Focused `plateau_32k` tests compare it to separately assembled
+converter/core processing, cover the control endpoints, reset, and discarded
+freeze input. It is not connected to firmware; return alignment and per-frame
+CPU cost have not been qualified on target.
 
 The `experimental_plateau_32k` compile configuration selects a standalone
 32 kHz core with size 0.01–4 and 0–500 ms predelay. Run its focused test with
 `RUSTFLAGS='--cfg experimental_plateau_32k' cargo test --offline --locked -p l6dsp-tests plateau::tests`.
-It is not connected to the converter, UI, or firmware, and the normal 48 kHz
-test suite cannot run against it unchanged. Its ARM processor type is 511,072
-bytes excluding the rate converter; the size-query object SHA-256 was
+The normal 48 kHz test suite cannot run against it unchanged. Before adding
+the routed converter, its ARM processor type was 511,072 bytes; the size-query object SHA-256 was
 `0899ea4b81e4b087f9404fc4079c8a37f44fcd89608df90292b225619bf4c637`
 using `rustc 1.99.0-nightly (1ed2df61a 2026-08-04)`. An earlier 510,944-byte
 estimate omitted maximum modulation headroom from two allpasses; the focused
@@ -55,6 +57,10 @@ relocated appropriately, and that the stock buffer and heap can be safely
 owned across selection, audio and file mixing. None is established. The
 calculation excludes converter state, executable code, workspaces, other
 firmware use and allocation overhead; it is not a hardware memory plan.
+A later diagnostic with the converter included observed a 512,112-byte
+processor, which would leave 21,112 bytes in that same hypothetical placement
+before the other exclusions. See the [safety status](../../../docs/dual-efx-safety-status.md)
+for the run and its limits.
 
 `python3 tools/l6dsp-tests/experiments/partitioned_velvet.py` requires NumPy
 and compares a proposed full-density, partitioned convolution schedule with

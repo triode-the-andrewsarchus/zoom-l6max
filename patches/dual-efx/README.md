@@ -76,9 +76,10 @@ Plateau holds its tank modulation delays fixed while frozen to preserve the
 tail, and resumes modulation when freeze is released.
 The default 48 kHz Plateau size range is 0.01–1.2 and predelay is 0–190 ms; the
 Multistomp version supports size through 4.0 and predelay through 500 ms. The
-larger ranges still need a viable, qualified memory and processing design. A
-separate experimental 32 kHz core supports them in focused host tests, but it
-has no connected converter, controls or firmware allocation.
+larger ranges still need a viable, qualified memory and processing design. An
+experimental 32 kHz core, converter, and inspector model support them in
+standalone host tests. The converter adds latency to Plateau; effect-return
+alignment, target timing, and firmware allocation are not established.
 The normal Plateau sample path returns silence without advancing its state
 when a delay cursor or length is invalid; the processor must be reinitialized
 before reuse. This does not validate arbitrary corrupt state, the pristine

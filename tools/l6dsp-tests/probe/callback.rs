@@ -15,6 +15,9 @@ compile_error!("guarded initial capture requires combined admission and selector
 mod math;
 #[path = "../../../patches/dual-efx/src/plateau.rs"]
 mod plateau;
+#[cfg(experimental_plateau_32k)]
+#[path = "../../../patches/dual-efx/src/plateau_rate.rs"]
+mod plateau_rate;
 #[path = "../../../patches/dual-efx/src/routing.rs"]
 mod routing;
 #[path = "../../../patches/dual-efx/src/velvet.rs"]

@@ -34,6 +34,26 @@ requires a storage and processing design compatible with the other effects
 and AINR. Neither the short-size tests nor the existing allocations prove it
 will fit or meet a physical deadline.
 
+An experimental configuration now routes the 32 kHz Plateau core through a
+48/32 kHz converter, with standalone control limits of 4.0 and 500 ms. Host
+tests cover full-range control copies, converter/core routing, reset, and
+discarding input during short freezes. In one QEMU-only synthetic stress run,
+the diagnostic recorded those two settings, 400 Velvet taps, a 512,112-byte
+processor, finite nonzero combined output, and 1,355 callbacks in five
+modeled seconds against 3,750 nominal. The inspector remained closed. This
+does not isolate the Plateau return or establish target timing, physical
+controls, return alignment, buffer ownership or hardware safety. The MAIN,
+ELF, recipe and result SHA-256 values were
+`3158a1fb8f8c69443da29539220e564b83e65fc3c7ef3d1f86deffd7c042731d`,
+`270a3a02dc0972c592ac1bcebf586e5dd1976335f23b38a4031de20cb02a841a`,
+`2b0da2a4a948d21e7388d8478206ed2a8ac4b38bc8629c107f2b6967c644f9cf`, and
+`2ab7e07a823e7239e9e7c9f5a2d8b93b14d4da587216b662d848927aa389c60b`.
+The modified diagnostic callback source hashed to
+`671024c67b83f171767555ed5b9904bc1c47438b3437b86f9e7a58469a5630c0`.
+The stock MAIN, initial NOR, panel state, QEMU and `l6dbg` match the guard
+experiment below; QEMU source is unattested. The diagnostic uses unowned
+scratch and must never be installed.
+
 The normal Plateau sample path checks all 13 delay cursor and length pairs
 before changing reverb state, returning silence on invalid metadata. Host
 tests cover each cursor, zero and oversized lengths, too-short interpolated

@@ -24,8 +24,8 @@ const INPUT_LOW_CUT_HZ: f32 = 13.75;
 // The 32 kHz core is experimental: its caller must perform rate conversion
 // and reserve its larger state. The firmware integration does neither yet.
 const EXPERIMENTAL_32K: bool = cfg!(experimental_plateau_32k);
-const MAX_SIZE: f32 = if EXPERIMENTAL_32K { 4.0 } else { 1.2 };
-const MAX_PREDELAY_MS: f32 = if EXPERIMENTAL_32K { 500.0 } else { 190.0 };
+pub(crate) const MAX_SIZE: f32 = if EXPERIMENTAL_32K { 4.0 } else { 1.2 };
+pub(crate) const MAX_PREDELAY_MS: f32 = if EXPERIMENTAL_32K { 500.0 } else { 190.0 };
 const PREDELAY_MAX: usize = if EXPERIMENTAL_32K { 16001 } else { 9121 };
 const IN_APF1_MAX: usize = if EXPERIMENTAL_32K { 154 } else { 274 };
 const IN_APF2_MAX: usize = if EXPERIMENTAL_32K { 118 } else { 209 };

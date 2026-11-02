@@ -32,6 +32,83 @@ pub mod refresh_handoff;
 mod tests {
     use super::*;
 
+    #[cfg(experimental_plateau_32k)]
+    #[test]
+    fn plateau_32k_routed_converter_matches_explicit_core_and_resets() {
+        let params = plateau::PlateauParameters { size: 4.0, predelay_ms: 500.0,
+            mod_depth: 16.0, ..plateau::PlateauParameters::default() };
+        let mut routed = Box::new(routing::IdlePlateau::new());
+        let mut core = Box::new(plateau::PlateauReverb::new());
+        let mut rate = plateau_rate::PlateauRate::new();
+        routed.init(params);
+        core.init(params);
+        let mut peak = 0.0f32;
+        let mut first = None;
+        for frame in 0..72_000 {
+            let input = if frame == 0 { 0.5 } else { 0.0 };
+            let actual = routed.process_sample(input, input);
+            let expected = rate.process(input, input, |l, r| core.process_sample(l, r));
+            assert_eq!(actual, expected, "frame {frame}");
+            let level = actual.0.abs().max(actual.1.abs());
+            if level != 0.0 && first.is_none() { first = Some(frame); }
+            peak = peak.max(level);
+        }
+        assert!(first.is_some_and(|frame| frame >= 23_999));
+        assert!(peak > 0.0001);
+
+        // Neither initialization nor clear may retain converter history.
+        for reinitialize in [true, false] {
+            routed.process_sample(0.5, 0.5);
+            if reinitialize { routed.init(params); } else { routed.clear(); }
+            for frame in 0..26_000 {
+                assert_eq!(routed.process_sample(0.0, 0.0), (0.0, 0.0),
+                    "stale output at frame {frame}, reinitialize={reinitialize}");
+            }
+        }
+    }
+
+    #[cfg(experimental_plateau_32k)]
+    #[test]
+    fn plateau_32k_inspector_model_accepts_full_range() {
+        use parameters::{edit_encoder, snapshot_parameter, EfxParamId as Id, ParameterBank};
+        let mut processor = Box::new(routing::DualEfxProcessor::new());
+        processor.init();
+        assert_eq!(edit_encoder(&mut processor, ParameterBank::Plateau, 0, i32::MAX), Some(Id::PlatPreDelay));
+        assert_eq!(edit_encoder(&mut processor, ParameterBank::Plateau, 1, i32::MAX), Some(Id::PlatSize));
+        assert_eq!(processor.plateau.params.predelay_ms, 500.0);
+        assert_eq!(processor.plateau.params.size, 4.0);
+        for id in [Id::PlatPreDelay, Id::PlatSize] {
+            let snapshot = snapshot_parameter(id, &processor);
+            assert!(parameter_view::ParameterSnapshot::from_words(id as u32, snapshot.value.to_bits()).is_some());
+        }
+    }
+
+    #[cfg(experimental_plateau_32k)]
+    #[test]
+    fn plateau_32k_freeze_discards_converter_input_even_on_short_holds() {
+        let params = plateau::PlateauParameters { predelay_ms: 0.0, diffusion: 0.0,
+            ..plateau::PlateauParameters::default() };
+        let mut reverb = Box::new(routing::IdlePlateau::new());
+        for live in [false, true] {
+            for pre_freeze_input in [false, true] {
+                reverb.init(params);
+                if pre_freeze_input {
+                    // The first host frame has not yet reached the 32 kHz core.
+                    assert_eq!(reverb.process_sample(0.5, 0.5), (0.0, 0.0));
+                }
+                let mut frozen = params;
+                frozen.freeze = true;
+                if live { reverb.set_live_parameters(frozen); } else { reverb.set_parameters(frozen); }
+                assert_eq!(reverb.process_sample(0.75, 0.75), (0.0, 0.0));
+                if live { reverb.set_live_parameters(params); } else { reverb.set_parameters(params); }
+                for frame in 0..2_000 {
+                    assert_eq!(reverb.process_sample(0.0, 0.0), (0.0, 0.0),
+                        "frozen input replayed at frame {frame}, live={live}, pre={pre_freeze_input}");
+                }
+            }
+        }
+    }
+
     #[test]
     fn callback_admission_excludes_shared_scratch_and_rejects_duplicate_closes() {
         use admission::{CallbackAdmission, CallbackPath};

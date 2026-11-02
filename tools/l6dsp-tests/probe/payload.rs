@@ -5,6 +5,8 @@
 #[path = "../../../patches/dual-efx/src/math.rs"] mod math;
 #[path = "../../../patches/dual-efx/src/velvet.rs"] mod velvet;
 #[path = "../../../patches/dual-efx/src/plateau.rs"] mod plateau;
+#[cfg(experimental_plateau_32k)]
+#[path = "../../../patches/dual-efx/src/plateau_rate.rs"] mod plateau_rate;
 #[path = "../../../patches/dual-efx/src/routing.rs"] mod routing;
 #[cfg(admission_probe)]
 #[path = "../../../patches/dual-efx/src/admission.rs"] mod admission;

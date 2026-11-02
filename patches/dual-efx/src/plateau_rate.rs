@@ -38,6 +38,10 @@ impl PlateauRate {
         self.phase = 0;
     }
 
+    pub(crate) fn clear_input(&mut self) {
+        self.input = [[0.0; TAPS]; 2];
+    }
+
     #[inline(always)]
     fn filter(history: &[[f32; TAPS]; 2], write: usize, coefficients: &[f32; TAPS]) -> (f32, f32) {
         let mut left = 0.0;
