@@ -962,6 +962,36 @@ mod tests {
     }
 
     #[test]
+    fn parameter_handoff_restores_plateau_before_the_first_audio_frame() {
+        use parameters::{EfxParamId as Id, ParameterHandoff};
+        let mut source = Box::new(routing::DualEfxProcessor::new());
+        let mut restored = Box::new(routing::DualEfxProcessor::new());
+        let mut expected = Box::new(routing::DualEfxProcessor::new());
+        source.init();
+        restored.init();
+        expected.init();
+        let mut params = source.plateau.params;
+        params.predelay_ms = 0.0;
+        params.diffusion = 0.0;
+        params.low_cut_hz = 1000.0;
+        params.high_cut_hz = 1000.0;
+        source.plateau.set_parameters(params);
+        let handoff = ParameterHandoff::new();
+        for id in [Id::PlatPreDelay, Id::PlatDiffusion, Id::PlatLowCut, Id::PlatHighCut] {
+            handoff.record(id, &source);
+        }
+        handoff.restore(&mut restored);
+        expected.plateau.init(params);
+        assert_eq!(restored.plateau.l_lp.a, expected.plateau.l_lp.a);
+        assert_eq!(restored.plateau.l_apf1.gain, expected.plateau.l_apf1.gain);
+        for frame in 0..16_000 {
+            let input = if frame == 0 { 0.5 } else { 0.0 };
+            assert_eq!(restored.plateau.process_sample(input, input),
+                       expected.plateau.process_sample(input, input), "frame {frame}");
+        }
+    }
+
+    #[test]
     fn velvet_density_display_tracks_the_generated_tap_count() {
         use parameters::{snapshot_parameter, EfxParamId, ParameterSnapshot};
         let mut processor = Box::new(routing::DualEfxProcessor::new());

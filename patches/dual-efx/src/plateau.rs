@@ -441,11 +441,6 @@ impl PlateauReverb {
 
     pub fn clear(&mut self) {
         self.predelay.clear();
-        self.predelay_from_samples = self.predelay_samples;
-        self.predelay_remaining = 0;
-        self.predelay_anchor = 0.0;
-        self.predelay_previous = 0.0;
-        self.predelay_use_anchor = false;
         self.in_apf1.clear();
         self.in_apf2.clear();
         self.in_apf3.clear();
@@ -471,6 +466,21 @@ impl PlateauReverb {
 
         self.out_hp_l.clear();
         self.out_hp_r.clear();
+        self.settle_fresh_controls();
+    }
+
+    // The caller must ensure all audio histories are already clear.
+    pub(crate) fn set_parameters_fresh(&mut self, params: PlateauParameters) {
+        self.set_parameters(params);
+        self.settle_fresh_controls();
+    }
+
+    fn settle_fresh_controls(&mut self) {
+        self.predelay_from_samples = self.predelay_samples;
+        self.predelay_remaining = 0;
+        self.predelay_anchor = 0.0;
+        self.predelay_previous = 0.0;
+        self.predelay_use_anchor = false;
         self.transition_remaining = 0;
         self.transition_anchor = [0.0; 2];
         self.previous_output = [0.0; 2];

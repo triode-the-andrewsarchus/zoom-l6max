@@ -81,7 +81,7 @@ impl ParameterHandoff {
         // Rebuild the saved filter before callback publication, rather than
         // crossfading from the newly constructed default filter.
         if velvet_changed { processor.velvet.init(velvet); }
-        if plateau_changed { processor.plateau.set_parameters(plateau); }
+        if plateau_changed { processor.plateau.set_parameters_fresh(plateau); }
     }
 }
 

@@ -246,6 +246,20 @@ above. Diagnostic MAIN, ELF, recipe and result SHA-256 values were
 `b8cd44b8b2c9abae2551716b402f43c0b8657cf8607f64842604a46c05d60b6d` and
 `fa6e5a2cd17fc98423c8b32bb0ebade12d3a917b0dc976bed2370161bc392bc7`.
 The diagnostic uses unowned scratch and cannot qualify physical hardware.
+The QEMU-only parameter handoff now settles saved Plateau controls on freshly
+initialized state before callback publication, without clearing the large
+histories again. A host test compares the first 16,000 frames with a freshly
+initialized processor using the same saved settings. In one inspector run,
+the displayed predelay was `28.0 ms` before an effect change and `30.0 ms`
+after reselecting, reopening the Plateau bank and turning it once; the queue
+recorded 19 consumed turns and no overflow. This does not establish concurrent
+mailbox consistency, callback lifetime, output continuity or target timing.
+The stock MAIN, initial NOR, QEMU and `l6dbg` identities match those above.
+Diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`bc8c69e739d3d3a48e9380cad034fe2852ecb24c3ffd14e71a88ea9221e2c215`,
+`758dc5d661fb6bb4bdb17cc831721a1df8601532eac812a09298706a59b0c8d4`,
+`2fb50935ab6f119f5c2447a5a45ed2f1ba4a7e72ab7afcd781bbffb004025e9a` and
+`57a8721b2cbfa3bd80193bcccd973a9cfa87718c868bbe086e00a015bc3eb681`.
 Plateau predelay edits now crossfade read positions over 64 frames; a rapid
 retarget starts from the preceding predelay output, and freeze cancels the
 transition without retaining frozen input. Host tests cover reversal, idle

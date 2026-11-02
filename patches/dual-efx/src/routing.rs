@@ -93,6 +93,11 @@ impl IdlePlateau {
         self.inner.set_parameters(params);
     }
 
+    /// Applies parameters to a freshly cleared processor without re-clearing histories.
+    pub(crate) fn set_parameters_fresh(&mut self, params: PlateauParameters) {
+        self.inner.set_parameters_fresh(params);
+    }
+
     pub(crate) fn set_predelay_live(&mut self, value: f32) { self.inner.set_predelay_live(value); }
     pub(crate) fn set_size_live(&mut self, value: f32) { self.inner.set_size_live(value); }
     pub(crate) fn set_diffusion_live(&mut self, value: f32) { self.inner.set_diffusion_live(value); }
