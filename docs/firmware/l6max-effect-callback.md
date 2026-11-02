@@ -7010,3 +7010,38 @@ The control and candidate recipe/result hashes were
 `4010203dc69d8f9afba8b02e7463092fbc4b85391e9a2f83f9dd4ac15538d2f8` /
 `b24d5dfc5c6501c5739dc2d4d9e519244c5f7997244f4f306cb08235799a9efd`.
 The stock MAIN, input NOR, QEMU and `l6dbg` matched the preceding experiment.
+
+The current source was also exercised in two separate QEMU-only diagnostics.
+A modeled, gated 500 Hz input and the mixer capture checker compared all 64
+reconstructed send samples for each selected effect and found finite,
+nonzero stereo returns within its unity bound. This was a fixed-route capture,
+not an audio-fidelity or real-input test. The MAIN, ELF, recipe and result
+hashes were `34a5a1605713325a1a1e5ae68bac6bbb27e2e61a3b7be8b055b0d2cd1de3033c`,
+`3cb1993642e5cd8d49930f601c9735e0c4488be5746dd7edcc45dd08868c1951`,
+`f629f42800f2154a081c3f8182cca2905019e1379a7a789b0eecf1d59c431e19`, and
+`84fb0f20b7cdcf10758b4ec3f131d2a8965dee939ce26726c8a4169f28fd21eb`.
+
+A combined inspector/popup diagnostic with active synthetic sends and IRQ
+timestamp instrumentation opened the Room inspector, counted eight encoder
+edits, routed strip 1 to A-to-B and back, changed both slots of stereo strip 5
+together, and drained the observed queues without overflow. The stock send
+was 42 before and during the inspector and 84 after closing it and turning the
+encoder again. A separate debugger-perturbed repeat observed the eight
+predelay values handed to the display side: 12 through 26 ms in 2 ms steps.
+The coarse captured OLED frame cannot establish the rendered value. These
+specific tests do not cover queue saturation, actual input routing, complete
+display behavior, memory ownership or physical timing.
+
+The combined MAIN, effect ELF, popup ELF, recipe and unperturbed result were
+`ba45420db9fc9fcfe8c4f4be29d121118ff1c8dc5c104b3429b33bc566c777ec`,
+`a8dd2629098a2545c18883020b941211dc25ff9ac2eb39d4275a90ed4995dd02`,
+`b22eb39c1ffb970f375a01345e6bfc68e3a179e19321560c2e46f5b7fe465d62`,
+`f865fb52193ac9710faca845b87fc691b056b47cab5736957b296539fba1c65b`, and
+`32ce81d4214195c5d0a56c523a130c21ab252aab296b6ffee250250e765eccd5`.
+The perturbed result, GDB script and transcript were
+`cb54de6959c1962b5daee0bf80dbd5f9b347009fc66cf81d6235693b2754a7b2`,
+`45de52644c0af8a3af7698956982c759c50df8580e3bfa2355430be5a177aeaf`, and
+`9a959a4346957a6e07873dec2eae23228b92a58c52cd028a76a8ad5d72f7ca68`.
+The stock MAIN, input NOR, panel state, QEMU and `l6dbg` matched the preceding
+experiment. The tone patch and timing instrumentation are diagnostic only;
+none of these modified images may be installed.
