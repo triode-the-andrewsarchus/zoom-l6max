@@ -204,6 +204,25 @@ Velvet now supports the full requested density range with up to 285 taps;
 its minimum of two taps and integer rounding constrain short spreads. The
 parameter model displays the resulting target density while retaining the
 requested setting. Meeting the audio deadline remains unresolved.
+At 285 taps, a 100 ms renewal and a 90 ms fade, the former one-tap-per-frame
+normalization delayed subsequent fade starts by 90 samples. The builder now
+normalizes up to two taps per channel per frame; host tests check the requested
+4,800-sample cadence, per-step bounds and identical final tap values. The extra
+per-frame work still needs target timing qualification. A QEMU-only long-fade,
+active-send diagnostic observed 1,664 callbacks in five modeled seconds and
+the inspector remained closed; this is below the nominal 750 callbacks per
+second and is not a physical timing measurement. The diagnostic MAIN, ELF,
+recipe and result SHA-256 values were
+`a9ff7fe8747449426b013149ded1b5bf343497adcc96052e51a79d58299cbcbf`,
+`4ea6b3fb142ca4054a9a996d37f29721c710f47d1eb20c0f8fd4aef0ec3405bf`,
+`f8427a6c99234b642341742b26053340634a391cb4633da6f76a9abafbe99a9e`, and
+`462856e21b4f32409a828c511406418aa6c3b24d8bb83409e5a5282430ab1d31`.
+It used the stock MAIN identity above, initial NOR
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+and QEMU `4902e96e8375adb69b1ebe0e5572fe1ba3fb6a0e413c8595605128a297dfd910`
+with unattested source provenance. The `l6dbg` executable was
+`ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`.
+No hardware was tested.
 Its circular-history index calculation now avoids the prior wrap selection
 without adding delay storage. A host comparison matched 40,000 output frames
 bit for bit. Two matched high-density QEMU runs improved from about 416 to

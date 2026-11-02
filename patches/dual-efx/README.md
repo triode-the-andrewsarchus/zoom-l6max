@@ -76,6 +76,10 @@ taps. The requested setting is retained. Density edits that leave the rounded
 tap count unchanged do not regenerate the filter. The audible bank may still
 be transitioning to the target. A prior maximum-density diagnostic ran below
 modeled audio cadence; the full range has not been qualified on hardware.
+The bank builder normalizes up to two taps per channel per frame so the
+maximum-density filter can be ready between 90 ms fades at a 100 ms renewal
+interval. Host tests check renewal timing and identical generated tap values;
+the added per-frame work has not been timed on the device.
 
 ## Build & Test
 

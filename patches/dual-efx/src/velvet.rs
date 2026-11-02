@@ -108,8 +108,8 @@ pub struct Channel {
     pub banks: [Bank; 2],
 }
 
-// One step writes or normalizes one tap per channel. The pending bank is never
-// exposed to convolution until both channels have been completely built.
+// One step generates one tap or normalizes up to two taps per channel. The
+// pending bank is never exposed until both channels have been built.
 struct BankBuild {
     bank: usize,
     count: usize,
@@ -360,7 +360,8 @@ impl VelvetDecorrelator {
         }
     }
 
-    // Bounded work: at most one tap per channel, including normalization.
+    // Normalization is cheaper than generating a tap. Two per step keep a
+    // maximum-size bank ready during the shortest gap between timed fades.
     fn build_step(&mut self) {
         let build = &mut self.build;
         let i = build.index;
@@ -405,12 +406,15 @@ impl VelvetDecorrelator {
                 build.phase = 2;
             }
         } else if build.phase == 2 {
-            for c in 0..2 {
-                self.channels[c].banks[build.bank].storage[i].gain *= build.scale[c];
-            }
-            build.index += 1;
-            if build.index == build.count {
-                build.phase = 0;
+            for _ in 0..2 {
+                for c in 0..2 {
+                    self.channels[c].banks[build.bank].storage[build.index].gain *= build.scale[c];
+                }
+                build.index += 1;
+                if build.index == build.count {
+                    build.phase = 0;
+                    break;
+                }
             }
         }
     }
@@ -656,6 +660,70 @@ impl VelvetDecorrelator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn maximum_density_renewal_stays_on_schedule_after_long_fades() {
+        let mut effect = Box::new(VelvetDecorrelator::new());
+        effect.init(Parameters { length_ms: 95.0, density: 3000.0,
+            refresh_seconds: 0.1, transition_ms: 90.0, dynamic: true,
+            ..Parameters::default() });
+        assert_eq!(effect.channels[0].banks[0].count, MAX_TAPS);
+        let mut starts = Vec::new();
+        for frame in 0..(effect.refresh_samples * 4) {
+            let was_transitioning = effect.transitioning;
+            effect.advance_filter();
+            if !was_transitioning && effect.transitioning { starts.push(frame); }
+        }
+        assert!(starts.len() >= 3, "too few transitions: {starts:?}");
+        for pair in starts.windows(2) {
+            assert_eq!(pair[1] - pair[0], effect.refresh_samples, "transition starts: {starts:?}");
+        }
+    }
+
+    #[test]
+    fn batched_normalization_preserves_banks_and_bounds_each_step() {
+        for (length_ms, density) in [(25.0, 100.0), (25.0, 400.0), (95.0, 3000.0)] {
+            let mut effect = Box::new(VelvetDecorrelator::new());
+            effect.init(Parameters { length_ms, density, ..Parameters::default() });
+            let expected = [effect.channels[0].banks[1], effect.channels[1].banks[1]];
+            let count = expected[0].count;
+            effect.start_build(1, 1);
+            let mut steps = 0;
+            let mut sequential = None;
+            while effect.build.phase != 0 {
+                let phase = effect.build.phase;
+                let before = [effect.channels[0].banks[1], effect.channels[1].banks[1]];
+                if phase == 2 && sequential.is_none() {
+                    let mut reference = before;
+                    for c in 0..2 {
+                        for tap in &mut reference[c].storage[..count] {
+                            tap.gain *= effect.build.scale[c];
+                        }
+                    }
+                    sequential = Some(reference);
+                }
+                effect.build_step();
+                steps += 1;
+                for c in 0..2 {
+                    let after = &effect.channels[c].banks[1];
+                    let changed = before[c].storage.iter().zip(after.storage.iter())
+                        .filter(|(a, b)| a.delay != b.delay || a.gain.to_bits() != b.gain.to_bits())
+                        .count();
+                    assert!(changed <= if phase == 1 { 1 } else { 2 });
+                }
+            }
+            assert_eq!(steps, count + (count + 1) / 2);
+            let sequential = sequential.unwrap();
+            for c in 0..2 {
+                let actual = &effect.channels[c].banks[1];
+                for ((a, b), reference) in actual.storage[..count].iter()
+                    .zip(&expected[c].storage[..count]).zip(&sequential[c].storage[..count]) {
+                    assert_eq!((a.delay, a.gain.to_bits()), (b.delay, b.gain.to_bits()));
+                    assert_eq!((a.delay, a.gain.to_bits()), (reference.delay, reference.gain.to_bits()));
+                }
+            }
+        }
+    }
 
     #[test]
     fn invalid_history_positions_fail_silent_before_any_history_write() {
