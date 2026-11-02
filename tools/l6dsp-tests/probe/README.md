@@ -42,6 +42,24 @@ A successful recipe only collects this observation. It does not prove live
 signal routing, effect-switch safety, callback timing, UI behavior, or
 physical-device compatibility.
 
+## Synthetic file-mix layout
+
+To examine the candidate file-mix track layout, prepare a separate image with
+`--callback --offline-mix-layout`, run its recipe, then check the observation:
+
+```sh
+python3 tools/l6dsp-tests/probe/offline_layout.py OUTPUT/logs/diagnostic.json
+```
+
+The probe directly calls a stock mixing routine with 128 synthetic frames in
+twelve candidate track buffers, distinct per-track gains, and disabled stock
+filter sections. It captures both ends of each 64-frame callback block. It
+masks interrupts during the call and deliberately overwrites stock state and
+unowned QEMU scratch; it is destructive to the copied emulator session and
+must never be installed on hardware. The check validates the synthetic data
+and stock summed callback input, not the normal file-mix workflow, effect
+routing, concurrency, target deadlines, or physical behavior.
+
 ## Automatic callback diagnostic
 
 For a separate disposable run, start with Hall selected and pass `--callback`
