@@ -11,22 +11,37 @@ it does not establish sound equivalence, target execution time, control-event
 ordering, effect-return alignment or hardware safety. Its impulse peak is
 79 host samples after the input in each of the three input phases.
 
-For a sizing experiment only, changing a temporary copy of the processor to
-32 kHz with delay capacities for size 4 and 500 ms predelay produced a
-510,944-byte ARM processor type, excluding the rate converter. The object
-SHA-256 was `262fd5a5ca09a4844e957bca4ff4ec6416a471b95bff6b69157dcee175bfa4eb`
-using `rustc 1.99.0-nightly (1ed2df61a 2026-08-04)`. This was a type-size
-query, not a functioning resampled reverb or evidence that every delay and
-tap is correctly sized. The input/output histories in the host model add
-1,024 bytes; coefficients and other implementation overhead are separate.
-The query used predelay capacity 16,001 samples, input allpasses
-`154, 118, 410, 300`, and left/right tank capacities
-`2923, 19155, 7744, 16002` / `3938, 18140, 11426, 13606` in source order.
+The `experimental_plateau_32k` compile configuration selects a standalone
+32 kHz core with size 0.01–4 and 0–500 ms predelay. Run its focused test with
+`RUSTFLAGS='--cfg experimental_plateau_32k' cargo test --offline --locked -p l6dsp-tests plateau::tests`.
+It is not connected to the converter, UI, or firmware, and the normal 48 kHz
+test suite cannot run against it unchanged. Its ARM processor type is 511,072
+bytes excluding the rate converter; the size-query object SHA-256 was
+`0899ea4b81e4b087f9404fc4079c8a37f44fcd89608df90292b225619bf4c637`
+using `rustc 1.99.0-nightly (1ed2df61a 2026-08-04)`. An earlier 510,944-byte
+estimate omitted maximum modulation headroom from two allpasses; the focused
+test exposed that error and the current buffers include it. The host model's
+input/output histories add 1,024 bytes; coefficients and other overhead are
+separate. This does not qualify allocation or target timing.
+
+An unmodulated, low-level 128,000-frame impulse comparison against the derived
+Multistomp core at commit `7ea50ae6e30705989d0b8414ad5a83c97dbef0db` used
+size/predelay pairs 0.01/0 ms, 1.0/0 ms and 4.0/500 ms. The two inputs to
+the reference were halved to match this port's stereo average. With decay
+0.85, full diffusion, wet output and approximately matched cutoff controls,
+correlations were 0.9868, 0.9863 and 0.9877; difference norms relative to the
+reference were 0.168, 0.174 and 0.165. The maximum case's first nonzero sample
+occurred at frame 16,000. These are core-rate, finite comparisons with no
+resampling, dynamic edits, freeze, or hardware; they show substantial
+similarity and measurable differences, not sound parity. The Rust/reference
+host libraries hashed to
+`aa9fdce07c30f3bfe6bbdc93f5820414c71ff7fe9988de6247fc0dadc3f7774f` /
+`2104d47b24675a463ecd48207251ba1417b86261a91de69050022fc606c88512`.
 
 As a layout calculation, three previously observed 56,264-byte candidate
 AINR tails could start at offsets `0xb94c`, `0x1b94c` and `0x2b94c` within
 the stock 768,000-byte effect buffer, ending at `0x39514`. An eight-byte
-aligned 510,944-byte processor beginning at `0x39518` would leave 22,280
+aligned 511,072-byte processor beginning at `0x39518` would leave 22,152
 bytes; a snapshot would need separate storage. This assumes the clone code
 does not access the preceding regions, that its base addresses can be
 relocated appropriately, and that the stock buffer and heap can be safely

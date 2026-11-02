@@ -10,34 +10,35 @@
 
 use super::math::*;
 
-pub const SAMPLE_RATE: f32 = 48000.0;
+pub const SAMPLE_RATE: f32 = if cfg!(experimental_plateau_32k) { 32000.0 } else { 48000.0 };
 const OUTPUT_FADE_SAMPLES: u32 = 64;
 const PREDELAY_FADE_SAMPLES: u32 = 64;
 const DIFFUSION_BYPASS_FADE_SAMPLES: u32 = 256;
 const DAMPING_FADE_SAMPLES: u32 = 64;
 const DATTORRO_SR: f32 = 29761.0;
-const SR_SCALE: f32 = SAMPLE_RATE / DATTORRO_SR; // ~1.61285
+const SR_SCALE: f32 = SAMPLE_RATE / DATTORRO_SR;
 // Fixed input-filter defaults in the Multistomp Plateau control mapping.
 const INPUT_HIGH_CUT_HZ: f32 = 14_080.0;
 const INPUT_LOW_CUT_HZ: f32 = 13.75;
 
-// Cover the supported maximum size (1.2), 190 ms predelay, modulation,
-// and output tap offsets. Rings retain their entire usable history across edits.
-const PREDELAY_MAX: usize = 9121;
-const IN_APF1_MAX: usize = 274;
-const IN_APF2_MAX: usize = 209;
-const IN_APF3_MAX: usize = 735;
-const IN_APF4_MAX: usize = 538;
-
-const L_APF1_MAX: usize = 1333;
-const L_DEL1_MAX: usize = 8620;
-const L_APF2_MAX: usize = 3704; // Includes the 1913-sample output tap.
-const L_DEL2_MAX: usize = 7201;
-
-const R_APF1_MAX: usize = 1790;
-const R_DEL1_MAX: usize = 8163;
-const R_APF2_MAX: usize = 5160; // Maximum size plus modulation and interpolation.
-const R_DEL2_MAX: usize = 6123;
+// The 32 kHz core is experimental: its caller must perform rate conversion
+// and reserve its larger state. The firmware integration does neither yet.
+const EXPERIMENTAL_32K: bool = cfg!(experimental_plateau_32k);
+const MAX_SIZE: f32 = if EXPERIMENTAL_32K { 4.0 } else { 1.2 };
+const MAX_PREDELAY_MS: f32 = if EXPERIMENTAL_32K { 500.0 } else { 190.0 };
+const PREDELAY_MAX: usize = if EXPERIMENTAL_32K { 16001 } else { 9121 };
+const IN_APF1_MAX: usize = if EXPERIMENTAL_32K { 154 } else { 274 };
+const IN_APF2_MAX: usize = if EXPERIMENTAL_32K { 118 } else { 209 };
+const IN_APF3_MAX: usize = if EXPERIMENTAL_32K { 410 } else { 735 };
+const IN_APF4_MAX: usize = if EXPERIMENTAL_32K { 300 } else { 538 };
+const L_APF1_MAX: usize = if EXPERIMENTAL_32K { 2923 } else { 1333 };
+const L_DEL1_MAX: usize = if EXPERIMENTAL_32K { 19155 } else { 8620 };
+const L_APF2_MAX: usize = if EXPERIMENTAL_32K { 7760 } else { 3704 };
+const L_DEL2_MAX: usize = if EXPERIMENTAL_32K { 16002 } else { 7201 };
+const R_APF1_MAX: usize = if EXPERIMENTAL_32K { 3938 } else { 1790 };
+const R_DEL1_MAX: usize = if EXPERIMENTAL_32K { 18140 } else { 8163 };
+const R_APF2_MAX: usize = if EXPERIMENTAL_32K { 11442 } else { 5160 };
+const R_DEL2_MAX: usize = if EXPERIMENTAL_32K { 13606 } else { 6123 };
 
 #[derive(Clone, Copy)]
 pub struct Delay<const N: usize> {
@@ -289,8 +290,8 @@ impl TriangleLFO {
 
 #[derive(Clone, Copy)]
 pub struct PlateauParameters {
-    pub predelay_ms: f32,     // 0.0 to 190.0 ms
-    pub size: f32,             // 0.01 to 1.2 (time scale; upper range incomplete)
+    pub predelay_ms: f32,     // bounded by the selected configuration
+    pub size: f32,             // time scale, bounded by the selected configuration
     pub decay: f32,            // 0.1 to 0.999 (tail duration)
     pub low_cut_hz: f32,       // 20.0 to 1000.0 Hz
     pub high_cut_hz: f32,      // 1000.0 to 18000.0 Hz
@@ -547,11 +548,11 @@ impl PlateauReverb {
     }
 
     pub fn set_parameters(&mut self, mut params: PlateauParameters) {
-        params.size = clamp(params.size, 0.01, 1.2);
+        params.size = clamp(params.size, 0.01, MAX_SIZE);
         params.decay = clamp(params.decay, 0.1, 0.999);
         params.diffusion = clamp(params.diffusion, 0.0, 1.0);
         params.mod_depth = clamp(params.mod_depth, 0.0, 16.0);
-        params.predelay_ms = clamp(params.predelay_ms, 0.0, 190.0);
+        params.predelay_ms = clamp(params.predelay_ms, 0.0, MAX_PREDELAY_MS);
         params.wet = clamp(params.wet, 0.0, 1.0);
         // Keep the published parameter values consistent with the cutoffs
         // actually applied by the one-pole filters.
@@ -642,7 +643,7 @@ impl PlateauReverb {
     }
 
     pub(crate) fn set_predelay_live(&mut self, value: f32) {
-        let value = clamp(value, 0.0, 190.0);
+        let value = clamp(value, 0.0, MAX_PREDELAY_MS);
         self.retarget_predelay(value);
         self.params.predelay_ms = value;
     }
@@ -668,7 +669,7 @@ impl PlateauReverb {
     }
 
     pub(crate) fn set_size_live(&mut self, value: f32) {
-        let value = clamp(value, 0.01, 1.2);
+        let value = clamp(value, 0.01, MAX_SIZE);
         if self.params.size != value { self.begin_output_transition(); }
         self.params.size = value;
         self.apply_tank_size(value);
@@ -945,13 +946,13 @@ impl PlateauReverb {
 
 #[cfg(test)]
 mod tests {
-    use super::{Allpass, Delay, PlateauParameters, PlateauReverb, TriangleLFO, SR_SCALE};
+    use super::{Allpass, Delay, PlateauParameters, PlateauReverb, TriangleLFO, MAX_SIZE, SAMPLE_RATE, SR_SCALE};
 
     #[test]
     fn triangle_modulation_starts_at_reference_phase() {
         // TriSawLFO at the equivalent 1/8-cycle increment in the supplied
         // Multistomp core, sampled across its first wrap.
-        let mut lfo = TriangleLFO::new(6000.0);
+        let mut lfo = TriangleLFO::new(SAMPLE_RATE / 8.0);
         let expected = [-1.0, -0.5, 0.0, 0.5, 1.0, 0.5, 0.0, -0.5, -1.0, -0.5];
         for value in expected { assert_eq!(lfo.step(), value); }
     }
@@ -1011,10 +1012,13 @@ mod tests {
         assert_eq!(reverb.in_apf1.delay_time as f32 + reverb.in_apf1.delay_fraction, expected_apf);
         let expected_mod_apf = 2656.0 * SR_SCALE;
         assert_eq!(reverb.r_apf2.delay_time as f32 + reverb.r_apf2.delay_fraction, expected_mod_apf);
-        reverb.set_size_live(1.2);
-        let scale = SR_SCALE * 1.2;
+        reverb.set_size_live(MAX_SIZE);
+        let scale = SR_SCALE * MAX_SIZE;
         for (actual, expected) in [
             (reverb.l_apf1.delay_time as f32 + reverb.l_apf1.delay_fraction, 672.0 * scale),
+            (reverb.l_apf2.delay_time as f32 + reverb.l_apf2.delay_fraction, 1800.0 * scale),
+            (reverb.r_apf1.delay_time as f32 + reverb.r_apf1.delay_fraction, 908.0 * scale),
+            (reverb.r_apf2.delay_time as f32 + reverb.r_apf2.delay_fraction, 2656.0 * scale),
             (reverb.l_del1.length as f32 + reverb.l_del1_fraction, 4453.0 * scale),
             (reverb.l_del2.length as f32 + reverb.l_del2_fraction, 3720.0 * scale),
             (reverb.r_del1.length as f32 + reverb.r_del1_fraction, 4217.0 * scale),
@@ -1022,6 +1026,48 @@ mod tests {
         ] {
             assert_eq!(actual, expected);
         }
+    }
+
+    #[cfg(experimental_plateau_32k)]
+    #[test]
+    fn full_range_32k_experiment_retains_delays_and_renders() {
+        let mut reverb = Box::new(PlateauReverb::new());
+        let params = PlateauParameters { size: 4.0, predelay_ms: 500.0,
+            mod_depth: 16.0, ..PlateauParameters::default() };
+        reverb.init(params);
+        assert_eq!(reverb.params.size, 4.0);
+        assert_eq!(reverb.predelay_samples, 16_000);
+        assert!(reverb.predelay_samples < reverb.predelay.buffer.len());
+        for (delay, fraction, capacity) in [
+            (reverb.l_apf1.delay_time, reverb.l_apf1.delay_fraction, reverb.l_apf1.delay.buffer.len()),
+            (reverb.l_apf2.delay_time, reverb.l_apf2.delay_fraction, reverb.l_apf2.delay.buffer.len()),
+            (reverb.r_apf1.delay_time, reverb.r_apf1.delay_fraction, reverb.r_apf1.delay.buffer.len()),
+            (reverb.r_apf2.delay_time, reverb.r_apf2.delay_fraction, reverb.r_apf2.delay.buffer.len()),
+        ] {
+            assert!(delay > params.mod_depth as usize);
+            assert!(delay as f32 + fraction + params.mod_depth <= (capacity - 2) as f32);
+        }
+        for (tap, capacity) in [
+            (2974.0, reverb.l_del1.buffer.len()),
+            (1913.0, reverb.l_apf2.delay.buffer.len()),
+            (1996.0, reverb.l_del2.buffer.len()),
+            (2974.0, reverb.r_del1.buffer.len()),
+            (1913.0, reverb.r_apf2.delay.buffer.len()),
+            (1996.0, reverb.r_del2.buffer.len()),
+        ] { assert!(((tap * SR_SCALE) as usize) < capacity); }
+        let mut peak = 0.0f32;
+        for frame in 0..96_000 {
+            let input = if frame == 0 { 0.1 } else { 0.0 };
+            let (left, right) = reverb.process_sample(input, input);
+            assert!(left.is_finite() && right.is_finite());
+            if frame < 16_000 { assert_eq!((left, right), (0.0, 0.0)); }
+            peak = peak.max(left.abs()).max(right.abs());
+        }
+        assert!(peak > 0.0001);
+        reverb.set_size_live(0.0);
+        reverb.set_predelay_live(1000.0);
+        assert_eq!(reverb.params.size, 0.01);
+        assert_eq!(reverb.params.predelay_ms, 500.0);
     }
 
     #[test]

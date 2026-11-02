@@ -74,9 +74,11 @@ off. The model and value formatter are host-tested; firmware event handling,
 display presentation, bank selection and routing controls are not connected.
 Plateau holds its tank modulation delays fixed while frozen to preserve the
 tail, and resumes modulation when freeze is released.
-The current Plateau size range is 0.01–1.2 and predelay is 0–190 ms; the
+The default 48 kHz Plateau size range is 0.01–1.2 and predelay is 0–190 ms; the
 Multistomp version supports size through 4.0 and predelay through 500 ms. The
-larger ranges still need a viable, qualified memory and processing design.
+larger ranges still need a viable, qualified memory and processing design. A
+separate experimental 32 kHz core supports them in focused host tests, but it
+has no connected converter, controls or firmware allocation.
 The normal Plateau sample path returns silence without advancing its state
 when a delay cursor or length is invalid; the processor must be reinitialized
 before reuse. This does not validate arbitrary corrupt state, the pristine

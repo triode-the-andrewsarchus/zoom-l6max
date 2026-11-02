@@ -6,3 +6,6 @@ publish.workspace = true
 license.workspace = true
 
 [dependencies]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(experimental_plateau_32k)'] }
