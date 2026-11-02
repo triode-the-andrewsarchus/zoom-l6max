@@ -5535,3 +5535,50 @@ Next, establish the exact per-channel send accumulation point, each table
 entry's effect selection, callback lifetime and synchronization, and the
 scratch format with nonzero signal. Also prove target memory ownership and
 worst-case timing before changing or enabling firmware hooks.
+
+
+### Integrated unmirrored block experiment
+
+A disposable prototype grouped up to 16 Velvet frames by tap while retaining
+the three existing, independently positioned delay histories. Split reads
+handled ring wrap; the code fell back to individual frames when a bank was
+being built or a long tap could be overwritten, and ended blocks at filter
+transition boundaries. It added no persistent delay-line memory. Host
+comparisons against the per-frame path covered edits, path switches, silence,
+history wrap, and taps near or beyond the ring length at both 64 and
+experimental 285-tap limits. The new routed-block tests retain those checks at
+the normal limit. They do not establish real-time or hardware safety.
+
+A temporary `opt-level=3`, 285-tap diagnostic combined the prototype with
+Plateau and three synthetic sends. Over the same five guest seconds as the
+traced scalar comparison above it counted 2,621 callbacks (about 524/s),
+compared with 2,303 (about 461/s) for scalar and a nominal 750/s. The IRQ
+trace saw both selector-hold edges, but the traced enqueue and handler did not
+see them by the later snapshot, and the inspector remained closed. The
+prototype wrote control words in groups before each 16-frame block, unlike the
+scalar callback; this limits the comparison and is not suitable for firmware.
+The sampling interval ended before the default filter renewal, so transition
+and rebuild cost were not measured. Neither workload includes AINR, and
+the QEMU executable's source is unattested. The results do not qualify
+physical timing, controls, memory ownership, or installation.
+
+Diagnostic MAIN, ELF, recipe, and result SHA-256 values, respectively:
+`0969317cefb40f99a300bfab8ea768c48b9761cd5319163e0c9dc7e1eb545215`,
+`abcd0436c77ae717651722a2c13e153c89cca3986f9045a95c0248a8f329c6dc`,
+`bb9de11b1195bd0ffa76b59db8bd1e1a0a99549ec62cf611de8397957723b9d1`,
+`47fec5411ff04b061aec510a487606bbba7449a0327ce3bf366c7dfdaaa62708`.
+
+The temporary Velvet, routing, callback, and preparation sources hashed to
+`30c1cbb79caa8e42427e307fa6693ad0e7583b5a2d0f3b3c402d5ee2c6bcedf3`,
+`e451eb1932903cde5db2d712faa3da799dda08854952fee643c7e6fb4579fc5f`,
+`b445ad0b60eacaaf5d9f2edb946ab61e7bfb55ade519bb7d466fb0124650a780`, and
+`920c2fcd5e1464882080560ee0b76e807ef4baffc5a2ebf40288fc8f5b4519a6`.
+The stock MAIN, input NOR, panel flash, options, and RTC hashed to
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
+The QEMU and `l6dbg` executables hashed to
+`6d16a74074f46732f03630c7e827f8d052e61ef4ae6585221e78d0d82d20263e` and
+`52af793c1d34e927210f99cf49117180121d8bd62885ce0ee7148be5dedbf2f6`.
