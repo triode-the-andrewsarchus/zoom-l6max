@@ -86,8 +86,8 @@ synchronization, target timing or physical behavior. Never install these images.
 With `--file-mix-handoff atomic --selector-admission`, the disposable image
 also closes admission after the stock selection fade, drains active leases,
 and releases the guard before fade-in or at selector cleanup. During selector
-closure it calls two stock ramp generators and writes their final samples to
-their indirect destinations; this approximates work normally performed by an
+closure it calls the stock float ramp generator and writes its final sample to
+an indirect destination; this approximates work normally performed by an
 effect callback and is not qualified as equivalent or safe. Its recipe cycles
 further through stock effects, including AINR. Add `--selector` to the checker.
 A timeout aborts selection without a qualified recovery; gate initialization,

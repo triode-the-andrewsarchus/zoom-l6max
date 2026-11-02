@@ -109,16 +109,12 @@ pub unsafe extern "C" fn mix_handoff_atomic_live() {
             #[cfg(selector_admission)]
             if read(0x83e0b024 as *const u32) == 1 {
                 let ramp: unsafe extern "C" fn() = core::mem::transmute(0x80066181usize);
-                let integer_ramp: unsafe extern "C" fn() = core::mem::transmute(0x800664f1usize);
                 ramp();
-                integer_ramp();
-                // Stock effect callbacks normally propagate the final ramp
-                // samples to these indirect destinations. This models only
-                // that observed part of their work in disposable QEMU.
+                // Selected stock callbacks propagate the float ramp to this
+                // indirect destination. This models only its last sample in
+                // disposable QEMU, not the intervening per-frame behavior.
                 let float_target = read(0x8020a3ec as *const u32) as *mut u32;
-                let integer_target = read(0x8020a400 as *const u32) as *mut u32;
                 write(float_target, read(0x8046310c as *const u32));
-                write(integer_target, read(0x8046320c as *const u32));
             }
             mix_handoff_silence();
         }

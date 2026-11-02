@@ -6267,3 +6267,21 @@ The initial NOR, panel flash, options and RTC hashes were
 QEMU was `eade074b5d7a6fe9d74bbbe1ad36a34f7356cd200cbfc81e772f2a21892012e8`
 (source unattested); `l6dbg` was
 `52af793c1d34e927210f99cf49117180121d8bd62885ce0ee7148be5dedbf2f6`.
+
+At an independently stopped Hall callback in the atomic file-mix diagnostic,
+the descriptor contained float ramp addresses `0x8020a3ec` / `0x80463010`
+and integer ramp addresses `0x8020a400` / `0x80463110`. The inspected Hall
+entry loads the float pair; the integer destination write previously used by
+the selector experiment was not established by that observation. Removing
+the integer generator and write-back, a fresh run of the same seven-selection
+and forced no-card sequence again acquired and released seven guards and
+rejected one forced late callback. This narrows the experiment; it does not
+establish integer-ramp behavior in other settings or float write-back safety.
+The Hall debugger transcript SHA-256 was
+`cc5575f8a7d0a7c51d7ac0072c33950c5dbcd6ea3d6e57f9ba0bd364c26f4215`.
+The float-only MAIN, ELF, recipe and result hashes were
+`efa55a9901f885e324a2e691b9a04fcc90507705ebe8ebccac6f96d6792cacfd`,
+`819957a1e9ff223d1b1d898676ac82fb2c025124767ca146822734a0594e9c12`,
+`1825e206a4c6cafe6808ed0a125da77af8fceeb5157eddfe6b0776966ce1edb6`, and
+`cccd1ed00c362b4c43025556cf4e50499db19ee7a58af6d0d6dc7d7e8927f5ae`.
+Stock MAIN, initial fixture, QEMU and `l6dbg` matched the preceding run.
