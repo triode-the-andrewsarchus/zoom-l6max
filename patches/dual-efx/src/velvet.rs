@@ -21,6 +21,14 @@ fn wrap_out_of_range_delay(delay: usize) -> usize {
     delay % MAX_DELAY_SAMPLES
 }
 
+#[inline(always)]
+fn history_index(write_position: usize, delay: usize) -> usize {
+    // For in-range positions and delays, add one ring only on underflow.
+    write_position.wrapping_sub(delay).wrapping_add(
+        MAX_DELAY_SAMPLES & 0usize.wrapping_sub((write_position < delay) as usize),
+    )
+}
+
 #[derive(Clone, Copy)]
 pub struct Tap {
     pub delay: u32,
@@ -413,7 +421,7 @@ impl VelvetDecorrelator {
         for tap in bank.storage.get(..bank.count).unwrap_or(&[]) {
             let delay = tap.delay as usize;
             let d = if delay < size { delay } else { wrap_out_of_range_delay(delay) };
-            let read = if wp >= d { wp - d } else { wp + size - d };
+            let read = history_index(wp, d);
             result += tap.gain * delay_line[read];
         }
         result
@@ -443,7 +451,7 @@ impl VelvetDecorrelator {
             for tap in taps {
                 let delay = tap.delay as usize;
                 let d = if delay < MAX_DELAY_SAMPLES { delay } else { wrap_out_of_range_delay(delay) };
-                let read = if wp >= d { wp - d } else { wp + MAX_DELAY_SAMPLES - d };
+                let read = history_index(wp, d);
                 sum_a += tap.gain * ca.delay_line[read];
                 sum_b += tap.gain * history.delay_line[read];
             }
@@ -451,8 +459,8 @@ impl VelvetDecorrelator {
             for tap in taps {
                 let delay = tap.delay as usize;
                 let d = if delay < MAX_DELAY_SAMPLES { delay } else { wrap_out_of_range_delay(delay) };
-                let ra = if wp >= d { wp - d } else { wp + MAX_DELAY_SAMPLES - d };
-                let rb = if history.write_position >= d { history.write_position - d } else { history.write_position + MAX_DELAY_SAMPLES - d };
+                let ra = history_index(wp, d);
+                let rb = history_index(history.write_position, d);
                 sum_a += tap.gain * ca.delay_line[ra];
                 sum_b += tap.gain * history.delay_line[rb];
             }
@@ -623,6 +631,21 @@ impl VelvetDecorrelator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn history_index_matches_ring_subtraction_at_every_wrap_boundary() {
+        for write_position in 0..MAX_DELAY_SAMPLES {
+            for delay in [
+                0, 1, write_position.saturating_sub(1), write_position,
+                (write_position + 1).min(MAX_DELAY_SAMPLES - 1), MAX_DELAY_SAMPLES - 1,
+            ] {
+                assert_eq!(
+                    history_index(write_position, delay),
+                    (write_position + MAX_DELAY_SAMPLES - delay) % MAX_DELAY_SAMPLES,
+                );
+            }
+        }
+    }
 
     #[test]
     fn crossfade_phase_matches_division_and_keeps_its_duration_during_edits() {

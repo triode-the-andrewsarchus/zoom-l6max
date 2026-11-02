@@ -6723,3 +6723,55 @@ The observer and checker sources hashed to
 `10c4b2d49638017acf14576173c89bf43e32585d2219f9d8b5e9df57891e71f2` and
 `b0806d3f203357fbea7be9bf41b603551e84dcf0dc120e1305af9e167bb840e7`.
 Stock MAIN, initial fixture, QEMU and `l6dbg` matched the preceding experiment.
+
+The maintained Velvet implementation now computes its circular history index
+with wrapping arithmetic instead of selecting the wrapped position per tap.
+For valid write positions and normalized delays, the arithmetic gives the
+same index. A host boundary test covers every write position and adjacent
+wrap cases. An optimized 40,000-frame host comparison against the preceding
+source exercised parameter edits, fades, ring wraps and routed/stereo path
+switches; both output streams hashed to
+`2c05f4b906baa5d67cdccbf8763ab05cabd985c091c7b1ee23acd3be8d196e43`.
+This does not cover every signal or malformed state.
+
+Two pairs of size-optimized QEMU diagnostics used the same synthetic active
+sends and the full 285-tap setting. The original counted 2,082 callbacks
+over five guest seconds in each run; the revised code counted 2,222 and
+2,223, approximately 416 versus 444–445 callbacks per modeled second. The
+inspector remained closed in all four observations. The test does not include
+pre-AINR or establish target timing, control responsiveness or physical audio;
+both modeled rates remain below the nominal 750 callbacks per second.
+
+The original and revised diagnostic MAIN hashes were
+`25c9c1ee59da19c733fe1f89c9e4ebd37857c11750e64c3db45cfef24b80a2a5` and
+`de0ffc62936cbab152f7f70747fb665942f02d82c0765b25193e87622194fe0c`;
+their ELFs were `e5b63a990691bcf4a7500d3c737b734bc1bf00809627abc03f7e011ff2507635`
+and `a0dbfa78111889317a3b903759064d889ef03298bc808ac938258d1e4945c9ee`.
+A later build from the current source produced the same revised MAIN and ELF
+`e5bf3403edaa6f01be69709ae3e466be7588fc6fa0e660ebdf916af83414d897`.
+Original recipe, result and trace hashes were
+`0520a1d2515abb5d51e74ea9d44f0238552500f100784830a87851926a45ff87`,
+`c007fdfac9aac5836764304344be47691ab16daecccd406e87c92e4621b01336`, and
+`ba9c9d7d4759922c5500a04dc634fb2fa452f9551ef7fb6236a1644005910d9d`;
+revised recipe, result and trace hashes were
+`bf741f4841de7fe7c9fff30cfb23e06035b79b3b82d2d931fad9522495365a73`,
+`21a9ecfb9c4a5abe15f384f284dbc11e2f39b7b62ece59739fc79bfbdf2e281a`, and
+`80e451419168e819dfb6b8b6322b49a9d188bf060fcf94dc9d38a0281ddb7047`.
+The repeat result hashes were
+`2182b617f991de3f51a603af81544faf9816b501923f344b007f758bdd3015b9` and
+`cf70d26536f8fd44bf6a2a31961b37bf67a10d972655e2e24f21579989bbb264`.
+Initial diagnostic NOR hashes were
+`6bec7ac260c98d73e1523e0ac4024047b1b6c0e1de83275f798290d655230bb7` and
+`6338b7f75b204b274cde60c5443593a9d9004e179995ba3eea4c2e372526b40d`;
+stock MAIN, initial stock fixture, QEMU and `l6dbg` matched the preceding
+experiment. QEMU source provenance is unattested.
+
+The original and revised host comparison sources hashed to
+`cba8691de10b3a9324a78afc5820bfaf5035b12c91ef8ff293e03682a838a9f5` and
+`5c8c48d5289dc0c2943e5b67cad0201047b9db42458cc22885c55dfac12f2432`;
+their executables were `97544bb2a15ca788f820505c32825822fb4e9bd679b05a2a4b94d2178cc943f1`
+and `a760f142ad2cfd402da7e905055546bd7dac27f1d453e0f9a30154bbc9d57eb7`.
+The saved original Velvet source and the current source, which includes the
+subsequently added boundary test, hashed to
+`6a29a03b904099f38a9a9dee76692ea8a254f6a6e2be24bc41457c3f7fa43bf0` and
+`3fd8ac3c9fc9deefeb0e3d32a018b01a5774961a955de9a56d39a45b4e151ea1`.
