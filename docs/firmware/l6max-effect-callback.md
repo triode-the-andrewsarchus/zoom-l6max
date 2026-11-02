@@ -5460,8 +5460,7 @@ sampled pre-AINR outputs matched their inputs while the processing counter
 advanced. A separate stock-effect CPU trace observed writes within the
 second proposed slice between selection clears; its scope and hashes are in
 the [shared research](https://github.com/derekstavis/zoom-l6max-research/blob/1008c9d/docs/firmware/l6max-effects-ainr.md#effect-storage-and-adjacent-conversion-buffers).
-The trace does not by itself attribute the prototype's zeroed slices to a
-specific writer. The split prototype was discarded.
+The split prototype was discarded.
 
 The diagnostic MAIN, ELF, recipe and result SHA-256 values were
 `a9b5c341e313823d5a2543a6ee562b24ecf53b58e0dcdafbf7cdeee16defc4d5`,
@@ -5475,6 +5474,29 @@ The temporary callback, handoff and boundary source hashes were
 Stock MAIN, initial NOR and QEMU matched the earlier packed-tail experiment;
 the QEMU binary's source is unattested. `l6dbg` SHA-256 was
 `aed900b0f7f43f225233f7f1a33e5ba8e159d4a698905297e0fb48c5c8519cc0`.
+
+A follow-up write trace ran that same prototype from the end of its capture
+copy to the start of its installation. It observed stock effect instruction
+`0x2028216e` writing each of the 12 watched pages covering the first slice,
+and instruction `0x20281d02` writing both watched pages covering the second.
+The trace counted 171 distinct instruction, region and page combinations and
+reached the installation marker. It records addresses rather than stored
+values, so it identifies stock writers of both slices without proving which
+writes account for every zero observed in the earlier run. Instrumentation
+can alter timing; DMA and other paths remain outside its scope.
+
+The plugin source, binary, QEMU wrapper, trace, recipe and diagnostic result
+SHA-256 values were
+`a91512a85d720a7a2e017eb5e91515c4025b19282e230151b4c68ab1ecaf693c`,
+`65e89915c4d917a248bfee8be0e4b0552c413f6e1cf988e3e085c23eae249988`,
+`fe1675a33827ccef57848dad7eece2a1ed5d85c4b899b6e9f1dbf59923f1c7b8`,
+`fc737268777853a267c1512f11d20f00a4d081fba5e81dff67f659079ea72223`,
+`b6161e07116b596f01d4d20469659b5ac4eb5ff5d1b76d3c889864b28d943ae1`, and
+`24cdcf6d57a8bc8347ebc43a7f637ca7e225612f64adb0983666fec78b743997`.
+The MAIN, ELF, initial NOR and `l6dbg` identities matched the preceding run;
+the plugin-enabled QEMU binary SHA-256 was
+`e5acb1abd30c50ed0413c6a6bf8bd1e99b39780bc0bf80a39f3a11a99c530e25`,
+with source provenance unattested.
 
 #### Pause invalidation after copying
 
