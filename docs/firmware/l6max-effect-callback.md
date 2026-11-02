@@ -5498,6 +5498,85 @@ The uninstrumented and plugin-enabled QEMU binaries were respectively
 their source provenance is unattested. `l6dbg` SHA-256 was
 `aed900b0f7f43f225233f7f1a33e5ba8e159d4a698905297e0fb48c5c8519cc0`.
 
+#### Copy in the audio task at the block boundary
+
+A disposable QEMU-only variant changed the outer wrapper to claim and copy
+56,264 bytes immediately after acknowledging the selector request, then close
+and publish the capture before calling the stock block processor. The selector
+waited for publication instead of copying while the audio task slept. This
+variant was not added to the patch builder.
+
+Separate uninstrumented, source-write-traced and RX-traced runs each selected
+and learned AINR, recorded one completed capture and installed sampled
+matching descriptors; sampled sends continued changing. In the source-traced
+run, no CPU write starting in `0x20280000..0x20299514` was observed between
+acknowledgment and closure. In the separate RX-traced run, the audio task's
+input was `0x2000a740`, and no RX completion or pointer write was observed
+between acknowledgment and entry into the stock block processor. Each is one
+modeled schedule; these observations exclude DMA, other address aliases and
+unexecuted paths, and tracing can change scheduling. Same-tick copy timing is
+not a physical deadline measurement.
+
+A forced-timeout variant delayed the audio task for 30 ticks after claiming the
+copy, while the selector timed out after 20. The late writer retired, the
+capture control ended at `0x83` (cancelled, no active writer), the ready token
+was zero, and sampled clone descriptors and AINR sends were zero while the
+main effect callback count advanced. This forced ordering does not cover all
+publication and cancellation races and intentionally disrupts audio.
+
+Another temporary build compared the claimed snapshot with the source at
+installation, before clone reconstruction. Its byte-by-byte volatile reads
+found 13,325 differences, first and last at source offsets `0xb97c` and
+`0x15d12`. The comparison was not atomic and adds work and scheduling effects;
+it cannot identify when the bytes changed or their audio significance. The
+wrapper calls the stock audio block after capture, while the selector consumes
+the copy separately, so state age and the correct handoff boundary remain
+unresolved. Memory ownership,
+DMA exclusion, lifetime, stack and real-time behavior are also unqualified.
+**Never install these diagnostic images.**
+
+All runs used stock MAIN SHA-256
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+panel flash `6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+panel options `bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`,
+panel RTC `473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`,
+and `l6dbg` `aed900b0f7f43f225233f7f1a33e5ba8e159d4a698905297e0fb48c5c8519cc0`.
+Uninstrumented QEMU was `53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a`;
+plugin QEMU was `e5acb1abd30c50ed0413c6a6bf8bd1e99b39780bc0bf80a39f3a11a99c530e25`.
+Their source provenance is unattested.
+
+The normal MAIN, ELF, modified handoff source and recipe hashes were
+`2849bf562a9e1056e62b4c945a5fb243a708ab03e9fd3e5c7bbc2d4aa25a9a21`,
+`b62e635439dd3250d0d46cdf50166163f80701e0239b66ce3946bc1cf87d8e41`,
+`fbba7cab117fea768fc98c327df8c49ee9d4eff150a8d67ceacf3410a3524f90`, and
+`4ab309db024840d17eb7292fc5df72248ea331b6ee00de3a54d6c3d2816ab5da`.
+Uninstrumented, source-traced and RX-traced result hashes were
+`1a61935d5027fa2b24e0f86f568134137aa3f03505749232dd17ffe955e3e97a`,
+`e5ae9a7b555d4047557b06b047f2a9dbf3b8dceeecabe7a7d08f3c12154a6df6`, and
+`b4641b9a5381d8721e661dc1923d78b9b04e0507d88fa9792d3592a85feb9393`.
+Source and RX trace hashes were
+`f9dfc88eb3ad54a6c73188d4c49f321dbc59e0599f54a1f371cf8bed8e5e6fb4` and
+`56542bc9c2d4e4193818a46e434f40256ed19ae2077099c1e47f630440e5624e`.
+The source trace plugin is identified in the preceding section. RX plugin
+source, binary and wrapper were
+`c984e269f3d94c2d0393d80af960d82024643945c831de22829508a70b792542`,
+`2d74f3f083162f7e9c3aa34713376fe21bd94f4628159fd6c081f409fdddb8bc`, and
+`765a3ddd3aa8a1d3ed9246596f4020fbc3dfa0c239df1a92314ca44f46d5a945`.
+
+The forced-timeout MAIN, ELF, handoff source, recipe and result hashes were
+`a13637c4f2897a2730238c6a21f0cbfa7dcbf0791818eeab6fecb45d29049e57`,
+`c4801b9be3f3ae21e3b1807339a243189e80d6143383a87fa5a9b1765a1afc8d`,
+`4dc0680de3ce1d150e10e486d616c8ec0b62faa5a52b817af543f22ae34b55fe`,
+`fd3f1f59fd14d90ada480d4c9498a1ddb0cd5898ec676ad40eb0d8c1b61c4510`, and
+`b382948aea67abf46f99ca4b8d021aec5f9802c766957ad569071c511b20e6c7`.
+The comparison MAIN, ELF, handoff source, recipe and result hashes were
+`a90a03a6400a947f0127951fc78746e6cb70d129dd7cf87ce60a9d3501e936c1`,
+`978218cefadc6540f16cb689236b277220483428d459b15e24669b8029f7235c`,
+`716dec03761b0ccfcb5b2779d4180d1ef0adc2b7cebaf902759e90213701e608`,
+`84c057f0ae8cad9c14d3a125a0ab7391504bb96f55f2c05af9e2520db872789a`, and
+`c8a994b445229abcb37819d86ddf3af6f33e77b3c644037ae4d0e6f71385279c`.
+
 #### Receive handoff during the outer pause
 
 Static inspection shows that `firmware_semaphore_create` creates the
