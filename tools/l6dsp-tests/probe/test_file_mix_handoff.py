@@ -3,7 +3,13 @@ import copy
 import struct
 import unittest
 
-from file_mix_handoff import check, check_midi_trace, check_timeout
+from file_mix_handoff import check, check_ainr_timeout, check_midi_trace, check_timeout
+
+
+def capture_report(captures):
+    return {'outcome': 'complete', 'model': 'l6max',
+            'events': [{'observation': {'name': name, 'bytes': list(struct.pack(fmt, *data))}}
+                       for name, (fmt, data) in captures.items()]}
 
 
 def report(bypass):
@@ -20,6 +26,25 @@ def report(bypass):
 
 
 class FileMixHandoffTests(unittest.TestCase):
+    def test_ainr_entry_timeout_rejects_enabled_flags(self):
+        captures = {
+            'type_before': ('<B', (4,)), 'type_after': ('<B', (4,)), 'type_next': ('<B', (5,)),
+            'callback_before': ('<I', (0x20280781,)), 'callback_after': ('<I', (0x20280781,)),
+            'callback_next': ('<I', (0x20280021,)),
+            'ainr_left_before': ('<I', (0,)), 'ainr_right_before': ('<I', (0,)),
+            'ainr_left_after': ('<I', (0,)), 'ainr_right_after': ('<I', (0,)),
+            'ainr_left_next': ('<I', (1,)), 'ainr_right_next': ('<I', (1,)),
+            'gain_before': ('<I', (0x3f800000,)), 'gain_after': ('<I', (0x3f800000,)),
+            'selector_overlap': ('<6I', (2, 1, 2, 5, 20, 0)),
+            'selector_handoff': ('<6I', (6, 5, 1, 5, 0x83e0b000, 0)),
+        }
+        value = capture_report(captures)
+        self.assertTrue(check_ainr_timeout(value, 'entry')['state_preserved'])
+        bad = copy.deepcopy(value)
+        next(event for event in bad['events'] if event['observation']['name'] == 'ainr_left_after')['observation']['bytes'][0] = 1
+        with self.assertRaises(ValueError):
+            check_ainr_timeout(bad, 'entry')
+
     def test_timeout_reports_partial_recovery_and_rejects_missing_fade(self):
         captures = {
             'before': ('<3I', (0x494e4954, 0x2028b8dc, 10)),
@@ -33,9 +58,7 @@ class FileMixHandoffTests(unittest.TestCase):
             'selector_overlap': ('<6I', (2, 1, 2, 5, 20, 0)),
             'pointer_next': ('<I', (0x8002c041,)),
         }
-        value = {'outcome': 'complete', 'model': 'l6max',
-                 'events': [{'observation': {'name': name, 'bytes': list(struct.pack(fmt, *data))}}
-                            for name, (fmt, data) in captures.items()]}
+        value = capture_report(captures)
         self.assertTrue(check_timeout(value)['selection_mismatch'])
         bad = copy.deepcopy(value)
         next(event for event in bad['events'] if event['observation']['name'] == 'fade_after')['observation']['bytes'] = [0, 0, 0, 0]

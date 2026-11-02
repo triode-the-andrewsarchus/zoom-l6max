@@ -178,6 +178,8 @@ selector_handoff_feedback:
     ldr.w r12, .Lfeedback_select
     blx r12
     ldr r2, [r4]
+    movs r3, #0
+    str r3, [r4]
     cmp r2, #1
     bne .Lfeedback_send
     movs r0, #0
@@ -198,4 +200,23 @@ selector_handoff_feedback:
 .Lfeedback_select: .word 0x80054341
 .Lfeedback_get_type: .word 0x8000b271
 .Lfeedback_midi: .word 0x8000ccf9
+
+.global selector_handoff_feedback_inner
+.thumb_func
+selector_handoff_feedback_inner:
+    push {r0, r1}
+    ldr.w r0, .Lfeedback_status
+    ldr r0, [r0]
+    cmp r0, #1
+    pop {r0, r1}
+    beq .Linner_done
+    cmp r4, #5
+    beq .Linner_ainr
+.Linner_done:
+    ldr.w pc, .Linner_return
+.Linner_ainr:
+    ldr.w pc, .Linner_enable
+.align 2
+.Linner_return: .word 0x800543d3
+.Linner_enable: .word 0x800543ab
 "#, options(raw));

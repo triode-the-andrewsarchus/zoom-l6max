@@ -87,6 +87,33 @@ def check_midi_trace(trace):
     return len(payload) // 3
 
 
+def check_ainr_state(items, suffix, effect, callback, flag):
+    if (words(items, f'type_{suffix}', '<B') != (effect,)
+            or words(items, f'callback_{suffix}', '<I') != (callback,)
+            or words(items, f'ainr_left_{suffix}', '<I') != (flag,)
+            or words(items, f'ainr_right_{suffix}', '<I') != (flag,)):
+        raise ValueError(f'AINR {suffix} state differs from expectation')
+
+
+def check_ainr_timeout(report, transition):
+    items = observations(report)
+    before_type, before_callback, before_flag, next_type, next_callback = (
+        (4, 0x20280781, 0, 5, 0x20280021) if transition == 'entry'
+        else (5, 0x20280021, 1, 0, 0x20281649))
+    before_gain = words(items, 'gain_before', '<I')
+    for suffix in ('before', 'after'):
+        check_ainr_state(items, suffix, before_type, before_callback, before_flag)
+        if words(items, f'gain_{suffix}', '<I') != before_gain:
+            raise ValueError(f'{transition} timeout did not restore {suffix} gain')
+    check_ainr_state(items, 'next', next_type, next_callback, 1 - before_flag)
+    if words(items, 'selector_overlap', '<6I') != (2, 1, 2, 5, 20, 0):
+        raise ValueError('live lease did not outlast the selector timeout')
+    attempts, acquired, failed, released, _, active = words(items, 'selector_handoff', '<6I')
+    if attempts != acquired + 1 or failed != 1 or released != acquired or active:
+        raise ValueError('forced AINR timeout did not release its guard')
+    return {'transition': transition, 'state_preserved': True, 'retry_selected': True}
+
+
 def check(report, bypass, selector=False, overlap=False):
     items = observations(report)
     marker, first, before = words(items, 'callback_state', '<III')
@@ -121,6 +148,20 @@ def validate_options(args):
         raise ValueError('--feedback requires --timeout and --midi-trace')
     if args.midi_trace and not args.feedback:
         raise ValueError('--midi-trace requires --feedback')
+    if args.ainr_timeout and any((args.timeout, args.feedback, args.bypass,
+                                  args.selector, args.overlap, args.midi_trace)):
+        raise ValueError('--ainr-timeout cannot be combined with other checks')
+
+
+def run_check(args):
+    validate_options(args)
+    report = json.loads(args.report.read_text())
+    if args.ainr_timeout:
+        return check_ainr_timeout(report, args.ainr_timeout)
+    result = check_timeout(report, args.feedback) if args.timeout else check(report, args.bypass, args.selector, args.overlap)
+    if args.feedback:
+        result['midi_packets'] = check_midi_trace(args.midi_trace.read_text())
+    return result
 
 
 def main():
@@ -132,13 +173,10 @@ def main():
     parser.add_argument('--timeout', action='store_true', help='check a known-incomplete timeout recovery experiment')
     parser.add_argument('--feedback', action='store_true', help='check experimental panel rollback')
     parser.add_argument('--midi-trace', type=Path, help='check the modeled DIN output trace')
+    parser.add_argument('--ainr-timeout', choices=('entry', 'exit'))
     args = parser.parse_args()
     try:
-        validate_options(args)
-        report = json.loads(args.report.read_text())
-        result = check_timeout(report, args.feedback) if args.timeout else check(report, args.bypass, args.selector, args.overlap)
-        if args.feedback:
-            result['midi_packets'] = check_midi_trace(args.midi_trace.read_text())
+        result = run_check(args)
     except (OSError, json.JSONDecodeError, KeyError, ValueError) as error:
         parser.exit(1, f'check failed: {error}\n')
     print(json.dumps(result, indent=2))

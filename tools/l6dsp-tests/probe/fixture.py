@@ -79,14 +79,17 @@ def install_selector_admission(image, entry, fade_target, exit_target):
     image[offset:offset + 10] = bytes.fromhex("00bfdff800f0") + (exit_target | 1).to_bytes(4, "little")
 
 
-def install_selector_feedback(image, target):
+def install_selector_feedback(image, target, inner):
     """Defer panel MIDI and wrap its selector call in a disposable image."""
-    if (target is None or target & 1 or not 0x80108000 <= target < 0x801a2ff8
+    valid = lambda value: value is not None and not value & 1 and 0x80108000 <= value < 0x801a2ff8
+    if (not valid(target) or not valid(inner)
             or image[0x542dc:0x542e0] != bytes.fromhex("b8f70cfd")
-            or image[0x542ee:0x542f2] != bytes.fromhex("00f027f8")):
+            or image[0x542ee:0x542f2] != bytes.fromhex("00f027f8")
+            or image[0x543a6:0x543aa] != bytes.fromhex("052c13d1")):
         raise ValueError("selector feedback call sites or target mismatch")
     image[0x542dc:0x542e0] = bytes.fromhex("00bf00bf")
     image[0x542ee:0x542f2] = branch(0x800542ee, target)
+    image[0x543a6:0x543aa] = branch(0x800543a6, inner)
 
 
 def install_boundary_hook(image, target):

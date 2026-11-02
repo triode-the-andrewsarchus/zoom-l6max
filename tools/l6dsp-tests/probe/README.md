@@ -116,8 +116,11 @@ selector call. Use `--timeout --feedback --midi-trace LOGS/engine.trace` to
 check the Room-to-Spring timeout, next button press, sampled L6max lamps and
 modeled DIN messages. This uses unowned shared status, changes MIDI ordering,
 and does not cover other callers, simultaneous selections or all failure
-cases. A forced timeout entering AINR left its enable flags set while Echo
-remained selected. It is not installable firmware.
+cases. Add `--selector-ainr-timeout entry` or `exit` and check with
+`--ainr-timeout entry` or `exit` to exercise AINR transitions. The entry
+experiment skips post-selector enable work on timeout. The exit case remains
+known to fail: AINR is disabled before the timeout and its prior state is not
+restored. Neither case qualifies AINR operation or installable firmware.
 
 ## Synthetic file-mix layout
 

@@ -6435,3 +6435,36 @@ recipe, result and trace hashes were
 `d03b1a8c83ec120dd25bf3e0fe3a6501479d8438640a8fdc791abcdbde1b4f32`, and
 `0f08603f72ac20925d1d0e7f102ede4be530a2e07accee9ff800b372a764314b`.
 Stock MAIN, initial fixture, QEMU and `l6dbg` matched the preceding run.
+
+An additional disposable handler hook checks the timeout marker immediately
+after the selector call and skips the subsequent stock AINR-enable branch when
+entry failed. In a forced Echo-to-AINR timeout, the Echo callback and type
+remained selected, both observed AINR enable words remained zero, and the
+next press selected AINR with both words one. A separate Room-to-Spring
+timeout again passed the sampled panel, callback and modeled MIDI checks.
+
+The reverse transition remains broken. In a forced timeout leaving AINR,
+the AINR callback and type remained selected but the two enable words changed
+from one to zero, and the sampled fade gain changed from zero to one. The
+stock handler disables AINR before calling the selector, so skipping only
+the post-call branch cannot restore this path. The checked-in AINR timeout
+checker passes the observed entry case and rejects this exit case. Neither
+test establishes learned-state preservation, real audio, all callers,
+concurrency, memory ownership or physical behavior; never install the image.
+
+All three runs used diagnostic MAIN and ELF hashes
+`c0d8ed9b5cf4fffc9f3ee894d89cd3af520ed38fbea36f25ca38f671db581125` and
+`9931f0840e7abee653c3be4d384c679d6783bbfd28b522b4448d888a848f6ac8`.
+The AINR entry recipe, result and trace hashes were
+`dc8f5f441c1265551a964a4b877bd9285059b4ff497a2ecd03f743654cf43760`,
+`abdb52bc8ec887064e365521fc0e0284ea06922671222900279ab4ac48369d32`, and
+`89385d5aca153209f4179c61591b748339aaecb20db0475d0feaa9da032124ff`;
+the AINR exit values were
+`53166ce23f728af48c0d58708066519c49c7fe02bf77436022caff10979ab5b2`,
+`41d1d6b8e23bc096500194c34c365c2113173a4c77bd268f22d70703b18b4ae7`, and
+`45ee1208ae6028f5d68fa3c83c658fa968e3185fa15b51bec32ec15107ab0634`.
+The Room timeout recipe, result and trace hashes were
+`d7739711ad405a0a2fb66e3465bd33be16a32224fb5bd69660ecbd885c779a7c`,
+`d32f96212701258736e8f160c71ade1912abd6bcbefb9ff2e4112be7ef8b3f4d`, and
+`848c9c4acf6431fe5125012cff50201f621c311a8542ad7d96cbb855a86fa21d`.
+Stock MAIN, initial fixture, QEMU and `l6dbg` matched the preceding run.

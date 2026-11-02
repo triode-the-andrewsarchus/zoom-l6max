@@ -30,6 +30,7 @@ class PreparerModeTests(unittest.TestCase):
             (['--selector-overlap'], '--selector-overlap requires'),
             (['--selector-timeout'], '--selector-timeout requires'),
             (['--selector-feedback'], '--selector-feedback requires'),
+            (['--selector-ainr-timeout', 'entry'], '--selector-ainr-timeout requires'),
             (['--callback', '--inspector', '--file-mix-handoff', 'pending'], '--file-mix-handoff requires'),
             (['--callback', '--offline-mix-layout', '--inspector'], '--offline-mix-layout requires'),
             (['--callback', '--offline-mix-layout', '--switches'], '--offline-mix-layout requires'),
@@ -151,19 +152,27 @@ class SelectorVeneerGuardTests(unittest.TestCase):
 
 class FeedbackHookGuardTests(unittest.TestCase):
     def test_verifies_both_calls_before_writing(self):
-        image = bytearray(0x542f2)
+        image = bytearray(0x543aa)
         image[0x542dc:0x542e0] = bytes.fromhex('b8f70cfd')
         image[0x542ee:0x542f2] = bytes.fromhex('00f027f8')
-        for offset in (0x542dc, 0x542ee):
+        image[0x543a6:0x543aa] = bytes.fromhex('052c13d1')
+        for offset in (0x542dc, 0x542ee, 0x543a6):
             changed = image[:]
             changed[offset] ^= 1
             before = changed[:]
             with self.subTest(offset=offset), self.assertRaises(ValueError):
-                install_selector_feedback(changed, 0x80109000)
+                install_selector_feedback(changed, 0x80109000, 0x80109100)
             self.assertEqual(changed, before)
-        install_selector_feedback(image, 0x80109000)
+        for target, inner in ((None, 0x80109100), (0x80109000, None),
+                              (0x80109001, 0x80109100), (0x80109000, 0x80109101)):
+            changed = image[:]
+            with self.subTest(target=target, inner=inner), self.assertRaises(ValueError):
+                install_selector_feedback(changed, target, inner)
+            self.assertEqual(changed, image)
+        install_selector_feedback(image, 0x80109000, 0x80109100)
         self.assertEqual(image[0x542dc:0x542e0], bytes.fromhex('00bf00bf'))
         self.assertEqual(image[0x542ee:0x542f2], branch(0x800542ee, 0x80109000))
+        self.assertEqual(image[0x543a6:0x543aa], branch(0x800543a6, 0x80109100))
 
 
 class ModeHookGuardTests(unittest.TestCase):
