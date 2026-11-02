@@ -15,7 +15,9 @@ Replaces the stock mono/reconstructed send effects with high-end modern DSP engi
    This send-effect adaptation uses a wet-only output, single-precision math,
    and up to 285 taps; it is not bit-identical to the reference plug-in.
    An out-of-range bank tap count silences that bank instead of panicking;
-   other malformed state is not generally validated.
+   invalid or overlapping active/pending bank indices silence both audio paths
+   and reject parameter edits when the bank-zero initialization marker is
+   nonzero, until reset. Other malformed state is not generally validated.
 2. **Valley Plateau Plate Reverb** (Effect B):
    Ported from [digitalartifactmusic/PlateauNEVersio](https://github.com/digitalartifactmusic/PlateauNEVersio) / Dattorro 1997 topology to bare-metal `no_std` ARM Cortex-M7. Replaces Room Reverb (`efx_type = 1`). Features 4 input diffusers, 2 cross-coupled modulated feedback delay loops, predelay, damping, and freeze mode.
 3. **Dual Concurrent Send & Routing Matrix**:

@@ -262,6 +262,10 @@ impl VelvetDecorrelator {
     }
 
     pub fn set_parameters(&mut self, mut params: Parameters) {
+        let initialized = self.channels[0].banks[0].count != 0;
+        // A rejected edit must not try to rebuild through an invalid bank.
+        // Initialization starts with zeroed storage and sets banks in reset.
+        if initialized && !self.valid_banks() { return; }
         params.amount = clamp(params.amount, 0.0, 1.0);
         params.length_ms = clamp(params.length_ms, 1.0, 95.0);
         params.density = clamp(params.density, 10.0, 3000.0);
@@ -277,7 +281,6 @@ impl VelvetDecorrelator {
             self.amount_step = (params.amount - self.amount_current) / AMOUNT_FADE_SAMPLES as f32;
             self.amount_remaining = AMOUNT_FADE_SAMPLES;
         }
-        let initialized = self.channels[0].banks[0].count != 0;
         self.current = params;
         self.current_tail_samples = clamp_usize(
             (SAMPLE_RATE * params.length_ms / 1000.0) as usize,
@@ -304,6 +307,11 @@ impl VelvetDecorrelator {
                 self.filter_update_pending = true;
             }
         }
+    }
+
+    #[inline(always)]
+    fn valid_banks(&self) -> bool {
+        self.active_bank < 2 && self.pending_bank < 2 && self.active_bank != self.pending_bank
     }
 
     /// Clears history and rebuilds both banks for the current parameters.
@@ -500,7 +508,7 @@ impl VelvetDecorrelator {
     pub fn process_sample(&mut self, in_l: f32, in_r: f32) -> (f32, f32) {
         // Validate both before touching either channel, so a damaged cursor
         // cannot cause a partial frame or a bounds panic in the callback.
-        if self.channels[0].write_position >= MAX_DELAY_SAMPLES
+        if !self.valid_banks() || self.channels[0].write_position >= MAX_DELAY_SAMPLES
             || self.channels[1].write_position >= MAX_DELAY_SAMPLES {
             return (0.0, 0.0);
         }
@@ -557,7 +565,7 @@ impl VelvetDecorrelator {
         in_a: f32,
         in_b: f32,
     ) -> ((f32, f32), (f32, f32)) {
-        if self.channels[0].write_position >= MAX_DELAY_SAMPLES
+        if !self.valid_banks() || self.channels[0].write_position >= MAX_DELAY_SAMPLES
             || self.channels[1].write_position >= MAX_DELAY_SAMPLES
             || history.write_position >= MAX_DELAY_SAMPLES {
             return ((0.0, 0.0), (0.0, 0.0));
@@ -817,6 +825,44 @@ mod tests {
             assert_eq!(engine.channels[0].delay_line[0], 0.0);
             history.silence();
             assert_eq!(history.write_position, invalid);
+        }
+    }
+
+    #[test]
+    fn invalid_bank_selection_rejects_audio_and_edits_until_reset() {
+        for (active, pending) in [(2, 1), (usize::MAX, 1), (0, 2), (0, usize::MAX), (0, 0), (1, 1)] {
+            for transitioning in [false, true] {
+                let mut engine = Box::new(VelvetDecorrelator::new());
+                engine.init(Parameters::default());
+                engine.active_bank = active;
+                engine.pending_bank = pending;
+                engine.transitioning = transitioning;
+                let before_generation = engine.generation;
+                let before_spread = engine.current.length_ms;
+                let before_timer = engine.samples_until_transition;
+                let mut history = MonoHistory::new();
+
+                assert_eq!(engine.process_sample(0.25, 0.5), (0.0, 0.0));
+                assert_eq!(engine.process_shared_mono(&mut history, 0.25, 0.5),
+                           ((0.0, 0.0), (0.0, 0.0)));
+                assert_eq!(engine.channels[0].write_position, 0);
+                assert_eq!(engine.channels[1].write_position, 0);
+                assert_eq!(history.write_position, 0);
+                assert_eq!(engine.channels[0].delay_line[0], 0.0);
+                assert_eq!(history.delay_line[0], 0.0);
+                assert_eq!(engine.samples_until_transition, before_timer);
+
+                let mut changed = engine.current;
+                changed.length_ms += 1.0;
+                engine.set_parameters(changed);
+                assert_eq!(engine.current.length_ms, before_spread);
+                assert_eq!(engine.generation, before_generation);
+
+                engine.reset();
+                assert_eq!((engine.active_bank, engine.pending_bank), (0, 1));
+                let (left, right) = engine.process_sample(0.25, 0.5);
+                assert!(left.is_finite() && right.is_finite() && left != 0.0 && right != 0.0);
+            }
         }
     }
 

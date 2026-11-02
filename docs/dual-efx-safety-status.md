@@ -40,6 +40,24 @@ The external QEMU and `l6dbg` were
 QEMU source is unattested. These diagnostics use unowned scratch and must not
 be installed.
 
+The Velvet sample paths now reject invalid or equal active/pending bank
+indices before advancing history; parameter edits also reject them when the
+bank-zero initialization marker is nonzero. Host tests exercise both paths, transition states and
+reset recovery. This does not guard arbitrary corruption or concurrent access.
+A subsequent high-density long-fade QEMU diagnostic observed 1,729 callbacks
+in five modeled seconds and finite nonzero sampled outputs, against the
+nominal 3,750. This isolated observation is not a hardware timing measurement
+or a reliable comparison with the preceding pair. Its diagnostic MAIN, ELF,
+initial NOR, recipe and result hashes were
+`4e9903323a5b46d73b337dd7f75bb8c5c1c65698c1589804c14b6e5eeb0e5c15`,
+`5b862537a0fa0283860e40b52e5f71d68dd4305489fe706e0e6fb9b61aca1293`,
+`374e1ad3f058885838f8f27b36dd5e65453e560f22e782d25ebdc6699a0bf9f3`,
+`70e7edc8683211111c36b7b8cdada5e2a33a6dce1ef8d5bdeaec4dd473042d50`, and
+`b550b3ef06789f675cf0c94cad99c5092505aae8deaa0944a4cbeb5c273811b8`.
+Stock MAIN, source NOR, panel state, external QEMU and `l6dbg` match the
+preceding guard experiment; QEMU source remains unattested. This diagnostic
+uses unowned scratch and must not be installed.
+
 The blocking findings for L6max MAIN 1.10
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461` are:
 
