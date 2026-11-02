@@ -5886,6 +5886,63 @@ All runs used the stock fixture and QEMU binaries identified below. The
 scratch, candidate state, reset behavior, all callers, DMA, physical timing,
 UI and audible behavior remain unqualified. Never install these images.
 
+A disposable layout moved the late-refresh scratch into the first candidate
+AINR clone slot, using `0x80d50000..0x80d5dbc8` for the packed 56,264 bytes.
+The selector copied it to the separate heap snapshot before initializing the
+clone slots. This avoids the additional high-scratch region in the experiment;
+it does not reserve the effect buffer on the device or establish its lifetime.
+An uninstrumented run and a separate traced run each completed two successive
+custom-effect selections with ready tokens and preserved a canary immediately
+after the candidate scratch at the copy-out point. The uninstrumented run's
+768-byte captured send observation had the same SHA-256 as the preceding
+separate-scratch repeat run:
+`9f62ce47e9e257440531cfdb9f597afa33764a10d0a72e9bd7d8fad1e6d62ac9`.
+This is one sampled observation, not a complete output comparison.
+
+During each traced refresh, CPU accesses starting in the scratch range were
+only the observed copy routine's writes while the audio task copied and reads
+while the selector copied out. No other starting CPU access to that range was
+recorded from request through copy-out. The trace does not cover DMA, aliases,
+unexecuted paths, or the later lifetime of the clone slot.
+
+A forced variant delayed the claimed audio writer by 20,000 firmware ticks,
+then issued another selection after the first refresh timed out. At guest
+97,424 ms, the old writer remained active (`0x87`), ready was zero, and the
+previous custom effect was still selected; an instrumented clear entry had not
+been reached. At 112,424 ms, the writer had retired (`0x83`) and the new effect
+was selected. This forced, audio-disrupting scenario did not observe an effect
+buffer clear while the writer was outstanding; it also showed that the next
+selection had not completed during the observed interval. It does not prove
+other callers cannot clear or use the slot, nor that a delayed writer cannot
+race a different selection path. The refresh claim protects the scratch from
+another refresh, but by itself does not gate the stock effect-buffer clear or
+live/file-mix use. The layout is not qualified and must not be installed.
+
+Normal and trace MAIN and ELF were
+`15511d6a7fa938ed74713c97604a5d69e0fc5a462848e0559f5b22281fa3a1e8` and
+`a370f5ed54eba2467224bd76d0328fb7c1a0e0a3cdffc248884dd1195181ac53`;
+the modified handoff source and common recipe were
+`7fc9e480ba70e3ff9cdddcbf5959d0907895d3c4a251688bebfd9c5fb7381879` and
+`65d8567990aee1fda414639bf41d5ad7763b298f6c677240e5d107a8e85d82c5`.
+Normal and traced results and trace hashes were
+`27598ec49ee21a289efb98fb67c4fb92e61adf983432842a6f85c76a843c6432`,
+`768e852786d34148aa2b4502c12e1a5aa2371cb353a2e9864991a9e4008cf57c`, and
+`f1b252351806c72ce83b2320683a5abf7530bbd5866571c8d304998b07884a2e`.
+The trace plugin source, binary and wrapper were
+`db6764a4c72021498c2f80741f62c7de71af454455082727899286734a252691`,
+`44ecd40c5a0b3a0a623d497b4f98f7dcfe7c10f45b35bf0b061ac3386eeeafdc`, and
+`aaa12c7603930f138f16db0a137b64b44d04fb89126299c95ec22eeb83ae7e4b`.
+
+The forced-delay MAIN, ELF, handoff source, callback source, recipe and result
+were
+`ccba3e8f0d2303a1c056936ae4b7c0c27bdcdb15f6389f7478938a0ad3e6de16`,
+`24cc00bb1056b9b19449f4e16ad302bdf05751b331e0037b7caded2cfed48245`,
+`69942824f7d2a643b22a58eb1946ef29f359b3d6f41e6db8d059178978324fbd`,
+`7c3c43350cfa13b833f165dca5b4e9c19904d4442aeca9436bcaad1a786e7e43`,
+`b73932c21fb1a6d182ebddff8c7aebea8c18158d17e9e9fdc70ab0aeaa915cbd`, and
+`d8e24cd7180796883a2d648637a5651a409c33e64eb63b02032e8616cb0967d9`.
+These experiments used the stock fixture and QEMU identities below.
+
 All runs used stock MAIN SHA-256
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
 initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
