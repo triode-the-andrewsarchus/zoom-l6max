@@ -229,6 +229,25 @@ mod tests {
     }
 
     #[test]
+    fn refresh_heap_ranges_are_bounded_aligned_and_disjoint() {
+        use refresh_handoff::valid_heap_scratch as valid;
+        let snapshot = 0x808fa040;
+        let len = boundary_pause::CAPTURE_BYTES;
+        assert!(valid(snapshot + len, snapshot));
+        assert!(valid(snapshot - len, snapshot));
+        assert!(!valid(snapshot, snapshot));
+        assert!(!valid(snapshot + len - 8, snapshot));
+        assert!(!valid(snapshot + len + 1, snapshot));
+        assert!(!valid(0x808a4140, snapshot));
+        assert!(valid(0x80921140 - len, snapshot));
+        assert!(!valid(0x80921148 - len, snapshot));
+        assert!(!valid(0x80921148, snapshot));
+        assert!(!valid(snapshot + len, 0));
+        assert!(!valid(usize::MAX - 7, snapshot));
+        assert!(!valid(snapshot + len, usize::MAX - 7));
+    }
+
+    #[test]
     fn refresh_retries_exclude_stale_writers_and_readers() {
         use core::sync::atomic::AtomicU32;
         let pause = AtomicU32::new(0);

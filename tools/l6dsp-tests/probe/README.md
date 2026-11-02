@@ -657,6 +657,12 @@ capture words, audio claims, rejected publications, selector wait, and outcome
 (1 success, 2 timeout or invalidation). The `outer_audio_pause` counters in
 this mode are initial claims, completed captures, and failed captures. This is
 an experimental diagnostic, not a hardware memory layout or timing guarantee.
+Add `--heap-refresh` to allocate and retain a second 56,264-byte firmware-heap
+buffer for refresh scratch. `heap_refresh` records the published pointer and
+allocation-failure count. An unavailable or invalid allocation leaves the
+capture unready; the default synthetic sends are then suppressed, which is not
+a production fallback. The allocation persists for the diagnostic session;
+heap headroom and its lifetime under other device workloads are unqualified.
 The pointer ownership, call ordering, 64-frame bypass and return ABI,
 other selector paths, timeout recovery, audio continuity, and target timing
 are not established. The code uses unowned scratch and flash. **Never install

@@ -5,6 +5,16 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use crate::boundary_pause::BoundaryPause;
 use crate::handoff_protocol::CaptureProtocol;
 
+/// Check both retained ranges against the observed L6max 1.10 allocator arena.
+pub fn valid_heap_scratch(address: usize, snapshot: usize) -> bool {
+    let len = crate::boundary_pause::CAPTURE_BYTES;
+    let Some(end) = address.checked_add(len) else { return false; };
+    let Some(snapshot_end) = snapshot.checked_add(len) else { return false; };
+    address >= 0x808a4148 && address % 8 == 0 && end <= 0x80921140
+        && snapshot >= 0x808a4148 && snapshot % 8 == 0 && snapshot_end <= 0x80921140
+        && (end <= snapshot || address >= snapshot_end)
+}
+
 #[derive(Clone, Copy)]
 pub struct RefreshRequest {
     pause: u32,

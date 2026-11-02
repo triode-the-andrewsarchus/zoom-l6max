@@ -12,6 +12,8 @@ compile_error!("boundary noise requires the boundary diagnostic");
 compile_error!("outer audio pause requires the boundary diagnostic");
 #[cfg(all(owner_refresh_probe, not(outer_audio_pause_probe)))]
 compile_error!("audio-owned refresh requires the outer audio diagnostic");
+#[cfg(all(heap_refresh_probe, not(owner_refresh_probe)))]
+compile_error!("heap refresh requires the audio-owned refresh diagnostic");
 
 const POINTER: usize = 0x83e03100;
 const STATUS: usize = 0x83e03104; // 0 waiting, 1 captured, 2 allocation failed, 3 boundary candidate
@@ -29,8 +31,10 @@ const PAUSE: usize = 0x83e03138;
 const REFRESH_PAUSE: usize = 0x83e03188;
 #[cfg(owner_refresh_probe)]
 const REFRESH_CONTROL: usize = 0x83e0318c;
-#[cfg(owner_refresh_probe)]
+#[cfg(all(owner_refresh_probe, not(heap_refresh_probe)))]
 const REFRESH_SCRATCH: usize = 0x83e10000;
+#[cfg(heap_refresh_probe)]
+const REFRESH_SLOT: usize = 0x83e031a4;
 #[cfg(boundary_ainr_probe)]
 const CAPTURE_BYTES: usize = crate::boundary_pause::CAPTURE_BYTES;
 #[cfg(all(compact_ainr_probe, not(boundary_ainr_probe)))]
@@ -214,8 +218,21 @@ unsafe fn refresh_on_audio_boundary() {
         };
         let Some((boundary, claim)) = refresh.claim() else { return; };
         word(0x83e03190).fetch_add(1, Ordering::Relaxed);
+        #[cfg(heap_refresh_probe)]
+        let scratch = word(REFRESH_SLOT).load(Ordering::Acquire) as *mut u8;
+        #[cfg(not(heap_refresh_probe))]
+        let scratch = REFRESH_SCRATCH as *mut u8;
+        #[cfg(heap_refresh_probe)]
+        let valid = crate::refresh_handoff::valid_heap_scratch(scratch as usize, word(POINTER).load(Ordering::Acquire) as usize);
+        #[cfg(not(heap_refresh_probe))]
+        let valid = !scratch.is_null();
+        if !valid {
+            crate::boundary_pause::BoundaryPause(word(REFRESH_PAUSE)).finish(boundary);
+            crate::handoff_protocol::CaptureProtocol(word(REFRESH_CONTROL)).finish(claim, 0, false);
+            return;
+        }
         word(0x83e0316c).store(1, Ordering::Release);
-        crate::boundary_pause::copy_snapshot(0x20280000 as *const u8, REFRESH_SCRATCH as *mut u8);
+        crate::boundary_pause::copy_snapshot(0x20280000 as *const u8, scratch);
         word(0x83e03170).store(1, Ordering::Release);
         if !refresh.publish(boundary, claim) {
             word(0x83e03194).fetch_add(1, Ordering::Relaxed);
@@ -405,12 +422,52 @@ unsafe fn capture_hybrid(ptr: *mut u8, now: u32) -> bool {
     }
 }
 
+/// QEMU-only: retain a separate allocator-owned refresh buffer for the session.
+#[cfg(heap_refresh_probe)]
+unsafe fn allocate_refresh(snapshot: *const u8) -> Option<*mut u8> {
+    unsafe {
+        let slot = word(REFRESH_SLOT);
+        let current = slot.load(Ordering::Acquire) as usize;
+        if current != 0 {
+            return crate::refresh_handoff::valid_heap_scratch(current, snapshot as usize).then_some(current as *mut u8);
+        }
+        let alloc: unsafe extern "C" fn(usize) -> *mut u8 = core::mem::transmute(0x80085479usize);
+        let free: unsafe extern "C" fn(*mut u8) = core::mem::transmute(0x8008e589usize);
+        let ptr = alloc(crate::boundary_pause::CAPTURE_BYTES);
+        let address = ptr as usize;
+        if !crate::refresh_handoff::valid_heap_scratch(address, snapshot as usize) {
+            // Do not free an unvalidated or overlapping pointer.
+            word(0x83e031a8).fetch_add(1, Ordering::Relaxed);
+            return None;
+        }
+        match slot.compare_exchange(0, address as u32, Ordering::AcqRel, Ordering::Acquire) {
+            Ok(_) => Some(ptr),
+            Err(existing) => {
+                let existing = existing as usize;
+                if crate::refresh_handoff::valid_heap_scratch(existing, snapshot as usize)
+                    && (address + crate::boundary_pause::CAPTURE_BYTES <= existing
+                        || address >= existing + crate::boundary_pause::CAPTURE_BYTES) {
+                    free(ptr);
+                    Some(existing as *mut u8)
+                } else {
+                    word(0x83e031a8).fetch_add(1, Ordering::Relaxed);
+                    None
+                }
+            }
+        }
+    }
+}
+
 /// QEMU-only: refresh the held snapshot from the audio task's scratch copy.
 #[cfg(owner_refresh_probe)]
 unsafe fn refresh_before_install(ptr: *mut u8, original_claim: u32) -> bool {
     unsafe {
         let original = crate::handoff_protocol::CaptureProtocol(word(CONTROL));
         if !original.current_claim(original_claim) { return false; }
+        #[cfg(heap_refresh_probe)]
+        let Some(scratch) = allocate_refresh(ptr) else { return false; };
+        #[cfg(not(heap_refresh_probe))]
+        let scratch = REFRESH_SCRATCH as *mut u8;
         let regions = [(0xb97cusize, 20usize), (0xb990, 20), (0xba4c, 4), (0xbad0, 4)];
         let mut saved = [0u8; 48];
         let mut pos = 0;
@@ -442,7 +499,7 @@ unsafe fn refresh_before_install(ptr: *mut u8, original_claim: u32) -> bool {
             refresh.release(reader);
             return false;
         }
-        core::ptr::copy_nonoverlapping(REFRESH_SCRATCH as *const u8, ptr, crate::boundary_pause::CAPTURE_BYTES);
+        core::ptr::copy_nonoverlapping(scratch as *const u8, ptr, crate::boundary_pause::CAPTURE_BYTES);
         pos = 0;
         for (offset, len) in regions {
             for i in 0..len {

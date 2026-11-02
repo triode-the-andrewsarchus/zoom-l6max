@@ -5943,6 +5943,85 @@ were
 `d8e24cd7180796883a2d648637a5651a409c33e64eb63b02032e8616cb0967d9`.
 These experiments used the stock fixture and QEMU identities below.
 
+##### Retained firmware-heap refresh scratch
+
+An opt-in QEMU-only variant allocates a second 56,264-byte block through the
+stock allocator in the selector task and retains it for the session. The
+audio task copies into it; the selector holds the completed refresh generation
+while copying into the retained primary snapshot. The two ranges are checked
+for alignment, bounds and separation before use. Failed allocation leaves the
+snapshot unready; the synthetic sends are suppressed, which is not a usable
+production fallback. The diagnostic still uses unowned control words and flash.
+
+In a revised build, an ordinary run and an independently traced run each
+completed two selections. The primary snapshot was `0x808fa040`, the retained
+scratch was `0x80907c18..0x809157e0`, and sampled free heap was unchanged at
+47,448 bytes after the second selection. During each traced request through
+copy-out, CPU accesses starting in the scratch range were only the audio
+copy's writes and the selector copy's reads. The first refresh's separate
+source watch recorded no watched source stores or stock block entries during
+the copy. This trace covers only the observed CPU schedule, not DMA, aliases,
+other workloads or every possible caller. The following host-checked version
+tightens the range limit to the allocator's end sentinel at `0x80921140`.
+An uninstrumented run of that tightened version also completed both
+selections, reused the same allocation and reported the same heap values.
+Its MAIN, ELF, recipe and result SHA-256 values were
+`e0189099702d6dbcfd8965178f5f5305395de33ab6a60031691b3ea4b3d2a668`,
+`8a7dace907bcef6e0ab80b8e91d9c8ca418ba9747260fd7f475af425fb45098d`,
+`940ed66e936725c0eedf125e0023de09e5bbb220fd30dd12b53af770916ecc8a`, and
+`2a19d37897a606544ccfc60a68c9e68c037093600dbbec505f889c5722b950fc`.
+
+A separate derivative of the tightened version forced its first scratch
+allocation attempt to fail before calling the allocator. The scratch pointer
+and ready token remained zero and free heap stayed at 103,728 bytes. After
+cycling back through AINR and trying another selection, the second attempt
+allocated `0x80907c18`, reported a ready token and left 47,448 bytes free;
+the sampled synthetic sends were nonzero. This checks one injected failure
+and retry, not real exhaustion or a production fallback. The forced MAIN,
+ELF, modified handoff source, recipe and result hashes were
+`2d01c42a919763c7a3fcc106dc11f0a2019d6d250dd68f5b0eebb8cfca4cdc01`,
+`bf2e628ff30a135bfbd0b485b4cf040a22e49e8ce138e48296b53edb01d40c22`,
+`b7438e488240648e55e29f7316be81c62c9ee4c282b1864fd8d80a42c80a94d0`,
+`cb77045d3f0229387acf1a55d3c80c3995baf023173018f8aa0e28a55a35f789`, and
+`b481030b9a36556a215f8dd589bf070bc91a48bd962a998e18d59bfac89c55db`.
+
+The traced and ordinary MAIN and ELF were
+`3177620291b71b088ec638a9b9ee2b6ccde9465617d370c5ae6a9a265e33d51d` and
+`c9e6c45a99ebfb1bb0846584fcc0e25a0e8950c999c5e123ea46c76975647733`.
+The common recipe and ordinary/traced results were
+`589ca4414a47f513c0b8598eb3ae7b06a8ac6c7d80de60bb01f1377b42e78c05`,
+`e598c7514c2056c896c3b9581f9b33ceeb9443c78ff8c286fd5bbbd53f9fec88`, and
+`f27e904712f8816e61cb022a849d188aa0b39f6d5fbbdcb811ff50f146730d82`;
+the trace was `c0d2b850162025d464094754511535710ba9b962667c2dc566e95cd3813d190d`.
+The scratch-watch plugin source, binary and wrapper were
+`2e3e03c828c3095c70fb1754bbb46e37a177cc1ea990bd3b26871c20dd2279d0`,
+`bac582f00df6cda2f38f153ea0f1ca5c95ae4abe6b9dbc68aeb932585783bb10`, and
+`cb36537c60664470b59f50fc61a72888c0674cfa8fb294abe3e2c4456b20b91c`;
+the source-watch plugin source and binary were
+`3d82c85971052ac63c9a0287f1bd6181692628795099237f0317df7b7557ddce` and
+`101109b7d63ca6fe4fbf78a79eaba71da40017b177b839a4e709d8df152b61ba`.
+
+An earlier temporary version compared inspector behavior with the existing
+separate high-scratch diagnostic. In each QEMU run the inspector opened,
+an encoder edit set the displayed value to 26.0 ms, and the inspector closed;
+the four 32-byte metadata observations matched byte for byte. Free heap in
+that heap-backed run was 160,008 bytes before capture, 103,728 after the first
+snapshot and 47,448 after the second allocation, remaining 47,448 at the
+sampled inspector checkpoints. The second block consumed 56,280 bytes,
+including allocator overhead. These observations are limited to this fixture
+and workflow, and do not qualify recording, SD operations, other workloads,
+long-term allocation lifetime, audio continuity or physical hardware.
+
+The temporary heap/control MAIN hashes were
+`0820ca4f4427e440186789944f0b5993d305251405f2f67d710196cae226a84d` and
+`9283bd42dbf732ffd6c0126c4adc4b428366757d86ae65cff15938cb2c715818`;
+their ELFs were `55703ae2050576f83b0b94daa8efc4232aea159708d2c8d2fb97e914467fd262`
+and `8ee7a70e6846e27ef3700fb6cec2ff3d12f2ffba5413b6d829bacd6711e8e5cb`.
+Their recipes were `ba87d6040f33aa4dab9f2385a6f0c5a2b4b5e92c98775dc640e9aa0b3ff4eaf4`
+and `840efaf01e468208cca7c36f88a475b9ed195a5eab749f5b38cf484873c219f4`;
+results were `130eb11ea73b8e6add9f9c772db16f42ebf1db6c7ba007b8593b4a1cbd44c93f`
+and `9d40d61e2d0c861539b66c5f097f1beed61c670bf7727f7466b80cd0feae619a`.
+
 All runs used stock MAIN SHA-256
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
 initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
