@@ -4389,6 +4389,86 @@ The shared modified callback source was
 The stock MAIN, panel state, `l6dbg` and unattested QEMU identities match the
 rebased active-sends observation above.
 
+A matched pair repeated the slice-based FIR workload with an asymmetric
+checksum that does not cancel. At callback 100 both ARM builds produced
+`0x3f29b320` (about 0.663), matching a separate host run of the same kernel.
+Over five guest seconds, `opt-level=z` counted 1,657 callbacks and
+`opt-level=3` counted 3,616, about 331 and 723 per second. The diagnostic ELF
+text grew from 16,759 to 22,852 bytes. Both runs still evaluate only the
+synthetic FIR workload; they omit Plateau, AINR, filter rebuilding, physical
+memory and real CPU timing. A separate 12,000-frame host render of the
+285-tap full effects source at the two compiler settings matched byte for byte
+through two filter transitions (output SHA-256
+`9fe1b50e814d0a0291b193634f8c4764ada4a3cad61f38451abf86675a2a3f01`).
+That bounded comparison does not prove equivalence for all inputs or targets.
+
+The size- and speed-optimized diagnostic MAIN hashes were
+`7c550634169fe4e25d70cc975f8e7f641bb1384eae85c418a0cfa64c3266e67c` and
+`69f65e99c3a39fe53f7a4be0754900cbcb2b20b619c3cb7ef55a60b802a0435c`, ELFs
+`fee4e59999b3a012c912f1ebda9228612143fb14d3592bcc0126786e85f48bae` and
+`726a57f09cc360c4c39856f2b675bd5f57dda7bad2a81fe0f799d2375f1d39bc`, recipes
+`9f1ea2028747bf256e6f52d61f94beed0ac1850af393114d32f618c39435cca0` and
+`f340035ed9e74de0e124c435daaea203a7afc9f784fb8eb34dc926308035be0e`, and
+results `37687685291f133ab148650fb19390bac748fe555c68eb224eac42dad4ef7354`
+and `007badf26c16c32c9afbe27ecd950459ba1239fc32eb9282f97d8df89b1d5e02`.
+Their initial NOR hashes were
+`daef3512dca217d3de9ef707f50ce107d714a726af36f618ecf6d802555e4367` and
+`2d98a68d8c8517ab18587f617c0393635dd0dc250409078fa0a1fd1dcaf3b6d0`.
+The shared temporary workload and FIR source hashes were
+`fc14a06bf18978272dc25264e2503efacf9ee49558507fcb10a23e50c1c27099` and
+`1e8aedc346682df1e5ffb9acd6f42bf8682e72532def3428ce2bddb313df5e50`;
+the host checksum and full-render harness source hashes were
+`c2c8606a4ff5f3d99d6cf14bc2b8a431a9310a721cfe21e5511725cb5707843c` and
+`6f56249699dd4ce4871a8aa6a59ea001332deb0f7b25d402430bba6ad54f35fc`.
+The host checksum executables were
+`34e52d24cd8b30b2bba85483bf850f9bc88c40e0c54c9e4a4c361385ffd03e65` and
+`c38736ec361682cd0f6bfdd256c557aa4f997bf1558f6a8a9b0a1246b0fe8e4c`.
+The size- and speed-optimized host full-render executable hashes were
+`9e785b81b9082e0695fad9f11334b1890c643f2e922a4223bd4090bf78fb8638` and
+`e645871753e44f00443254cb0b7b168a60966cb40e55edcf001e3aa09d928468`.
+Stock MAIN, panel state, `l6dbg` and unattested QEMU matched the preceding run.
+
+An additional size-optimized run explicitly cached each tap's gain before the
+inner loop. ARM disassembly showed the gain load moving out of that loop; the
+workload counted 1,740 callbacks over five guest seconds (about 348/s), and
+its callback-100 checksum remained `0x3f29b320`. Its diagnostic text was
+16,787 bytes, 28 bytes larger than the matched size-optimized control. This
+single modeled run is not a target-cycle measurement. The experiment source
+now includes the gain cache; the production DSP is unchanged. Its MAIN, ELF,
+recipe and result hashes were
+`8122507b64e77ae7efbf840a2d32b79966edca134af5e82d557e9d329774ce93`,
+`df00247c0b6b16fec9f27bf98bc38f7bc004ffb48025a3b6307f655cc9ab5722`,
+`eace3b5971655e7e4cdd01abab5a5ef72b817e986b11a95f21c6d4f514bf325e`, and
+`04ca14a9b57d6f4fea01030de239598306f89114d1755f7a11b7897b7819f30b`.
+The initial diagnostic NOR was
+`4ab85156547dcd0dd492fe678d4b26311399c8d10f3b1801a4b19ca4e52f9151`;
+the FIR source was
+`5b969a6d3311699a32c8447160d08f53840b0c15bb789a59b320220a8e7279be`.
+The workload, stock MAIN, panel state, `l6dbg` and unattested QEMU match the
+preceding comparison.
+
+Using `opt-level=3` for the full 285-tap direct effects diagnostic with
+Plateau and all three synthetic sends counted 2,227 callbacks in five guest
+seconds (about 445/s), versus 2,077 in the earlier size-optimized run. It
+sampled nonzero output. At the timing sample it had processed fewer than
+240,000 frames, so the default renewal had not yet started. A 1.5-second
+selector hold followed; the inspector remained closed at the two-second
+snapshot. This run did not trace the button path, so it does not identify why
+the inspector stayed closed. Neither result qualifies controls, physical CPU
+timing, AINR, or memory ownership. The speed-optimized diagnostic text was
+28,368 bytes versus 23,755 bytes for the size-optimized build.
+
+The speed-optimized MAIN, ELF, recipe, result and initial diagnostic NOR were
+`38e654c3ce68b3321af63d32cdef3ec9b075e8d83170ca99256c8a9e87bfa91b`,
+`168cb20ffcf2f568424a5d91018d05a56a4c7829fe5affaf0e12d165ae9fb283`,
+`1a08de9c7347ba24a66de149b82572943732d4908e62e36dd5f8416b967a7b6d`,
+`77943f7aec9df6ea3b9579405faff95ba6e1631dc0089cc04d7472a1fffe68d9`, and
+`b4eb77127ec23fa83c2143af81cd046be6b6745d3770311d83c9d5ce5d0309c0`.
+Its temporary preparation source was
+`b40f915c6ee898ef3702f83b16e8e4cb48389fd35750e00e76ed186ddcef222a`;
+the callback and Velvet sources matched the 285-tap diagnostic above. Stock
+MAIN, panel state, `l6dbg` and unattested QEMU also matched that run.
+
 A later disposable workload explored partitioned convolution with a direct
 512-sample head and 256-frame tail partitions. The host model compared two
 inputs, stereo banks, an interrupted bank rebuild and a crossfade against
