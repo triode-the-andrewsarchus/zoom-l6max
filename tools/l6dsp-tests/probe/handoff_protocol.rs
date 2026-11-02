@@ -86,6 +86,13 @@ impl CaptureProtocol<'_> {
         }
     }
 
+    /// Start a new AINR visit with a fresh generation. A completed snapshot
+    /// from an earlier visit is not evidence of the current processor state.
+    pub fn restart(&self) {
+        self.cancel(false);
+        self.arm();
+    }
+
     pub fn done(&self) -> bool { self.0.load(Ordering::Acquire) & PHASE == DONE }
 
     pub fn current_done(&self, token: u32) -> bool {

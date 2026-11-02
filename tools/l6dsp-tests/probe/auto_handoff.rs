@@ -48,10 +48,17 @@ pub unsafe fn disable() {
     }
 }
 
-/// Rearm after the selector enters the stock AINR path.
+/// Discard the previous visit's snapshot when the selector enters AINR.
 #[cfg(any(hybrid_ainr_probe, boundary_ainr_probe))]
 pub unsafe fn arm() {
-    unsafe { crate::handoff_protocol::CaptureProtocol(word(CONTROL)).arm(); }
+    unsafe {
+        crate::handoff_protocol::CaptureProtocol(word(CONTROL)).restart();
+        word(READY).store(0, Ordering::Release);
+        word(STATUS).store(0, Ordering::Release);
+        word(START).store(0, Ordering::Release);
+        #[cfg(hybrid_ainr_probe)]
+        word(PROGRESS).store(0, Ordering::Release);
+    }
 }
 
 pub fn ready() -> bool {

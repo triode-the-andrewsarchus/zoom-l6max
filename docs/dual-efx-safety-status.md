@@ -125,6 +125,9 @@ The blocking findings for L6max MAIN 1.10
   established the complete AINR footprint or excluded all other writers. Its
   packed heap snapshot now holds only a candidate 56,264-byte channel-0 tail;
   selection still reconstructs three copies in unqualified effect storage.
+  The versioned protocol invalidates a previous snapshot when the selector
+  enters AINR again; host tests cover a stale token and an in-flight writer,
+  but the selector-level behavior has not been demonstrated in QEMU.
   The pause therefore does not establish a coherent snapshot. A smaller
   temporary prototype captured 512 bytes and reconstructed the remainder
   after selection; under injected signal the resulting state differed from

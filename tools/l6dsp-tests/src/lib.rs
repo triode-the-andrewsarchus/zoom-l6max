@@ -246,6 +246,29 @@ mod tests {
     }
 
     #[test]
+    fn ainr_reentry_invalidates_completed_snapshot_and_waits_for_old_writer() {
+        use core::sync::atomic::AtomicU32;
+        let word = AtomicU32::new(0);
+        let protocol = handoff_protocol::CaptureProtocol(&word);
+        let (first, _) = protocol.claim().unwrap();
+        assert!(protocol.finish(first, 15, true));
+        let old_ready = (first & !0x3f) | (15 << 2) | 2;
+        assert!(protocol.current_done(old_ready));
+
+        protocol.restart();
+        assert!(!protocol.current_done(old_ready));
+        let (second, step) = protocol.claim().unwrap();
+        assert_eq!(step, 0);
+        protocol.restart();
+        assert!(protocol.claim().is_none(), "old writer still owns snapshot");
+        assert!(!protocol.finish(second, 15, true));
+        let (third, step) = protocol.claim().unwrap();
+        assert_eq!(step, 0);
+        assert!(protocol.finish(third, 15, true));
+        assert!(!protocol.current_done(old_ready));
+    }
+
+    #[test]
     fn ainr_capture_epoch_exhaustion_fails_closed() {
         use core::sync::atomic::AtomicU32;
         let word = AtomicU32::new(0xffff_ff80);

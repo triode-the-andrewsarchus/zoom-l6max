@@ -607,7 +607,9 @@ status values still fail closed. Cancellation holds the buffer claim until an
 in-flight writer retires; an early rearm request waits for that retirement.
 Installation also claims the completed snapshot while copying it. Its ready
 token is tied to the completed capture generation and is published only if
-the installation has not been cancelled or disabled. This does not establish
+the installation has not been cancelled or disabled. Entering AINR invalidates
+the previous visit's completed snapshot and requires a new capture; if a copy
+is still in flight, the new capture waits for it to retire. This does not establish
 quiescence for the destination effect buffer or other stock users. This is an
 unqualified experiment: the inferred span may
 miss mutable state, the last callback still copies at least 44 KiB, and the
