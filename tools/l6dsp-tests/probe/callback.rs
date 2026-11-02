@@ -176,7 +176,7 @@ pub unsafe extern "C" fn probe_selection(entry: *mut u32) {
             core::ptr::write_volatile(0x83e00004 as *mut u32, entry as u32);
             core::ptr::write_volatile(0x83e00008 as *mut u32, 0);
             #[cfg(mixer_input_capture)]
-            core::ptr::write_volatile(0x83e00800 as *mut u32, 0);
+            mixer_capture::reset();
             // In the combined diagnostic, retain functional routes in the
             // heap sidecar. Null sidecar falls back to this effect's default.
             #[cfg(knob_inspector)]
@@ -373,7 +373,10 @@ pub unsafe extern "C" fn diagnostic_audio(_context: u32, descriptor: u32) {
             }
         }
         #[cfg(mixer_input_capture)]
-        if capture_input { unsafe { mixer_capture::finish(buffer, counter); } }
+        unsafe {
+            if capture_input { mixer_capture::finish(buffer, counter); }
+            mixer_capture::observe(&sends, buffer);
+        }
         #[cfg(active_sends)]
         unsafe {
             core::ptr::write_volatile(0x83e00804 as *mut u32, core::ptr::read_volatile(counter));

@@ -972,7 +972,12 @@ identity. Check the captured active callback and route, compare all 64 send
 samples to the captured source and gain data, and inspect both return channels
 for finite, nonzero samples bounded by unity. `python3 tools/l6dsp-tests/probe/mixer_input_capture.py
 /path/to/diagnostic.json` performs those checks for the probe's fixed test
-routes. Active gain ramps require their own capture and cannot be reconstructed
+routes. In addition to the single reconstructed block, it aggregates signal
+peaks across the selection: it requires at least 100 blocks with active input,
+finite bounded output and a peak in each return channel at least 1% of the
+observed input peak. This fixture-specific floor catches silent or nearly
+silent returns; it is not a target audio-level or fidelity specification.
+The added reads perturb execution. Active gain ramps require their own capture and cannot be reconstructed
 from these snapshots. A successful recipe collects
 observations only; it does not establish physical input mapping, control
 responsiveness, state ownership, or hardware timing.

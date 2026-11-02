@@ -294,6 +294,25 @@ four-second host render of a 500 Hz tone at default size had per-second stereo
 RMS between 0.054 and 0.063 in both the preceding version and a candidate
 before the maximum-size boundary adjustment. These finite
 observations do not establish the cause of the quiet capture or audio fidelity.
+An extended capture of the same modeled stimulus observed 3,080 Plateau
+callbacks, including 1,672 blocks with active sends. Its largest send was
+`3.92e-5`, and the largest left and right return samples across that selection
+were `1.42e-4` and `1.16e-4`. Its one-shot return capture was only `2.24e-12`,
+showing why a single block is insufficient to assess output level. The
+extended checker also requires each channel's peak to exceed 1% of the send
+peak and rejects invalid or out-of-range samples; this is a diagnostic floor,
+not an audio quality or hardware qualification.
+The diagnostic MAIN, ELF, initial NOR, recipe and result SHA-256 values were
+`d6b7b798390eb43fdddbfd41542ac6dbbe5bfb058304ed74994dd1d454f38b14`,
+`4ec3bb636a8208ab3fd3504240c9df6a01d75824e21a9d1f39d3eadb8fe7f12a`,
+`987b5edc2ae4e6c95a8021b476e31842e7202148769cf38c4fce22180935d321`,
+`51a6b89da307cc1cc92b7f6a42174435e50aeb5dedf635671b1b353686b6ee50`, and
+`3609f2f46776d0bc5baf3e0d2aabe1519be75daaebe54b690987f900282e7fd4`.
+It used stock MAIN and source NOR identified above, modeled-input QEMU
+`eade074b5d7a6fe9d74bbbe1ad36a34f7356cd200cbfc81e772f2a21892012e8`
+with unattested source and `l6dbg`
+`ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`.
+The extra observation changes execution timing and uses unowned scratch.
 The fractional-delay diagnostic MAIN, ELF, initial diagnostic NOR, recipe and
 result SHA-256 values were
 `366dc235cf6a92e3c34a6c5590ea53816163250a3461fdd8fd89d919ff25bc9c`,

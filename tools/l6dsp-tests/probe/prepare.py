@@ -499,6 +499,7 @@ wall_timeout_s = 420
         add("press", target=40, hold_ms=150)
         add("wait", guest_ms=6000)
         for field, address, length in (
+            ("levels", 0x83e00820, 24),
             ("state", 0x83e00000, 12), ("marker", 0x83e00800, 8),
             ("sends", 0x83e01000, 768), ("output", 0x83e01400, 512),
             ("source", 0x83e02000, 3072), ("gains", 0x83e02c00, 512),

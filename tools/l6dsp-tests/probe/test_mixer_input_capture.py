@@ -20,6 +20,7 @@ def report():
         sends[route * 64:(route + 1) * 64] = [0.125] * 64
         add(label, 'state', struct.pack('<III', 0x494e4954, descriptor, 200))
         add(label, 'marker', struct.pack('<II', 0x5349474e, 150))
+        add(label, 'levels', struct.pack('<IIIfff', 190, 120, 0, 0.125, 0.1, 0.1))
         add(label, 'sends', struct.pack('<192f', *sends))
         add(label, 'output', output)
         add(label, 'source', source)
@@ -62,6 +63,16 @@ class MixerInputCaptureTests(unittest.TestCase):
         field(bad, 'velvet_marker')[:4] = [0] * 4
         with self.assertRaisesRegex(ValueError, 'marker mismatch'):
             check(bad)
+
+    def test_rejects_insufficient_or_inaudible_aggregate_output(self):
+        for values in ((190, 99, 0, 0.125, 0.1, 0.1),
+                       (190, 120, 1, 0.125, 0.1, 0.1),
+                       (190, 120, 0, 0.125, 1e-12, 0.1),
+                       (190, 120, 0, 0.125, 0.1, float('nan'))):
+            bad = report()
+            field(bad, 'plateau_levels')[:] = list(struct.pack('<IIIfff', *values))
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                check(bad)
 
 
 if __name__ == '__main__':

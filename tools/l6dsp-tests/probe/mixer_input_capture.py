@@ -46,6 +46,19 @@ def reconstruct(source, gains, label):
     return expected
 
 
+def check_levels(events, label, callback_count):
+    blocks, active, invalid, send_peak, left_peak, right_peak = struct.unpack(
+        '<IIIfff', capture(events, label, 'levels', 24))
+    if not 100 <= active <= blocks <= callback_count or invalid:
+        raise ValueError(f'{label} has insufficient active blocks or invalid signal')
+    if (not all(math.isfinite(x) for x in (send_peak, left_peak, right_peak))
+            or send_peak <= 1e-7 or not all(send_peak * 0.01 <= peak <= 1.0
+                                            for peak in (left_peak, right_peak))):
+        raise ValueError(f'{label} sustained return is too quiet or out of range')
+    return {'blocks': blocks, 'active_blocks': active, 'send_peak': send_peak,
+            'output_peaks': [left_peak, right_peak]}
+
+
 def check_effect(events, label, descriptor, route):
     marker, selected, count = struct.unpack('<III', capture(events, label, 'state', 12))
     signal, captured_count = struct.unpack('<II', capture(events, label, 'marker', 8))
@@ -68,7 +81,8 @@ def check_effect(events, label, descriptor, route):
     if tuple(expected) != sends[route * 64:(route + 1) * 64]:
         raise ValueError(f'{label} reconstructed send differs')
     return {'callback_count': count, 'captured_count': captured_count,
-            'send_peak': max(map(abs, expected)), 'output_peak': max(map(abs, output))}
+            'send_peak': max(map(abs, expected)), 'output_peak': max(map(abs, output)),
+            'levels': check_levels(events, label, count)}
 
 
 def check(report):
