@@ -62,6 +62,11 @@ impl<const N: usize> Delay<N> {
     }
 
     #[inline(always)]
+    fn valid(&self, min_length: usize, max_length: usize) -> bool {
+        self.write_pos < N && self.length >= min_length && self.length <= max_length
+    }
+
+    #[inline(always)]
     pub fn write(&mut self, sample: f32) {
         self.buffer[self.write_pos] = sample;
         self.write_pos += 1;
@@ -757,6 +762,24 @@ impl PlateauReverb {
 
     #[inline(always)]
     pub fn process_sample(&mut self, in_l: f32, in_r: f32) -> (f32, f32) {
+        // Check every history before updating any state. An invalid cursor or
+        // length must not reach a bounds panic in an audio callback; the
+        // owner must reset or replace the damaged processor before reuse.
+        if !self.predelay.valid(1, PREDELAY_MAX)
+            || !self.in_apf1.delay.valid(2, IN_APF1_MAX)
+            || !self.in_apf2.delay.valid(2, IN_APF2_MAX)
+            || !self.in_apf3.delay.valid(2, IN_APF3_MAX)
+            || !self.in_apf4.delay.valid(2, IN_APF4_MAX)
+            || !self.l_apf1.delay.valid(2, L_APF1_MAX)
+            || !self.l_del1.valid(1, L_DEL1_MAX - 1)
+            || !self.l_apf2.delay.valid(2, L_APF2_MAX)
+            || !self.l_del2.valid(1, L_DEL2_MAX - 1)
+            || !self.r_apf1.delay.valid(2, R_APF1_MAX)
+            || !self.r_del1.valid(1, R_DEL1_MAX - 1)
+            || !self.r_apf2.delay.valid(2, R_APF2_MAX)
+            || !self.r_del2.valid(1, R_DEL2_MAX - 1) {
+            return (0.0, 0.0);
+        }
         // Do not let corrupt samples poison the feedback tank.
         let in_l = audio_input(in_l);
         let in_r = audio_input(in_r);

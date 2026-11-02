@@ -2530,6 +2530,61 @@ mod tests {
     }
 
     #[test]
+    fn plateau_invalid_delay_metadata_fails_silent_before_updating_state() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        for which in 0..13 {
+            for damage in 0..4 {
+                // Predelay and tank delays can represent a one-sample length;
+                // interpolated allpasses require at least two.
+                if damage == 3 && matches!(which, 0 | 6 | 8 | 10 | 12) { continue; }
+                reverb.init(plateau::PlateauParameters::default());
+                reverb.predelay.buffer[0] = 0.25;
+                macro_rules! invalidate {
+                    ($d:expr) => {{
+                        let delay = &mut $d;
+                        match damage {
+                            0 => delay.write_pos = delay.buffer.len(),
+                            1 => delay.length = 0,
+                            2 => delay.length = delay.buffer.len() + 1,
+                            _ => delay.length = 1,
+                        }
+                    }};
+                }
+                match which {
+                    0 => invalidate!(reverb.predelay),
+                    1 => invalidate!(reverb.in_apf1.delay),
+                    2 => invalidate!(reverb.in_apf2.delay),
+                    3 => invalidate!(reverb.in_apf3.delay),
+                    4 => invalidate!(reverb.in_apf4.delay),
+                    5 => invalidate!(reverb.l_apf1.delay),
+                    6 => invalidate!(reverb.l_del1),
+                    7 => invalidate!(reverb.l_apf2.delay),
+                    8 => invalidate!(reverb.l_del2),
+                    9 => invalidate!(reverb.r_apf1.delay),
+                    10 => invalidate!(reverb.r_del1),
+                    11 => invalidate!(reverb.r_apf2.delay),
+                    _ => invalidate!(reverb.r_del2),
+                }
+                let position = reverb.predelay.write_pos;
+                let phase = reverb.lfo1.phase;
+                assert_eq!(reverb.process_sample(0.5, 0.5), (0.0, 0.0), "delay {which}, damage {damage}");
+                assert_eq!(reverb.predelay.write_pos, position);
+                assert_eq!(reverb.predelay.buffer[0], 0.25);
+                assert_eq!(reverb.lfo1.phase, phase);
+                reverb.init(plateau::PlateauParameters::default());
+                reverb.process_sample(0.5, 0.5);
+                assert_ne!(reverb.predelay.buffer[0], 0.0, "reinitialization failed for delay {which}");
+            }
+        }
+
+        // Mutating through IdlePlateau revokes its pristine fast path.
+        let mut processor = Box::new(routing::DualEfxProcessor::new());
+        processor.init();
+        processor.plateau.l_del1.write_pos = processor.plateau.l_del1.buffer.len();
+        assert_eq!(processor.plateau.process_sample(0.5, 0.5), (0.0, 0.0));
+    }
+
+    #[test]
     fn plateau_size_changes_tank_without_retiming_input_diffusers() {
         let mut reverb = Box::new(plateau::PlateauReverb::new());
         let mut params = plateau::PlateauParameters::default();

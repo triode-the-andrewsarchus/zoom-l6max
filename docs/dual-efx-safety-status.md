@@ -4,6 +4,42 @@ The patch is disabled in the native and browser patch builders. Do not install
 an image produced by earlier versions of this branch. The firmware integration
 is not qualified for physical hardware.
 
+The normal Plateau sample path checks all 13 delay cursor and length pairs
+before changing reverb state, returning silence on invalid metadata. Host
+tests cover each cursor, zero and oversized lengths, too-short interpolated
+allpass lengths, and reinitialization. This does not guard arbitrary corrupt
+state, out-of-band corruption of the pristine shortcut, or concurrent access.
+One matched QEMU-only 285-tap long-fade pair completed 1,656 unguarded and
+1,641 guarded callbacks in five modeled seconds, against 3,750 nominal; both
+had nonzero sampled output. These single instrumented runs do not establish a
+hardware deadline or isolate a reliable performance difference. The stock
+MAIN, source NOR, panel flash, options and RTC were
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
+In unguarded/guarded order the diagnostic MAINs were
+`aa102f2c8b79034fbdcabb22fcbe33afdaa138bcf2c90b549c5ef06e0bb47374` /
+`a5cbcb36c25a19caace0108af509c27a8824a05ba2bc9fe08a71b8d8f51891b5`,
+ELFs were
+`ca0f4ed0dfe30aad271c8dc87268783236b230b63941c129ac451ff75f8deb1c` /
+`68bc826dea01eb078e3e82eab71e0388b24a1328c539b647692abf71371c73bb`,
+initial diagnostic NORs were
+`ead7d2bfcd43c9d4cbf55197cef4b7977b14fa25da9bb7c5a7e207b3a242d54d` /
+`767657053cb6153184aebc6e927cf931ed92dbfd7327cfa716adeab299d80572`,
+recipes were
+`189cf8adc349025fc0cca4c6f3eadf379e58f9ba9259272961ff1f5ee6c232e5` /
+`67b62bff1ea9b86969a346e564044508f94d8000595168182696d348f817bfa4`, and
+results were
+`122bf07ba15f10aa103c298b173870470bb6b8227a6726575e132846022eaef8` /
+`ab31fc5e4531077804f7192a40ecd359423f815298869c6dcded51dc4b6491f9`.
+The external QEMU and `l6dbg` were
+`4902e96e8375adb69b1ebe0e5572fe1ba3fb6a0e413c8595605128a297dfd910` and
+`ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`;
+QEMU source is unattested. These diagnostics use unowned scratch and must not
+be installed.
+
 The blocking findings for L6max MAIN 1.10
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461` are:
 

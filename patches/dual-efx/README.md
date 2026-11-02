@@ -71,6 +71,10 @@ off. The model and value formatter are host-tested; firmware event handling,
 display presentation, bank selection and routing controls are not connected.
 Plateau holds its tank modulation delays fixed while frozen to preserve the
 tail, and resumes modulation when freeze is released.
+The normal Plateau sample path returns silence without advancing its state
+when a delay cursor or length is invalid; the processor must be reinitialized
+before reuse. This does not validate arbitrary corrupt state, the pristine
+shortcut under memory corruption, or concurrent firmware access.
 Its low-cut and high-cut controls adjust tank damping; the input filter
 cutoffs remain fixed. A 20 Hz DC blocker and the input filters precede the
 predelay, as in the supplied core. Their histories are cleared on freeze entry
