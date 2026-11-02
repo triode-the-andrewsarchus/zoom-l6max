@@ -164,7 +164,11 @@ python3 tools/l6dsp-tests/probe/ainr_pair_replay.py \
 The replay stops the guest, rewrites its executable memory and restores a
 sampled state range and stack between the two calls. It compares 16 blocks,
 the sampled state, and register values; it requires finite, nonzero output
-on both channels. The reported main hash identifies the supplied image, while
+on both channels. Add `--check-closed` to force the diagnostic gate closed for
+each block and check that both input buffers and the sampled state are
+unchanged, both rejection counters advance, and the call returns zero. That
+does not establish whether zero is a safe return value for other callers.
+The reported main hash identifies the supplied image, while
 the guest code checks cover only the observed pair and veneer. The debugger
 perturbs timing and the replay does not restore or compare every possible
 side effect. Stop the disposable guest afterward; never connect this script to

@@ -6668,3 +6668,24 @@ The probe reported input/output hashes
 `58dff128e2b016f896121efecf78f39299afb6424c06e7b169a3b564c4967524`.
 The debugger guest was stopped after observation. The paired MAIN, ELF,
 stock MAIN, initial fixture, QEMU and `l6dbg` matched the preceding experiment.
+
+A subsequent fresh-guest replay also forced the diagnostic admission gate
+closed for each of 16 blocks with the same distinct synthetic stereo inputs.
+At the caller's return site, both input buffers and the sampled `0x27000`-byte
+state range matched their pre-call bytes, the two rejection counters had each
+advanced once, the gate was still closed, and `r0` was zero. After restoring
+the initial state and reopening the gate, each admitted call matched the stock
+output and sampled state; the admitted outputs contained 749 and 744 nonzero
+samples. This is a forced debugger experiment, not a test of the stock
+dispatcher's return contract, clicks during real switching, all state users,
+timing or physical hardware. Do not install this image.
+
+The replay script, recipe, result and QEMU trace hashes were
+`ccae0c2676d0d7b3c87c1ee51bd59e37ff99ae07a44584bbe5e031ff6b549467`,
+`d0fefb18bcada3ac8460756a87ec9c4b277ae76aba65224cdf4fe78e6bfd83b2`,
+`cfd9f567c419219af6e6a62c8bff492155bde0c340be2a553bc7c86c3443d6c4`, and
+`d24bfcd78f292734a67584daa725f1dd6df1baa1f91a0b9ee40bebc6f1c651d1`.
+The admitted output hash was
+`09f2d626f6e7e80d3771801564dd996f30ccc3e8b1d6d724189a3383b79bb08b`.
+The guest was stopped after observation. The paired MAIN, ELF, stock MAIN,
+initial fixture, QEMU and `l6dbg` matched the preceding experiment.
