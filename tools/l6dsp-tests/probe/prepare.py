@@ -33,6 +33,7 @@ parser.add_argument("--ring-timing", action="store_true", help="use QEMU-only re
 parser.add_argument("--ring-drop", choices=("pair", "release"), help="QEMU-only forced selector-event loss case")
 parser.add_argument("--timing-control", action="store_true", help="bypass effects in a QEMU timing comparison")
 parser.add_argument("--active-sends", action="store_true", help="inject nonzero QEMU-only effect buses")
+parser.add_argument("--selector-load-trace", action="store_true", help="trace a selector hold under active or bypassed effects")
 parser.add_argument("--submix-return", action="store_true", help="capture active DSP output with the modeled Sub-Mix switch held")
 parser.add_argument("--retain-custom-state", action="store_true", help="experimentally retain state across adjacent custom effects")
 parser.add_argument("--pre-ainr", action="store_true", help="run a debugger-installed AINR copy on each test send")
@@ -46,6 +47,12 @@ parser.add_argument("--passthrough-unready", action="store_true", help="keep syn
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
 parser.add_argument("--bank-stress-count", type=int, default=10, help="number of bank changes (1..64)")
 args = parser.parse_args()
+if args.selector_load_trace:
+    if (not args.callback or not args.inspector or args.active_sends == args.timing_control
+            or args.pre_ainr or args.submix_return or args.bank_stress or args.retain_custom_state
+            or args.switches or args.irq_timing or args.ring_timing or args.ring_drop):
+        parser.error("--selector-load-trace requires --callback --inspector and exactly one of --active-sends or --timing-control, without other diagnostic variants")
+    args.gesture_trace = args.enqueue_trace = args.irq_trace = True
 if args.retain_custom_state and (not args.inspector or args.pre_ainr):
     parser.error("--retain-custom-state requires --inspector and cannot be combined with --pre-ainr")
 if args.switches and not args.callback:
@@ -397,6 +404,22 @@ wall_timeout_s = 300
             memory(f"audio_{suffix}", 0x83e00800, 16)
             memory(f"tx_{suffix}", 0x20009740, 4096)
         add("button", target=47, pressed=False)
+    if args.selector_load_trace:
+        recipe = f'version = 1\nmodel = "l6max"\nmain_sha256 = "{image_sha}"\nwall_timeout_s = 300\n'
+        wait(45000)
+        press(40)  # Hall -> Room, with the normal post-press wait.
+        memory("start", 0x83e00000, 12)
+        wait(5000)
+        memory("end", 0x83e00000, 12)
+        memory("work", 0x83e00800, 16)
+        press(40, 1500)
+        memory("inspector", 0x83e00400, 32)
+        wait(3000)
+        memory("inspector_later", 0x83e00400, 32)
+        memory("gesture", 0x83e00500, 244)
+        memory("enqueue", 0x83e00600, 260)
+        memory("irq", 0x83e00900, 276)
+        memory("selected", 0x83e00004, 4)
 if args.pre_ainr:
     # The observer or auto-handoff prototype installs learned AINR copies.
     recipe = f'''version = 1

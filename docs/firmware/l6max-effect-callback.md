@@ -4469,6 +4469,60 @@ Its temporary preparation source was
 the callback and Velvet sources matched the 285-tap diagnostic above. Stock
 MAIN, panel state, `l6dbg` and unattested QEMU also matched that run.
 
+Two further speed-optimized 285-tap diagnostics traced the same hold with
+the effects active and bypassed. In both, the UART hook saw the hold edges
+at ticks 52,192 and 53,696. With active synthetic sends, neither edge reached
+the traced stock enqueue or selector handler by guest time 58,891 ms, and the
+inspector stayed closed. With the effect callback bypassed, both edges reached
+the enqueue and selector handler at those ticks and the inspector opened.
+The active and bypass callback counts over the five-second sample were 2,303
+and 3,748. These hooks perturb execution, and the bypass also skips input
+reconstruction. The observation locates this modeled delay between the UART
+hook and the traced enqueue; it does not establish physical scheduling, a
+complete parser path, or the cause of every missed control event. The
+maintained `--selector-load-trace` recipe uses the normal 64-tap limit unless
+the source is separately modified, as it was for this experiment.
+
+The active and bypass MAIN hashes were
+`9cf2b8f69d6921969eb62ebce5e5d367d2853c5f32681760650190719bd50cfd` and
+`b3fc232e960d351e57250825f8bf1d71e562787062e0055df58cba2df45da52d`, ELFs
+`200cfa38c90895f0fd7fa0229b00a4188d0164f2847967ebf81b4a1371f3d404` and
+`3bd62f444ff6f2096e151c1ecf546e044cbc8e4a8a2847f821c4ce1322726521`, recipes
+`be9231b02e101f7cbb79dc5873c0380525c158d1179b975735ecd351acdfe0db` and
+`3f55cacd243ac9e1f7373380b28f3fa10eefea45557183b3f03a4de62f2f82bd`, and
+results `6539838563b1abf7738bff4ebcd2f7541533578968dcb15d6224baa824ffa495`
+and `181d240e3055fe6a804035ef4df5e20be3c246aa1239b4ef8d708e549255312e`.
+The initial diagnostic NOR hashes were
+`7020461d2bcf0d89fca38504eec8c51453fb3e65b0bd631dd8c5d3afaba3b147` and
+`85144c46fea757200f4ddbc838e9ec60d34a493c563d683d5572ae4c962527e3`.
+The stock MAIN, panel state, `l6dbg`, temporary preparation and callback
+sources, and unattested QEMU matched the preceding full-density observations.
+
+The maintained recipe was then exercised with the current 64-tap,
+size-optimized diagnostic. Both active and bypass runs delivered the hold to
+all three trace points and opened the inspector by the first snapshot. Their
+five-second callback counts advanced by 3,751 and 3,749 respectively; the
+active sampled outputs were nonzero. These are single instrumented emulator
+runs, not general UI or physical timing qualification. The full-density pair
+above also used a different compiler setting and modified initialization, so
+the comparisons do not isolate tap count as the only variable.
+
+In active and bypass order, their MAIN hashes were
+`502b43aaad5528d3b55645c14b0905d3b2f85ed21228da8ed103d6118615979f` and
+`cf51939aec6c516eef5057b3c5918c0cc85e21a84c15fd7fbd155b84fb0192b9`, ELFs
+`bec3aeb7e4ab7761f861f94934c5234f70ee896659716cf5445ffbb8d9450ba9` and
+`dd654dc1ad89657bac490ced1b3d0dd4d27ac900d4499a8deb1ab11b0bc3a5fc`, recipes
+`953a41f7979809a18fb2be645a5c937cf4cf13cc1a24d4d86de74e006965d217` and
+`47b6427ff437ec98eaea1a7defb4736c852198de5dabf89011d369fe398d90f7`, and
+results `715d80d296f1b830ab09f21d6244197422e7cc9c910cb71a41138a1908a9d730`
+and `9c1a288d3a9441e39775ab3f39ba6056269044197835b687fd64f56c462166b6`.
+The initial diagnostic NOR hashes were
+`0f967c90ef9f17aadb3adccd7e68709a7b5bd712a966f1153e815cbf0681d591` and
+`020bd3641f71d5df6f33d611e4e00c7f2ea4e36be42b99b9039199e56e87de54`.
+The preparer was
+`dc846792880657d4b27fd86ab143ef2a114e26eb730d9609b05e14b46130f101`;
+stock MAIN, panel state, `l6dbg` and unattested QEMU matched the preceding pair.
+
 A later disposable workload explored partitioned convolution with a direct
 512-sample head and 256-frame tail partitions. The host model compared two
 inputs, stereo banks, an interrupted bank rebuild and a crossfade against
