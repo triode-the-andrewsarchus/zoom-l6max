@@ -51,8 +51,9 @@ pub unsafe extern "C" fn selector_handoff_end() {
     }
 }
 
-// These veneers reproduce the overwritten L6max 1.10 instructions. The
-// abort path skips the requested selection and is diagnostic only.
+// These veneers reproduce the overwritten L6max 1.10 instructions. Acquire
+// before the stock call, which resets control structures. The abort path skips
+// that call and the requested selection and is diagnostic only.
 core::arch::global_asm!(r#"
 .syntax unified
 .thumb
@@ -60,14 +61,14 @@ core::arch::global_asm!(r#"
 .global selector_handoff_entry
 .thumb_func
 selector_handoff_entry:
-    mov r1, r4
-    ldr.w r12, .Lstock_call
-    blx r12
     push.w {r0, r1, r2, r3, r12, lr}
     bl selector_handoff_begin
     cmp r0, #0
     beq .Labort
     pop.w {r0, r1, r2, r3, r12, lr}
+    mov r1, r4
+    ldr.w r12, .Lstock_call
+    blx r12
     cmp r6, #4
     ldr.w pc, .Lcontinue
 .Labort:

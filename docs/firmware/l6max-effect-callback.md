@@ -6285,3 +6285,26 @@ The float-only MAIN, ELF, recipe and result hashes were
 `1825e206a4c6cafe6808ed0a125da77af8fceeb5157eddfe6b0776966ce1edb6`, and
 `cccd1ed00c362b4c43025556cf4e50499db19ee7a58af6d0d6dc7d7e8927f5ae`.
 Stock MAIN, initial fixture, QEMU and `l6dbg` matched the preceding run.
+
+The original selector veneer closed admission only after replaying the stock
+call at `0x202805ce`. That call reaches `0x80046788`, which clears indexed
+control structures at `0x8020a410` and also reaches a conditional clear near
+`0x8020a390`. Their complete users are not established, so they cannot be
+assumed disjoint from admitted audio work. The revised diagnostic acquires
+and drains the gate before that call. In one separate startup debugger stop
+at `0x80046788`, the gate word was `4` (closed with no lease), the selector
+guard was active, and LR pointed back into the revised veneer. A full run
+again reported seven balanced selections and one rejected forced late audio
+entry. These results do not prove other users, reset or error recovery, and
+the revised image remains QEMU-only.
+
+The modified MAIN, ELF, full-cycle recipe and result hashes were
+`334ddaa1aa9e4267bc78720e7b2bd488e04cac910bf9ee92855f7fc84160a1de`,
+`30a090b8997f913571928ade69da042403964ee9809657d93aa4b15b0424151c`,
+`18b8a0cd509ee707f942c52a24faf679ab89f11be0811d9ac5e02a3c464e1716`, and
+`292bf7f9b465d6656bc72d5f695c38cd2b812d49b0f4d205ae5725201df43052`.
+The debugger-stop recipe and transcript hashed to
+`f17f8c0c67cdb2d8ed4c485e050c369375bd38fc738716b2a65ee720d83ba174` and
+`4fa5fe6785a00294fa70475cbc0ed789b0f27e7486e2797dc912d5a5bbdf87d2`;
+that diagnostic was stopped after the observation. The input firmware,
+initial fixture, QEMU and `l6dbg` matched the preceding run.
