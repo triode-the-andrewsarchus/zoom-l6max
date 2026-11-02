@@ -94,6 +94,15 @@ def install_selector_feedback(image, target, pre, inner):
     image[0x543a6:0x543aa] = branch(0x800543a6, inner, link=False)
 
 
+def install_ainr_veneer(image, target):
+    """Redirect the revision-guarded relocated stock AINR dispatcher veneer."""
+    offset = 0x104de4
+    if (target is None or target & 1 or not 0x80108000 <= target < 0x80130000
+            or image[offset:offset + 10] != bytes.fromhex('40f2817cc0f2000c6047')):
+        raise ValueError('stock AINR veneer or target mismatch')
+    image[offset:offset + 10] = bytes.fromhex('dff800f0') + (target | 1).to_bytes(4, 'little') + bytes.fromhex('00bf')
+
+
 def install_boundary_hook(image, target):
     """Guard the observed L6max 1.10 panel pre-disable call."""
     offset = 0x5435c

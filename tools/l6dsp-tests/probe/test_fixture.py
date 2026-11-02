@@ -4,7 +4,7 @@ import subprocess
 import sys
 import unittest
 
-from fixture import MODE_CALL_SITES, install_ainr_selector_veneer, install_boundary_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, install_selector_admission, install_selector_feedback, validate_probe_entry
+from fixture import MODE_CALL_SITES, install_ainr_selector_veneer, install_ainr_veneer, install_boundary_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, install_selector_admission, install_selector_feedback, validate_probe_entry
 from thumb_branch import branch
 
 
@@ -32,6 +32,7 @@ class PreparerModeTests(unittest.TestCase):
             (['--selector-feedback'], '--selector-feedback requires'),
             (['--selector-ainr-timeout', 'entry'], '--selector-ainr-timeout requires'),
             (['--selector-ainr-learned'], '--selector-ainr-learned requires'),
+            (['--ainr-admission'], '--ainr-admission requires'),
             (['--callback', '--inspector', '--file-mix-handoff', 'pending'], '--file-mix-handoff requires'),
             (['--callback', '--offline-mix-layout', '--inspector'], '--offline-mix-layout requires'),
             (['--callback', '--offline-mix-layout', '--switches'], '--offline-mix-layout requires'),
@@ -149,6 +150,25 @@ class SelectorVeneerGuardTests(unittest.TestCase):
         self.assertEqual(self.image[0x10543c:0x105444], bytes.fromhex('dff800f001901080'))
         self.assertEqual(self.image[0x10555c:0x105564], bytes.fromhex('dff800f001921080'))
         self.assertEqual(self.image[0x10556e:0x105578], bytes.fromhex('00bfdff800f001911080'))
+
+
+class AinrVeneerGuardTests(unittest.TestCase):
+    def test_guard_and_redirect(self):
+        image = bytearray(0x104dee)
+        image[0x104de4:0x104dee] = bytes.fromhex('40f2817cc0f2000c6047')
+        for target in (None, 0x80108001, 0x80000000, 0x80130000):
+            before = image[:]
+            with self.subTest(target=target), self.assertRaises(ValueError):
+                install_ainr_veneer(image, target)
+            self.assertEqual(image, before)
+        bad = image[:]
+        bad[0x104de4] ^= 1
+        before = bad[:]
+        with self.assertRaises(ValueError):
+            install_ainr_veneer(bad, 0x80109000)
+        self.assertEqual(bad, before)
+        install_ainr_veneer(image, 0x80109000)
+        self.assertEqual(image[0x104de4:0x104dee], bytes.fromhex('dff800f00190108000bf'))
 
 
 class FeedbackHookGuardTests(unittest.TestCase):

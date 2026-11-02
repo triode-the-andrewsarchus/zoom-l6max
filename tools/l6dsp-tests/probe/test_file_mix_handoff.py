@@ -3,7 +3,7 @@ import copy
 import struct
 import unittest
 
-from file_mix_handoff import check, check_ainr_timeout, check_learned_marker, check_midi_trace, check_timeout
+from file_mix_handoff import check, check_ainr_admission, check_ainr_timeout, check_learned_marker, check_midi_trace, check_timeout
 
 
 def capture_report(captures):
@@ -26,6 +26,24 @@ def report(bypass):
 
 
 class FileMixHandoffTests(unittest.TestCase):
+    def test_ainr_admission_requires_both_channels_and_no_unknown_callers(self):
+        items = {'ainr_admission': {'bytes': list(struct.pack('<7I', 10, 10, 3, 3, 2, 2, 0))}}
+        self.assertEqual(check_ainr_admission(items, 'exit')['rejected_during_teardown'], [2, 2])
+        for index in range(6):
+            bad = copy.deepcopy(items)
+            bad['ainr_admission']['bytes'][4 * index:4 * index + 4] = [0, 0, 0, 0]
+            with self.subTest(index=index), self.assertRaises(ValueError):
+                check_ainr_admission(bad, 'exit')
+        bad = copy.deepcopy(items)
+        bad['ainr_admission']['bytes'][24] = 1
+        with self.assertRaises(ValueError):
+            check_ainr_admission(bad, 'exit')
+        entry = {'ainr_admission': {'bytes': list(struct.pack('<7I', 10, 10, 0, 0, 0, 0, 0))}}
+        check_ainr_admission(entry, 'entry')
+        entry['ainr_admission']['bytes'][24] = 1
+        with self.assertRaises(ValueError):
+            check_ainr_admission(entry, 'entry')
+
     def test_learned_marker_must_exist_before_and_after_timeout(self):
         items = {'learned_before': {'bytes': [1, 0, 0, 0]}, 'learned_after': {'bytes': [1, 0, 0, 0]}}
         check_learned_marker(items)

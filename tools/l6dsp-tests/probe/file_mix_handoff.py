@@ -100,6 +100,14 @@ def check_learned_marker(items):
         raise ValueError('AINR learned marker was not established and retained')
 
 
+def check_ainr_admission(items, transition):
+    left, right, rejected_left, rejected_right, teardown_left, teardown_right, unsupported = words(items, 'ainr_admission', '<7I')
+    required = (left, right, rejected_left, rejected_right, teardown_left, teardown_right) if transition == 'exit' else (left, right)
+    if not all(required) or unsupported:
+        raise ValueError('AINR admission observations did not meet the transition checks')
+    return {'admitted': [left, right], 'rejected_during_teardown': [teardown_left, teardown_right]}
+
+
 def check_ainr_timeout(report, transition):
     items = observations(report)
     before_type, before_callback, before_flag, next_type, next_callback = (
@@ -161,6 +169,8 @@ def validate_ainr_options(args):
         raise ValueError('--ainr-timeout cannot be combined with other checks')
     if args.ainr_learned and args.ainr_timeout != 'exit':
         raise ValueError('--ainr-learned requires --ainr-timeout exit')
+    if args.ainr_admission and not args.ainr_timeout:
+        raise ValueError('--ainr-admission requires --ainr-timeout')
 
 
 def run_ainr_check(args, report):
@@ -168,6 +178,8 @@ def run_ainr_check(args, report):
     if args.ainr_learned:
         check_learned_marker(observations(report))
         result['learned_marker_retained'] = True
+    if args.ainr_admission:
+        result['ainr_admission'] = check_ainr_admission(observations(report), args.ainr_timeout)
     if args.midi_trace:
         values = ('2b', '40', '55', '6b', '6b', '00') if args.ainr_timeout == 'entry' else ('2b', '40', '55', '6b', '00', '00', '15')
         result['midi_packets'] = check_midi_trace(args.midi_trace.read_text(), values)
@@ -197,6 +209,7 @@ def main():
     parser.add_argument('--midi-trace', type=Path, help='check the modeled DIN output trace')
     parser.add_argument('--ainr-timeout', choices=('entry', 'exit'))
     parser.add_argument('--ainr-learned', action='store_true')
+    parser.add_argument('--ainr-admission', action='store_true')
     args = parser.parse_args()
     try:
         result = run_check(args)

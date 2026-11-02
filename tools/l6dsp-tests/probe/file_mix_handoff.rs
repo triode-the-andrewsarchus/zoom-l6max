@@ -143,6 +143,39 @@ pub unsafe extern "C" fn mix_handoff_atomic_live() {
     }
 }
 
+// QEMU-only veneer for the two observed in-place stock AINR calls. Returning
+// without processing leaves those buffers unchanged; other callers and the
+// return-value contract remain unqualified for real firmware.
+#[cfg(ainr_admission)]
+#[unsafe(no_mangle)]
+#[unsafe(link_section = ".text.ainr_admission")]
+pub unsafe extern "C" fn ainr_admission(input: *mut f32, output: *mut f32, index: u32) -> u32 {
+    unsafe {
+        let counters = 0x83e0b200 as *const AtomicU32;
+        let valid = input == output && index < 2;
+        if !valid { (&*counters.add(6)).fetch_add(1, Ordering::Relaxed); }
+        let lease = if ensure_gate() {
+            (&*(GATE as *const CallbackAdmission)).try_enter(CallbackPath::Live)
+        } else {
+            None
+        };
+        if let Some(_lease) = lease {
+            if valid { (&*counters.add(index as usize)).fetch_add(1, Ordering::Relaxed); }
+            let stock: unsafe extern "C" fn(*mut f32, *mut f32, u32) -> u32 = core::mem::transmute(0x781usize);
+            stock(input, output, index)
+        } else {
+            if valid {
+                (&*counters.add(2 + index as usize)).fetch_add(1, Ordering::Relaxed);
+                if read(0x83e0b030 as *const u32) == 1 && read(0x83e0b02c as *const u32) == 5
+                    && read(0x2028ba4c as *const u32) == 1 && read(0x2028bad0 as *const u32) == 1 {
+                    (&*counters.add(4 + index as usize)).fetch_add(1, Ordering::Relaxed);
+                }
+            }
+            0
+        }
+    }
+}
+
 // Entry bypass precedes deferred stock copies as well as the callback load.
 // The flag and counter are unowned, volatile QEMU scratch; this is not a lock.
 #[cfg(file_mix_bypass)]

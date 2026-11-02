@@ -128,6 +128,20 @@ Neither case proves complete AINR state preservation or installable firmware.
 The stock AINR dispatcher has been observed running while this wrapper gate is
 closed, so the gate does not exclude all processing during teardown.
 
+For the exit-timeout experiment, add `--ainr-admission` to redirect the
+observed AINR dispatcher veneer through the same experimental gate. Pass
+`--ainr-admission` to the checker as well; it requires both stereo calls to
+be admitted during normal processing and rejected during guarded teardown,
+and rejects any observed call outside the in-place, two-channel form. A
+rejected in-place call leaves its buffer unchanged. This probe does not
+establish the dispatcher's return-value contract or the behavior of other
+callers. It admits the two channels separately, so a transition can occur
+between them. Scratch ownership, all other users of AINR state, target timing
+and audio quality remain unverified. Never install this diagnostic image.
+The same option can accompany the entry-timeout experiment; its checker
+requires both channels to be admitted and no unknown call forms, but does
+not require teardown rejections because that transition enters AINR.
+
 ## Synthetic file-mix layout
 
 To examine the candidate file-mix track layout, prepare a separate image with

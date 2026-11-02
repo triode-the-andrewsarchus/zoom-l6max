@@ -6554,3 +6554,47 @@ and transcript hashes
 `54e42c1cf8ab3cb58d5c5edb68b9b1f8c20ba7092d98e105ce22a57358348ff6`.
 Both debugger guests were stopped after observation. Stock MAIN, initial
 fixture, QEMU and `l6dbg` matched the preceding experiment.
+
+An additional QEMU-only probe routes the observed AINR dispatcher veneer
+through the same admission gate. In a forced AINR-to-Hall timeout and retry,
+the checker observed 50,305 admitted calls and 40 rejected calls during
+teardown for each channel, retained sampled state after the timeout, selected
+Hall on retry, and observed seven expected modeled DIN messages. The probe
+recorded no calls outside the in-place, two-channel form it recognizes.
+The reverse timeout and retry also passed its sampled state and six-message
+DIN checks, observing 47,894 admitted calls per channel and no unrecognized
+call forms. Entry does not require rejected teardown calls.
+In a separate silent-input exit run, the learned marker was set before and
+after the timeout; 62,503 calls per channel were admitted and 40 per channel
+were rejected during teardown. The marker does not establish preservation of
+the full learned model or noise-reduction quality.
+
+In a separately staged debugger run, the selector reached teardown with gate
+value `4` and an AINR state word still set. The next dispatcher stop was
+inside a live lease with gate value `1` and both sampled AINR words cleared;
+the counters recorded 40 rejected calls for each channel during teardown.
+Debugger stops alter scheduling. The two channels take separate leases, so a
+selector can still intervene between them; other AINR users, the dispatcher's
+return contract, scratch ownership, real audio and target timing remain
+unqualified. This is not an installable fix.
+
+The diagnostic MAIN and ELF SHA-256 values were
+`a74707b6b531a31210e83e19bbf6954e746273443f811b8ff5b2e156495efbb9` and
+`834c592eb9ac80df88bb4d163e7cb854bdc042a274cc4590db39ec0a7bf5223e`.
+The exit recipe, result and trace hashes were
+`e2ed78a4770ada202865ac8cf2f218069414ba5043ac204f0c1cb08ccd9ebfa0`,
+`fbfb9897261a226ecc14a60505e8e1b46b8fba32af794ddc5da6a82c89f4afe9`, and
+`385bdc1952eb8de00be16c81e9c64a1d99414a34913a9e6e93aed9685218df4c`.
+The entry recipe, result and trace hashes were
+`3ff5514942e6aa68ee10529b5230e4374b5a43e085db4a56e0e2b6e9c0943a3b`,
+`a5968fc2e5c2eee11fd29a36d7dcabe3d7a72f6be1d7bc942e34c4fd486fe4ca`, and
+`68c5aacc51ba28cd30e82dadf3b9c85fe948808c1fd00fc93df6c2e09c26ebcd`.
+The learned-state recipe, result and trace hashes were
+`beee875aa5724022522fdab331e2eed2ed2e211c1040bfbd8fdb23eb751fa5a7`,
+`8ad124307d8f4a50d3e945fbeb268587ef84094ff16fade21fab7676a50cee05`, and
+`0e30c1c7ecca51e0da18c8e82d2b784d44188f1b8673b82547701aea71819097`.
+The debugger recipe and transcript hashes were
+`075012eefabcde44a45749502abfc38f709fc4cef331d028caaa7684c2c0b453` and
+`c76c1a341dedb2dc6213b4e333ac6739d446d05a7104668a58ff95410f234923`.
+The debugger guest was stopped after observation. Stock MAIN, initial fixture,
+QEMU and `l6dbg` matched the preceding experiment.

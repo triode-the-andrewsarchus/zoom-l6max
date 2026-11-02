@@ -9,7 +9,7 @@ import shlex
 import struct
 import subprocess
 from thumb_branch import branch
-from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_boundary_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, install_selector_admission, install_selector_feedback, validate_probe_entry
+from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_ainr_veneer, install_boundary_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, install_selector_admission, install_selector_feedback, validate_probe_entry
 
 ROOT = Path(__file__).resolve().parents[3]
 PROBE = Path(__file__).resolve().parent
@@ -34,6 +34,7 @@ parser.add_argument("--selector-timeout", action="store_true", help="force a sel
 parser.add_argument("--selector-feedback", action="store_true", help="experiment with panel rollback and deferred MIDI on timeout (QEMU only)")
 parser.add_argument("--selector-ainr-timeout", choices=("entry", "exit"), help="inspect AINR flags across a selector timeout (QEMU only)")
 parser.add_argument("--selector-ainr-learned", action="store_true", help="attempt AINR learning before the exit timeout (QEMU only)")
+parser.add_argument("--ainr-admission", action="store_true", help="guard stock AINR dispatch with the diagnostic gate (QEMU only)")
 parser.add_argument("--inspector", action="store_true", help="enable QEMU-only inspector event hooks")
 parser.add_argument("--gesture-trace", action="store_true", help="record selector events (perturbs timing)")
 parser.add_argument("--enqueue-trace", action="store_true", help="record panel events before enqueue (perturbs timing)")
@@ -70,6 +71,8 @@ if args.selector_ainr_timeout and not (args.selector_timeout and args.selector_f
     parser.error("--selector-ainr-timeout requires --selector-timeout and --selector-feedback")
 if args.selector_ainr_learned and args.selector_ainr_timeout != "exit":
     parser.error("--selector-ainr-learned requires --selector-ainr-timeout exit")
+if args.ainr_admission and not args.selector_admission:
+    parser.error("--ainr-admission requires --selector-admission")
 other_diagnostics = (args.switches, args.inspector, args.mixer_input_capture, args.gesture_trace, args.enqueue_trace,
         args.irq_trace, args.irq_timing, args.ring_timing, args.ring_drop, args.timing_control,
         args.active_sends, args.selector_load_trace, args.max_velvet_density, args.submix_return,
@@ -183,6 +186,8 @@ if args.selector_timeout:
     rustc += ["--cfg", "selector_timeout"]
 if args.selector_feedback:
     rustc += ["--cfg", "selector_feedback"]
+if args.ainr_admission:
+    rustc += ["--cfg", "ainr_admission"]
 if args.inspector:
     rustc += ["--cfg", "inspector_probe"]
 if args.gesture_trace:
@@ -292,15 +297,13 @@ if args.inspector:
         if image[offset:offset + 4] != bytes.fromhex("dbf73ffd") or "inspector_enqueue" not in symbols:
             raise ValueError("panel enqueue call site or symbol mismatch")
         image[offset:offset + 4] = branch(0x80000000 + offset, symbols["inspector_enqueue"])
-if args.auto_handoff:
+if args.auto_handoff or args.ainr_admission:
+    name = "ainr_admission" if args.ainr_admission else "ainr_capture"
     matches = [line.split() for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines()
-               if line.endswith(" ainr_capture")]
-    if len(matches) != 1 or image[0x104de4:0x104dee] != bytes.fromhex("40f2817cc0f2000c6047"):
-        raise ValueError("stock AINR veneer or capture symbol mismatch")
-    target = int(matches[0][0], 16) | 1
-    if not 0x80108001 <= target < 0x80130000:
-        raise ValueError("AINR capture target is outside diagnostic payload")
-    image[0x104de4:0x104dee] = bytes.fromhex("dff800f0") + struct.pack('<I', target) + bytes.fromhex("00bf")
+               if line.endswith(" " + name)]
+    if len(matches) != 1 or len(matches[0]) != 3:
+        raise ValueError("missing or duplicate AINR veneer target")
+    install_ainr_veneer(image, int(matches[0][0], 16) & ~1)
 image.extend(b"\xff" * (0x108000 - len(image)))
 image.extend(payload)
 if args.effect_buffer:
@@ -675,6 +678,8 @@ if args.selector_ainr_timeout:
     add("memory", name="callback_next", address=0x202a6f20, length=4)
     add("memory", name="ainr_left_next", address=0x2028ba4c, length=4)
     add("memory", name="ainr_right_next", address=0x2028bad0, length=4)
+    if args.ainr_admission:
+        add("memory", name="ainr_admission", address=0x83e0b200, length=28)
 (out / "recipe.toml").write_text(recipe)
 if args.pre_ainr:
     metadata = {"stock_main_sha256": MAIN_SHA, "diagnostic_main_sha256": image_sha,
