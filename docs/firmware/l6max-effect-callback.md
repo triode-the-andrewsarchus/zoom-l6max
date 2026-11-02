@@ -7046,6 +7046,27 @@ The stock MAIN, input NOR, panel state, QEMU and `l6dbg` matched the preceding
 experiment. The tone patch and timing instrumentation are diagnostic only;
 none of these modified images may be installed.
 
+After the diagnostic runner was extended to save its full retained display
+frame, the active-sends inspector sequence was repeated. The 128×64 frames
+showed `PLATEAU PREDELAY` with `26.0 ms`, `VND AMOUNT` with `84.0 %`, and
+separate `CH 1 ROUTE` and `CH 5 ROUTE` labels with `A -> B`. The two routing
+frames differed at full resolution even though their 64×32 previews were
+identical. This is a visual observation of the modeled display in one run;
+it does not establish physical display, timing, other pages or memory safety.
+The combined MAIN, effect ELF, popup ELF, recipe and result hashes were
+`ba45420db9fc9fcfe8c4f4be29d121118ff1c8dc5c104b3429b33bc566c777ec`,
+`9d98684397584bfc490a325a2f8b0b4608075b546039c7b59fe694647251577d`,
+`b22eb39c1ffb970f375a01345e6bfc68e3a179e19321560c2e46f5b7fe465d62`,
+`f865fb52193ac9710faca845b87fc691b056b47cab5736957b296539fba1c65b`, and
+`9996ec4998323c908af9567821c4ec7a129aa37ee379163ee51bb4b97616202d`.
+The Room, Spring, CH 1 and CH 5 raw frame hashes were
+`7f4335ebce3d8579a9b1c2e81a73dc12f000ca3d0c918c94e0cba1985623f21e`,
+`3f080c907453ee875ca3d86cc97dc1dbb2ac8daea4c262961d00b3694f0fb893`,
+`4a08ab5ac18a26d1401d2ed204c80c4b57252a2f86c252414c7f340453b125cf`, and
+`db02c2359e1db9855d2c14be4a6cbc7e77eefc81f3d7c94ab0211ddbe18b4af7`.
+`l6dbg` was `aed900b0f7f43f225233f7f1a33e5ba8e159d4a698905297e0fb48c5c8519cc0`;
+stock MAIN, input NOR, panel state and QEMU matched the preceding experiment.
+
 ### High-density renewal and crossfade workload
 
 The reusable selector-load diagnostic now supports a paired renewal stress
