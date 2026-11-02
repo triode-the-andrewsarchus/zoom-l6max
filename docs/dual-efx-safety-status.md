@@ -40,9 +40,10 @@ The blocking findings for L6max MAIN 1.10
   established correct input for this file-mixing path. A direct synthetic
   QEMU call supports a candidate twelve-track buffer layout. An experimental
   call-site veneer passed the block offset to a separate callback and routed
-  synthetic tracks through the shared weighted-routing engine; that ARM
-  callback reserves at least 1,152 stack bytes before deeper calls and retains
-  bounds-check panic paths. It does not exercise the normal
+  synthetic tracks through the shared weighted-routing engine. A caller-owned
+  workspace reduced the observed ARM callback frame to 408 bytes before deeper
+  calls, but adds 768 bytes of unowned scratch and retains bounds-check panic
+  paths. It does not exercise the normal
   workflow or establish a safe hook. Stock scheduling and
   exclusion between the two paths are unverified. See the
   [firmware research](https://github.com/derekstavis/zoom-l6max-research/blob/bad532c/docs/firmware/l6max-effects-ainr.md#effects-callback).

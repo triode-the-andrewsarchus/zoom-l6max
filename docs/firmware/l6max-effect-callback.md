@@ -5896,6 +5896,31 @@ The callback and checker source hashes were
 Stock MAIN, initial NOR, panel state, QEMU and `l6dbg` match the preceding
 modeled-input inspector run; the QEMU build's provenance is unattested.
 
+The weighted router can now take an explicitly borrowed 768-byte workspace.
+The previous block API still supplies its own stack workspace. In a new
+QEMU-only file-mix run, placing the workspace in unowned scratch reproduced
+the prior offsets, routed sums and four stereo reference frames. Host tests
+also compare repeated workspace use with an independent bus-based reference,
+including a long call followed by a shorter one. In the two diagnostic ARM
+ELFs, `offline_observer`'s visible prologue changed from 1,048 local bytes
+plus 104 bytes of saves to 304 local bytes plus the same 104-byte saves: a
+744-byte frame reduction. Deeper calls, exception frames, stock callers,
+panic paths, actual memory ownership and target deadlines remain unqualified.
+The QEMU workspace is not reserved on hardware and the image must not be
+installed.
+
+The workspace diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`0a7bf8e1f3e44373c7d0a02f371dbbacbea34ae3eeb59c668703959967047356`,
+`330ae2e6fe0629af03dc0ae63e54e6b894c13c967d9193a7a568893120505164`,
+`c2adff6ee7215d0cc50910e207da62626e46ddddd8195d6a868cd61df39193a2`, and
+`74f5941f8719b7177bed0db187b6aebe920ae10a5abc575feb8cd34dda436d27`.
+The routing, probe and checker sources hashed to
+`67eeeff20d7e3bcd07c9ba77700e6f924c44731cdfab84c24959d4e2de521c87`,
+`b8c3bc5836240eaf2401a50fd3f2a476602ac16fdeac27fe42bcc00a3f6b534e`, and
+`6b5cc1f951de28403fc6a872d29ebbe2a95f1aa8b570a0641d4c25a29d51db5f`.
+Stock MAIN, initial NOR, panel state, QEMU and `l6dbg` match the preceding
+modeled-input inspector run; the QEMU build's provenance is unattested.
+
 ### Current full-density selector workload
 
 The maintained selector-load diagnostic can now initialize Velvet at 95 ms

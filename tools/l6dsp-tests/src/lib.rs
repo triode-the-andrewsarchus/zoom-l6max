@@ -1788,6 +1788,48 @@ mod tests {
     }
 
     #[test]
+    fn weighted_workspace_reuse_clears_old_buses_and_preserves_tails() {
+        use routing::{DualEfxProcessor, RoutingMode, RoutingWorkspace, WeightedChannel};
+        let mut routed = Box::new(DualEfxProcessor::new());
+        let mut reference = Box::new(DualEfxProcessor::new());
+        routed.init();
+        reference.init();
+        routed.channel_routing[..3].copy_from_slice(&[RoutingMode::SendA, RoutingMode::SendB,
+            RoutingMode::SendAtoB]);
+        assert_eq!(core::mem::size_of::<RoutingWorkspace>(), 3 * 64 * 4);
+        let mut storage = Box::new(core::mem::MaybeUninit::<RoutingWorkspace>::uninit());
+        unsafe { core::ptr::write_bytes(storage.as_mut_ptr(), 0xa5, 1); }
+        let workspace = RoutingWorkspace::initialize_in_place(&mut storage);
+        let a: Vec<_> = (0..137).map(|i| (i as f32 * 0.04).sin() * 0.1).collect();
+        let b: Vec<_> = (0..137).map(|i| (i as f32 * 0.03).cos() * 0.2).collect();
+        let c: Vec<_> = (0..137).map(|i| (i as f32 * 0.02).sin() * 0.15).collect();
+        let channels = [WeightedChannel { samples: &a, gain: 2.0, ramp: None },
+            WeightedChannel { samples: &b, gain: 0.5, ramp: None },
+            WeightedChannel { samples: &c, gain: -1.0, ramp: None }];
+        let mut actual = [vec![0.0; 137], vec![0.0; 137]];
+        let mut expected = [vec![0.0; 137], vec![0.0; 137]];
+        let [ref mut left, ref mut right] = actual;
+        routed.process_weighted_with_workspace(&channels, left, right, workspace);
+        let [ref mut left, ref mut right] = expected;
+        reference.process_buses(&a.iter().map(|v| v * 2.0).collect::<Vec<_>>(),
+            &b.iter().map(|v| v * 0.5).collect::<Vec<_>>(),
+            &c.iter().map(|v| -v).collect::<Vec<_>>(), left, right);
+        assert_eq!(actual, expected);
+
+        // A short next call must not replay buses left by the previous block.
+        let short = [0.25, -0.25];
+        let channel = [WeightedChannel { samples: &short, gain: 1.0, ramp: None }];
+        let mut actual = [[0.0; 9]; 2];
+        let mut expected = [[0.0; 9]; 2];
+        let [ref mut left, ref mut right] = actual;
+        routed.process_weighted_with_workspace(&channel, left, right, workspace);
+        let [ref mut left, ref mut right] = expected;
+        reference.process_buses(&[0.25, -0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            &[0.0; 9], &[0.0; 9], left, right);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn plateau_predelay_delays_impulse_by_requested_samples() {
         let mut immediate = plateau::PlateauReverb::new();
         let mut delayed = plateau::PlateauReverb::new();

@@ -36,6 +36,9 @@ on the L6max. The `0x83e00000` state address is unverified on hardware.
 - `src/velvet.rs`: Velvet Noise Decorrelator core DSP engine.
 - `src/plateau.rs`: Valley Plateau Dattorro plate reverb core DSP engine.
 - `src/routing.rs`: Routing matrix and `DualEfxProcessor` audio engine.
+  Weighted routing can use a caller-owned 768-byte workspace to avoid its
+  block-sized temporary buses on the stack; simultaneous callers need separate
+  workspaces. Firmware memory ownership remains unproven.
 - `src/parameters.rs`: Parameter edits and copies of applied values.
 - `src/admission.rs`: Standalone callback admission model; not connected to firmware.
 - `src/parameter_view.rs`: Validation and formatting of copied display values.

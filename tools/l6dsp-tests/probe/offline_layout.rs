@@ -69,7 +69,8 @@ unsafe extern "C" fn offline_observer(_context: u32, descriptor: *const u32, off
             }
             let output = core::slice::from_raw_parts_mut(block, 128);
             let (left, right) = output.split_at_mut(64);
-            processor.process_weighted_block(&channels, left, right);
+            let workspace = &mut *(0x83e08000 as *mut crate::routing::RoutingWorkspace);
+            processor.process_weighted_with_workspace(&channels, left, right, workspace);
             for (edge, frame) in [0, 63].into_iter().enumerate() {
                 write((OUT + 272 + (n * 2 + edge) * 8) as *mut f32, left[frame]);
                 write((OUT + 276 + (n * 2 + edge) * 8) as *mut f32, right[frame]);
@@ -97,6 +98,8 @@ pub unsafe fn run() {
         let old_callback = read(0x202a6f20 as *const u32);
         let desc = 0x83e07300 as *mut u32;
         for i in 0..16 { write(desc.add(i), 0); }
+        let workspace = &mut *(0x83e08000 as *mut core::mem::MaybeUninit<crate::routing::RoutingWorkspace>);
+        crate::routing::RoutingWorkspace::initialize_in_place(workspace);
         write(OUT as *mut u32, 0);
         write(0x20015110 as *mut u32, 0);
         write(0x20015114 as *mut u32, 0);
