@@ -1280,7 +1280,7 @@ mod tests {
 
     #[test]
     fn plateau_highpass_has_unity_passband_and_minus_three_db_cutoff() {
-        for cutoff in [20.0_f64, 1000.0, 6500.0, 16000.0, 23520.0] {
+        for cutoff in [13.75_f64, 20.0, 1000.0, 6500.0, 16000.0, 23520.0] {
             let mut filter = plateau::OnePoleHP::new();
             filter.set_cutoff(cutoff as f32);
             let mut input_energy = 0.0;
@@ -1312,15 +1312,18 @@ mod tests {
     #[test]
     fn plateau_cutoff_updates_preserve_independent_filter_histories() {
         let mut reverb = Box::new(plateau::PlateauReverb::new());
+        reverb.init(plateau::PlateauParameters::default());
         let mut lp = [plateau::OnePoleLP::new(), plateau::OnePoleLP::new(), plateau::OnePoleLP::new()];
         let mut hp = [plateau::OnePoleHP::new(), plateau::OnePoleHP::new(), plateau::OnePoleHP::new()];
+        lp[0].set_cutoff(14_080.0);
+        hp[0].set_cutoff(13.75);
         for (low, high) in [(80.0, 6500.0), (900.0, 16000.0), (100.0, 1000.0)] {
             let mut params = reverb.params;
             params.low_cut_hz = low;
             params.high_cut_hz = high;
             reverb.set_parameters(params);
-            for filter in &mut lp { filter.set_cutoff(high); }
-            for filter in &mut hp { filter.set_cutoff(low); }
+            for filter in &mut lp[1..] { filter.set_cutoff(high); }
+            for filter in &mut hp[1..] { filter.set_cutoff(low); }
             for frame in 0..512 {
                 let inputs = [if frame % 37 == 0 { 0.5 } else { 0.0 },
                     if frame % 53 == 0 { -0.75 } else { 0.0 },

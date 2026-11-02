@@ -16,6 +16,9 @@ const PREDELAY_FADE_SAMPLES: u32 = 64;
 const DIFFUSION_BYPASS_FADE_SAMPLES: u32 = 64;
 const DATTORRO_SR: f32 = 29761.0;
 const SR_SCALE: f32 = SAMPLE_RATE / DATTORRO_SR; // ~1.61285
+// Fixed input-filter defaults in the Multistomp Plateau control mapping.
+const INPUT_HIGH_CUT_HZ: f32 = 14_080.0;
+const INPUT_LOW_CUT_HZ: f32 = 13.75;
 
 // Cover the supported maximum size (1.2), 190 ms predelay, modulation,
 // and output tap offsets. Rings retain their entire usable history across edits.
@@ -193,7 +196,7 @@ impl OnePoleHP {
     }
 
     pub fn set_cutoff(&mut self, cutoff_hz: f32) {
-        let c = clamp(cutoff_hz, 20.0, SAMPLE_RATE * 0.49);
+        let c = clamp(cutoff_hz, INPUT_LOW_CUT_HZ, SAMPLE_RATE * 0.49);
         // Bilinear one-pole high-pass with a prewarped cutoff. This keeps
         // the Nyquist passband at unity and the cutoff at -3 dB.
         let angle = PI * c / SAMPLE_RATE;
@@ -415,6 +418,8 @@ impl PlateauReverb {
         self.lfo2 = TriangleLFO::new(0.15);
         self.lfo3 = TriangleLFO::new(0.12);
         self.lfo4 = TriangleLFO::new(0.18);
+        self.in_lp.set_cutoff(INPUT_HIGH_CUT_HZ);
+        self.in_hp.set_cutoff(INPUT_LOW_CUT_HZ);
         self.out_hp_l.set_cutoff(20.0);
         self.out_hp_r.set_cutoff(20.0);
         self.set_parameters(params);
@@ -496,18 +501,14 @@ impl PlateauReverb {
 
         self.apply_tank_size(params.size);
 
-        // The input and both tank channels use the same coefficients, but
-        // each filter retains its own signal history.
-        self.in_lp.set_cutoff(params.high_cut_hz);
-        self.in_hp.set_cutoff(params.low_cut_hz);
-        self.l_lp.a = self.in_lp.a;
-        self.l_lp.b = self.in_lp.b;
-        self.r_lp.a = self.in_lp.a;
-        self.r_lp.b = self.in_lp.b;
-        self.l_hp.pole = self.in_hp.pole;
-        self.l_hp.gain = self.in_hp.gain;
-        self.r_hp.pole = self.in_hp.pole;
-        self.r_hp.gain = self.in_hp.gain;
+        // Damping controls affect the tank only. Keep the input filters at
+        // their fixed defaults and retain separate histories in each channel.
+        self.l_lp.set_cutoff(params.high_cut_hz);
+        self.l_hp.set_cutoff(params.low_cut_hz);
+        self.r_lp.a = self.l_lp.a;
+        self.r_lp.b = self.l_lp.b;
+        self.r_hp.pole = self.l_hp.pole;
+        self.r_hp.gain = self.l_hp.gain;
     }
 
     fn retarget_diffusion(&mut self, diffusion: f32) {

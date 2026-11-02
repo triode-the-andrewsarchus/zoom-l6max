@@ -71,6 +71,9 @@ off. The model and value formatter are host-tested; firmware event handling,
 display presentation, bank selection and routing controls are not connected.
 Plateau holds its tank modulation delays fixed while frozen to preserve the
 tail, and resumes modulation when freeze is released.
+Its low-cut and high-cut controls adjust tank damping; the input filter
+cutoffs remain fixed. The filters use this port's one-pole implementation,
+so matching the Multistomp control mapping does not establish audio parity.
 Predelay edits crossfade over 64 frames; changes during freeze take effect
 without retaining frozen input. The transition has not been auditioned or
 timed on the physical device.

@@ -213,6 +213,19 @@ QEMU was `eade074b5d7a6fe9d74bbbe1ad36a34f7356cd200cbfc81e772f2a21892012e8`
 with unattested source; `l6dbg` was
 `ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`.
 The impulse alone does not establish audible quality or hardware safety.
+Plateau's low-cut and high-cut controls now update the tank filters without
+retuning the fixed input filters. This follows the supplied Multistomp control
+mapping, though this port uses different one-pole filter equations. Host
+tests exercise filter responses and independent histories across cutoff edits.
+A later ARM QEMU impulse diagnostic reported Velvet and Plateau peaks of
+approximately 0.302 and 0.048 with marker `0x46585031`. It used the stock
+MAIN, initial NOR, QEMU and `l6dbg` identities immediately above. Diagnostic
+MAIN, ELF, recipe and result SHA-256 values were
+`0ef3fab195941606913b98c6f3c5b0187eee886ae31cb01c5e940dc07ab39d87`,
+`abf26d77dcbd4e20331359030bd0cac1fd93667414a3cb61cf729697d99e8ff9`,
+`38a31af9a7f1ea237e6e673515e5b8edb2fd7f7469fba706d841ab5409d0aa0b` and
+`5db4eeb3cc48690b33048ffad87fe10e4210a00dab713db731bc92d9025840b7`.
+This does not qualify audio parity, live-control transitions or hardware.
 Plateau predelay edits now crossfade read positions over 64 frames; a rapid
 retarget starts from the preceding predelay output, and freeze cancels the
 transition without retaining frozen input. Host tests cover reversal, idle
