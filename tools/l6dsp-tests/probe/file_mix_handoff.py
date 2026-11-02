@@ -24,6 +24,39 @@ def check_overlap(items):
     return waits
 
 
+def check_timeout_audio(items):
+    before = words(items, 'before', '<3I')
+    after = words(items, 'after', '<3I')
+    later = words(items, 'later', '<3I')
+    pointer_before, = words(items, 'pointer_before', '<I')
+    pointer_after, = words(items, 'pointer_after', '<I')
+    if (before[:2] != (0x494e4954, 0x2028b8dc) or after[:2] != before[:2]
+            or later[:2] != before[:2] or not before[2] or not before[2] < after[2] < later[2]
+            or not pointer_before or pointer_after != pointer_before):
+        raise ValueError('old callback did not remain selected and continue running')
+    if (words(items, 'fade_before', '<I') != (0x3f800000,)
+            or words(items, 'fade_after', '<I') != (0x3f800000,)
+            or words(items, 'state_before', '<I') != (0,)
+            or words(items, 'state_after', '<I') != (0,)):
+        raise ValueError('observed fade gain or selector flag was not restored')
+
+
+def check_timeout(report):
+    items = observations(report)
+    check_timeout_audio(items)
+    attempts, acquired, failed, released, _, active = words(items, 'selector_handoff', '<6I')
+    if (attempts, acquired, failed, released, active) != (3, 2, 1, 2, 0):
+        raise ValueError('forced timeout did not release its guard')
+    if words(items, 'selector_overlap', '<6I') != (2, 1, 2, 5, 20, 0):
+        raise ValueError('live lease did not outlast the selector timeout')
+    if (words(items, 'type_before', '<B') != (1,)
+            or words(items, 'type_after', '<B') != (2,)
+            or words(items, 'pointer_next', '<I') != (0x8002c041,)):
+        raise ValueError('expected unresolved effect-selection mismatch was not observed')
+    return {'fade_restored': True, 'old_callback_continues': True,
+            'selection_mismatch': True, 'requested_effect_skipped': True}
+
+
 def check(report, bypass, selector=False, overlap=False):
     items = observations(report)
     marker, first, before = words(items, 'callback_state', '<III')
@@ -55,11 +88,15 @@ def main():
     parser.add_argument('--bypass', action='store_true')
     parser.add_argument('--selector', action='store_true')
     parser.add_argument('--overlap', action='store_true')
+    parser.add_argument('--timeout', action='store_true', help='check a known-incomplete timeout recovery experiment')
     args = parser.parse_args()
     try:
+        if args.timeout and (args.bypass or args.selector or args.overlap):
+            raise ValueError('--timeout cannot be combined with other checks')
         if args.overlap and not args.selector:
             raise ValueError('--overlap requires --selector')
-        result = check(json.loads(args.report.read_text()), args.bypass, args.selector, args.overlap)
+        report = json.loads(args.report.read_text())
+        result = check_timeout(report) if args.timeout else check(report, args.bypass, args.selector, args.overlap)
     except (OSError, json.JSONDecodeError, KeyError, ValueError) as error:
         parser.exit(1, f'check failed: {error}\n')
     print(json.dumps(result, indent=2))

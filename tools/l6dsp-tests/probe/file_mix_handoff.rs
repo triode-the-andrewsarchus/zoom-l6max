@@ -117,6 +117,9 @@ pub unsafe extern "C" fn mix_handoff_atomic_live() {
             if read(0x83e0b100 as *const u32) == 1 {
                 write(0x83e0b100 as *mut u32, 2);
                 let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
+                #[cfg(selector_timeout)]
+                delay(40);
+                #[cfg(not(selector_timeout))]
                 delay(8);
             }
             mix_handoff_original();

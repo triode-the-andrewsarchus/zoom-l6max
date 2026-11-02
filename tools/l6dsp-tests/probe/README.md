@@ -103,6 +103,13 @@ lease held during one selection. The checker requires a closed gate with a
 live lease, at least one wait, and a subsequently drained gate. This deliberately
 changes scheduling and does not establish physical timing or every interleaving.
 
+Add `--selector-timeout` to make that held lease outlast the diagnostic's
+20-tick wait. Check the result with `--timeout` instead of the normal flags.
+On timeout, the diagnostic replays stock fade-in and conditional flag cleanup,
+but does not complete the requested selection. The checker explicitly reports
+the observed effect-selection mismatch and skipped request; a successful check
+means the partial recovery was observed, not that timeout handling is correct.
+
 ## Synthetic file-mix layout
 
 To examine the candidate file-mix track layout, prepare a separate image with

@@ -63,7 +63,7 @@ pub unsafe extern "C" fn selector_handoff_begin() -> u32 {
         }
         drop(guard);
         increment(2);
-        0
+        2
     }
 }
 
@@ -79,8 +79,9 @@ pub unsafe extern "C" fn selector_handoff_end() {
 }
 
 // These veneers reproduce the overwritten L6max 1.10 instructions. Acquire
-// before the stock call, which resets control structures. The abort path skips
-// that call and the requested selection and is diagnostic only.
+// before the stock call, which resets control structures. Failure skips that
+// call and the requested selection; the timeout path only attempts fade and
+// flag cleanup. These paths are diagnostic only.
 core::arch::global_asm!(r#"
 .syntax unified
 .thumb
@@ -92,12 +93,31 @@ selector_handoff_entry:
     bl selector_handoff_begin
     cmp r0, #0
     beq .Labort
+    cmp r0, #2
+    beq .Ltimeout
     pop.w {r0, r1, r2, r3, r12, lr}
     mov r1, r4
     ldr.w r12, .Lstock_call
     blx r12
     cmp r6, #4
     ldr.w pc, .Lcontinue
+.Ltimeout:
+    pop.w {r0, r1, r2, r3, r12, lr}
+    movs r0, #0
+    ldr.w r12, .Lfade_argument
+    blx r12
+    ldr.w r12, .Lfade_call
+    blx r12
+    cmp.w r10, #0
+    bne .Ltimeout_cleanup
+    ldr.w r12, .Lflag_clear
+    blx r12
+.Ltimeout_cleanup:
+    ldr.w r0, [r9]
+    movs r1, #0
+    movs r2, #0
+    movs r3, #0
+    ldr.w pc, .Lexit_continue
 .Labort:
     pop.w {r0, r1, r2, r3, r12, lr}
     ldr.w r0, [r9]
@@ -133,5 +153,6 @@ selector_handoff_exit:
 .Lexit_continue: .word 0x20280709
 .Lfade_argument: .word 0x80049a21
 .Lfade_call: .word 0x8002c011
+.Lflag_clear: .word 0x8002e749
 .Lfade_continue: .word 0x202806f5
 "#, options(raw));

@@ -6355,3 +6355,44 @@ The diagnostic MAIN, ELF, recipe and result SHA-256 values were
 `56b79bc9917ceb8ac2caa996c1b480c45658815e1d99908bfadd0f1761a6ac13`, and
 `38adbaa9f32d0117ccc7cb273d36993dadd58ff76e6b16be577380407bd690aa`.
 Stock MAIN, initial fixture, QEMU and `l6dbg` matched the preceding run.
+
+The same overlap mechanism was extended to hold the live lease for 40 ticks,
+longer than the selector's 20-tick wait. In a matched baseline run the old
+diagnostic Room callback remained installed and its counter advanced after the
+timeout, but the observed fade gain at `0x20007d74` fell from `1.0` to `0.0`.
+The firmware's effect type advanced from Room (1) to Spring (2), and the next
+press selected the stock Delay callback, skipping Spring. A debugger stop in
+that prepared setup found `0x8020a3d4` pointing to `0x20007d64`; the stock
+fade-in routine uses the float at offset `0x10`. That is a snapshot, not a
+general address or ownership guarantee.
+
+An experimental timeout-only path releases its own guard, replays stock
+fade-in, and performs the stock conditional flag cleanup before returning.
+One matched forced-timeout run retained the old callback, observed its count
+advance, and captured fade gain `1.0` and the sampled control flag `0` after
+the timeout. The effect type still advanced to Spring and the next press
+still selected Delay. Thus the path addresses only the observed fade state;
+the requested selection, UI coherence, other error paths, concurrent accesses,
+output audio and hardware safety remain unresolved. The `--selector-timeout`
+probe and `--timeout` checker report that mismatch explicitly. This remains a
+disposable QEMU experiment and must not be installed.
+
+Baseline MAIN, ELF, recipe and result hashes were
+`373081f5e1d0c908605be2b9fd290b1448206031354b1de33b17012cbd3f24d5`,
+`e64d48b8b1211d297147b4f6f4f5a59624bb7db2f3681b7e3e07bf8029df6bdc`,
+`699d36bd86eb61345410e52bca2c3d373dcb3a74b356fd74260f02741d888f72`, and
+`dc817913b9095844fd3531499d6a174518e2fa0227bc483b5158c8f57265bc2e`.
+Timeout-recovery MAIN, ELF, recipe and result hashes were
+`a5b46001a2a7d253484d8870f3bc7871ce31818934d30637c8c7816fcc97a184`,
+`7a1aaca629af1cdda772feb9f4892d727a0a5788e4f0b38304e049ae891f8694`,
+`313e71e80a5ee0be3864349175aae96003ee038881f67d90c27ff3ea4bd6c1bc`, and
+`be78867aaa216d8775a906b4ca5e3fba0851abf705f038417304101f63835f2f`.
+The debugger transcript hash was
+`918121bc7f054a5084a13c2ad80575ff2d427411de607eb931a941817e1484ff`.
+A separate ordinary overlap run with the new path used MAIN, ELF, recipe
+and result hashes
+`41555f28cb2a93f49b858624543286804e9cf6b8f812cb89e754a1a27fd08ff9`,
+`aabfa01ca9feca804bdb7f44c323768c6d5cd1d66a32304bbbf1f19f621a2b09`,
+`c1846938c3ae9036279c7e1a775c4cf8499b30a07ef7438207cbf2fc7250fa3d`, and
+`fda5e7614074f55d44a8ba8a2fda20ee63860be66f6873f92a288812202dbdee`.
+Stock MAIN, initial fixture, QEMU and `l6dbg` matched the preceding run.

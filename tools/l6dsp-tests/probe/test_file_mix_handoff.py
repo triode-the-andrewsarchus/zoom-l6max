@@ -3,7 +3,7 @@ import copy
 import struct
 import unittest
 
-from file_mix_handoff import check
+from file_mix_handoff import check, check_timeout
 
 
 def report(bypass):
@@ -20,6 +20,28 @@ def report(bypass):
 
 
 class FileMixHandoffTests(unittest.TestCase):
+    def test_timeout_reports_partial_recovery_and_rejects_missing_fade(self):
+        captures = {
+            'before': ('<3I', (0x494e4954, 0x2028b8dc, 10)),
+            'after': ('<3I', (0x494e4954, 0x2028b8dc, 20)),
+            'later': ('<3I', (0x494e4954, 0x2028b8dc, 30)),
+            'pointer_before': ('<I', (0x80109181,)), 'pointer_after': ('<I', (0x80109181,)),
+            'fade_before': ('<I', (0x3f800000,)), 'fade_after': ('<I', (0x3f800000,)),
+            'state_before': ('<I', (0,)), 'state_after': ('<I', (0,)),
+            'type_before': ('<B', (1,)), 'type_after': ('<B', (2,)),
+            'selector_handoff': ('<6I', (3, 2, 1, 2, 0x83e0b000, 0)),
+            'selector_overlap': ('<6I', (2, 1, 2, 5, 20, 0)),
+            'pointer_next': ('<I', (0x8002c041,)),
+        }
+        value = {'outcome': 'complete', 'model': 'l6max',
+                 'events': [{'observation': {'name': name, 'bytes': list(struct.pack(fmt, *data))}}
+                            for name, (fmt, data) in captures.items()]}
+        self.assertTrue(check_timeout(value)['selection_mismatch'])
+        bad = copy.deepcopy(value)
+        next(event for event in bad['events'] if event['observation']['name'] == 'fade_after')['observation']['bytes'] = [0, 0, 0, 0]
+        with self.assertRaises(ValueError):
+            check_timeout(bad)
+
     def test_checks_each_forced_interleaving(self):
         self.assertEqual(check(report(False), False)['after_signal'], 29)
         self.assertEqual(check(report(True), True)['bypasses'], 1)

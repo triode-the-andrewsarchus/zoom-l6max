@@ -30,6 +30,7 @@ parser.add_argument("--offline-mix-layout", action="store_true", help="run a des
 parser.add_argument("--file-mix-handoff", choices=("pending", "bypass", "atomic"), help="force a late audio signal in the stock file-mix workflow (QEMU only)")
 parser.add_argument("--selector-admission", action="store_true", help="also gate effect selection after the stock fade (QEMU only)")
 parser.add_argument("--selector-overlap", action="store_true", help="force a live lease across selector closure (QEMU only)")
+parser.add_argument("--selector-timeout", action="store_true", help="force a selector timeout and inspect partial recovery (QEMU only)")
 parser.add_argument("--inspector", action="store_true", help="enable QEMU-only inspector event hooks")
 parser.add_argument("--gesture-trace", action="store_true", help="record selector events (perturbs timing)")
 parser.add_argument("--enqueue-trace", action="store_true", help="record panel events before enqueue (perturbs timing)")
@@ -58,6 +59,8 @@ if args.selector_admission and args.file_mix_handoff != "atomic":
     parser.error("--selector-admission requires --file-mix-handoff atomic")
 if args.selector_overlap and not args.selector_admission:
     parser.error("--selector-overlap requires --selector-admission")
+if args.selector_timeout and not args.selector_overlap:
+    parser.error("--selector-timeout requires --selector-overlap")
 other_diagnostics = (args.switches, args.inspector, args.mixer_input_capture, args.gesture_trace, args.enqueue_trace,
         args.irq_trace, args.irq_timing, args.ring_timing, args.ring_drop, args.timing_control,
         args.active_sends, args.selector_load_trace, args.max_velvet_density, args.submix_return,
@@ -167,6 +170,8 @@ if args.selector_admission:
     rustc += ["--cfg", "selector_admission"]
 if args.selector_overlap:
     rustc += ["--cfg", "selector_overlap"]
+if args.selector_timeout:
+    rustc += ["--cfg", "selector_timeout"]
 if args.inspector:
     rustc += ["--cfg", "inspector_probe"]
 if args.gesture_trace:
@@ -573,14 +578,14 @@ if args.offline_mix_layout:
     add("memory", name="offline_layout", address=0x83e07000, length=316)
 if args.admission_probe:
     recipe = recipe.replace('name = "impulse_peaks"', 'name = "admission_result"', 1)
-if args.file_mix_handoff:
+if args.file_mix_handoff and not args.selector_timeout:
     recipe = recipe.replace('wall_timeout_s = 180', 'wall_timeout_s = 400', 1)
     add("memory-write", name="trigger", address=0x81fff000, bytes=[71, 73, 82, 84])
     add("press", target=40, hold_ms=150)
     add("wait", guest_ms=4000)
     add("memory", name="callback_after", address=0x83e00000, length=12)
     add("memory", name="mix_handoff", address=0x83e0a000, length=44)
-if args.selector_admission:
+if args.selector_admission and not args.selector_timeout:
     for index in range(4):
         if args.selector_overlap and index == 0:
             add("memory-write", name="overlap_trigger", address=0x81fff004, bytes=[0x50, 0x4c, 0x56, 0x4f])
@@ -590,6 +595,29 @@ if args.selector_admission:
     add("memory", name="selector_handoff", address=0x83e0b010, length=24)
     if args.selector_overlap:
         add("memory", name="selector_overlap", address=0x83e0b100, length=24)
+if args.selector_timeout:
+    # Observe a timeout after Room selection, then the next button press.
+    recipe = f'version = 1\nmodel = "l6max"\nmain_sha256 = "{image_sha}"\nwall_timeout_s = 400\n'
+    add("wait", guest_ms=45000)
+    add("press", target=40, hold_ms=150)
+    add("wait", guest_ms=3000)
+    for suffix in ("before", "after"):
+        if suffix == "after":
+            add("memory-write", name="overlap_trigger", address=0x81fff004, bytes=[0x50, 0x4c, 0x56, 0x4f])
+            add("press", target=40, hold_ms=150)
+            add("wait", guest_ms=3000)
+        add("memory", name=suffix, address=0x83e00000, length=12)
+        add("memory", name=f"pointer_{suffix}", address=0x202a6f20, length=4)
+        add("memory", name=f"fade_{suffix}", address=0x20007d74, length=4)
+        add("memory", name=f"state_{suffix}", address=0x8020026c, length=4)
+        add("memory", name=f"type_{suffix}", address=0x804600b2, length=1)
+    add("memory", name="selector_handoff", address=0x83e0b010, length=24)
+    add("memory", name="selector_overlap", address=0x83e0b100, length=24)
+    add("wait", guest_ms=2000)
+    add("memory", name="later", address=0x83e00000, length=12)
+    add("press", target=40, hold_ms=150)
+    add("wait", guest_ms=3000)
+    add("memory", name="pointer_next", address=0x202a6f20, length=4)
 (out / "recipe.toml").write_text(recipe)
 if args.pre_ainr:
     metadata = {"stock_main_sha256": MAIN_SHA, "diagnostic_main_sha256": image_sha,

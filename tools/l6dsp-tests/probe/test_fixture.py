@@ -28,6 +28,7 @@ class PreparerModeTests(unittest.TestCase):
             (['--file-mix-handoff', 'atomic'], '--file-mix-handoff requires'),
             (['--selector-admission'], '--selector-admission requires'),
             (['--selector-overlap'], '--selector-overlap requires'),
+            (['--selector-timeout'], '--selector-timeout requires'),
             (['--callback', '--inspector', '--file-mix-handoff', 'pending'], '--file-mix-handoff requires'),
             (['--callback', '--offline-mix-layout', '--inspector'], '--offline-mix-layout requires'),
             (['--callback', '--offline-mix-layout', '--switches'], '--offline-mix-layout requires'),
