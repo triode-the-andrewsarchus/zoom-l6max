@@ -32,6 +32,7 @@ parser.add_argument("--offline-mix-layout", action="store_true", help="run a des
 parser.add_argument("--offline-effect-workspace", action="store_true", help="place file-mix workspace at the end of the candidate effect buffer (QEMU only)")
 parser.add_argument("--file-mix-handoff", choices=("pending", "bypass", "atomic"), help="force a late audio signal in the stock file-mix workflow (QEMU only)")
 parser.add_argument("--file-mix-project", action="store_true", help="route a recorded project through a QEMU-only file-mix workspace probe")
+parser.add_argument("--file-mix-project-pending", action="store_true", help="force one audio wake during a recorded-project mix callback")
 parser.add_argument("--selector-admission", action="store_true", help="also gate effect selection after the stock fade (QEMU only)")
 parser.add_argument("--selector-overlap", action="store_true", help="force a live lease across selector closure (QEMU only)")
 parser.add_argument("--selector-timeout", action="store_true", help="force a selector timeout and inspect partial recovery (QEMU only)")
@@ -74,6 +75,8 @@ parser.add_argument("--bank-stress-count", type=int, default=10, help="number of
 args = parser.parse_args()
 if args.file_mix_project and (not args.callback or args.file_mix_handoff != "atomic"):
     parser.error("--file-mix-project requires --callback --file-mix-handoff atomic")
+if args.file_mix_project_pending and not args.file_mix_project:
+    parser.error("--file-mix-project-pending requires --file-mix-project")
 if args.file_mix_project and (args.selector_admission or args.combined_admission_refresh):
     parser.error("--file-mix-project cannot be combined with selector or refresh admission")
 if args.selector_admission and args.file_mix_handoff != "atomic":
@@ -225,6 +228,8 @@ if args.offline_effect_workspace:
     rustc += ["--cfg", "offline_effect_workspace"]
 if args.file_mix_project:
     rustc += ["--cfg", "file_mix_project"]
+if args.file_mix_project_pending:
+    rustc += ["--cfg", "file_mix_project_pending"]
 if args.file_mix_handoff:
     rustc += ["--cfg", "file_mix_handoff"]
     if args.file_mix_handoff == "bypass":
@@ -813,6 +818,8 @@ if args.file_mix_project:
     add("memory", name="file_mix_sends", address=0x83e0c000, length=1040)
     add("memory", name="file_mix_routed_calls", address=0x83e0a060, length=24)
     add("memory", name="file_mix_output", address=0x83e0a078, length=16)
+    if args.file_mix_project_pending:
+        add("memory", name="project_pending", address=0x83e0b800, length=24)
 (out / "recipe.toml").write_text(recipe)
 if args.pre_ainr:
     metadata = {"stock_main_sha256": MAIN_SHA, "diagnostic_main_sha256": image_sha,

@@ -3,7 +3,7 @@ import copy
 import struct
 import unittest
 
-from file_mix_handoff import check, check_ainr_admission, check_ainr_timeout, check_learned_marker, check_midi_trace, check_project, check_timeout
+from file_mix_handoff import check, check_ainr_admission, check_ainr_timeout, check_learned_marker, check_midi_trace, check_project, check_project_pending, check_timeout
 
 
 def capture_report(captures):
@@ -37,6 +37,15 @@ class FileMixHandoffTests(unittest.TestCase):
             'file_mix_output': ('<IIff', (100, 0, 0.5, 0.25)),
         }
         check_project(capture_report(captures))
+        pending = dict(captures, project_pending=('<6I', (2, 2, 0, 1, 1, 2)))
+        self.assertEqual(check_project_pending(capture_report(pending)), 1)
+        for index, value in enumerate((1, 0, 1, 0, 0, 0)):
+            bad_pending = dict(pending)
+            words = [2, 2, 0, 1, 1, 2]
+            words[index] = value
+            bad_pending['project_pending'] = ('<6I', tuple(words))
+            with self.subTest(pending_index=index), self.assertRaises(ValueError):
+                check_project_pending(capture_report(bad_pending))
         for name, value in (
             ('send_1', ('<B', (0,))),
             ('file_mix_routed_calls', ('<6I', (0, 0, 0, 0, 0, 0))),

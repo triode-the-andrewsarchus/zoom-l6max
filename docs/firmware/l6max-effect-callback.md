@@ -8634,3 +8634,27 @@ the QEMU source is unattested. The initial panel flash, options and RTC were
 `bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
 `473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
 The modified diagnostic image must not be installed.
+
+A forced-overlap variant injected one `AudioProcess` semaphore signal from
+inside the first routed file-mix callback. The recorded file-mix lease state
+was 2 before and after a five-tick delay; the signal succeeded and the
+outer-block rejection counter advanced by exactly one while that lease was
+held. The bounce completed with 6,144 routed calls and passed its project
+checker. In the same QEMU CPU-memory trace, the live arrays had 22,207,680
+reads and 23,526,400 writes before the marked window, none during it, while
+the workspace positive control saw 34,758,145 reads during it. This confirms
+the experiment exercised the guard's block-discard behavior during a
+successful bounce, not that the discard is safe or that a stock interrupt
+would occur there. Audio continuity, stock control updates, DMA, other users,
+and physical timing remain unqualified.
+
+The forced variant used the stock MAIN, source NOR, initial card, QEMU,
+`l6dbg`, plugin and panel fixtures identified above. Its diagnostic MAIN,
+ELF, initial diagnostic NOR, recipe, result and trace SHA-256 values were
+`18677ad7235a966e76c38db58091d7dca88805891dee08b26d7aedc7b9c6e226`,
+`9077cd21fdae465c67c8eeeaad95802feef2b4af6bb13667d4edff140a2c83f5`,
+`467faf71b40660bf1ce896c31848bd89e31d4a028671a00235b4ee5cdf31fb1d`,
+`e46d4e9e320660faa2c3b17b08ab31dd7a77cc7499085cabfd8ee817c6cb28fb`,
+`54f0dbb0e57039c32416df82ac6d85106de159685880c76b097a4f4a732ba31d`, and
+`1623dce0a5fc5d8a7d08e364f4779caa6d5ac62ed20112c9ad98a78be9cd076f`.
+The modified diagnostic image must not be installed.

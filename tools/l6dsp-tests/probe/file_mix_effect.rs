@@ -41,6 +41,28 @@ pub unsafe extern "C" fn file_mix_effect_audio(_context: u32, descriptor: *const
     unsafe {
         let count = 0x83e0a060 as *mut u32;
         write(count, read(count).wrapping_add(1));
+        #[cfg(file_mix_project_pending)]
+        {
+            // Interrupt one real file-mix callback with a forced audio wake.
+            // The outer guard discards the audio block: diagnostic only.
+            let pending = 0x83e0b800 as *mut u32;
+            if read(pending) == 0 {
+                use core::sync::atomic::{AtomicU32, Ordering};
+                write(pending, 1);
+                let gate = &*(0x83e0b000 as *const AtomicU32);
+                let rejected = &*(0x83e0b004 as *const AtomicU32);
+                write(pending.add(1), gate.load(Ordering::Acquire));
+                write(pending.add(2), rejected.load(Ordering::Relaxed));
+                let give: unsafe extern "C" fn(u32, u32, u32, u32) -> u32 = core::mem::transmute(0x80090ad1usize);
+                let semaphore = read(0x20007cf8 as *const u32);
+                write(pending.add(3), give(semaphore, 0, 0, 0));
+                let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
+                delay(5);
+                write(pending.add(4), rejected.load(Ordering::Relaxed));
+                write(pending.add(5), gate.load(Ordering::Acquire));
+                write(pending, 2);
+            }
+        }
         write(count.add(1), read(count.add(1)).max(offset));
         if offset > 239936 {
             write(count.add(2), read(count.add(2)).wrapping_add(1));

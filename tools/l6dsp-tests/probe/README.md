@@ -137,6 +137,13 @@ accesses, not DMA; it covers one diagnostic workflow and changes timing. The
 observer, diagnostic callback and admission guard all modify stock behavior.
 The result cannot prove non-reentrancy, ownership, or safe hardware operation.
 
+To force an audio wake while a recorded-project effect callback holds the
+file-mix lease, add `--file-mix-project-pending` to the preparer and
+`--project-pending` to the checker. This variant checks a successful signal,
+the held file-mix gate before and after a short delay, and one rejected audio
+block. It intentionally drops that block and uses unowned scratch; it does not
+test a production fallback or prove that a pending wake happens naturally.
+
 One instrumented run recorded 6,144 routed calls, a maximum offset of 131,008,
 a maximum captured input difference of `1.46e-11` and 785,470 nonzero output
 samples. Left and right peaks were approximately `0.00042172` and

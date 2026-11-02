@@ -46,6 +46,13 @@ def check_project(report):
             'output_nonzero_samples': nonzero, 'output_peaks': [left_peak, right_peak]}
 
 
+def check_project_pending(report):
+    phase, gate_before, before, signaled, after, gate_after = words(observations(report), 'project_pending', '<6I')
+    if (phase, gate_before, signaled, gate_after) != (2, 2, 1, 2) or after != before + 1:
+        raise ValueError('forced audio wake was not rejected during the file-mix callback')
+    return after - before
+
+
 def check_selector(items):
     attempts, acquired, failed, released, _, active = words(items, 'selector_handoff', '<6I')
     callbacks = [words(items, f'selector_callback_{index}', '<I')[0] for index in range(4)]
@@ -226,11 +233,17 @@ def run_ainr_check(args, report):
 
 
 def run_check(args):
+    if args.project_pending and not args.project:
+        raise ValueError('--project-pending requires --project')
     if args.project:
         if any((args.bypass, args.selector, args.overlap, args.timeout, args.feedback,
                 args.midi_trace, args.ainr_timeout, args.ainr_learned, args.ainr_admission)):
             raise ValueError('--project cannot be combined with other checks')
-        return check_project(json.loads(args.report.read_text()))
+        report = json.loads(args.report.read_text())
+        result = check_project(report)
+        if args.project_pending:
+            result['forced_audio_rejections'] = check_project_pending(report)
+        return result
     validate_options(args)
     validate_ainr_options(args)
     report = json.loads(args.report.read_text())
@@ -246,6 +259,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('report', type=Path)
     parser.add_argument('--project', action='store_true', help='check the recorded-project workspace probe')
+    parser.add_argument('--project-pending', action='store_true', help='check a forced audio wake inside the project mix callback')
     parser.add_argument('--bypass', action='store_true')
     parser.add_argument('--selector', action='store_true')
     parser.add_argument('--overlap', action='store_true')
