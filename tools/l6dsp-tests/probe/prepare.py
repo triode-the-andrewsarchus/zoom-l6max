@@ -27,6 +27,7 @@ parser.add_argument("--admission-probe", action="store_true", help="exercise the
 parser.add_argument("--switches", action="store_true", help="observe all six effect selections")
 parser.add_argument("--mixer-input-capture", action="store_true", help="capture routed mixer input and output for each custom effect (QEMU only)")
 parser.add_argument("--offline-mix-layout", action="store_true", help="run a destructive synthetic file-mix layout probe in QEMU")
+parser.add_argument("--offline-effect-workspace", action="store_true", help="place file-mix workspace at the end of the candidate effect buffer (QEMU only)")
 parser.add_argument("--file-mix-handoff", choices=("pending", "bypass", "atomic"), help="force a late audio signal in the stock file-mix workflow (QEMU only)")
 parser.add_argument("--selector-admission", action="store_true", help="also gate effect selection after the stock fade (QEMU only)")
 parser.add_argument("--selector-overlap", action="store_true", help="force a live lease across selector closure (QEMU only)")
@@ -92,6 +93,8 @@ if args.admission_probe and args.callback:
     parser.error("--admission-probe cannot be combined with --callback")
 if args.offline_mix_layout and (not args.callback or any(other_diagnostics)):
     parser.error("--offline-mix-layout requires --callback alone")
+if args.offline_effect_workspace and not args.offline_mix_layout:
+    parser.error("--offline-effect-workspace requires --offline-mix-layout")
 if args.max_velvet_density and not args.selector_load_trace:
     parser.error("--max-velvet-density requires --selector-load-trace")
 if args.mixer_input_capture and (not args.callback or args.switches or args.inspector
@@ -178,6 +181,8 @@ if args.admission_probe:
     rustc += ["--cfg", "admission_probe"]
 if args.offline_mix_layout:
     rustc += ["--cfg", "offline_mix_layout"]
+if args.offline_effect_workspace:
+    rustc += ["--cfg", "offline_effect_workspace"]
 if args.file_mix_handoff:
     rustc += ["--cfg", "file_mix_handoff"]
     if args.file_mix_handoff == "bypass":
@@ -609,6 +614,8 @@ wall_timeout_s = 420
 if args.offline_mix_layout:
     recipe = recipe.replace('wall_timeout_s = 180', 'wall_timeout_s = 300', 1)
     add("memory", name="offline_layout", address=0x83e07000, length=316)
+    if args.offline_effect_workspace:
+        add("memory", name="offline_workspace_guards", address=0x83e0713c, length=12)
 if args.admission_probe:
     recipe = recipe.replace('name = "impulse_peaks"', 'name = "admission_result"', 1)
 if args.file_mix_handoff and not args.selector_timeout:

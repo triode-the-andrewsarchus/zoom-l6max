@@ -24,6 +24,7 @@ class PreparerModeTests(unittest.TestCase):
         cases = [
             (['--callback', '--admission-probe'], '--admission-probe cannot'),
             (['--offline-mix-layout'], '--offline-mix-layout requires'),
+            (['--offline-effect-workspace'], '--offline-effect-workspace requires'),
             (['--file-mix-handoff', 'bypass'], '--file-mix-handoff requires'),
             (['--file-mix-handoff', 'atomic'], '--file-mix-handoff requires'),
             (['--selector-admission'], '--selector-admission requires'),

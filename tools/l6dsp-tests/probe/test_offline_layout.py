@@ -29,6 +29,19 @@ class OfflineLayoutTests(unittest.TestCase):
     def test_accepts_both_weighted_blocks(self):
         self.assertEqual(check(report())['callbacks'], 2)
 
+    def test_effect_workspace_requires_intact_guards(self):
+        sample = report()
+        sample['events'].append({'observation': {'name': 'offline_workspace_guards',
+                                                 'bytes': list(struct.pack('<3I', 0x6c360100, 0x6c360101, 0x6c360102))}})
+        check(sample, effect_workspace=True)
+        for offset in (0, 4, 8):
+            bad = copy.deepcopy(sample)
+            bad['events'][1]['observation']['bytes'][offset] ^= 1
+            with self.subTest(offset=offset), self.assertRaises(ValueError):
+                check(bad, effect_workspace=True)
+        with self.assertRaises(ValueError):
+            check(report(), effect_workspace=True)
+
     def test_rejects_missing_callback_wrong_sum_or_track(self):
         for offset in (0, 4, 11, 24, 215, 216, 227, 304, 308, 312):
             bad = copy.deepcopy(report())

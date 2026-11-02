@@ -183,6 +183,15 @@ To examine the candidate file-mix track layout, prepare a separate image with
 python3 tools/l6dsp-tests/probe/offline_layout.py OUTPUT/logs/diagnostic.json
 ```
 
+Add `--offline-effect-workspace` to preparation and `--effect-workspace` to
+the checker to place the 768-byte workspace at `0x80db0004`, after the three
+candidate AINR regions within the observed effect buffer. Compile-time checks
+bound the DSP, candidate clone regions and workspace; three canaries check
+the synthetic call for writes at the chosen boundaries. The first canary
+deliberately overwrites the final word of the third candidate clone region;
+no clones are present in this diagnostic. This tests a layout, not concurrent
+AINR operation, ownership, stock-buffer lifetime or physical safety.
+
 The probe directly calls a stock mixing routine with 128 synthetic frames in
 twelve candidate track buffers, distinct per-track gains, and disabled stock
 filter sections. It captures both ends of each 64-frame callback block. It

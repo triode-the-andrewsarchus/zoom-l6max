@@ -1,6 +1,19 @@
 //! Synthetic, QEMU-only inspection of a stock mix routine; never install.
 use core::{arch::asm, ptr::{read_volatile as read, write_volatile as write}};
 const OUT: usize = 0x83e07000;
+#[cfg(not(offline_effect_workspace))]
+const WORKSPACE: usize = 0x83e08000;
+#[cfg(offline_effect_workspace)]
+const WORKSPACE: usize = 0x80db0004;
+#[cfg(offline_effect_workspace)]
+const GUARDS: [usize; 3] = [0x80dafffc, WORKSPACE - 4, WORKSPACE + core::mem::size_of::<crate::routing::RoutingWorkspace>()];
+#[cfg(offline_effect_workspace)]
+const _: () = {
+    assert!(core::mem::size_of::<crate::routing::DualEfxProcessor>() <= 0x50000);
+    assert!(0x80d50000 + 3 * 0x20000 == WORKSPACE - 4);
+    assert!(WORKSPACE % core::mem::align_of::<crate::routing::RoutingWorkspace>() == 0);
+    assert!(GUARDS[2] + 4 <= 0x80dbb800);
+};
 
 // QEMU-only veneer for the stock file-mix callback. Its extra argument is
 // supplied only to this probe's observer; ordinary callbacks keep r2 intact.
@@ -69,7 +82,7 @@ unsafe extern "C" fn offline_observer(_context: u32, descriptor: *const u32, off
             }
             let output = core::slice::from_raw_parts_mut(block, 128);
             let (left, right) = output.split_at_mut(64);
-            let workspace = &mut *(0x83e08000 as *mut crate::routing::RoutingWorkspace);
+            let workspace = &mut *(WORKSPACE as *mut crate::routing::RoutingWorkspace);
             processor.process_weighted_with_workspace(&channels, left, right, workspace);
             for (edge, frame) in [0, 63].into_iter().enumerate() {
                 write((OUT + 272 + (n * 2 + edge) * 8) as *mut f32, left.get(frame).copied().unwrap_or(0.0));
@@ -98,7 +111,11 @@ pub unsafe fn run() {
         let old_callback = read(0x202a6f20 as *const u32);
         let desc = 0x83e07300 as *mut u32;
         for i in 0..16 { write(desc.add(i), 0); }
-        let workspace = &mut *(0x83e08000 as *mut core::mem::MaybeUninit<crate::routing::RoutingWorkspace>);
+        #[cfg(offline_effect_workspace)]
+        for (i, address) in GUARDS.iter().enumerate() {
+            write(*address as *mut u32, 0x6c360100 + i as u32);
+        }
+        let workspace = &mut *(WORKSPACE as *mut core::mem::MaybeUninit<crate::routing::RoutingWorkspace>);
         crate::routing::RoutingWorkspace::initialize_in_place(workspace);
         write(OUT as *mut u32, 0);
         write(0x20015110 as *mut u32, 0);
@@ -136,6 +153,10 @@ pub unsafe fn run() {
         write(0x202a6f1c as *mut u32, old_descriptor);
         write(0x202a6f20 as *mut u32, old_callback);
         write((OUT + 4) as *mut u32, 0x4f46464c);
+        #[cfg(offline_effect_workspace)]
+        for (i, address) in GUARDS.iter().enumerate() {
+            write((OUT + 316 + i * 4) as *mut u32, read(*address as *const u32));
+        }
         asm!("msr PRIMASK, {}", in(reg) saved_mask, options(nostack));
     }
 }

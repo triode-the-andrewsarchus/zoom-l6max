@@ -6689,3 +6689,37 @@ The admitted output hash was
 `09f2d626f6e7e80d3771801564dd996f30ccc3e8b1d6d724189a3383b79bb08b`.
 The guest was stopped after observation. The paired MAIN, ELF, stock MAIN,
 initial fixture, QEMU and `l6dbg` matched the preceding experiment.
+
+For the synthetic file-mix diagnostic, a candidate layout places the
+768-byte weighted-routing workspace at `0x80db0004`, after the three
+`0x20000`-byte candidate AINR slots starting at `0x80d50000`. The diagnostic
+build asserts that the processor fits below the first slot, the slots end at
+`0x80db0000`, and the aligned workspace and its trailing guard fit inside the
+observed effect-buffer end `0x80dbb800`. A matched control kept the workspace
+at `0x83e08000`. Both runs completed two synthetic callbacks and produced
+identical 316-byte captured observations, SHA-256
+`9dea592e4b93e6fe00490791a5448d32520a82a1a4eeec901ced709626abd39a`.
+Three boundary canaries survived in the candidate-layout run. The diagnostic
+deliberately wrote one canary into the final word of the third candidate AINR
+slot; no AINR clones ran in that test. It masks interrupts, uses a synthetic
+file-mix invocation, and does not establish simultaneous operation, DMA
+exclusion, real buffer ownership, workspace lifetime or hardware safety.
+
+The control MAIN and ELF hashes were
+`bf9853e460104c9c4bbcea8a057b21c1bdd2d86ff88fea0dc838dc706e4d3ea0` and
+`2fe5a38088b48c458ac6762ff454f0fe92b596f1f630708ee3393e8ace8c3c7b`;
+the candidate MAIN and ELF were
+`7fdd45b69f3369eb4666634db1a91c02ae3bf385dba26a77bcddf614b7dbe699` and
+`26f3ef2dac200b1b9b434251d3602475d8bdb9fda8275c2baed32ac597035a7b`.
+The control recipe, result and trace hashes were
+`fab31148193d887f56a0e7b72189e84a8930c9a00c04f6c81437e846f9c4de62`,
+`49ccf1356bfbaf9acdbe47f5962aa8f9bf84725aa9e2b56f903ba83758d87098`, and
+`8fd8e47a9db91f840823208c453724d55c8d2ceccb28d7df28f6755789eda6fa`.
+The candidate recipe, result and trace hashes were
+`a0635f307e2dfae8bfaae6c8e3033d6368b5833d0d03529e98bfc4fa1f99af70`,
+`1b964d6eb056cc9a93a530a25f94c24ac1bde2826dbd5823d6900cf4c71facce`, and
+`fa8283bfb96002523bd0b0158869059ec0801b7a76e1cd2db35be6c931f6fa2d`.
+The observer and checker sources hashed to
+`10c4b2d49638017acf14576173c89bf43e32585d2219f9d8b5e9df57891e71f2` and
+`b0806d3f203357fbea7be9bf41b603551e84dcf0dc120e1305af9e167bb840e7`.
+Stock MAIN, initial fixture, QEMU and `l6dbg` matched the preceding experiment.

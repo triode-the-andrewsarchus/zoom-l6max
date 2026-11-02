@@ -31,8 +31,11 @@ def check_frame(block, edge, sums, tracks, routed):
             raise ValueError(f'routed bus {bus} frame {frame} differs')
 
 
-def check(report):
-    count, marker, *values = words(observations(report), 'offline_layout', '<II52f2I20f3I')
+def check(report, effect_workspace=False):
+    items = observations(report)
+    count, marker, *values = words(items, 'offline_layout', '<II52f2I20f3I')
+    if effect_workspace and words(items, 'offline_workspace_guards', '<3I') != (0x6c360100, 0x6c360101, 0x6c360102):
+        raise ValueError('effect-buffer workspace guards changed')
     if (count, marker) != (2, 0x4f46464c):
         raise ValueError('synthetic mix did not complete two callbacks')
     sums, tracks = values[:4], values[4:52]
@@ -54,9 +57,10 @@ def check(report):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('report', type=Path, help='l6dbg diagnostic.json')
+    parser.add_argument('--effect-workspace', action='store_true', help='also check effect-buffer workspace guards')
     args = parser.parse_args()
     try:
-        result = check(json.loads(args.report.read_text()))
+        result = check(json.loads(args.report.read_text()), args.effect_workspace)
     except (OSError, json.JSONDecodeError, KeyError, ValueError) as error:
         parser.exit(1, f'check failed: {error}\n')
     print(json.dumps(result, indent=2))
