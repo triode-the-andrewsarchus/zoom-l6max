@@ -7,6 +7,10 @@ from pathlib import Path
 
 from submix_return import observations, words
 
+# Captured from an independently executed host run of the same DSP settings.
+EXPECTED_EFFECT = [0.007768246, 0.007729655, 0.013850859, 0.001429997,
+                   0.013852504, 0.001430163, 0.013353780, -0.003259216]
+
 
 def check_frame(block, edge, sums, tracks, routed):
     frame = block * 64 + edge * 63
@@ -40,8 +44,9 @@ def check(report):
     for block in range(2):
         for edge in range(2):
             check_frame(block, edge, sums, tracks, routed)
-    if not all(math.isfinite(value) and 0.0 < abs(value) <= 1.0 for value in output):
-        raise ValueError('routed effect output is nonfinite, out of range or silent')
+    if any(not math.isclose(value, expected, rel_tol=1e-5, abs_tol=1e-6)
+           for value, expected in zip(output, EXPECTED_EFFECT, strict=True)):
+        raise ValueError('routed effect output differs from host reference')
     return {'callbacks': count, 'offsets': offsets, 'ordinary_arguments': ordinary[1:],
             'summed_edges': sums, 'routed_edges': routed, 'effect_edges': output}
 

@@ -3,7 +3,7 @@ import copy
 import struct
 import unittest
 
-from offline_layout import check
+from offline_layout import EXPECTED_EFFECT, check
 
 
 def report():
@@ -20,7 +20,7 @@ def report():
         for slot in range(12):
             tracks.extend((slot + 1) * 1_000_000 + frame * 1000 for frame in frames)
     capture = struct.pack('<II52f2I20f3I', 2, 0x4f46464c, *sums, *tracks, 0, 64,
-                          *buses, *([0.1, -0.1] * 4), 2, 0x202a7138, 0x202a7138)
+                          *buses, *EXPECTED_EFFECT, 2, 0x202a7138, 0x202a7138)
     return {'outcome': 'complete', 'model': 'l6max',
             'events': [{'observation': {'name': 'offline_layout', 'bytes': list(capture)}}]}
 
@@ -37,6 +37,10 @@ class OfflineLayoutTests(unittest.TestCase):
                 check(bad)
         bad = report()
         bad['events'][0]['observation']['bytes'][272:276] = list(struct.pack('<f', float('nan')))
+        with self.assertRaises(ValueError):
+            check(bad)
+        bad = report()
+        bad['events'][0]['observation']['bytes'][272:276] = list(struct.pack('<f', 0.1))
         with self.assertRaises(ValueError):
             check(bad)
         bad = report()
