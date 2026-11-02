@@ -99,15 +99,12 @@ pub unsafe fn allocate() {
         if !matches!(status.load(Ordering::Acquire), 0 | 2) { return; }
         let alloc: unsafe extern "C" fn(usize) -> *mut u8 = core::mem::transmute(0x80085479usize);
         let ptr = alloc(CAPTURE_BYTES) as usize;
-        if ptr >= 0x808a4148 && ptr % 8 == 0
-            && ptr.checked_add(CAPTURE_BYTES).is_some_and(|end| end <= 0x80921148) {
+        if crate::heap_range::valid_heap_allocation(ptr, CAPTURE_BYTES) {
             status.store(0, Ordering::Release);
             slot.store(ptr as u32, Ordering::Release);
         } else {
-            if ptr != 0 {
-                let free: unsafe extern "C" fn(*mut u8) = core::mem::transmute(0x8008e589usize);
-                free(ptr as *mut u8);
-            }
+            // An unexpected non-null result is not safe to return to free;
+            // this deliberately leaks it if it was a real allocation.
             status.store(2, Ordering::Release);
         }
     }

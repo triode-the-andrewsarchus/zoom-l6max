@@ -40,6 +40,8 @@ mod irq;
 mod ring_timing;
 #[cfg(auto_handoff_probe)]
 mod auto_handoff;
+#[cfg(auto_handoff_probe)]
+mod heap_range;
 #[cfg(any(hybrid_ainr_probe, boundary_ainr_probe))]
 mod handoff_protocol;
 #[cfg(boundary_ainr_probe)]

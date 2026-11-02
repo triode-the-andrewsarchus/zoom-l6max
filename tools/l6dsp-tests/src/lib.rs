@@ -18,6 +18,8 @@ pub mod admission;
 pub mod event_queue;
 #[path = "../probe/handoff_protocol.rs"]
 pub mod handoff_protocol;
+#[path = "../probe/heap_range.rs"]
+pub mod heap_range;
 #[path = "../probe/boundary_pause.rs"]
 pub mod boundary_pause;
 #[path = "../probe/refresh_handoff.rs"]
@@ -245,6 +247,19 @@ mod tests {
         assert!(!valid(snapshot + len, 0));
         assert!(!valid(usize::MAX - 7, snapshot));
         assert!(!valid(snapshot + len, usize::MAX - 7));
+    }
+
+    #[test]
+    fn snapshot_heap_range_rejects_headers_sentinel_and_overflow() {
+        use heap_range::valid_heap_allocation as valid;
+        let len = boundary_pause::CAPTURE_BYTES;
+        assert!(valid(0x808a4150, len));
+        assert!(valid(0x80921140 - len, len));
+        assert!(!valid(0x808a4148, len));
+        assert!(!valid(0x808a4151, len));
+        assert!(!valid(0x80921148 - len, len));
+        assert!(!valid(usize::MAX - 7, len));
+        assert!(!valid(0x808a4150, 0));
     }
 
     #[test]

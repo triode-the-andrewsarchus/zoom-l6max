@@ -599,6 +599,10 @@ tick. Inspect these observations; recipe completion alone is not a pass.
 A failed snapshot allocation is retried on a later custom-effect selection;
 a successful retry returns the capture status to waiting. It does not
 recover a previously missed learning capture automatically.
+Both diagnostic heap buffers are checked against the observed L6max 1.10
+heap payload bounds. An unexpected non-null allocator result is rejected
+without calling free; if it was a real allocation, that leaks it for the
+session. Range checks alone do not establish allocation ownership.
 Add `--channel0-prefix` with `--auto-handoff` to allocate and copy only the
 first 103,700 snapshot bytes, then zero each copied state's remaining bytes
 at selection. The default remains the full 128 KiB. The prefix is experimental

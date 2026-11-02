@@ -5953,6 +5953,29 @@ for alignment, bounds and separation before use. Failed allocation leaves the
 snapshot unready; the synthetic sends are suppressed, which is not a usable
 production fallback. The diagnostic still uses unowned control words and flash.
 
+The primary and refresh allocations now share an L6max 1.10 payload-range
+check that excludes the first heap header and the end sentinel. The primary
+path rejects an unexpected non-null result without calling the stock free
+routine: if it was actually allocated, this can leak it. A temporary variant
+substituted the invalid heap-header address `0x808a4148` for the primary
+allocator result. Two successive selections recorded pointer zero, failure
+status two and 160,008 bytes free, and the diagnostic callback continued to
+advance. No real allocator returned this value; this does not test real heap
+corruption or establish that an in-range pointer is allocator-owned. The
+forced MAIN, ELF, temporary handoff source, recipe and result hashes were
+`c5f47bb0ffd9b57cce849204896568ede0aed58babd872c4d889c969054d4910`,
+`1cdea109a43d887af9d3a6a08d4671f50485488009194565f7a2c479d5f4ca59`,
+`c9097479e813d429e9a7d700e0b50acf0426d4fa7756965a1dca0bfe50ca8269`,
+`2436706166420f3b93b966a2f48cd70c5ea920e86dc4a36e47e9059c4431414f`, and
+`bac76c44ef5c32dfe8b273dcca4acde376b37fd2657a288595a9b6133e5ea7d8`.
+An unforced build with the same check captured the primary allocation and
+completed two selections with two scratch frees, returning sampled free heap
+to 103,728 bytes after each. Its MAIN, ELF, recipe and result hashes were
+`4ce56d0d8b3ef21c06ac716c0f8c5bf3eba318e5bcb149a88cd2a3ddd56d5958`,
+`bd8290d1d3424565736fed430e4496bf1665136bc9219047d446e894891b5432`,
+`4bb0215941a4629af22500f3840e4de5c24bb5c1035ef2e28ba61501749a20c3`, and
+`d4b8a23aef5a024c687d690c15e35e49558a6bd9cc13faeac9f0bccb7cbbc3d2`.
+
 In a revised build, an ordinary run and an independently traced run each
 completed two selections. The primary snapshot was `0x808fa040`, the retained
 scratch was `0x80907c18..0x809157e0`, and sampled free heap was unchanged at
@@ -6041,6 +6064,33 @@ The forced-delay MAIN, ELF, handoff source, recipe and result were
 `8e847edd38f1be566ffae594369c8a4fe39095af696efbac81ecb7a9e66ab657`,
 `a3cd2458f157024a2174a49a56d3566f15a0cb589802f70dce29d8b9ba3f2100`, and
 `5b7464a91bedb03e3bf963a188730eeebb3bb2c5e7cba51ca3107ecfb493728b`.
+
+A separate matched pair deliberately failed the first refresh allocation
+after AINR learning. A temporary callback variant enabled synthetic input
+only after that failure, while the control continued to suppress it. With
+ready zero, the enabled run's captured sends matched the generated waves,
+the 128 captured effect-output samples were finite and nonzero, and the
+AINR-call counter remained zero. The control's captured sends and output were
+zero. Both cycled back to the stock AINR callback with the learned marker set,
+then completed a later refresh and returned sampled heap to 103,728 bytes.
+The sequence counter was even and unchanged across each captured buffer.
+This tests a bypass with synthetic signals switched on after failure; it does
+not model continuous input during startup, qualify denoising or establish
+safe physical output or timing. It uses unowned diagnostic scratch.
+
+The enabled/control MAIN hashes were
+`8dcb10c537eaabbc123de2780ef547da37639900d96986d6d80fd89b290b289a` and
+`f8b142de75b0e6ce69cae60a36f269edf7c6237c430f59d299905648465064f5`;
+the ELFs were `0d7b6b9f69edf4f4f0d0c332a0c187f28145b3282a52ee34a3413463c5cb7777`
+and `4438cda88170391065c356cfbd777329aa5170fe2d895db206e66dfa31ee5023`.
+The enabled/control recipes were
+`a2683328b73bf215acf2d65e24a2df7d7edbfcaf8e86e511e4b0906a383ec61f` and
+`3fec00bb2b5eb33ecb275bf01dcc4f9e28ef305616fa12b80cbc14a1229ca246`;
+their results were `3195b8b30250ce88cecc6108d53edf734192924c8b83cf949b326c3e22a87fda`
+and `bb2661b0c5ffa2174b0c0500df77f6de52918eb524aa468187f51225b9321d14`.
+The temporary handoff and callback sources were
+`05185c62daeafdbe42e3809331aec38dd60b120326b10d066a9172dfed28c89b` and
+`9f51130674e2c476cd3103d90ed7a3e9c6823620cd90ac9787066df6f547e57b`.
 
 An earlier temporary version compared inspector behavior with the existing
 separate high-scratch diagnostic. In each QEMU run the inspector opened,
