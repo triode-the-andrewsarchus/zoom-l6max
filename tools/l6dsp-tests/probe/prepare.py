@@ -51,6 +51,7 @@ parser.add_argument("--timing-control", action="store_true", help="bypass effect
 parser.add_argument("--active-sends", action="store_true", help="inject nonzero QEMU-only effect buses")
 parser.add_argument("--selector-load-trace", action="store_true", help="trace a selector hold under active or bypassed effects")
 parser.add_argument("--max-velvet-density", action="store_true", help="initialize Velvet at 95 ms and 3000 pps in the selector-load trace")
+parser.add_argument("--velvet-fade-stress", choices=("short", "long"), help="trace short or long high-density Velvet fades (QEMU only)")
 parser.add_argument("--submix-return", action="store_true", help="capture active DSP output with the modeled Sub-Mix switch held")
 parser.add_argument("--retain-custom-state", action="store_true", help="experimentally retain state across adjacent custom effects")
 parser.add_argument("--pre-ainr", action="store_true", help="run a debugger-installed AINR copy on each test send")
@@ -84,7 +85,7 @@ if args.ainr_pair_replay and not (args.ainr_pair and args.selector_ainr_timeout 
     parser.error("--ainr-pair-replay requires --ainr-pair and --selector-ainr-timeout exit")
 other_diagnostics = (args.switches, args.inspector, args.mixer_input_capture, args.gesture_trace, args.enqueue_trace,
         args.irq_trace, args.irq_timing, args.ring_timing, args.ring_drop, args.timing_control,
-        args.active_sends, args.selector_load_trace, args.max_velvet_density, args.submix_return,
+        args.active_sends, args.selector_load_trace, args.max_velvet_density, args.velvet_fade_stress, args.submix_return,
         args.retain_custom_state, args.pre_ainr, args.effect_buffer, args.auto_handoff,
         args.channel0_prefix, args.hybrid_handoff, args.boundary_handoff, args.boundary_noise,
         args.passthrough_unready, args.bank_stress)
@@ -99,6 +100,8 @@ if args.offline_effect_workspace and not args.offline_mix_layout:
     parser.error("--offline-effect-workspace requires --offline-mix-layout")
 if args.max_velvet_density and not args.selector_load_trace:
     parser.error("--max-velvet-density requires --selector-load-trace")
+if args.velvet_fade_stress and not (args.max_velvet_density and args.active_sends):
+    parser.error("--velvet-fade-stress requires --max-velvet-density and --active-sends")
 if args.mixer_input_capture and (not args.callback or args.switches or args.inspector
         or args.active_sends or args.timing_control or args.pre_ainr or args.submix_return
         or args.bank_stress or args.retain_custom_state or args.selector_load_trace):
@@ -225,6 +228,8 @@ if args.active_sends:
     rustc += ["--cfg", "active_sends"]
 if args.max_velvet_density:
     rustc += ["--cfg", "max_velvet_density"]
+if args.velvet_fade_stress:
+    rustc += ["--cfg", f"velvet_fade_{args.velvet_fade_stress}"]
 if args.retain_custom_state:
     rustc += ["--cfg", "retain_custom_state"]
 if args.pre_ainr:
@@ -556,8 +561,12 @@ wall_timeout_s = 300
         wait(45000)
         press(40)  # Hall -> Room, with the normal post-press wait.
         memory("start", 0x83e00000, 12)
+        if args.velvet_fade_stress:
+            memory("fade_start", 0x83e03f04, 4)
         wait(5000)
         memory("end", 0x83e00000, 12)
+        if args.velvet_fade_stress:
+            memory("fade_end", 0x83e03f04, 4)
         memory("work", 0x83e00800, 16)
         press(40, 1500)
         memory("inspector", 0x83e00400, 32)

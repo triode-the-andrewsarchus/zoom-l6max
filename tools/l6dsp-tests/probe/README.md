@@ -314,6 +314,14 @@ selector-load image to initialize Velvet at 95 ms and 3,000 pps; the recipe
 also records `tap_count`. The option is a QEMU-only stress case and does not
 change the installable firmware.
 
+For a renewal workload, add `--active-sends --velvet-fade-stress short` or
+`--active-sends --velvet-fade-stress long` along with `--max-velvet-density`.
+Both use a 100 ms refresh; the fades are 1 ms and 90 ms respectively. The
+diagnostic increments a scratch counter when a callback starts during a fade
+and records `fade_start` and `fade_end` beside the callback counters. These
+snapshots are separate reads, and a callback can cross a fade boundary. The
+counter and tracing perturb timing; this is not a target deadline test.
+
 For a paired Sub-Mix observation, copy the same Hall-selected 1.10 state to
 two disposable directories and use `l6nor set` to set
 `mixer.current.efx_return_submix=1` in the second. Verify with `l6nor diff`

@@ -7045,3 +7045,29 @@ The perturbed result, GDB script and transcript were
 The stock MAIN, input NOR, panel state, QEMU and `l6dbg` matched the preceding
 experiment. The tone patch and timing instrumentation are diagnostic only;
 none of these modified images may be installed.
+
+### High-density renewal and crossfade workload
+
+The reusable selector-load diagnostic now supports a paired renewal stress
+case with 95 ms spread, 3,000 impulses per second, 100 ms refresh, and either
+a 1 ms or 90 ms crossfade. Both use nonzero synthetic sends and omit pre-AINR.
+In matched speed-optimized QEMU runs, the short-fade case advanced 2,660
+callbacks over five guest seconds; the long-fade case advanced 1,693, against
+the nominal 3,750. The fade was active at 36 and 1,497 sampled callback
+starts respectively. These counters are read separately and cannot measure
+fractional callbacks. Both had 285 taps and neither inspector opened.
+Tracing perturbs the workload; these observations do not establish physical
+CPU timing, worst-case latency, audio fidelity, or installation safety.
+
+For short and long fades respectively, the diagnostic MAIN hashes were
+`96620e47c856789a7073626190635042087673dfc303b9cbee241496281b8766` and
+`b92ad7b25667628db41b896cdbc55648113faa9812caad764d02b7d564d3ff97`;
+ELFs were `68f063c51149301b1dd4003fea36f26b89eb8783aef551afa4affe3de5f6baa2`
+and `77b07a768ac3e9aabd479e22190c74559e069675303f8757b6e087d7ced21fcc`;
+recipe/result hashes were
+`02adc17017c605d226fc4f7da9248f23eab430c7c771cd2d77f42b6f7bd0bdb3` /
+`f87fa15f4162477ea19a2c8c0b5ee5c86571d74b102ed452ab6aecb9cca30fd6` and
+`d25c8f3f786ce5d0ea8a3d53e3643b221d4c9293efd1e326aef4840dff41710e` /
+`146ddd6a1cbf289d60e63ec66e8514b1c0bab52bf75ec47de1c399177e506f83`.
+The stock MAIN, input NOR, panel state, QEMU and `l6dbg` matched the preceding
+experiment. The modified images use unowned scratch and must not be installed.

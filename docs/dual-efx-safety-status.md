@@ -188,6 +188,11 @@ invalid-position and malformed-delay tests also passed under host Miri. A matche
 emulator comparison reached about 527 modeled
 callbacks per second and still did not open the inspector. This does not
 qualify physical timing, memory ownership or behavior under corrupted state.
+With maximum density and a 100 ms renewal interval, a paired QEMU stress
+probe reached about 532 callbacks per modeled second with a 1 ms fade and
+339 with a 90 ms fade. Neither inspector opened; pre-AINR was omitted.
+Fade-state sampling and other instrumentation perturb execution, and these
+figures do not establish target timing.
 An instrumented current QEMU diagnostic with the 285 taps needed at 95 ms
 and 3,000 pps ran at about 416 callbacks per modeled second against 750;
 its selector hold did not reach the traced handler by the later snapshot.

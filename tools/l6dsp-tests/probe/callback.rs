@@ -140,6 +140,12 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
                 let mut params = processor.velvet.current;
                 params.length_ms = 95.0;
                 params.density = 3000.0;
+                #[cfg(any(velvet_fade_short, velvet_fade_long))]
+                {
+                    params.refresh_seconds = 0.1;
+                    params.transition_ms = if cfg!(velvet_fade_long) { 90.0 } else { 1.0 };
+                    unsafe { core::ptr::write_volatile(0x83e03f04 as *mut u32, 0); }
+                }
                 processor.velvet.init(params);
                 unsafe { core::ptr::write_volatile(0x83e03f00 as *mut u32, processor.velvet.channels[0].banks[processor.velvet.active_bank].count as u32); }
             }
@@ -254,6 +260,12 @@ pub unsafe extern "C" fn diagnostic_audio(_context: u32, descriptor: u32) {
     let control_source =
         unsafe { core::ptr::read_volatile((descriptor + 32) as *const u32) } as *const u32;
     let state = unsafe { &mut *(0x80d00000 as *mut routing::DualEfxProcessor) };
+    #[cfg(any(velvet_fade_short, velvet_fade_long))]
+    {
+        let fade_counter = 0x83e03f04 as *mut u32;
+        unsafe { core::ptr::write_volatile(fade_counter,
+            core::ptr::read_volatile(fade_counter).wrapping_add(state.velvet.transitioning as u32)); }
+    }
     let counter = 0x83e00008 as *mut u32;
     unsafe {
         core::ptr::write_volatile(counter, core::ptr::read_volatile(counter).wrapping_add(1));

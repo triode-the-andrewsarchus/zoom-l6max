@@ -41,6 +41,8 @@ class PreparerModeTests(unittest.TestCase):
             (['--callback', '--offline-mix-layout', '--inspector'], '--offline-mix-layout requires'),
             (['--callback', '--offline-mix-layout', '--switches'], '--offline-mix-layout requires'),
             (['--max-velvet-density'], '--max-velvet-density requires'),
+            (['--velvet-fade-stress', 'long'], '--velvet-fade-stress requires'),
+            (selector + ['--max-velvet-density', '--timing-control', '--velvet-fade-stress', 'short'], '--velvet-fade-stress requires'),
             (['--mixer-input-capture'], '--mixer-input-capture requires'),
             (['--callback', '--mixer-input-capture', '--inspector'], '--mixer-input-capture requires'),
             (['--callback', '--mixer-input-capture', '--switches'], '--mixer-input-capture requires'),
