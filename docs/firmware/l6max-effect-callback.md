@@ -8387,3 +8387,59 @@ the profile used the plugin-enabled QEMU identified in the preceding section.
 Both executables' source provenance is unattested. The stock inputs and
 `l6dbg` identities matched the preceding sections. These diagnostic images use
 unowned scratch and must not be installed.
+
+### Recorded-project bounce and effect sends
+
+A disposable L6max 1.10 QEMU project exercised the normal Quick Bounce UI
+with a single recorded track replaced on a copied FAT16 card by a 440 Hz,
+0.125-peak float waveform. The card retained the firmware-created project and
+WAV headers. Channel 1 LEVEL and EFX were raised before bouncing. The runs used
+an experimental whole-audio admission guard and a plugin-injected channel-15
+interrupt; neither the guard nor the synthetic interrupt establishes physical
+DMA behavior. They use unowned scratch and must not be installed.
+
+With the diagnostic effect selected, the file mix returned zero and wrote a
+stereo MASTER WAV. In the first captured nonzero 64-frame effect input, 63
+stock samples were nonzero (peak 0.0007444853), while all three sends
+reconstructed from the live mixer inputs were zero. Thus that live-input
+reconstruction does not correctly supply the recorded signal during this
+bounce. The observation concerns this track, routing, and captured block;
+it does not characterize every file-mix configuration.
+
+A temporary call-site veneer instead passed the file-mix block offset and
+formed sends from the twelve track workspaces and their current gain and
+smoothed values. In the matching first active block, 63 samples of the
+selected B send were nonzero, with the same peak as the stock input; 48 of 64
+sample bit patterns matched. The other sends were zero. This suggests the
+track workspace can provide the intended signal, but the remaining
+sample differences, filters, gain ramps, stereo/multi-track routing,
+parameter changes, and state ownership need investigation. The veneer is a
+prototype, not an installable fix.
+
+The prototype's WAV was longer: 655,360 stereo frames versus 262,144 for
+the live-input reconstruction. An offset-instrumented repeat counted 10,240
+64-frame calls, five zero offsets, maximum and last offset 131,008, no
+misaligned offsets and none beyond 239,936. After the roughly 5.33-second
+track ended, the prototype output showed a decaying tail: its per-second
+peaks fell from approximately 0.000162 at second 6 to 0.00000021 at second
+13. A decay is a plausible explanation for the extra duration, not proof
+that the tail, stopping rule or output is correct. No physical hardware was
+involved.
+
+The input card SHA-256 was
+`8fddbe5c40b6a6d9450e7fce836c578c0af8b29412e98361c09236805752fcef`.
+The live-input, workspace and offset-instrumented MAIN hashes were
+`b87988f5a38c9fc6222553d4e4a34e5e6701fa68a6e33a04889001c1aed96dac`,
+`011bb10300d89a5e1ba8f308184ba4e6746cad9710876fb43c7111f81336969d`, and
+`daacbc5085c731525149c3475346541b78b90504fd26aad1d2b9cde374d794c3`;
+the respective result hashes were
+`67c6f7ed2b921365e3df27b4e6455c92c1cb100005c392ccb5e11cc54982267a`,
+`21636d7833a73c5a2afaae241bc4176d797693a8c3bb663765d2c09d25254023`, and
+`7c52fc1d67a412b81a92a41896f87516763c6b9281d963fc5b9a072f429af309`.
+The plugin-enabled QEMU, interrupt plugin and `l6dbg` hashes were
+`23e4c6a57b2a265cc4fa460d67ae561b7b69bc81de74ec724503f4686dc75f21`,
+`ab2b9c89d88e0e6ff9f46b1a0b1201d184d22d8fb832d654f6b4c330312291e5`, and
+`aed900b0f7f43f225233f7f1a33e5ba8e159d4a698905297e0fb48c5c8519cc0`.
+QEMU source provenance is unattested. The stock MAIN and initial NOR hashes
+were `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`
+and `1f2df1149cd7f7d028653d25e0e0f42c6de6b4b92b43595e5e089ad9c11e1a91`.
