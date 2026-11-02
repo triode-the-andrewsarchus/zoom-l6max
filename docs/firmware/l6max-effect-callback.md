@@ -5921,6 +5921,26 @@ The routing, probe and checker sources hashed to
 Stock MAIN, initial NOR, panel state, QEMU and `l6dbg` match the preceding
 modeled-input inspector run; the QEMU build's provenance is unattested.
 
+The two bounds-check panic calls directly in `offline_observer` came from
+its diagnostic input and output capture indexing. Using checked fallbacks
+removed those direct calls in the new ARM disassembly. The same QEMU fixture
+still matched its routed sums and stereo reference samples. DSP callees retain
+bounds-check panic paths, and this does not establish valid pointers, safe
+callback lifetime, physical stack bounds or target timing. The diagnostic
+uses unowned scratch and must not be installed.
+
+The diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`9bc92e931445fe1411466b0bd4287986904d0d8441b68e0025a9eb82ba78e0e9`,
+`a4e824fe6abb64d21e5481b36290f1c39ea189e08448f8331c01f1e83f9463fb`,
+`b06d61c01bae6559fcdbf52361ba98cbab775804d39e13c0b9c387168e4060b6`, and
+`94d5b73517a742603f8751046482ef8c0b13463e8d7195b286c16e6b2fbc1a2a`.
+The diagnostic source was
+`881b3ecd4c197182f73a7d63de4e441eaebc386870b37dba1b42b0fb444b46d6`;
+the Velvet source was
+`8a92484c145430e58a58655019ec2c4f6ec867efce1f92e7a8aaf8c520a6eda4`.
+Stock MAIN, initial NOR, panel state, QEMU and `l6dbg` match the preceding
+modeled-input inspector run; the QEMU build's provenance is unattested.
+
 ### Current full-density selector workload
 
 The maintained selector-load diagnostic can now initialize Velvet at 95 ms

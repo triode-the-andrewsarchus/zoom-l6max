@@ -59,7 +59,7 @@ unsafe extern "C" fn offline_observer(_context: u32, descriptor: *const u32, off
                 write((OUT + 8 + (n * 2 + edge) * 4) as *mut f32, read(block.add(frame)));
                 let mut sends = [0.0f32; 3];
                 for (slot, channel) in channels.iter().enumerate() {
-                    let sample = channel.samples[frame];
+                    let sample = channel.samples.get(frame).copied().unwrap_or(0.0);
                     write((OUT + 24 + (n * 24 + slot * 2 + edge) * 4) as *mut f32, sample);
                     sends[slot % 3] += sample * channel.gain;
                 }
@@ -72,8 +72,8 @@ unsafe extern "C" fn offline_observer(_context: u32, descriptor: *const u32, off
             let workspace = &mut *(0x83e08000 as *mut crate::routing::RoutingWorkspace);
             processor.process_weighted_with_workspace(&channels, left, right, workspace);
             for (edge, frame) in [0, 63].into_iter().enumerate() {
-                write((OUT + 272 + (n * 2 + edge) * 8) as *mut f32, left[frame]);
-                write((OUT + 276 + (n * 2 + edge) * 8) as *mut f32, right[frame]);
+                write((OUT + 272 + (n * 2 + edge) * 8) as *mut f32, left.get(frame).copied().unwrap_or(0.0));
+                write((OUT + 276 + (n * 2 + edge) * 8) as *mut f32, right.get(frame).copied().unwrap_or(0.0));
             }
         }
         write(OUT as *mut u32, (n+1) as u32);
