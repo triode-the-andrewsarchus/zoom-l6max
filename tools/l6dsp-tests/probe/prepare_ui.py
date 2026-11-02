@@ -25,9 +25,12 @@ parser.add_argument("--irq-timing", action="store_true", help="use the QEMU-only
 parser.add_argument("--ring-timing", action="store_true", help="use QEMU-only receive-slot timing and sequences")
 parser.add_argument("--active-sends", action="store_true", help="inject nonzero QEMU-only effect buses")
 parser.add_argument("--enqueue-trace", action="store_true", help="record panel events before enqueue")
+parser.add_argument("--mixer-route-capture", action="store_true", help="capture modeled input sends while changing routes")
 args = parser.parse_args()
 if args.irq_timing and args.ring_timing:
     parser.error("--ring-timing excludes --irq-timing")
+if args.mixer_route_capture and (args.active_sends or args.irq_timing or args.ring_timing or args.enqueue_trace):
+    parser.error("--mixer-route-capture excludes synthetic sends and timing traces")
 out, main, nor = checked_inputs(parser, args.firmware, args.state, args.output)
 for name, expected in (
     ("payload.rs", "9034539aefa64cad6797570ad8de9da9dbe4d51718a81fa774da1ad478441488"),
@@ -112,6 +115,8 @@ if args.active_sends:
     probe_args += ["--cfg", "active_sends"]
 if args.enqueue_trace:
     probe_args += ["--cfg", "enqueue_trace"]
+if args.mixer_route_capture:
+    probe_args += ["--cfg", "mixer_route_capture"]
 subprocess.run(probe_args, cwd=ROOT, check=True)
 probe_blob = out / "probe.bin"
 subprocess.run(["llvm-objcopy", "-O", "binary", str(probe_elf), str(probe_blob)], check=True)
@@ -239,6 +244,50 @@ address = 2212495616
 length = 48
 """
 recipe = recipe.replace(marker, routing_steps + marker)
+if args.mixer_route_capture:
+    # Supply a modeled input via the separate QEMU test-tone patch; this
+    # recipe changes LEVEL rather than replacing the mixer's sends.
+    marker = '[[step]]\naction = "press"\ntarget = 40\nhold_ms = 150\n'
+    setup = '''[[step]]
+action = "press"
+target = 35
+hold_ms = 150
+[[step]]
+action = "encoder"
+channel = 1
+steps = 8
+[[step]]
+action = "wait"
+guest_ms = 2000
+'''
+    if marker not in recipe:
+        raise ValueError("recipe marker mismatch: first Room selection")
+    recipe = recipe.replace(marker, setup + marker, 1)
+    for name in ("route_before", "route_1", "route_reverse"):
+        marker = f'[[step]]\naction = "memory"\nname = "{name}"\naddress = {0x83e00100}\nlength = 48\n'
+        if recipe.count(marker) != 1:
+            raise ValueError(f"recipe marker mismatch: {name}")
+        captures = ''.join(f'''[[step]]
+action = "wait"
+guest_ms = 200
+[[step]]
+action = "memory"
+name = "{name}_sends_{index}"
+address = {0x83e01000}
+length = 768
+''' for index in range(6))
+        recipe = recipe.replace(marker, marker + captures)
+    # The remaining inspector sequence changes effects; keep this probe
+    # focused on the selected Room callback and the routing controls.
+    marker = '[[step]]\naction = "memory"\nname = "queue_room"\naddress = 2212495872\nlength = 12\n'
+    if recipe.count(marker) != 1:
+        raise ValueError("recipe marker mismatch: queue_room capture")
+    recipe = recipe.split(marker)[0] + marker + f'''[[step]]
+action = "memory"
+name = "callback_state"
+address = {0x83e00000}
+length = 12
+'''
 if args.enqueue_trace:
     # Capture separately owned receive-task and UI-task records without a
     # debugger stop at every event. Their counts are reset on effect selection.

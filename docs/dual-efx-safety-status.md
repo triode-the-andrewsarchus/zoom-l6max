@@ -21,6 +21,12 @@ The blocking findings for L6max MAIN 1.10
   block. The current size query object SHA-256 is
   `1680359f8fd11c014d8e2a6aacb19708cd32ca9cecd361a911eaf8c7dd815b7d`
   using `rustc 1.99.0-nightly (1ed2df61a 2026-08-04)`.
+  Of that state, the raw `f32` histories comprise 36,484 bytes of
+  Plateau predelay, 7,024 bytes of Plateau input diffusion, 168,300 bytes of
+  Plateau tank delays and 57,624 bytes of Velvet histories (including the
+  separate cascade history). The remaining 2,728 bytes include filter banks,
+  parameters and bookkeeping. These counts describe allocated capacity,
+  not a proof that any stock firmware memory can be reused.
   Stock code
   also references several regions well above that heap; a high SDRAM address
   cannot be treated as reserved merely because it is distant from the heap.

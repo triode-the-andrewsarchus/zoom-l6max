@@ -17,7 +17,8 @@ def f32(value):
 
 def capture(events, label, field, size):
     try:
-        data = bytes(events[f'{label}_{field}']['bytes'])
+        name = f'{label}_{field}' if field else label
+        data = bytes(events[name]['bytes'])
     except (KeyError, TypeError, ValueError) as error:
         raise ValueError(f'missing {label} {field}') from error
     if len(data) != size:
@@ -77,12 +78,59 @@ def check(report):
             for label, descriptor, route in (('plateau', 0x2028b8dc, 1), ('velvet', 0x2028b8f8, 0))}
 
 
+def words(events, name, count):
+    return struct.unpack('<' + 'I' * count, capture(events, name, None, 4 * count))
+
+
+def check_ui_routes(report):
+    if report.get('outcome') != 'complete' or report.get('model') != 'l6max':
+        raise ValueError('diagnostic did not complete for L6max')
+    events = {e['observation'].get('name'): e['observation'] for e in report['events']}
+    if words(events, 'active_room', 1)[0] != 0x8010b32d:
+        raise ValueError('Room callback not active')
+    if words(events, 'room_open', 8)[7] != 1:
+        raise ValueError('Room inspector did not open')
+    expected = {
+        'route_before': [2] * 12,
+        'route_1': [3] + [2] * 11,
+        'route_5': [3, 2, 2, 2, 3, 3] + [2] * 6,
+        'route_reverse': [2, 2, 2, 2, 3, 3] + [2] * 6,
+    }
+    for name, route in expected.items():
+        if list(words(events, name, 12)) != route:
+            raise ValueError(f'{name}: unexpected route state')
+    head, tail, dropped = words(events, 'queue_room', 3)
+    marker, descriptor, count = words(events, 'callback_state', 3)
+    if head != tail or dropped or marker != 0x494e4954 or descriptor != 0x2028b8dc or count < 100:
+        raise ValueError('queue or callback state mismatch')
+    return {'callback_count': count, 'queue_events': head, 'send_peaks': check_ui_sends(events)}
+
+
+def check_ui_sends(events):
+    peaks = {}
+    for name, bus in (('route_before', 1), ('route_1', 2), ('route_reverse', 1)):
+        clean = []
+        for index in range(6):
+            samples = floats(capture(events, name, f'sends_{index}', 768))
+            if not all(map(math.isfinite, samples)):
+                raise ValueError(f'{name}: nonfinite send')
+            peak = max(map(abs, samples[bus * 64:(bus + 1) * 64]))
+            if peak > 1e-7 and all(not any(samples[b * 64:(b + 1) * 64]) for b in range(3) if b != bus):
+                clean.append(peak)
+        if not clean:
+            raise ValueError(f'{name}: no clean, nonzero expected send')
+        peaks[name] = max(clean)
+    return peaks
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('report', type=Path, help='l6dbg diagnostic JSON')
+    parser.add_argument('--ui-route', action='store_true', help='check the combined UI routing probe')
     args = parser.parse_args()
     try:
-        result = check(json.loads(args.report.read_text()))
+        checker = check_ui_routes if args.ui_route else check
+        result = checker(json.loads(args.report.read_text()))
     except (OSError, ValueError, KeyError, TypeError, struct.error, OverflowError) as error:
         parser.exit(1, f'capture failed: {error}\n')
     print(json.dumps(result, indent=2))
