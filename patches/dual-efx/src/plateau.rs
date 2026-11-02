@@ -102,7 +102,9 @@ impl<const N: usize> Delay<N> {
 
     #[inline(always)]
     pub fn tap(&self, offset: usize) -> f32 {
-        self.read(offset)
+        // Output taps read the backing history independently of the
+        // feedback delay's current length.
+        self.read_history(offset.min(N - 1))
     }
 }
 
@@ -616,9 +618,8 @@ impl PlateauReverb {
         self.l_sum = r_del2_out * decay;
         self.r_sum = l_del2_out * decay;
 
-        // 6. Output Taps Summation (Dattorro ratios scaled)
-        let scale = SR_SCALE * self.params.size;
-        let tap = |val: f32| (val * scale) as usize;
+        // Plateau's output tap times scale with sample rate, not tank size.
+        let tap = |val: f32| (val * SR_SCALE) as usize;
 
         let mut out_l = l_ap1_out
             + self.l_del1.tap(tap(266.0))
@@ -630,13 +631,13 @@ impl PlateauReverb {
             - self.r_del2.tap(tap(1066.0));
 
         let mut out_r = r_ap1_out
-            + self.r_del1.tap(tap(353.0))
-            + self.r_del1.tap(tap(3627.0))
-            - self.r_apf2.delay.tap(tap(1228.0))
-            + self.r_del2.tap(tap(2673.0))
-            - self.l_del1.tap(tap(2111.0))
-            - self.l_apf2.delay.tap(tap(335.0))
-            - self.l_del2.tap(tap(121.0));
+            + self.r_del1.tap(tap(266.0))
+            + self.r_del1.tap(tap(2974.0))
+            - self.r_apf2.delay.tap(tap(1913.0))
+            + self.r_del2.tap(tap(1996.0))
+            - self.l_del1.tap(tap(1990.0))
+            - self.l_apf2.delay.tap(tap(187.0))
+            - self.l_del2.tap(tap(1066.0));
 
         // DC blocking highpass
         out_l = self.out_hp_l.process(out_l * 0.6);
