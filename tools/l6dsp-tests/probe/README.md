@@ -279,6 +279,25 @@ The combined builder also accepts `--irq-timing`, `--active-sends`, and
 `--enqueue-trace` for the corresponding QEMU-only experiments described
 above. These flags do not enable an installable firmware patch.
 
+For the modeled-input routing check, use a QEMU binary built with the
+`sai-test-tone.patch` described in the mixer-input capture section, then run:
+
+```sh
+python3 tools/l6dsp-tests/probe/prepare_ui.py UNPACKED_DIR STOCK_STATE_DIR /tmp/l6-ui-route --mixer-route-capture
+target/debug/l6dbg /tmp/l6-ui-route/recipe.toml \
+  --firmware-dir /tmp/l6-ui-route/firmware --state-dir /tmp/l6-ui-route/state \
+  --logs /tmp/l6-ui-route/logs --qemu QEMU_WITH_TEST_TONE > /tmp/l6-ui-route/result.json
+python3 tools/l6dsp-tests/probe/mixer_input_capture.py --ui-route /tmp/l6-ui-route/result.json
+```
+
+The probe opens the Room inspector, changes the first route from B to A→B
+and back, and checks captured sends at each setting. The six snapshots per
+setting allow for the gated stimulus; they are not atomic. The checker requires
+at least one clean nonzero snapshot on the expected bus, not a continuous
+audio or timing guarantee. The fixture uses unowned scratch and does not
+establish physical input mapping, GUI parity, sound quality or hardware safety.
+`--mixer-route-capture` excludes the synthetic-send and timing-trace options.
+
 The combined prototype shows the current page on opening or switching it.
 The recipe captures Room and Spring popup frames and routing-page edits. Verify the captured widget
 text and mixer behavior; a completed recipe alone is not an assertion. The

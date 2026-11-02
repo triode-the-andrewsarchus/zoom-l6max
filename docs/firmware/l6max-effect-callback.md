@@ -5695,3 +5695,36 @@ The `l6dbg` executable and local raw output were
 `6d5f7002ea4de0956bfc635b0e0dc57df0b1da0e7ba338e39b7bb77a992ccd53`.
 Panel flash, options and RTC input identities match the integrated block
 experiment above.
+
+### Modeled input with inspector routing edits
+
+The combined `--mixer-route-capture` UI diagnostic was run with the gated
+receive test tone described above. The Room inspector opened, and the first
+encoder changed strip 1 from B to A→B and back. A separate edit changed the
+paired slots 4 and 5 to A→B. The observation mirror showed the expected route
+values, and the event queue ended with head and tail at 11 and no drops. In
+six non-atomic snapshots per first-strip setting, the checker found clean,
+finite nonzero sends on B, the cascade, then B respectively; their maximum
+peaks were approximately `1.2710e-5`, `1.2645e-5`, and `1.2651e-5`. The Room
+callback count was 9,740. This observes that particular modeled signal and
+control sequence, not continuous audio, other channels, UI responsiveness,
+physical wiring, or a real-time deadline. The capture uses unowned scratch;
+never install this diagnostic.
+
+The stock MAIN and initial NOR SHA-256 values were
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461` and
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`.
+The initial panel flash, options and RTC hashes were respectively
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
+The diagnostic MAIN, effect ELF, popup ELF and recipe SHA-256 values were
+`926b4e8942db9f488576c34821cc4a20c5b824a04d9b86e22620641bd69c81dc`,
+`46e71b50143f6f2960de6cd7809792a9bda1ff340d862a0bd9e9c754f448b5e0`,
+`b22eb39c1ffb970f375a01345e6bfc68e3a179e19321560c2e46f5b7fe465d62`, and
+`24efc51e7b2aed2d9b845915f86361f6e61c30623dfe071a3e52b0cd552fb0ce`.
+The QEMU executable and `l6dbg` hashes were
+`eade074b5d7a6fe9d74bbbe1ad36a34f7356cd200cbfc81e772f2a21892012e8` and
+`52af793c1d34e927210f99cf49117180121d8bd62885ce0ee7148be5dedbf2f6`;
+the QEMU build's full source provenance is unattested. The diagnostic JSON
+hash was `1b9b4fe51f2afb36b67bfbc54f75528e68ad88d3a271fc3a1b154849f32f6302`.

@@ -151,7 +151,7 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
                     core::ptr::write_volatile((0x83e00100 as *mut u32).add(slot), route);
                 }
             }
-            core::ptr::write_volatile(0x83e00140 as *mut u32, 0);
+            core::ptr::write_volatile(0x83e00140 as *mut u32, cfg!(mixer_route_capture) as u32);
             #[cfg(effect_buffer_probe)]
             core::ptr::write_volatile(0x83e0301c as *mut u32, core::mem::size_of::<routing::DualEfxProcessor>() as u32);
             #[cfg(active_sends)]
@@ -294,7 +294,8 @@ pub unsafe extern "C" fn diagnostic_audio(_context: u32, descriptor: u32) {
         process_pre_ainr_sends(&mut sends);
         #[cfg(mixer_input_capture)]
         let capture_input = unsafe { mixer_capture::begin(&sends, counter) };
-        if unsafe { core::ptr::read_volatile(0x83e00140 as *const u32) } != 0 {
+        if unsafe { core::ptr::read_volatile(0x83e00140 as *const u32) } != 0
+            && (!cfg!(mixer_route_capture) || unsafe { core::ptr::read_volatile(0x83e00008 as *const u32) } % 32 == 0) {
             for bus in 0..3 {
                 for i in 0..64 {
                     unsafe { core::ptr::write_volatile((0x83e01000usize + bus * 256 + i * 4) as *mut f32, sends[bus][i]); }
