@@ -268,16 +268,17 @@ impl TriangleLFO {
 
     #[inline(always)]
     pub fn step(&mut self) -> f32 {
+        // The reference emits the current phase before advancing it.
+        let output = if self.phase < 0.5 {
+            4.0 * self.phase - 1.0
+        } else {
+            3.0 - 4.0 * self.phase
+        };
         self.phase += self.phase_inc;
         if self.phase >= 1.0 {
             self.phase -= 1.0;
         }
-        // Triangle wave on [-1, 1]
-        if self.phase < 0.5 {
-            4.0 * self.phase - 1.0
-        } else {
-            3.0 - 4.0 * self.phase
-        }
+        output
     }
 }
 
@@ -907,7 +908,16 @@ impl PlateauReverb {
 
 #[cfg(test)]
 mod tests {
-    use super::{Allpass, Delay, PlateauParameters, PlateauReverb, SR_SCALE};
+    use super::{Allpass, Delay, PlateauParameters, PlateauReverb, TriangleLFO, SR_SCALE};
+
+    #[test]
+    fn triangle_modulation_starts_at_reference_phase() {
+        // TriSawLFO at the equivalent 1/8-cycle increment in the supplied
+        // Multistomp core, sampled across its first wrap.
+        let mut lfo = TriangleLFO::new(6000.0);
+        let expected = [-1.0, -0.5, 0.0, 0.5, 1.0, 0.5, 0.0, -0.5, -1.0, -0.5];
+        for value in expected { assert_eq!(lfo.step(), value); }
+    }
 
     #[test]
     fn allpass_impulse_timing_matches_multistomp_core() {
