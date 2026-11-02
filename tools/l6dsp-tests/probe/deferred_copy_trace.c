@@ -5,6 +5,11 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
+#ifdef DEFERRED_WRITES_ONLY
+#define WATCH_ACCESS QEMU_PLUGIN_MEM_W
+#else
+#define WATCH_ACCESS QEMU_PLUGIN_MEM_RW
+#endif
 QEMU_PLUGIN_EXPORT int qemu_plugin_version = QEMU_PLUGIN_VERSION;
 struct hit { uintptr_t pc; uint64_t address, count, words, nonzero; };
 static struct hit hits[256];
@@ -30,7 +35,7 @@ static void translate(struct qemu_plugin_tb *tb, void *opaque) {
     (void)opaque;
     for (size_t i=0; i<qemu_plugin_tb_n_insns(tb); i++) {
         struct qemu_plugin_insn *insn=qemu_plugin_tb_get_insn(tb,i);
-        qemu_plugin_register_vcpu_mem_cb(insn,memory,QEMU_PLUGIN_CB_NO_REGS,QEMU_PLUGIN_MEM_RW,(void *)(uintptr_t)qemu_plugin_insn_vaddr(insn));
+        qemu_plugin_register_vcpu_mem_cb(insn,memory,QEMU_PLUGIN_CB_NO_REGS,WATCH_ACCESS,(void *)(uintptr_t)qemu_plugin_insn_vaddr(insn));
     }
 }
 static void finish(void *opaque) {

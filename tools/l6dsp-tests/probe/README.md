@@ -220,6 +220,14 @@ but does not assert that a particular control changed. This CPU trace can
 perturb scheduling, does not observe DMA and cannot establish that other
 workflows or callers do not submit requests.
 
+Compile with `-DDEFERRED_WRITES_ONLY` to register only stores when full memory
+tracing interferes with the scenario. In that mode the read count is always
+zero and cannot be used as a positive control. Check observed initialization
+stores, zero overflow, and a separately injected nonzero request instead.
+For `l6test`, which sanitizes `L6_QEMU_PLUGIN`, a hash-pinned QEMU wrapper can
+load the plugin on MAIN only; record the wrapper, underlying QEMU, and plugin
+identities separately. Do not instrument the panel with that wrapper.
+
 In one stock run of this recipe, the trace recorded 51,524 watched reads and
 one 32-bit zero store to each field at `0x80093e74`, with no overflow. A
 separate positive control used the injected-copy bounce above with this
@@ -257,6 +265,42 @@ and `l6dbg`
 `ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`;
 the QEMU source is unattested. The positive run used
 `L6_SERVICE_AUDIO_QUEUE=0`, unlike the stock run.
+
+A subsequent store-only trace ran the stock `l6max-eq-audio-update` scenario,
+which checked both the changed mixer value and the applied audio coefficient.
+It passed with the normal L6max audio-queue consumer and recorded only one
+32-bit zero store to each watched field at `0x80093e74`, with no overflow.
+An independently run synthetic-copy positive control recorded nonzero stores
+to both watched fields, followed by zero stores by the stock helper. The
+store-only trace does not establish reads, DMA, other EQ settings, other
+producers or target timing. Full read/write tracing prevented the EQ-mode
+interaction from completing in a prior run; this is an instrumented schedule,
+not proof that production timing is safe.
+
+The EQ scenario and its prepared-home fragment hashes were
+`e92d4f3280a2ac794a29ad964358236f52504d979cb6c2521552f2809cd75218` and
+`0bbbce5bfb9d14f5b3f9e25def8ed47ebe72abe75474eae9135dd8ac7ae70faa`.
+Initial NOR, panel flash and options matched the stock trace above; the RTC was
+`024cc8ce91d39a4ea9c34b7373b0dc2cd5581ee4bcb1ab45593ee8475ef9440f`,
+and state spec was
+`2a6b9494ab3b138285bd5dee66855c1046d1943406e2d932d5cfbc14db87b684`.
+The store-only source, plugin, wrapper, driver, result and trace hashes were
+`1fff59c28adcdc3ca20e112b572d1aceab62e776beab1413211eb37b9eb0b1f6`,
+`cc4a573b7a00058c4f8b657f1bc44902f68f9cc5b52f735ac5254553fed477dd`,
+`ce4cc83cd9c2d81151b5de309238bfcf27f8ef1132d585fe3abba9592805e7f4`,
+`93e194f70bd1ea3a90f0a239460b84c0e04cbdf5f2b6c5cb14507c06d9696b39`,
+`94c90e25284f4e91d8d008b3960c8f48434cb501a2ba3f894731cd6e2169471e`, and
+`494c830a41e0bb1853431ff37b8b8e581bc2dcc5e300043c93f32fdf91d39594`.
+The positive control used a temporary store-only source and plugin
+`dae2fc73386c19884a610afc8c1fa28f9d084b256b10fb87e0f4a66e6f81138c` and
+`88785326d4e99bb20e8afbb8b9f303047331a2bf76b8a874d6e567e9fda83dae`;
+its result and trace were
+`15c6ba5ed98947024b6c6cf6e85173a17c16661a9a13b57009ddf7ef6a21867a` and
+`5fde6288024bc7ebba27542ceac5a383cf37a5ea041fd67f048f03ddeacf2d8e`.
+The temporary source and committed store-only mode had identical preprocessed
+output and `.text` bytes. The positive-control firmware, state and card match
+the preceding injected-copy run. Underlying QEMU and stock MAIN match the
+preceding stock trace; the QEMU source is unattested.
 
 For the generated card used in this experiment, add
 `--file-mix-project-deferred-last` to the preparer and
