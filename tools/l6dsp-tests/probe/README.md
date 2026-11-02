@@ -577,7 +577,7 @@ for each image. Inspect `start`, `end`, `work`, `inspector`, `inspector_later`,
 them is not an assertion that the interaction passed. Both images perturb
 timing and use unowned scratch. A separate modified source was used for the
 historical 285-tap observations below. Add `--max-velvet-density` to either
-selector-load image to initialize Velvet at 95 ms and 3,000 pps; the recipe
+selector-load image to initialize Velvet at 100 ms and 4,000 pps; the recipe
 also records `tap_count`. The option is a QEMU-only stress case and does not
 change the installable firmware.
 

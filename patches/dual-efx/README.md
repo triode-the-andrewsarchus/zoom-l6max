@@ -13,7 +13,8 @@ Replaces the stock mono/reconstructed send effects with high-end modern DSP engi
    renewals use consecutive generation numbers for left and right, as in the
    reference. Filter edits use this port's incremental transition behavior.
    This send-effect adaptation uses a wet-only output, single-precision math,
-   and up to 285 taps; it is not bit-identical to the reference plug-in.
+   and up to 400 taps (100 ms at 4,000 impulses/s), matching the Multistomp
+   range; it is not bit-identical to the reference plug-in.
    An out-of-range bank tap count silences that bank instead of panicking;
    invalid or overlapping active/pending bank indices silence both audio paths
    and reject parameter edits when the bank-zero initialization marker is
@@ -94,7 +95,7 @@ taps. The requested setting is retained. Density edits that leave the rounded
 tap count unchanged do not regenerate the filter. The audible bank may still
 be transitioning to the target. A prior maximum-density diagnostic ran below
 modeled audio cadence; the full range has not been qualified on hardware.
-The bank builder normalizes up to two taps per channel per frame so the
+The bank builder normalizes up to eight taps per channel per frame so the
 maximum-density filter can be ready between 90 ms fades at a 100 ms renewal
 interval. Host tests check renewal timing and identical generated tap values;
 the added per-frame work has not been timed on the device.

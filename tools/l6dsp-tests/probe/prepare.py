@@ -56,7 +56,7 @@ parser.add_argument("--ring-drop", choices=("pair", "release"), help="QEMU-only 
 parser.add_argument("--timing-control", action="store_true", help="bypass effects in a QEMU timing comparison")
 parser.add_argument("--active-sends", action="store_true", help="inject nonzero QEMU-only effect buses")
 parser.add_argument("--selector-load-trace", action="store_true", help="trace a selector hold under active or bypassed effects")
-parser.add_argument("--max-velvet-density", action="store_true", help="initialize Velvet at 95 ms and 3000 pps in the selector-load trace")
+parser.add_argument("--max-velvet-density", action="store_true", help="initialize Velvet at 100 ms and 4000 pps in the selector-load trace")
 parser.add_argument("--velvet-fade-stress", choices=("short", "long"), help="trace short or long high-density Velvet fades (QEMU only)")
 parser.add_argument("--submix-return", action="store_true", help="capture active DSP output with the modeled Sub-Mix switch held")
 parser.add_argument("--retain-custom-state", action="store_true", help="experimentally retain state across adjacent custom effects")

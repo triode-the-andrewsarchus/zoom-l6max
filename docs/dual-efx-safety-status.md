@@ -4,6 +4,25 @@ The patch is disabled in the native and browser patch builders. Do not install
 an image produced by earlier versions of this branch. The firmware integration
 is not qualified for physical hardware.
 
+The standalone Velvet engine and inspector model now retain the Multistomp
+100 ms / 4,000 impulses-per-second range, requiring 400 taps per bank. Its
+incremental builder normalizes up to eight taps per channel per frame so the
+maximum bank can be prepared between a 90 ms fade and the next 100 ms
+renewal. Host tests cover bank normalization, renewal cadence, endpoint edits,
+saved controls and display validation; physical timing remains unqualified.
+One QEMU-only long-fade stress run observed 400 taps, finite nonzero stereo
+samples and 1,336 callbacks over five modeled seconds, versus 3,750 nominal;
+the inspector remained closed. This is one synthetic workload, not a physical
+timing or general control test. The diagnostic MAIN, ELF, recipe and result
+SHA-256 values were
+`d0bca10c9c14dfb8e1363880d9218888505164493e0d7d42d3ba800dd180e0dd`,
+`1799b119e6060d3f963269c3a5c48db54327ab4aaedafb11c3324517db67f2ed`,
+`db144fde2e39aeb473de827fca700b2b51b923130fbffdb270458e309df76206`, and
+`1c0d80bab3025d9d24e0d2372e8139e45c5914b2fd10625a1a801c25bc6182dc`.
+The stock MAIN, initial NOR, panel state, QEMU and `l6dbg` identities match the
+following guard experiment; QEMU's build source is unattested. This diagnostic
+uses unowned scratch and must never be installed.
+
 The normal Plateau sample path checks all 13 delay cursor and length pairs
 before changing reverb state, returning silence on invalid metadata. Host
 tests cover each cursor, zero and oversized lengths, too-short interpolated
@@ -70,15 +89,15 @@ The blocking findings for L6max MAIN 1.10
   emulator run the largest stock-heap free block was 160,008 bytes, less than
   the then-current payload state of 319,216 bytes; see the
   [callback investigation](firmware/l6max-effect-callback.md). The current
-  processor type measures 279,480 bytes for `thumbv7em-none-eabihf` after a
-  25,824-byte reduction in raw Plateau delay arrays; it still exceeds that free
-  block. The current size query object SHA-256 is
-  `b314c8e9f46b47e4218033def6ee03a2a669a370a99c2d6e0ee89292438345fd`
+  processor type measures 283,160 bytes for `thumbv7em-none-eabihf`, including
+  400 taps per bank for the full Multistomp Velvet range; it still exceeds that
+  free block. The current size query object SHA-256 is
+  `9104695cf2bfe626728f8c63f4795fa88b5b51dbf14ac943955a69e2c7b9f5a4`
   using `rustc 1.99.0-nightly (1ed2df61a 2026-08-04)`.
   Of that state, the raw `f32` histories comprise 36,484 bytes of
   Plateau predelay, 7,024 bytes of Plateau input diffusion, 168,372 bytes of
   Plateau tank delays and 57,624 bytes of Velvet histories (including the
-  separate cascade history). The remaining 9,976 bytes include filter banks,
+  separate cascade history). The remaining 13,656 bytes include filter banks,
   parameters and bookkeeping. These counts describe allocated capacity,
   not a proof that any stock firmware memory can be reused.
   Stock code
@@ -474,7 +493,8 @@ ARM diagnostic build, the former per-sample divide moved to transition start
 (old and new ELF SHA-256 values `a58c0d242fafc5bbd5f61b8fc4aecd46a4fe1f55022a82b69e45e9c09a96d398`
 and `197bafc27f9023b26c1b1a73a53c8d9150577343e6a53dd2d15ebc60b44cc5da`).
 This instruction inspection does not measure workload or establish a deadline.
-Velvet now supports the full requested density range with up to 285 taps;
+Velvet now supports the Multistomp range up to 100 ms and 4,000 impulses/s,
+requiring up to 400 taps;
 its minimum of two taps and integer rounding constrain short spreads. The
 parameter model displays the resulting target density while retaining the
 requested setting. Meeting the audio deadline remains unresolved.
@@ -497,8 +517,8 @@ The stock MAIN, initial NOR, QEMU and `l6dbg` matched the identities in the
 following renewal diagnostic; QEMU source is unattested. This uses unowned
 scratch and does not establish physical timing or audible quality.
 At 285 taps, a 100 ms renewal and a 90 ms fade, the former one-tap-per-frame
-normalization delayed subsequent fade starts by 90 samples. The builder now
-normalizes up to two taps per channel per frame; host tests check the requested
+normalization delayed subsequent fade starts by 90 samples. That builder then
+normalized up to two taps per channel per frame; host tests checked the requested
 4,800-sample cadence, per-step bounds and identical final tap values. The extra
 per-frame work still needs target timing qualification. A QEMU-only long-fade,
 active-send diagnostic observed 1,664 callbacks in five modeled seconds and
@@ -537,12 +557,12 @@ The single-history loop now uses the same index bound, returning silence for
 an invalid position. In a separate one-history QEMU workload it advanced
 about 495 callbacks per modeled second before and 526 after the change;
 neither inspector opened and physical timing remains unmeasured.
-With maximum density and a 100 ms renewal interval, a paired QEMU stress
+With the previous 285-tap maximum and a 100 ms renewal interval, a paired QEMU stress
 probe reached about 532 callbacks per modeled second with a 1 ms fade and
 339 with a 90 ms fade. Neither inspector opened; pre-AINR was omitted.
 Fade-state sampling and other instrumentation perturb execution, and these
 figures do not establish target timing.
-An instrumented current QEMU diagnostic with the 285 taps needed at 95 ms
+An earlier instrumented QEMU diagnostic with the 285 taps needed at 95 ms
 and 3,000 pps ran at about 416 callbacks per modeled second against 750;
 its selector hold did not reach the traced handler by the later snapshot.
 That result

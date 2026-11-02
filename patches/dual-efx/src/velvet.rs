@@ -11,8 +11,8 @@ use super::math::*;
 
 pub const SAMPLE_RATE: f32 = 48000.0;
 pub const MAX_DELAY_SAMPLES: usize = 4802; // Up to 100 ms at 48 kHz
-// 95 ms at the maximum requested density of 3,000 impulses per second.
-pub const MAX_TAPS: usize = 285;
+// The Multistomp range reaches 100 ms at 4,000 impulses per second.
+pub const MAX_TAPS: usize = 400;
 const AMOUNT_FADE_SAMPLES: u32 = 64;
 
 #[cold]
@@ -108,7 +108,7 @@ pub struct Channel {
     pub banks: [Bank; 2],
 }
 
-// One step generates one tap or normalizes up to two taps per channel. The
+// One step generates one tap or normalizes up to eight taps per channel. The
 // pending bank is never exposed until both channels have been built.
 struct BankBuild {
     bank: usize,
@@ -149,7 +149,7 @@ impl Channel {
 pub struct Parameters {
     pub dynamic: bool,
     pub amount: f32,          // 0.0 to 1.0 (wet mix)
-    pub length_ms: f32,       // 1.0 to 95.0 ms (default ~27.56 ms)
+    pub length_ms: f32,       // 1.0 to 100.0 ms (default ~27.56 ms)
     pub density: f32,         // pulses per second (default ~1088.4)
     pub refresh_seconds: f32, // time between renewals (default 5.0 s)
     pub transition_ms: f32,   // crossfade time (default 250.0 ms)
@@ -267,8 +267,8 @@ impl VelvetDecorrelator {
         // Initialization starts with zeroed storage and sets banks in reset.
         if initialized && !self.valid_banks() { return; }
         params.amount = clamp(params.amount, 0.0, 1.0);
-        params.length_ms = clamp(params.length_ms, 1.0, 95.0);
-        params.density = clamp(params.density, 10.0, 3000.0);
+        params.length_ms = clamp(params.length_ms, 1.0, 100.0);
+        params.density = clamp(params.density, 10.0, 4000.0);
         params.refresh_seconds = clamp(params.refresh_seconds, 0.1, 60.0);
         params.transition_ms = clamp(params.transition_ms, 1.0, params.refresh_seconds * 900.0);
         params.decay_db = clamp(params.decay_db, -120.0, 0.0);
@@ -373,7 +373,7 @@ impl VelvetDecorrelator {
         }
     }
 
-    // Normalization is cheaper than generating a tap. Two per step keep a
+    // Normalization is cheaper than generating a tap. Eight per step keep a
     // maximum-size bank ready during the shortest gap between timed fades.
     fn build_step(&mut self) {
         let build = &mut self.build;
@@ -419,7 +419,7 @@ impl VelvetDecorrelator {
                 build.phase = 2;
             }
         } else if build.phase == 2 {
-            for _ in 0..2 {
+            for _ in 0..8 {
                 for c in 0..2 {
                     self.channels[c].banks[build.bank].storage[build.index].gain *= build.scale[c];
                 }
@@ -708,7 +708,7 @@ mod tests {
     #[test]
     fn maximum_density_renewal_stays_on_schedule_after_long_fades() {
         let mut effect = Box::new(VelvetDecorrelator::new());
-        effect.init(Parameters { length_ms: 95.0, density: 3000.0,
+        effect.init(Parameters { length_ms: 100.0, density: 4000.0,
             refresh_seconds: 0.1, transition_ms: 90.0, dynamic: true,
             ..Parameters::default() });
         assert_eq!(effect.channels[0].banks[0].count, MAX_TAPS);
@@ -755,7 +755,7 @@ mod tests {
 
     #[test]
     fn batched_normalization_preserves_banks_and_bounds_each_step() {
-        for (length_ms, density) in [(25.0, 100.0), (25.0, 400.0), (95.0, 3000.0)] {
+        for (length_ms, density) in [(25.0, 100.0), (25.0, 400.0), (95.0, 3000.0), (100.0, 4000.0)] {
             let mut effect = Box::new(VelvetDecorrelator::new());
             effect.init(Parameters { length_ms, density, ..Parameters::default() });
             let expected = [effect.channels[0].banks[1], effect.channels[1].banks[1]];
@@ -782,10 +782,10 @@ mod tests {
                     let changed = before[c].storage.iter().zip(after.storage.iter())
                         .filter(|(a, b)| a.delay != b.delay || a.gain.to_bits() != b.gain.to_bits())
                         .count();
-                    assert!(changed <= if phase == 1 { 1 } else { 2 });
+                    assert!(changed <= if phase == 1 { 1 } else { 8 });
                 }
             }
-            assert_eq!(steps, count + (count + 1) / 2);
+            assert_eq!(steps, count + (count + 7) / 8);
             let sequential = sequential.unwrap();
             for c in 0..2 {
                 let actual = &effect.channels[c].banks[1];

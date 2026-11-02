@@ -152,8 +152,8 @@ pub unsafe extern "C" fn probe_selection(entry: *mut u32) {
             {
                 let processor = routing::DualEfxProcessor::initialize_in_place(unsafe { &mut *storage });
                 let mut params = processor.velvet.current;
-                params.length_ms = 95.0;
-                params.density = 3000.0;
+                params.length_ms = 100.0;
+                params.density = 4000.0;
                 #[cfg(any(velvet_fade_short, velvet_fade_long))]
                 {
                     params.refresh_seconds = 0.1;

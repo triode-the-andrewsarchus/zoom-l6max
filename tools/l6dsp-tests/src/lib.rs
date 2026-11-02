@@ -1085,8 +1085,8 @@ mod tests {
             expected.init();
             let mut velvet = source.velvet.current;
             velvet.amount = [0.0, 0.2, 0.8, 1.0][case];
-            velvet.length_ms = [1.0, 25.0, 60.0, 95.0][case];
-            velvet.density = [10.0, 500.0, 2000.0, 3000.0][case];
+            velvet.length_ms = [1.0, 25.0, 60.0, 100.0][case];
+            velvet.density = [10.0, 500.0, 2000.0, 4000.0][case];
             velvet.decay_db = [-120.0, -60.0, -20.0, 0.0][case];
             velvet.refresh_seconds = [0.1, 0.5, 5.0, 60.0][case];
             velvet.transition_ms = [90.0, 100.0, 500.0, 2000.0][case];
@@ -1132,6 +1132,8 @@ mod tests {
             (1.2, 3000.0, 4, 192_000.0 / 57.0),
             (10.0, 440.0, 4, 400.0),
             (95.0, 3000.0, 285, 3000.0),
+            (1.125, 4000.0, 5, 240_000.0 / 54.0),
+            (100.0, 4000.0, 400, 4000.0),
         ] {
             let mut params = processor.velvet.current;
             params.length_ms = spread;
@@ -1263,7 +1265,11 @@ mod tests {
         edit_encoder(&mut processor, Bank::Plateau, 7, -1);
         assert!(!processor.plateau.params.freeze);
         edit_encoder(&mut processor, Bank::Velvet, 2, i32::MAX);
-        assert_eq!(processor.velvet.current.density, 3000.0);
+        assert_eq!(processor.velvet.current.density, 4000.0);
+        edit_encoder(&mut processor, Bank::Velvet, 1, i32::MAX);
+        assert_eq!(processor.velvet.current.length_ms, 100.0);
+        let displayed = format_parameter(Id::VndDensity, &processor);
+        assert_eq!(&displayed.value_str[..displayed.value_len], b"4000.0 pps");
         edit_encoder(&mut processor, Bank::Plateau, 0, i32::MIN);
         assert_eq!(processor.plateau.params.predelay_ms, 0.0);
         let mut plateau = processor.plateau.params;
@@ -1307,8 +1313,8 @@ mod tests {
     fn display_snapshot_rejects_values_outside_applied_parameter_ranges() {
         use parameter_view::{EfxParamId as Id, ParameterSnapshot};
         let ranges: [(Id, f32, f32); 14] = [
-            (Id::VndAmount, 0.0, 100.0), (Id::VndTimeSpread, 1.0, 95.0),
-            (Id::VndDensity, 10.0, 3500.0), (Id::VndDecay, -120.0, 0.0),
+            (Id::VndAmount, 0.0, 100.0), (Id::VndTimeSpread, 1.0, 100.0),
+            (Id::VndDensity, 10.0, 4600.0), (Id::VndDecay, -120.0, 0.0),
             (Id::VndRefresh, 0.1, 60.0), (Id::VndTransition, 1.0, 54000.0),
             (Id::PlatPreDelay, 0.0, 190.0), (Id::PlatSize, 0.2 * 100.0, 1.2 * 100.0),
             (Id::PlatDecay, 0.1 * 100.0, 0.999 * 100.0),
@@ -2214,19 +2220,19 @@ mod tests {
     fn velvet_maximum_density_builds_normalized_banks_and_renews() {
         let mut effect = Box::new(velvet::VelvetDecorrelator::new());
         let params = velvet::Parameters {
-            length_ms: 95.0, density: 3000.0, refresh_seconds: 0.1,
+            length_ms: 100.0, density: 4000.0, refresh_seconds: 0.1,
             transition_ms: 1.0, ..velvet::Parameters::default()
         };
         effect.init(params);
         let check_banks = |effect: &velvet::VelvetDecorrelator| {
             for channel in &effect.channels {
                 for bank in &channel.banks {
-                    assert_eq!(bank.count, 285);
+                    assert_eq!(bank.count, 400);
                     let taps = &bank.storage[..bank.count];
                     assert_eq!(taps[0].delay, 0);
                     assert!(taps[0].gain > 0.0);
                     assert!(taps.windows(2).all(|pair| pair[0].delay < pair[1].delay));
-                    assert!(taps.last().unwrap().delay <= 4560);
+                    assert!(taps.last().unwrap().delay <= 4800);
                     let energy: f32 = taps.iter().map(|tap| tap.gain * tap.gain).sum();
                     assert!((energy - 1.0).abs() < 0.0001, "energy {energy}");
                 }
@@ -3533,8 +3539,8 @@ mod tests {
         processor.plateau.set_parameters(plateau);
         for (id, expected) in [
             (Id::VndAmount, "100.0 %"),
-            (Id::VndTimeSpread, "95.0 ms"),
-            (Id::VndDensity, "1084.2 pps"),
+            (Id::VndTimeSpread, "100.0 ms"),
+            (Id::VndDensity, "1090.0 pps"),
             (Id::VndDecay, "-0.5 dB"),
             (Id::VndRefresh, "5.0 s"),
             (Id::VndTransition, "17.5 ms"),

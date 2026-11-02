@@ -109,7 +109,7 @@ pub unsafe extern "C" fn efx_dispatch_hook(
                 } else {
                     // Spring Reverb: param0 = VND Time Spread, param1 = VND Decay
                     let mut params = proc.velvet.current;
-                    params.length_ms = 1.0 + (param0 as f32 / 127.0) * 94.0;
+                    params.length_ms = 1.0 + (param0 as f32 / 127.0) * 99.0;
                     params.decay_db = -120.0 + (param1 as f32 / 127.0) * 120.0;
                     proc.velvet.set_parameters(params);
                 }
@@ -249,7 +249,7 @@ pub unsafe extern "C" fn knob_changed(
                         params.length_ms = math::clamp(
                             proc.velvet.current.length_ms + (delta as f32 * 1.0),
                             1.0,
-                            95.0,
+                            100.0,
                         );
                         proc.velvet.set_parameters(params);
                     } else {
@@ -269,7 +269,7 @@ pub unsafe extern "C" fn knob_changed(
                         params.density = math::clamp(
                             proc.velvet.current.density + (delta as f32 * 50.0),
                             100.0,
-                            3000.0,
+                            4000.0,
                         );
                         proc.velvet.set_parameters(params);
                     } else {
