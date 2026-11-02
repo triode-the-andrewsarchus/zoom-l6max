@@ -5498,6 +5498,89 @@ The uninstrumented and plugin-enabled QEMU binaries were respectively
 their source provenance is unattested. `l6dbg` SHA-256 was
 `aed900b0f7f43f225233f7f1a33e5ba8e159d4a698905297e0fb48c5c8519cc0`.
 
+#### Receive handoff during the outer pause
+
+Static inspection shows that `firmware_semaphore_create` creates the
+`AudioProcess` semaphore with maximum count one. The RX completion callback
+stores a single shared buffer pointer and gives that semaphore from interrupt
+context; it does not use the give's return value. While the task is parked,
+later completions can replace the pointer and fill the single pending slot.
+
+A QEMU plugin watched from pause acknowledgment until the parked task entered
+the stock block processor. One normal run saw no RX completion in that
+interval. Three separate temporary builds delayed the request by one, two or
+three firmware ticks; each completed the handoff and saw one completion after
+pause closure but before audio processing resumed. A repeat of the one-tick
+case observed the semaphore give succeed: the parked call held `0x2000b740`,
+while the new completion supplied the other half, `0x2000a740`. These finite,
+instrumented schedules do not cover all interrupt phases, the interval before
+acknowledgment, DMA races or actual input waveform continuity.
+
+In a separately instrumented forced 20-tick timeout, the watched interval
+contained 14 RX completions and 14 pointer writes alternating between the two
+halves. The first semaphore give returned success; the next 13 returned
+failure. The task then entered the block processor. In the one-second trace
+window containing the handoff, the model still reported 750 channel-15 IRQ
+assertions and clears, and zero transmit underruns. Those aggregate counters
+therefore do not establish that every input block was processed. This forced
+failure case does not prove that the normal two-tick handoff loses a block,
+but it rules out treating the timeout as continuous audio. No physical audio
+or target timing was measured.
+
+The normal MAIN, ELF, recipe, result and event-trace hashes were
+`7381d49371abb6f89d6bbdced0d52a9accc416d22dfa7717dfac7c236cb9957a`,
+`f40b93ae4d6d72eda60cc1329d5cb9f7650311fa29ee1ac3c31068647fb8e43b`,
+`3bb6c756963a43e1936bc06df57c1bda41018474a626300ead6a7ebe100f409a`,
+`aa39ef3e8c67642f516311fb0a3334a3555145f3a0e4746177e4aecc09267c1c`, and
+`9530ef829c3c7be84ca6b79e36b9209294d5d4e378a4473eae262830ac867365`.
+For the one-, two- and three-tick shifts, MAIN hashes were
+`5e58931b0b9b69fceb8e8afbb4e17ce140e48220be84d5640d58fd1713b2ae41`,
+`db5a81d1fb8e6c67d865e146240ab6ef2f5d8f4669639d136dc5cec0f0f078c9`, and
+`4434efe75b07946df0e093868380980f00399cb2c1ec45b68f0af5ddb8ffab63`;
+ELFs were `b6e45b57123f64b8ed0312db8745441253892fa7fce3dc665f4ecfed80612e63`,
+`3b97ff8de037e8ef1d47c4e2ac1f012c9c9a4bbc9ac3e9835fa808f9faf2f5c4`, and
+`cc4df8e165a60f789bef46c18f8f077a446a087f4b728af640264986a5a40146`;
+recipes were `e99984783fc149d6ab1bc8f0d5688eb96e0487e27f5490c236daa42ae81bb672`,
+`993a9b8f67653d327bd3b36ada60be07a40938b66cc6ea80c03206863b1d6614`, and
+`a21591550829d760f06d108f5e92c284c52675cf09404dac615306f1a0afe78c`;
+results were `a80c375460f66ef957d36c56419a19beee2436e0904b40de9c2300285cd9aac9`,
+`f9585ee7936411d6e45cc490cce1a043ae23aa38d524d380bc36af5fd3a61013`, and
+`dc30d23c3edebe0f5e6e69b34e4595bbfe8bd796cd457f9c650a5faaab51f78c`.
+The first two event traces both hashed to
+`a1b50f7a79c6096992122322ecbc90807899b4ea3bb99fff7a90b1ffcdc1ef85`;
+the third was `f3ffb8d76207a54b08c2346d99d9fdb95f7b0c7d81706ca7d255f3cce1ecf3e2`.
+The repeat with input and give observations used the first shifted MAIN, ELF
+and recipe; its result and event trace were
+`0ce9ca7f7f59a92cf27428a3ad8807ed6609f688ad2c4064bde0c373adbe3f9b` and
+`b66749ab7651fe5eb244373a4e150e4e599beea637658ad4f333a410f525af08`.
+The forced-timeout MAIN, ELF, recipe, result and event trace were
+`21a3a69e8c90fa83e846be8bfd8680173992d11b3dbe7b5f88d275fa56b0d083`,
+`ed1e4dd83d09fca76e710b5db2bc26d5ef06fe0a2fc2085503a4dfb53d876d3a`,
+`e22b353b8879b9b9a437cac050cb99de6c122d335d994fb478f5ef234364bfd0`,
+`74f5c8d489cbc4ae770cd7cf23c1a4292223ac5f7d0b42ff4767270686560768`, and
+`ebadffa0705f6c683e8d161223f155fcde6578ce054317dc77ea63abfb3fe28f`.
+The full engine traces for that timeout and the input-pointer repeat hashed to
+`84a08edf6be8333f9625a43d7669dce10b119b4e4cd6f5d6b0049ec30e15587a` and
+`b5da7c14510cdc38f722abddfa35926ff566f419565280eb55f8b9792fef646c`.
+The resume-window, give-result and input-pointer plugin source hashes were
+`57777ba0360f93dae1243e751e7ed6d889745f6a8214f4730d5152c9d7cd348c`,
+`bd1c6f152ac9808b603bde16d93f651aa62e321ddb5bd91d47ed9f5c751d0fdb`, and
+`8df1d6508b7d4f2b26a393959a13c29a70b5de09bb530af3339d3dde65af5e98`.
+Their binary hashes were
+`eb8c52baa90172e8c5e66285b8d62ef9a15c5742cf865ef5ce74ef3d252603fc`,
+`24703a4b067a336417f7a789f1e472b53978e4459ae90939a2d1fd8ff9ae703a`, and
+`1d45b08efce7dc278a38b5055dc34fab5153db47b33ad00d29d670e94505ab3b`;
+their QEMU wrapper hashes were
+`c58d99f3e533917d24a669c25ac3eca3f84a52add372cf206cce66545cf3f4b0`,
+`68fa25dd78a6d9a7293cd8176de28cd38bfc2a4a008389868662197383c8f248`, and
+`744155ca36d30be6c2b08f3c93304b6e2dd26a190a29c35f53126340ec514d99`.
+The stock MAIN, NOR, plugin-enabled QEMU and `l6dbg` matched the preceding
+experiment. Initial panel flash, options and RTC SHA-256 values were
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
+`L6_AUDIO_TRACE` and `L6_AUDIO_SAMPLE_TRACE` were enabled.
+
 #### Split effect-buffer snapshot experiment
 
 A disposable prototype placed the 56,264-byte candidate snapshot in two

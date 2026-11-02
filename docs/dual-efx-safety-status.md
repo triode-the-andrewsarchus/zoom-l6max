@@ -139,6 +139,9 @@ The blocking findings for L6max MAIN 1.10
   It deliberately delays audio, uses unowned scratch, and has no established
   deadline, audio continuity, DMA exclusion, or coverage of other users. It
   is an investigation, not a hardware-safe synchronization strategy.
+  In a forced 20-tick timeout, 14 modeled receive completions updated a
+  shared pointer while the audio task was parked; 13 semaphore gives failed.
+  One-second DMA and transmit-underrun summaries did not reveal that loss.
 - A QEMU-only attempt to retain the candidate snapshot in two slices of the
   stock effect buffer also failed. The sampled source was nonzero during
   capture, but both slices were zero by installation even though the capture
