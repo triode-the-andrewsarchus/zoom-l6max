@@ -60,7 +60,9 @@ remain unresolved.
 `--callback --file-mix-handoff pending` queues a stock file-mix workflow
 after selecting a diagnostic effect, then forces an audio semaphore signal
 after stream shutdown. `--file-mix-handoff bypass` adds a QEMU-only live-wrapper
-entry bypass during that interval. Both require a fresh output directory under
+entry bypass during that interval. `--file-mix-handoff atomic` instead uses
+the admission gate around the live wrapper and the complete stock mix call.
+All modes require a fresh output directory under
 `/tmp`, a disposable state and an `l6dbg` GDB socket for the trigger. For each
 mode, substitute the same mode and a new `OUTPUT` path:
 
@@ -70,14 +72,16 @@ target/debug/l6dbg OUTPUT/recipe.toml --firmware-dir OUTPUT/firmware --state-dir
 python3 tools/l6dsp-tests/probe/file_mix_handoff.py OUTPUT/logs/diagnostic.json --bypass
 ```
 
-For the `pending` control, omit `--bypass` from the final command. The checker
+For the `pending` control, omit `--bypass` from the final command; use it for
+both `bypass` and `atomic`. The checker
 expects the no-card workflow to return 9, one successful forced signal, and
 callbacks both before and after the handoff. It distinguishes the observed
-late callback from the bypassed case. This experiment uses a non-atomic flag,
-unowned memory, an injected signal and a delay; it does not implement the
-production admission protocol, test a successful mix or prove safe ownership,
-selection synchronization, target timing or physical behavior. Never install
-either diagnostic image.
+late callback from the bypassed case. These experiments use unowned memory,
+an injected signal and a delay; the `bypass` mode also uses a non-atomic flag.
+The atomic mode initializes its gate only for this forced work item and does
+not hook selection or all other users. None implements the production admission
+protocol, tests a successful mix or proves safe ownership, selection
+synchronization, target timing or physical behavior. Never install these images.
 
 ## Synthetic file-mix layout
 

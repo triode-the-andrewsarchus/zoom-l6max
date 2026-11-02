@@ -6140,6 +6140,34 @@ hashes were `b06883ff904b6dd59300f8f5f21be9bf115ddd397dd4ac8ac6854edacdb7d700`,
 `18157a18df323f2cecd0a996b183d35f039273aee9ec8d0244636bfa07dab3b4`.
 Stock MAIN, initial fixtures, QEMU and `l6dbg` matched the preceding run.
 
+The `atomic` handoff variant replaces that temporary flag with the standalone
+`CallbackAdmission`: the live lease surrounds the full stock wrapper and its
+deferred copies, and the file-mix lease surrounds the stock mix call. In one
+forced-signal QEMU run, the callback count stayed at 28, one live entry was
+rejected into the silent path, and the count reached 3,121 after restart.
+The corresponding ARM object contains exclusive loads and stores and memory
+barriers; inspection shows the live lease released after the wrapper returns
+and the file-mix lease released after the mix call. This tests one interleaving,
+not an installable handoff. Gate initialization happens only for the forced
+work item, uses unowned scratch, and lets earlier wrapper entries run without
+a lease. Selector admission, in-flight work predating initialization, other
+stock users, a successful file mix, rejection behavior, bounded retries,
+deferred-copy semantics and physical timing remain unresolved. Never install
+this diagnostic.
+
+The atomic diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`64d98ec1eeb86f15e49935ea7627d10fc7ccb4bb9477b4dc17f2ecaa73dcb660`,
+`d6af4d851bfb07cfd7685ef8226949d5bf10f95620f806ac0c7927ed0c329201`,
+`a46564680538b13a4c2c95591b3ca8590d22f8108426c84f5ee6c4fba9c4e4f0`, and
+`c5d326e439e4315eae6f324d3da9ecd69340459f394ebd7ea431c63f2e0d20e1`.
+The callback, handoff module, preparer, linker and admission sources hashed to
+`ba5cf7386e33696fcbf4e954734a337259ae66049bcfc6f5fe4c28f4bc13744f`,
+`fb88b0fa4571bdb3cbbe3230b48cbeaae3ead027086a3d2bf6670124dc131e5b`,
+`744fc299dec6af2ba7ad6147b90dfb369bd2f214657485927c09c653a7c750d9`,
+`18157a18df323f2cecd0a996b183d35f039273aee9ec8d0244636bfa07dab3b4`, and
+`90f20cc4218139f6825c634349fe36a36613ce7af32ff835e2986d0ac1b4e427`.
+Stock MAIN, initial fixtures, QEMU and `l6dbg` matched the preceding run.
+
 ### Standalone callback admission model
 
 The original standalone model admitted at most one lease for each of the live

@@ -25,6 +25,7 @@ class PreparerModeTests(unittest.TestCase):
             (['--callback', '--admission-probe'], '--admission-probe cannot'),
             (['--offline-mix-layout'], '--offline-mix-layout requires'),
             (['--file-mix-handoff', 'bypass'], '--file-mix-handoff requires'),
+            (['--file-mix-handoff', 'atomic'], '--file-mix-handoff requires'),
             (['--callback', '--inspector', '--file-mix-handoff', 'pending'], '--file-mix-handoff requires'),
             (['--callback', '--offline-mix-layout', '--inspector'], '--offline-mix-layout requires'),
             (['--callback', '--offline-mix-layout', '--switches'], '--offline-mix-layout requires'),

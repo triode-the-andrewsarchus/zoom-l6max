@@ -27,7 +27,7 @@ parser.add_argument("--admission-probe", action="store_true", help="exercise the
 parser.add_argument("--switches", action="store_true", help="observe all six effect selections")
 parser.add_argument("--mixer-input-capture", action="store_true", help="capture routed mixer input and output for each custom effect (QEMU only)")
 parser.add_argument("--offline-mix-layout", action="store_true", help="run a destructive synthetic file-mix layout probe in QEMU")
-parser.add_argument("--file-mix-handoff", choices=("pending", "bypass"), help="force a late audio signal in the stock file-mix workflow (QEMU only)")
+parser.add_argument("--file-mix-handoff", choices=("pending", "bypass", "atomic"), help="force a late audio signal in the stock file-mix workflow (QEMU only)")
 parser.add_argument("--inspector", action="store_true", help="enable QEMU-only inspector event hooks")
 parser.add_argument("--gesture-trace", action="store_true", help="record selector events (perturbs timing)")
 parser.add_argument("--enqueue-trace", action="store_true", help="record panel events before enqueue (perturbs timing)")
@@ -155,6 +155,8 @@ if args.file_mix_handoff:
     rustc += ["--cfg", "file_mix_handoff"]
     if args.file_mix_handoff == "bypass":
         rustc += ["--cfg", "file_mix_bypass"]
+    if args.file_mix_handoff == "atomic":
+        rustc += ["--cfg", "file_mix_atomic"]
 if args.inspector:
     rustc += ["--cfg", "inspector_probe"]
 if args.gesture_trace:
@@ -209,8 +211,8 @@ if args.file_mix_handoff:
             if parts[2] in symbols:
                 raise ValueError("duplicate file-mix handoff symbol")
             symbols[parts[2]] = int(parts[0], 16) & ~1
-    bypass = symbols.get("mix_handoff_bypass") if args.file_mix_handoff == "bypass" else None
-    if args.file_mix_handoff == "bypass" and bypass is None:
+    bypass = symbols.get("mix_handoff_bypass") if args.file_mix_handoff != "pending" else None
+    if args.file_mix_handoff != "pending" and bypass is None:
         raise ValueError("missing file-mix bypass symbol")
     install_file_mix_handoff(image, symbols.get("mix_handoff_observer"), bypass)
 if args.offline_mix_layout:

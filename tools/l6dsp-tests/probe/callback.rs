@@ -29,6 +29,9 @@ mod mixer_capture;
 mod offline_layout;
 #[cfg(file_mix_handoff)]
 mod file_mix_handoff;
+#[cfg(file_mix_atomic)]
+#[path = "../../../patches/dual-efx/src/admission.rs"]
+mod admission;
 #[cfg(irq_trace)]
 mod irq;
 #[cfg(ring_timing)]
