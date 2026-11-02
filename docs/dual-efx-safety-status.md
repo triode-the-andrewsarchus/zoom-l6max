@@ -155,6 +155,21 @@ tests do not exercise the firmware bindings or establish hardware safety.
 An out-of-range Velvet bank tap count now silences that bank instead of
 panicking; host and forced ARM tests cover the stereo and shared-history
 paths. Other malformed processor state remains unqualified.
+Out-of-range Velvet history write positions now silence the stereo or shared
+history processor before either channel is written; a damaged inactive cascade
+history is not advanced. Host tests cover both channels and the cascade at the
+ring boundary and `usize::MAX`, and the focused test also passes under Miri.
+In one disposable ARM diagnostic, a debugger write changed the first channel's
+position from 2,484 to 4,802; the position remained invalid and the callback
+count advanced from 2,890 to 5,347. The diagnostic uses unowned memory, and
+this observation does not establish output quality, deadline, concurrent
+corruption behavior, or handling of other damaged state. The diagnostic MAIN,
+recipe and result SHA-256 values were
+`1e1133fabcd172156ac631833bd52bd0265891776e29a7003a30e5087bb227e5`,
+`a7da82c80c31442788d56a6a263eb9d032840660364ab0a0ead6d492542bd3cb`, and
+`7e902b4f59c35351530227ec395c4379179d435810f862d769e6f94f12b7953f`.
+The stock MAIN and QEMU binary were the identities used in the recorded-project
+probe; the QEMU source is unattested. The diagnostic image must not be installed.
 Plateau's zero-diffusion setting now bypasses its input diffuser chain while
 advancing that chain's history. Its bypass and allpass gains ramp over 64
 frames on diffusion edits. Host tests cover the immediate impulse path, an

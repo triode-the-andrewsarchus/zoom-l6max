@@ -92,6 +92,9 @@ impl MonoHistory {
     }
 
     pub(crate) fn silence(&mut self) {
+        // Do not index or advance a damaged history. Reinitialization is
+        // required before it can be used again.
+        if self.write_position >= MAX_DELAY_SAMPLES { return; }
         self.write(0.0);
         self.advance();
     }
@@ -486,6 +489,12 @@ impl VelvetDecorrelator {
     /// Processes a single stereo frame (in_l, in_r) -> (out_l, out_r).
     #[inline(always)]
     pub fn process_sample(&mut self, in_l: f32, in_r: f32) -> (f32, f32) {
+        // Validate both before touching either channel, so a damaged cursor
+        // cannot cause a partial frame or a bounds panic in the callback.
+        if self.channels[0].write_position >= MAX_DELAY_SAMPLES
+            || self.channels[1].write_position >= MAX_DELAY_SAMPLES {
+            return (0.0, 0.0);
+        }
         let amount = self.advance_amount();
         let (old_weight, new_weight) = self.transition_weights();
 
@@ -539,6 +548,11 @@ impl VelvetDecorrelator {
         in_a: f32,
         in_b: f32,
     ) -> ((f32, f32), (f32, f32)) {
+        if self.channels[0].write_position >= MAX_DELAY_SAMPLES
+            || self.channels[1].write_position >= MAX_DELAY_SAMPLES
+            || history.write_position >= MAX_DELAY_SAMPLES {
+            return ((0.0, 0.0), (0.0, 0.0));
+        }
         let amount = self.advance_amount();
         let (old_weight, new_weight) = self.transition_weights();
         let input_a = audio_input(in_a);
@@ -642,6 +656,36 @@ impl VelvetDecorrelator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn invalid_history_positions_fail_silent_before_any_history_write() {
+        for invalid in [MAX_DELAY_SAMPLES, usize::MAX] {
+            for channel in 0..2 {
+                let mut engine = Box::new(VelvetDecorrelator::new());
+                engine.init(Parameters::default());
+                engine.channels[channel].write_position = invalid;
+                assert_eq!(engine.process_sample(0.25, 0.5), (0.0, 0.0));
+                assert_eq!(engine.channels[1 - channel].write_position, 0);
+                assert_eq!(engine.channels[1 - channel].delay_line[0], 0.0);
+
+                let mut history = MonoHistory::new();
+                assert_eq!(engine.process_shared_mono(&mut history, 0.25, 0.5),
+                           ((0.0, 0.0), (0.0, 0.0)));
+                assert_eq!(history.write_position, 0);
+                assert_eq!(history.delay_line[0], 0.0);
+            }
+            let mut engine = Box::new(VelvetDecorrelator::new());
+            engine.init(Parameters::default());
+            let mut history = MonoHistory::new();
+            history.write_position = invalid;
+            assert_eq!(engine.process_shared_mono(&mut history, 0.25, 0.5),
+                       ((0.0, 0.0), (0.0, 0.0)));
+            assert_eq!(engine.channels[0].write_position, 0);
+            assert_eq!(engine.channels[0].delay_line[0], 0.0);
+            history.silence();
+            assert_eq!(history.write_position, invalid);
+        }
+    }
 
     #[test]
     fn history_index_matches_ring_subtraction_at_every_wrap_boundary() {
