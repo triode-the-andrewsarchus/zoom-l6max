@@ -5555,8 +5555,9 @@ and 18 differing bytes at offsets `0xb97c..0xbad0` in the non-atomic later
 comparison. The traced run saw ten stores from six sites in the candidate tail
 between copy and installation, and none during comparison. `0x80014840` and
 `0x80014842` wrote the two previously identified AINR enable words; the other
-four sites wrote the two 16-byte ranges previously associated with selector
-teardown. This is consistent with teardown accounting for the observed
+four sites wrote the two 20-byte structures associated with selector
+teardown. The prior 16-byte description omitted a word at offset `0x10`
+in each structure. This is consistent with teardown accounting for the observed
 remaining differences, not proof of complete coverage or the correct data to
 restore. The bypass lasted across the recipe's deliberate three-second
 selection gap, so it is not an acceptable finished transition. Unknown index
@@ -5654,6 +5655,61 @@ and wrapper were
 `3d82c85971052ac63c9a0287f1bd6181692628795099237f0317df7b7557ddce`,
 `101109b7d63ca6fe4fbf78a79eaba71da40017b177b839a4e709d8df152b61ba`, and
 `69c44d09df9db1471caec4a3441c186e06ae72d6da387549670251390add8fa7`.
+
+A debugger-assisted investigation exposed an error in the 40-byte
+preservation hypothesis. A stock state captured before the selector's
+`0x8005436e` teardown call differed from the 16-byte-per-structure refresh in
+eight candidate-tail bytes, from `0xb98c` through `0xb9a3`. The `0x800148d0`
+helper uses structures at `0x2028b97c` and `0x2028b990`, spaced by `0x14`,
+and calls a helper that also writes at offset `0x10`: each observed structure
+is 20 bytes, not 16. A separate debugger-perturbed run constructed a proposed
+refresh preserving 20 bytes per structure plus the two enable words; its
+56,264 retained bytes matched that run's pre-teardown reference. A separate
+diagnostic with those 48 bytes preserved reached ready token `0x7e`; one CPU
+trace saw no watched source writes or stock block entries during its refresh.
+These finite observations do not prove coherence, correct audio, or hardware
+safety.
+
+Attempts to compare 96 synthetic audio blocks are **uncalibrated**. Two
+relocated processors produced different output even when both began from the
+same full reference state; a separate synthetic stock-versus-clone control
+also differed from identical initial states. Both controls first differed at
+block 2. Consequently the output differences in the 16- and 20-byte
+reconstruction experiments cannot be attributed to the reconstruction, and
+must not be used as evidence for or against AINR audio equivalence. The
+observer stops the debugger at teardown and installation, invokes DSP outside
+its normal live call path, and discards the guest afterward. The cause of the
+failed controls is unresolved. The original 16-byte reconstruction is still
+incomplete as a state copy regardless of those invalid audio comparisons.
+
+All five debugger comparisons used the refresh MAIN and stock fixture specified
+below, the same QEMU and `l6dbg` binaries, and recipe
+`c0536427cc01902e64f257b38a8db09437e33303329f85b18ea8079fa2a3159e`.
+The 16-byte and 20-byte observer source hashes were
+`72219c510757f514796693bfdd59403826e532d66829feac1e1fed1974066194` and
+`68312a6c4d3b1f007c8dadc6554f3317939551bf99c4bddc3d91ec34ec1e55d1`;
+result hashes were
+`1c0b254012daa6bb9f769d0c70b5e227238fac8b3e343e23cf2e309f0b1ad8cc` and
+`d9c06aa6cdcc511d4764a315d51907071df7e869cc50b4b2d5f647aacea1da8d`.
+The two-clone identical-state control source and result were
+`4fe7d21815a9b253760b7e3a8186bf4704a4d6b72472a3cd09f122ffa4eee0ee` and
+`46598fba529738b39a570f49a140a3f79a4613a3b214c07a97c47ed187089001`.
+The synthetic stock-versus-clone control source and result were
+`6f35ef63377ba996e0428e7ee77e0312d73a880760551ab125655fe7719d038b` and
+`e77a6db82e71c08c1b6f9f4f40648c1cb7453ddf438e770ba2fa028c82afb110`;
+the corresponding 20-byte candidate source and result were
+`05440fbeae6b4f16cab1ff3ea28446dd7caeda1f34886f8ac424adca632e421b` and
+`7bd9d65a4e2586995935749eed121265a554ed4ed1cdb53e7d1c6eaefe5266f1`.
+
+The 20-byte refresh diagnostic MAIN, ELF, modified handoff source, recipe,
+result and trace hashes were
+`d6373bba68e88dc0b33ef2b990cba544d80dcf1e4d04b4396cd73a2568abe22d`,
+`bb6934108f7a6a7c4f6d7af293a29963b1c59d61f33f1c885636c72251b719b5`,
+`3571e0585256987214c2db3762955b058d5bb108cc2a42d062f71261c9b2ce61`,
+`3c9dbd3496189d7947822bd84de7edf91a2dc836a662be362f88e16be65f07e6`,
+`49ef985255d908770beda3f12246917ec3a998cc5440722f3f5342d0b654590d`, and
+`863065a3e6b5224a3ba044e60d8115d3ddc9de1b68a1f83ffbb7d2b6f54abed6`.
+It used the refresh trace plugin identified below. Never install this image.
 
 All runs used stock MAIN SHA-256
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
