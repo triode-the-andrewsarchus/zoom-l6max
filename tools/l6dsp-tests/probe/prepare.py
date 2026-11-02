@@ -9,7 +9,7 @@ import shlex
 import struct
 import subprocess
 from thumb_branch import branch
-from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_boundary_hook, install_mode_hooks, install_panel_receive_hooks
+from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_boundary_hook, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks
 
 ROOT = Path(__file__).resolve().parents[3]
 PROBE = Path(__file__).resolve().parent
@@ -187,6 +187,12 @@ if not payload or 0x108000 + len(payload) > 0x1a2ff8:
     raise ValueError("diagnostic payload exceeds the application slot")
 image = bytearray(main)
 image[0x107de6:0x107df0] = CALLBACK_REDIRECT if args.callback else REDIRECT
+if args.offline_mix_layout:
+    matches = [line.split() for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines()
+               if line.endswith(" offline_mix_veneer")]
+    if len(matches) != 1:
+        raise ValueError("file-mix veneer symbol missing")
+    install_offline_mix_hook(image, int(matches[0][0], 16) & ~1)
 if args.inspector:
     # Same Thumb BL encoding as firmware-patch-core::branch, for this
     # disposable diagnostic only. Guard the stock call instructions.
@@ -517,7 +523,7 @@ wall_timeout_s = 420
     memory("output", 0x83e00800, 16)
 if args.offline_mix_layout:
     recipe = recipe.replace('wall_timeout_s = 180', 'wall_timeout_s = 300', 1)
-    add("memory", name="offline_layout", address=0x83e07000, length=216)
+    add("memory", name="offline_layout", address=0x83e07000, length=316)
 (out / "recipe.toml").write_text(recipe)
 if args.pre_ainr:
     metadata = {"stock_main_sha256": MAIN_SHA, "diagnostic_main_sha256": image_sha,

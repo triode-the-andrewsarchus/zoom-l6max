@@ -181,7 +181,11 @@ pub unsafe extern "C" fn probe(entry: *mut u32) {
             #[cfg(retain_custom_state)]
             core::ptr::write_volatile(0x83e00148 as *mut u32, 0x52455553);
             #[cfg(offline_mix_layout)]
-            offline_layout::run();
+            {
+                offline_layout::run();
+                // Discard the synthetic test's DSP history before normal use.
+                routing::DualEfxProcessor::initialize_in_place(&mut *storage);
+            }
             core::ptr::write_volatile(entry, diagnostic_audio as *const () as usize as u32);
         }
     }

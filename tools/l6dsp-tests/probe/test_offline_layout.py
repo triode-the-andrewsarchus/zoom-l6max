@@ -9,13 +9,18 @@ from offline_layout import check
 def report():
     tracks = []
     sums = []
+    buses = []
     for block in range(2):
         frames = [block * 64, block * 64 + 63]
         sums.extend(sum(((slot + 1) * 1_000_000 + frame * 1000) * (slot + 1) / 16
                         for slot in range(12)) / 2**31 for frame in frames)
+        for frame in frames:
+            buses.extend(sum(((slot + 1) * 1_000_000 + frame * 1000) * (slot + 1) / 16
+                             for slot in range(12) if slot % 3 == bus) / 2**31 for bus in range(3))
         for slot in range(12):
             tracks.extend((slot + 1) * 1_000_000 + frame * 1000 for frame in frames)
-    capture = struct.pack('<II52f', 2, 0x4f46464c, *sums, *tracks)
+    capture = struct.pack('<II52f2I20f3I', 2, 0x4f46464c, *sums, *tracks, 0, 64,
+                          *buses, *([0.1, -0.1] * 4), 2, 0x202a7138, 0x202a7138)
     return {'outcome': 'complete', 'model': 'l6max',
             'events': [{'observation': {'name': 'offline_layout', 'bytes': list(capture)}}]}
 
@@ -25,11 +30,15 @@ class OfflineLayoutTests(unittest.TestCase):
         self.assertEqual(check(report())['callbacks'], 2)
 
     def test_rejects_missing_callback_wrong_sum_or_track(self):
-        for offset in (0, 4, 11, 24, 215):
+        for offset in (0, 4, 11, 24, 215, 216, 227, 304, 308, 312):
             bad = copy.deepcopy(report())
             bad['events'][0]['observation']['bytes'][offset] ^= 1
             with self.subTest(offset=offset), self.assertRaises(ValueError):
                 check(bad)
+        bad = report()
+        bad['events'][0]['observation']['bytes'][272:276] = list(struct.pack('<f', float('nan')))
+        with self.assertRaises(ValueError):
+            check(bad)
         bad = report()
         bad['outcome'] = 'failed'
         with self.assertRaises(ValueError):

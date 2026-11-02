@@ -38,8 +38,10 @@ The blocking findings for L6max MAIN 1.10
   only to the live audio task does not establish that all callback users have
   stopped. The diagnostic reconstructs sends from live mixer slots and has not
   established correct input for this file-mixing path. A direct synthetic
-  QEMU call supports a candidate twelve-track buffer layout, but does not
-  exercise the normal workflow or establish a safe hook. Stock scheduling and
+  QEMU call supports a candidate twelve-track buffer layout. An experimental
+  call-site veneer passed the block offset to a separate callback and routed
+  synthetic tracks through the effects; it does not exercise the normal
+  workflow or establish a safe hook. Stock scheduling and
   exclusion between the two paths are unverified. See the
   [firmware research](https://github.com/derekstavis/zoom-l6max-research/blob/bad532c/docs/firmware/l6max-effects-ainr.md#effects-callback).
 - The active firmware signal path ignores per-channel routing and has no
