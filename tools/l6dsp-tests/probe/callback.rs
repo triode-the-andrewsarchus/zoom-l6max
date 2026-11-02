@@ -32,6 +32,8 @@ mod file_mix_handoff;
 #[cfg(file_mix_atomic)]
 #[path = "../../../patches/dual-efx/src/admission.rs"]
 mod admission;
+#[cfg(selector_admission)]
+mod selector_admission;
 #[cfg(irq_trace)]
 mod irq;
 #[cfg(ring_timing)]

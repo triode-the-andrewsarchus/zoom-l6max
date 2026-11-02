@@ -63,6 +63,22 @@ def install_ainr_selector_veneer(image, symbols):
     image[offset:offset + 8] = bytes.fromhex("dff800f0") + (target | 1).to_bytes(4, "little")
 
 
+def install_selector_admission(image, entry, fade_target, exit_target):
+    """Guard post-fade, fade-in and cleanup sites before redirecting."""
+    offset = 0x10556e
+    fade = 0x10555c
+    valid = lambda target: target is not None and not target & 1 and 0x80108000 <= target < 0x801a2ff8
+    if (image[offset:offset + 10] != bytes.fromhex("d9f80000002100220023")
+            or image[fade:fade + 8] != bytes.fromhex("02f01bfc02f032fc")
+            or not valid(exit_target) or not valid(fade_target)):
+        raise ValueError("selector admission fade or cleanup site or target mismatch")
+    install_ainr_selector_veneer(image, {"ainr_selector_veneer": entry})
+    image[fade:fade + 8] = bytes.fromhex("dff800f0") + (fade_target | 1).to_bytes(4, "little")
+    # Runtime address 0x202806fe is two-byte aligned. The NOP aligns the
+    # literal load so its embedded target is read at the correct address.
+    image[offset:offset + 10] = bytes.fromhex("00bfdff800f0") + (exit_target | 1).to_bytes(4, "little")
+
+
 def install_boundary_hook(image, target):
     """Guard the observed L6max 1.10 panel pre-disable call."""
     offset = 0x5435c

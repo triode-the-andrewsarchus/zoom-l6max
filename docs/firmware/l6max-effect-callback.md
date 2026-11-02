@@ -6218,3 +6218,52 @@ with unattested build provenance; `l6dbg` was
 `52af793c1d34e927210f99cf49117180121d8bd62885ce0ee7148be5dedbf2f6`.
 This remains a sequential diagnostic, not integrated concurrency or hardware
 qualification.
+
+### Selector admission and ramp dependency experiment
+
+A QEMU-only prototype extends the forced file-mix admission experiment to
+the selector. It closes the gate after the initial fade, waits for admitted
+live or file-mix work, and releases it before fade-in or at selector cleanup.
+With the complete live wrapper bypassed, startup selection stalled: the
+saved `Main` stack showed a stock effect setup callback waiting for a ramp
+request at `0x8020a3e8` to complete. The stock ramp generator runs in the
+bypassed wrapper, and stock callbacks write generated samples to an indirect
+destination. Calling only the generator did not complete the wait. The
+[research finding](https://github.com/derekstavis/zoom-l6max-research/blob/2272bab/docs/firmware/l6max-effects-ainr.md#effect-selection-and-callback-lifetime)
+records a separate perturbed debugger observation of that dependency.
+
+The next diagnostic called the float and integer stock ramp generators while
+the selector held the gate and wrote their last generated samples to the
+firmware's indirect destinations. In one full prepared run, seven selector
+entries acquired and released the gate, with no recorded acquisition failures
+and no guard left active. Four later active callback captures were
+`0x8002c041`, `0x20280781`, `0x20280021` (AINR), and `0x20281649`. During a
+forced no-card file-mix interleaving, the stopped SAI path received one
+synthetic late signal; one live wrapper entry was bypassed and the callback
+count advanced after restart. The no-card stock operation returned 9. The
+[probe and checker](../../tools/l6dsp-tests/probe/README.md#forced-file-mix-handoff)
+reproduce this limited run.
+
+This is not a safe firmware implementation. Ramp write-back is only an
+approximation of work done by stock callbacks; dynamic destinations and their
+lifetime are unqualified. Gate initialization can miss already-running work,
+the timeout aborts selection without qualified recovery, and other users,
+concurrency schedules, DMA, successful file mixing, effects and UI behavior,
+real-time deadlines and hardware memory ownership remain unproven. The
+scratch and modified MAIN must never be installed.
+
+Stock MAIN SHA-256 was
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`;
+diagnostic MAIN, ELF, recipe and result hashes were
+`ba9cbff211f0106854cc5317b283b5e1fb417f8cb7c622aa187a7f88d2a6a56a`,
+`1c966aba064ef1f547fbc2e1643c52ebc365b8e88d798772fd47501775180612`,
+`f23a65062aa1a1356e4f24f0b62492766caf5e8e60ab6b47eeba721571eadccb`, and
+`250dcc520000bae3014d4c8b1c526f30a498213d95adca4ed1e3061bc157f350`.
+The initial NOR, panel flash, options and RTC hashes were
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
+QEMU was `eade074b5d7a6fe9d74bbbe1ad36a34f7356cd200cbfc81e772f2a21892012e8`
+(source unattested); `l6dbg` was
+`52af793c1d34e927210f99cf49117180121d8bd62885ce0ee7148be5dedbf2f6`.

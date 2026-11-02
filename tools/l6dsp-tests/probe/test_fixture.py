@@ -4,7 +4,7 @@ import subprocess
 import sys
 import unittest
 
-from fixture import MODE_CALL_SITES, install_ainr_selector_veneer, install_boundary_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, validate_probe_entry
+from fixture import MODE_CALL_SITES, install_ainr_selector_veneer, install_boundary_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, install_selector_admission, validate_probe_entry
 from thumb_branch import branch
 
 
@@ -26,6 +26,7 @@ class PreparerModeTests(unittest.TestCase):
             (['--offline-mix-layout'], '--offline-mix-layout requires'),
             (['--file-mix-handoff', 'bypass'], '--file-mix-handoff requires'),
             (['--file-mix-handoff', 'atomic'], '--file-mix-handoff requires'),
+            (['--selector-admission'], '--selector-admission requires'),
             (['--callback', '--inspector', '--file-mix-handoff', 'pending'], '--file-mix-handoff requires'),
             (['--callback', '--offline-mix-layout', '--inspector'], '--offline-mix-layout requires'),
             (['--callback', '--offline-mix-layout', '--switches'], '--offline-mix-layout requires'),
@@ -120,6 +121,29 @@ class SelectorVeneerGuardTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             install_ainr_selector_veneer(self.image, {"ainr_selector_veneer": 0x80109000})
         self.assertEqual(self.image, before)
+
+    def test_admission_checks_entry_and_cleanup_before_mutating(self):
+        self.image.extend(bytearray(0x105578 - len(self.image)))
+        self.image[0x10555c:0x105564] = bytes.fromhex('02f01bfc02f032fc')
+        self.image[0x10556e:0x105578] = bytes.fromhex('d9f80000002100220023')
+        for offset in (0x10543c, 0x10555c, 0x10556e, 0x105577):
+            image = self.image[:]
+            image[offset] ^= 1
+            before = image[:]
+            with self.subTest(offset=offset), self.assertRaises(ValueError):
+                install_selector_admission(image, 0x80109000, 0x80109200, 0x80109100)
+            self.assertEqual(image, before)
+        for targets in ((None, 0x80109200, 0x80109100),
+                        (0x80109000, 0x80109201, 0x80109100),
+                        (0x80109000, 0x80109200, 0x80109101)):
+            image = self.image[:]
+            with self.subTest(targets=targets), self.assertRaises(ValueError):
+                install_selector_admission(image, *targets)
+            self.assertEqual(image, self.image)
+        install_selector_admission(self.image, 0x80109000, 0x80109200, 0x80109100)
+        self.assertEqual(self.image[0x10543c:0x105444], bytes.fromhex('dff800f001901080'))
+        self.assertEqual(self.image[0x10555c:0x105564], bytes.fromhex('dff800f001921080'))
+        self.assertEqual(self.image[0x10556e:0x105578], bytes.fromhex('00bfdff800f001911080'))
 
 
 class ModeHookGuardTests(unittest.TestCase):

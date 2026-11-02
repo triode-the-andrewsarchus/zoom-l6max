@@ -9,7 +9,7 @@ import shlex
 import struct
 import subprocess
 from thumb_branch import branch
-from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_boundary_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, validate_probe_entry
+from fixture import MAIN_SHA, checked_inputs, install_ainr_selector_veneer, install_boundary_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, install_selector_admission, validate_probe_entry
 
 ROOT = Path(__file__).resolve().parents[3]
 PROBE = Path(__file__).resolve().parent
@@ -28,6 +28,7 @@ parser.add_argument("--switches", action="store_true", help="observe all six eff
 parser.add_argument("--mixer-input-capture", action="store_true", help="capture routed mixer input and output for each custom effect (QEMU only)")
 parser.add_argument("--offline-mix-layout", action="store_true", help="run a destructive synthetic file-mix layout probe in QEMU")
 parser.add_argument("--file-mix-handoff", choices=("pending", "bypass", "atomic"), help="force a late audio signal in the stock file-mix workflow (QEMU only)")
+parser.add_argument("--selector-admission", action="store_true", help="also gate effect selection after the stock fade (QEMU only)")
 parser.add_argument("--inspector", action="store_true", help="enable QEMU-only inspector event hooks")
 parser.add_argument("--gesture-trace", action="store_true", help="record selector events (perturbs timing)")
 parser.add_argument("--enqueue-trace", action="store_true", help="record panel events before enqueue (perturbs timing)")
@@ -52,6 +53,8 @@ parser.add_argument("--passthrough-unready", action="store_true", help="keep syn
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
 parser.add_argument("--bank-stress-count", type=int, default=10, help="number of bank changes (1..64)")
 args = parser.parse_args()
+if args.selector_admission and args.file_mix_handoff != "atomic":
+    parser.error("--selector-admission requires --file-mix-handoff atomic")
 other_diagnostics = (args.switches, args.inspector, args.mixer_input_capture, args.gesture_trace, args.enqueue_trace,
         args.irq_trace, args.irq_timing, args.ring_timing, args.ring_drop, args.timing_control,
         args.active_sends, args.selector_load_trace, args.max_velvet_density, args.submix_return,
@@ -157,6 +160,8 @@ if args.file_mix_handoff:
         rustc += ["--cfg", "file_mix_bypass"]
     if args.file_mix_handoff == "atomic":
         rustc += ["--cfg", "file_mix_atomic"]
+if args.selector_admission:
+    rustc += ["--cfg", "selector_admission"]
 if args.inspector:
     rustc += ["--cfg", "inspector_probe"]
 if args.gesture_trace:
@@ -215,6 +220,15 @@ if args.file_mix_handoff:
     if args.file_mix_handoff != "pending" and bypass is None:
         raise ValueError("missing file-mix bypass symbol")
     install_file_mix_handoff(image, symbols.get("mix_handoff_observer"), bypass)
+if args.selector_admission:
+    symbols = {}
+    for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines():
+        parts = line.split()
+        if len(parts) == 3 and parts[2] in ("selector_handoff_entry", "selector_handoff_fade", "selector_handoff_exit"):
+            if parts[2] in symbols:
+                raise ValueError("duplicate selector handoff symbol")
+            symbols[parts[2]] = int(parts[0], 16) & ~1
+    install_selector_admission(image, symbols.get("selector_handoff_entry"), symbols.get("selector_handoff_fade"), symbols.get("selector_handoff_exit"))
 if args.offline_mix_layout:
     matches = [line.split() for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines()
                if line.endswith(" offline_mix_veneer")]
@@ -561,6 +575,12 @@ if args.file_mix_handoff:
     add("wait", guest_ms=4000)
     add("memory", name="callback_after", address=0x83e00000, length=12)
     add("memory", name="mix_handoff", address=0x83e0a000, length=44)
+if args.selector_admission:
+    for index in range(4):
+        add("press", target=40, hold_ms=150)
+        add("wait", guest_ms=2000)
+        add("memory", name=f"selector_callback_{index}", address=0x202a6f20, length=4)
+    add("memory", name="selector_handoff", address=0x83e0b010, length=24)
 (out / "recipe.toml").write_text(recipe)
 if args.pre_ainr:
     metadata = {"stock_main_sha256": MAIN_SHA, "diagnostic_main_sha256": image_sha,

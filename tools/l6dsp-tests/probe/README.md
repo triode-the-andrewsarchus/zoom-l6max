@@ -83,6 +83,17 @@ not hook selection or all other users. None implements the production admission
 protocol, tests a successful mix or proves safe ownership, selection
 synchronization, target timing or physical behavior. Never install these images.
 
+With `--file-mix-handoff atomic --selector-admission`, the disposable image
+also closes admission after the stock selection fade, drains active leases,
+and releases the guard before fade-in or at selector cleanup. During selector
+closure it calls two stock ramp generators and writes their final samples to
+their indirect destinations; this approximates work normally performed by an
+effect callback and is not qualified as equivalent or safe. Its recipe cycles
+further through stock effects, including AINR. Add `--selector` to the checker.
+A timeout aborts selection without a qualified recovery; gate initialization,
+existing in-flight work, ramp destinations, scratch ownership and all selection
+callers remain unproven. This experiment must not be installed.
+
 ## Synthetic file-mix layout
 
 To examine the candidate file-mix track layout, prepare a separate image with

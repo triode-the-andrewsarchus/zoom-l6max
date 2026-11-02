@@ -40,6 +40,26 @@ class FileMixHandoffTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             check(bad, True)
 
+    def test_selector_requires_balanced_guards_and_ainr(self):
+        value = report(True)
+        captures = {'selector_handoff': (6, 6, 0, 6, 0x83e0b000, 0),
+                    'selector_callback_0': (0x20280781,),
+                    'selector_callback_1': (0x20281649,),
+                    'selector_callback_2': (0x20280021,),
+                    'selector_callback_3': (0x20280ab9,)}
+        value['events'].extend({'observation': {'name': name,
+                               'bytes': list(struct.pack(f'<{len(words)}I', *words))}}
+                               for name, words in captures.items())
+        self.assertEqual(check(value, True, True)['selector_transitions'], 6)
+        bad = copy.deepcopy(value)
+        bad['events'][3]['observation']['bytes'][12] = 5
+        with self.assertRaises(ValueError):
+            check(bad, True, True)
+        bad = copy.deepcopy(value)
+        bad['events'][6]['observation']['bytes'] = list(struct.pack('<I', 0x20281649))
+        with self.assertRaises(ValueError):
+            check(bad, True, True)
+
 
 if __name__ == '__main__':
     unittest.main()

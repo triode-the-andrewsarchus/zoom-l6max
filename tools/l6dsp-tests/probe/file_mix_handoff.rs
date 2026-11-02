@@ -12,21 +12,26 @@ const READY: usize = 0x83e0b008;
 #[cfg(file_mix_atomic)]
 const READY_MAGIC: u32 = 0x47415445;
 
+#[cfg(file_mix_atomic)]
+pub unsafe fn ensure_gate() {
+    unsafe {
+        // Disposable emulator scratch; initialization and ownership are not
+        // qualified for hardware or already-running wrapper entries.
+        let ready = &*(READY as *const AtomicU32);
+        if ready.load(Ordering::Acquire) != READY_MAGIC {
+            (GATE as *mut CallbackAdmission).write(CallbackAdmission::new());
+            ready.store(READY_MAGIC, Ordering::Release);
+        }
+    }
+}
+
 pub unsafe fn queue_if_requested() {
     unsafe {
         let trigger = 0x81fff000 as *mut u32;
         if read(trigger) == 0x54524947 {
             write(trigger, 0);
             #[cfg(file_mix_atomic)]
-            {
-                // Disposable emulator scratch, initialized once before this
-                // forced work item. No physical storage ownership is implied.
-                let ready = &*(READY as *const AtomicU32);
-                if ready.load(Ordering::Acquire) != READY_MAGIC {
-                    (GATE as *mut CallbackAdmission).write(CallbackAdmission::new());
-                    ready.store(READY_MAGIC, Ordering::Release);
-                }
-            }
+            ensure_gate();
             let enqueue: unsafe extern "C" fn() = core::mem::transmute(0x800475b9usize);
             enqueue();
         }
@@ -99,6 +104,22 @@ pub unsafe extern "C" fn mix_handoff_atomic_live() {
         } else {
             let counter = 0x83e0b004 as *mut u32;
             write(counter, read(counter).wrapping_add(1));
+            // Experimental only: test whether a stock ramp can advance while
+            // effect processing is excluded. Memory ownership is unproven.
+            #[cfg(selector_admission)]
+            if read(0x83e0b024 as *const u32) == 1 {
+                let ramp: unsafe extern "C" fn() = core::mem::transmute(0x80066181usize);
+                let integer_ramp: unsafe extern "C" fn() = core::mem::transmute(0x800664f1usize);
+                ramp();
+                integer_ramp();
+                // Stock effect callbacks normally propagate the final ramp
+                // samples to these indirect destinations. This models only
+                // that observed part of their work in disposable QEMU.
+                let float_target = read(0x8020a3ec as *const u32) as *mut u32;
+                let integer_target = read(0x8020a400 as *const u32) as *mut u32;
+                write(float_target, read(0x8046310c as *const u32));
+                write(integer_target, read(0x8046320c as *const u32));
+            }
             mix_handoff_silence();
         }
     }

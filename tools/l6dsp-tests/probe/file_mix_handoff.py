@@ -7,7 +7,17 @@ from pathlib import Path
 from submix_return import observations, words
 
 
-def check(report, bypass):
+def check_selector(items):
+    attempts, acquired, failed, released, _, active = words(items, 'selector_handoff', '<6I')
+    callbacks = [words(items, f'selector_callback_{index}', '<I')[0] for index in range(4)]
+    if attempts < 6 or acquired != attempts or released != acquired or failed or active:
+        raise ValueError('selection admission did not acquire and release on every transition')
+    if 0x20280021 not in callbacks:
+        raise ValueError('AINR selection was not observed')
+    return acquired
+
+
+def check(report, bypass, selector=False):
     items = observations(report)
     marker, first, before = words(items, 'callback_state', '<III')
     after_marker, second, after = words(items, 'callback_after', '<III')
@@ -23,17 +33,21 @@ def check(report, bypass):
         raise ValueError('forced no-card workflow did not finish as expected')
     if (delayed - initial) % (1 << 32) != (0 if bypass else 1) or bypasses != int(bypass):
         raise ValueError('late callback or bypass count differs')
-    return {'before_stop': initial, 'after_signal': delayed, 'bypasses': bypasses,
-            'after_restart': after}
+    outcome = {'before_stop': initial, 'after_signal': delayed, 'bypasses': bypasses,
+               'after_restart': after}
+    if selector:
+        outcome['selector_transitions'] = check_selector(items)
+    return outcome
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('report', type=Path)
     parser.add_argument('--bypass', action='store_true')
+    parser.add_argument('--selector', action='store_true')
     args = parser.parse_args()
     try:
-        result = check(json.loads(args.report.read_text()), args.bypass)
+        result = check(json.loads(args.report.read_text()), args.bypass, args.selector)
     except (OSError, json.JSONDecodeError, KeyError, ValueError) as error:
         parser.exit(1, f'check failed: {error}\n')
     print(json.dumps(result, indent=2))
