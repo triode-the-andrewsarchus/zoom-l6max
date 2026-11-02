@@ -131,10 +131,12 @@ pub fn edit_encoder(
                 6 => { p.mod_depth += step * 0.25; PlatModDepth }
                 _ => { p.freeze = delta > 0; PlatFreeze }
             };
-            if matches!(encoder, 2 | 6 | 7) {
-                processor.plateau.set_live_parameters(p);
-            } else {
-                processor.plateau.set_parameters(p);
+            match encoder {
+                0 => processor.plateau.set_predelay_live(p.predelay_ms),
+                1 => processor.plateau.set_size_live(p.size),
+                2 | 6 | 7 => processor.plateau.set_live_parameters(p),
+                5 => processor.plateau.set_diffusion_live(p.diffusion),
+                _ => processor.plateau.set_parameters(p),
             }
             id
         }

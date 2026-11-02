@@ -541,11 +541,16 @@ mod tests {
         let mut peak = 0.0f32;
         for frame in 0..40_000 {
             if frame % 997 == 0 {
-                let encoder = [2, 6, 7][(frame / 997) % 3];
+                let encoder = [0, 1, 2, 5, 6, 7, 3, 4][(frame / 997) % 8];
                 let delta = if (frame / 997) % 2 == 0 { 3 } else { -4 };
                 let mut p = reference.plateau.params;
                 match encoder {
+                    0 => p.predelay_ms = math::clamp(p.predelay_ms + delta as f32 * 2.0, 0.0, 190.0),
+                    1 => p.size += delta as f32 * 0.02,
                     2 => p.decay += delta as f32 * 0.02,
+                    3 => p.low_cut_hz = math::clamp(p.low_cut_hz + delta as f32 * 20.0, 20.0, 1000.0),
+                    4 => p.high_cut_hz = math::clamp(p.high_cut_hz + delta as f32 * 250.0, 1000.0, 16000.0),
+                    5 => p.diffusion += delta as f32 * 0.05,
                     6 => p.mod_depth += delta as f32 * 0.25,
                     _ => p.freeze = delta > 0,
                 }
@@ -559,6 +564,33 @@ mod tests {
             peak = peak.max(actual.0.abs()).max(actual.1.abs());
         }
         assert!(peak > 0.001, "test must observe a reverb response");
+    }
+
+    #[test]
+    fn plateau_live_edits_clamp_like_full_setter() {
+        use parameters::{edit_encoder, ParameterBank};
+        let (mut fast, mut reference) = paired_reverb_return();
+        for (encoder, delta) in [(0, i32::MAX), (0, i32::MIN), (1, i32::MAX),
+                                 (1, i32::MIN), (5, i32::MAX), (5, i32::MIN)] {
+            let mut p = reference.plateau.params;
+            let step = delta as f32;
+            match encoder {
+                0 => p.predelay_ms = math::clamp(p.predelay_ms + step * 2.0, 0.0, 190.0),
+                1 => p.size += step * 0.02,
+                5 => p.diffusion += step * 0.05,
+                _ => unreachable!(),
+            }
+            reference.plateau.set_parameters(p);
+            assert!(edit_encoder(&mut fast, ParameterBank::Plateau, encoder, delta).is_some());
+            assert_eq!(fast.plateau.params.predelay_ms, reference.plateau.params.predelay_ms);
+            assert_eq!(fast.plateau.params.size, reference.plateau.params.size);
+            assert_eq!(fast.plateau.params.diffusion, reference.plateau.params.diffusion);
+            for frame in 0..128 {
+                let input = if frame == 0 { 0.5 } else { 0.0 };
+                assert_eq!(fast.process_bus_sample(0.0, input, 0.0),
+                           reference.process_bus_sample(0.0, input, 0.0));
+            }
+        }
     }
 
     #[test]

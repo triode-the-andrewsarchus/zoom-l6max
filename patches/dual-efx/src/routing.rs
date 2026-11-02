@@ -72,6 +72,10 @@ impl IdlePlateau {
         self.inner.set_parameters(params);
     }
 
+    pub(crate) fn set_predelay_live(&mut self, value: f32) { self.inner.set_predelay_live(value); }
+    pub(crate) fn set_size_live(&mut self, value: f32) { self.inner.set_size_live(value); }
+    pub(crate) fn set_diffusion_live(&mut self, value: f32) { self.inner.set_diffusion_live(value); }
+
     /// Update controls consumed directly per sample, without recalculating
     /// delay lengths or filter coefficients on the audio task.
     pub(crate) fn set_live_parameters(&mut self, params: PlateauParameters) {

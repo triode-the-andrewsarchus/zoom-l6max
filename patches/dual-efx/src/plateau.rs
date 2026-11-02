@@ -460,19 +460,12 @@ impl PlateauReverb {
         params.low_cut_hz = clamp(params.low_cut_hz, 20.0, SAMPLE_RATE * 0.49);
         params.high_cut_hz = clamp(params.high_cut_hz, 20.0, SAMPLE_RATE * 0.49);
 
-        if self.params.diffusion != params.diffusion {
-            let target = if params.diffusion == 0.0 { 0.0 } else { 1.0 };
-            self.diffusion_step = (target - self.diffusion_mix) / DIFFUSION_BYPASS_FADE_SAMPLES as f32;
-            self.diffusion_gain_step = (params.diffusion - self.diffusion_current) / DIFFUSION_BYPASS_FADE_SAMPLES as f32;
-            self.diffusion_remaining = DIFFUSION_BYPASS_FADE_SAMPLES;
-        }
+        self.retarget_diffusion(params.diffusion);
         if self.params.size != params.size || self.params.freeze != params.freeze {
             self.begin_output_transition();
         }
         self.params = params;
         self.predelay_samples = ((params.predelay_ms / 1000.0) * SAMPLE_RATE) as usize;
-
-        let scale = SR_SCALE * params.size;
 
         // Plateau scales the tank with size; input diffuser times depend only
         // on sample rate, so changing size does not retime their histories.
@@ -481,16 +474,7 @@ impl PlateauReverb {
         self.in_apf3.delay_time = clamp_usize((379.0 * SR_SCALE) as usize, 1, IN_APF3_MAX - 1);
         self.in_apf4.delay_time = clamp_usize((277.0 * SR_SCALE) as usize, 1, IN_APF4_MAX - 1);
 
-        // Tank delays
-        self.l_apf1.delay_time = clamp_usize((672.0 * scale) as usize, 1, L_APF1_MAX - 32);
-        self.l_del1.length = clamp_usize((4453.0 * scale) as usize, 10, L_DEL1_MAX - 1);
-        self.l_apf2.delay_time = clamp_usize((1800.0 * scale) as usize, 1, L_APF2_MAX - 1);
-        self.l_del2.length = clamp_usize((3720.0 * scale) as usize, 10, L_DEL2_MAX - 1);
-
-        self.r_apf1.delay_time = clamp_usize((908.0 * scale) as usize, 1, R_APF1_MAX - 32);
-        self.r_del1.length = clamp_usize((4217.0 * scale) as usize, 10, R_DEL1_MAX - 1);
-        self.r_apf2.delay_time = clamp_usize((2656.0 * scale) as usize, 1, R_APF2_MAX - 1);
-        self.r_del2.length = clamp_usize((3163.0 * scale) as usize, 10, R_DEL2_MAX - 1);
+        self.apply_tank_size(params.size);
 
         // The input and both tank channels use the same coefficients, but
         // each filter retains its own signal history.
@@ -504,6 +488,48 @@ impl PlateauReverb {
         self.l_hp.gain = self.in_hp.gain;
         self.r_hp.pole = self.in_hp.pole;
         self.r_hp.gain = self.in_hp.gain;
+    }
+
+    fn retarget_diffusion(&mut self, diffusion: f32) {
+        if self.params.diffusion != diffusion {
+            let target = if diffusion == 0.0 { 0.0 } else { 1.0 };
+            self.diffusion_step = (target - self.diffusion_mix) / DIFFUSION_BYPASS_FADE_SAMPLES as f32;
+            self.diffusion_gain_step = (diffusion - self.diffusion_current) / DIFFUSION_BYPASS_FADE_SAMPLES as f32;
+            self.diffusion_remaining = DIFFUSION_BYPASS_FADE_SAMPLES;
+        }
+    }
+
+    fn apply_tank_size(&mut self, size: f32) {
+        let scale = SR_SCALE * size;
+        self.l_apf1.delay_time = clamp_usize((672.0 * scale) as usize, 1, L_APF1_MAX - 32);
+        self.l_del1.length = clamp_usize((4453.0 * scale) as usize, 10, L_DEL1_MAX - 1);
+        self.l_apf2.delay_time = clamp_usize((1800.0 * scale) as usize, 1, L_APF2_MAX - 1);
+        self.l_del2.length = clamp_usize((3720.0 * scale) as usize, 10, L_DEL2_MAX - 1);
+
+        self.r_apf1.delay_time = clamp_usize((908.0 * scale) as usize, 1, R_APF1_MAX - 32);
+        self.r_del1.length = clamp_usize((4217.0 * scale) as usize, 10, R_DEL1_MAX - 1);
+        self.r_apf2.delay_time = clamp_usize((2656.0 * scale) as usize, 1, R_APF2_MAX - 1);
+        self.r_del2.length = clamp_usize((3163.0 * scale) as usize, 10, R_DEL2_MAX - 1);
+
+    }
+
+    pub(crate) fn set_predelay_live(&mut self, value: f32) {
+        let value = clamp(value, 0.0, 190.0);
+        self.params.predelay_ms = value;
+        self.predelay_samples = ((value / 1000.0) * SAMPLE_RATE) as usize;
+    }
+
+    pub(crate) fn set_size_live(&mut self, value: f32) {
+        let value = clamp(value, 0.2, 1.2);
+        if self.params.size != value { self.begin_output_transition(); }
+        self.params.size = value;
+        self.apply_tank_size(value);
+    }
+
+    pub(crate) fn set_diffusion_live(&mut self, value: f32) {
+        let value = clamp(value, 0.0, 1.0);
+        self.retarget_diffusion(value);
+        self.params.diffusion = value;
     }
 
     fn begin_output_transition(&mut self) {

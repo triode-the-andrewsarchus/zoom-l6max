@@ -121,6 +121,10 @@ do not establish musical quality or target execution time.
 All four tank allpasses now receive independent modulation, with sufficient
 history for the maximum configured depth. Host tests cover modulation and
 freeze, but the additional processing cost has not been measured on target.
+The inspector's Plateau predelay, size and diffusion edits now update only
+the affected state instead of recalculating unrelated cutoff coefficients.
+Host comparisons exercise mixed edits and endpoint clamps sample by sample;
+they do not establish an audio-task deadline on the device.
 The Velvet crossfade now calculates its phase step once per transition;
 host tests compare its weights with the previous calculation. In a disposable
 ARM diagnostic build, the former per-sample divide moved to transition start
