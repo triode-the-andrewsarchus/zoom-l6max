@@ -408,7 +408,9 @@ impl VelvetDecorrelator {
     fn convolve(bank: &Bank, delay_line: &[f32; MAX_DELAY_SAMPLES], wp: usize) -> f32 {
         let mut result = 0.0f32;
         let size = MAX_DELAY_SAMPLES;
-        for tap in &bank.storage[..bank.count] {
+        // A malformed count must not panic inside an audio callback. Silence
+        // this bank rather than convolving an incomplete or unrelated table.
+        for tap in bank.storage.get(..bank.count).unwrap_or(&[]) {
             let delay = tap.delay as usize;
             let d = if delay < size { delay } else { wrap_out_of_range_delay(delay) };
             let read = if wp >= d { wp - d } else { wp + size - d };
@@ -436,7 +438,7 @@ impl VelvetDecorrelator {
         let wp = ca.write_position;
         let mut sum_a = 0.0f32;
         let mut sum_b = 0.0f32;
-        let taps = &ca.banks[bank].storage[..ca.banks[bank].count];
+        let taps = ca.banks[bank].storage.get(..ca.banks[bank].count).unwrap_or(&[]);
         if ca.nonzero_samples != 0 && history.nonzero_samples != 0 && wp == history.write_position {
             for tap in taps {
                 let delay = tap.delay as usize;
