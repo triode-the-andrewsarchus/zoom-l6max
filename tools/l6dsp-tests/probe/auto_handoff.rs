@@ -8,6 +8,8 @@ compile_error!("hybrid and boundary handoffs are separate diagnostics");
 compile_error!("the boundary diagnostic requires the channel-0 prefix");
 #[cfg(all(boundary_noise_probe, not(boundary_ainr_probe)))]
 compile_error!("boundary noise requires the boundary diagnostic");
+#[cfg(all(outer_audio_pause_probe, not(boundary_ainr_probe)))]
+compile_error!("outer audio pause requires the boundary diagnostic");
 
 const POINTER: usize = 0x83e03100;
 const STATUS: usize = 0x83e03104; // 0 waiting, 1 captured, 2 allocation failed, 3 boundary candidate
@@ -101,11 +103,14 @@ pub unsafe fn allocate() {
 #[inline(always)]
 unsafe fn boundary_audio(input: *mut f32, output: *mut f32, index: u32) -> bool {
     unsafe {
+        #[cfg(not(outer_audio_pause_probe))]
         if crate::boundary_pause::BoundaryPause(word(PAUSE)).bypass(index) {
             word(0x83e03144 + index as usize * 4).fetch_add(1, Ordering::Relaxed);
             if input != output { core::ptr::copy(input, output, 64); }
             return true;
         }
+        #[cfg(outer_audio_pause_probe)]
+        let _ = output;
         #[cfg(boundary_noise_probe)]
         if index == 0 {
             let marker = 0x83e03400 as *mut u32;
@@ -119,6 +124,34 @@ unsafe fn boundary_audio(input: *mut f32, output: *mut f32, index: u32) -> bool 
             core::ptr::write_volatile(marker, random);
         }
         false
+    }
+}
+
+/// QEMU-only: park the observed audio task before it enters a whole block.
+/// This changes audio timing and does not cover other callers or DMA.
+#[cfg(outer_audio_pause_probe)]
+#[unsafe(no_mangle)]
+#[unsafe(link_section = ".text.selector_handoff_outer_audio")]
+pub unsafe extern "C" fn outer_audio_pause(input: u32) {
+    unsafe {
+        let pause_word = word(PAUSE);
+        let request = pause_word.load(Ordering::Acquire);
+        let pause = crate::boundary_pause::BoundaryPause(pause_word);
+        if pause.acknowledge(request) {
+            word(0x83e03150).fetch_add(1, Ordering::Relaxed);
+            let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
+            let mut waited = 0u32;
+            while pause.acknowledged(request) && waited < 20 {
+                delay(1);
+                waited += 1;
+            }
+            word(0x83e03154).store(waited, Ordering::Release);
+            if waited == 20 && pause.finish(request) {
+                word(0x83e03158).fetch_add(1, Ordering::Relaxed);
+            }
+        }
+        let stock: unsafe extern "C" fn(u32) = core::mem::transmute(0x800149b1usize);
+        stock(input);
     }
 }
 

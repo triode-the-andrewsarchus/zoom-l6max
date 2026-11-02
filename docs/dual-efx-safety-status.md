@@ -134,6 +134,11 @@ The blocking findings for L6max MAIN 1.10
   after selection; under injected signal the resulting state differed from
   its capture-time observation despite a successful handoff status. That
   reconstruction was discarded.
+- An optional QEMU-only outer-block pause parks the observed `AudioProcess`
+  task before the complete block rather than bypassing individual AINR calls.
+  It deliberately delays audio, uses unowned scratch, and has no established
+  deadline, audio continuity, DMA exclusion, or coverage of other users. It
+  is an investigation, not a hardware-safe synchronization strategy.
 - A QEMU-only attempt to retain the candidate snapshot in two slices of the
   stock effect buffer also failed. The sampled source was nonzero during
   capture, but both slices were zero by installation even though the capture

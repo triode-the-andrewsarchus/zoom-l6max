@@ -9,7 +9,7 @@ import shlex
 import struct
 import subprocess
 from thumb_branch import branch
-from fixture import MAIN_SHA, checked_inputs, install_ainr_pair, install_ainr_selector_veneer, install_ainr_veneer, install_boundary_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, install_selector_admission, install_selector_feedback, validate_probe_entry
+from fixture import MAIN_SHA, checked_inputs, install_ainr_pair, install_ainr_selector_veneer, install_ainr_veneer, install_boundary_hook, install_outer_audio_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, install_selector_admission, install_selector_feedback, validate_probe_entry
 
 ROOT = Path(__file__).resolve().parents[3]
 PROBE = Path(__file__).resolve().parent
@@ -60,6 +60,7 @@ parser.add_argument("--auto-handoff", action="store_true", help="capture and res
 parser.add_argument("--channel0-prefix", action="store_true", help="experimentally snapshot only the observed channel-0 state prefix")
 parser.add_argument("--hybrid-handoff", action="store_true", help="experimentally split the channel-0 snapshot over several callbacks")
 parser.add_argument("--boundary-handoff", action="store_true", help="QEMU-only selector-side snapshot after an audio-boundary pause")
+parser.add_argument("--outer-audio-pause", action="store_true", help="QEMU-only: park the whole audio block during the boundary snapshot")
 parser.add_argument("--boundary-noise", action="store_true", help="inject nonzero stock AINR input in the boundary experiment")
 parser.add_argument("--passthrough-unready", action="store_true", help="keep synthetic sends active when AINR is unavailable")
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
@@ -87,7 +88,7 @@ other_diagnostics = (args.switches, args.inspector, args.mixer_input_capture, ar
         args.irq_trace, args.irq_timing, args.ring_timing, args.ring_drop, args.timing_control,
         args.active_sends, args.selector_load_trace, args.max_velvet_density, args.velvet_fade_stress, args.submix_return,
         args.retain_custom_state, args.pre_ainr, args.effect_buffer, args.auto_handoff,
-        args.channel0_prefix, args.hybrid_handoff, args.boundary_handoff, args.boundary_noise,
+        args.channel0_prefix, args.hybrid_handoff, args.boundary_handoff, args.outer_audio_pause, args.boundary_noise,
         args.passthrough_unready, args.bank_stress)
 if args.file_mix_handoff and (not args.callback or args.admission_probe
         or args.offline_mix_layout or any(other_diagnostics)):
@@ -155,6 +156,8 @@ if args.hybrid_handoff and not args.channel0_prefix:
     parser.error("--hybrid-handoff requires --channel0-prefix")
 if args.boundary_handoff and (not args.channel0_prefix or args.hybrid_handoff):
     parser.error("--boundary-handoff requires --channel0-prefix and excludes --hybrid-handoff")
+if args.outer_audio_pause and not args.boundary_handoff:
+    parser.error("--outer-audio-pause requires --boundary-handoff")
 if args.boundary_noise and not args.boundary_handoff:
     parser.error("--boundary-noise requires --boundary-handoff")
 if args.passthrough_unready and not args.pre_ainr:
@@ -244,6 +247,8 @@ if args.hybrid_handoff:
     rustc += ["--cfg", "hybrid_ainr_probe"]
 if args.boundary_handoff:
     rustc += ["--cfg", "boundary_ainr_probe"]
+if args.outer_audio_pause:
+    rustc += ["--cfg", "outer_audio_pause_probe"]
 if args.boundary_noise:
     rustc += ["--cfg", "boundary_noise_probe"]
 if args.passthrough_unready:
@@ -328,6 +333,12 @@ if args.auto_handoff or args.ainr_admission:
     install_ainr_veneer(image, int(matches[0][0], 16) & ~1)
     if args.ainr_pair:
         install_ainr_pair(image)
+if args.outer_audio_pause:
+    matches = [line.split() for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines()
+               if line.endswith(" outer_audio_pause")]
+    if len(matches) != 1 or len(matches[0]) != 3:
+        raise ValueError("missing or duplicate outer audio pause target")
+    install_outer_audio_hook(image, int(matches[0][0], 16) & ~1)
 image.extend(b"\xff" * (0x108000 - len(image)))
 image.extend(payload)
 if args.effect_buffer:
@@ -616,6 +627,8 @@ wall_timeout_s = 420
             memory("hybrid_control_selected", 0x83e03134, 4)
         if args.boundary_handoff:
             memory("boundary_handoff", 0x83e03138, 20)
+        if args.outer_audio_pause:
+            memory("outer_audio_pause", 0x83e03150, 12)
     memory("ainr_sends_1", 0x83e03000, 28)
     wait(5000)
     memory("ainr_sends_2", 0x83e03000, 28)
@@ -730,6 +743,8 @@ if args.pre_ainr:
         if args.boundary_handoff:
             metadata["boundary_handoff"] = True
             metadata["boundary_noise"] = args.boundary_noise
+            if args.outer_audio_pause:
+                metadata["outer_audio_pause"] = True
     if args.effect_buffer:
         matches = [line.split() for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines()
                    if line.endswith(" diagnostic_audio")]

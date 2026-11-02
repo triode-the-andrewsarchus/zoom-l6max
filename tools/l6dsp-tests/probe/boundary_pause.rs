@@ -44,6 +44,13 @@ impl BoundaryPause<'_> {
         Some(request)
     }
 
+    /// Acknowledge only the exact request observed by the audio task.
+    pub fn acknowledge(&self, request: u32) -> bool {
+        request & PHASE == REQUESTED && self.0.compare_exchange(
+            request, (request & EPOCH) | PAUSED, Ordering::AcqRel, Ordering::Acquire,
+        ).is_ok()
+    }
+
     /// Called at the observed AINR hook; index zero acknowledges a request.
     pub fn bypass(&self, index: u32) -> bool {
         let state = self.0.load(Ordering::Acquire);
@@ -55,7 +62,7 @@ impl BoundaryPause<'_> {
             return false;
         }
         if index == 0 && state & PHASE == REQUESTED {
-            let _ = self.0.compare_exchange(state, (state & EPOCH) | PAUSED, Ordering::AcqRel, Ordering::Acquire);
+            self.acknowledge(state);
         }
         true
     }

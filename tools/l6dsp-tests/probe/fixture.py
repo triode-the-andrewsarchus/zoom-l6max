@@ -121,6 +121,15 @@ def install_boundary_hook(image, target):
     image[offset:offset + 4] = branch(0x8005435c, target)
 
 
+def install_outer_audio_hook(image, target):
+    """Redirect the guarded AudioProcess block call in a disposable image."""
+    offset = 0x14c84
+    if (image[offset:offset + 4] != bytes.fromhex("fff794fe")
+            or target is None or target & 1 or not 0x80108000 <= target < 0x801a2ff8):
+        raise ValueError("outer audio call or diagnostic target mismatch")
+    image[offset:offset + 4] = branch(0x80014c84, target)
+
+
 def install_panel_receive_hooks(image, target):
     """Redirect the four observed L6max 1.10 panel byte reads in QEMU only."""
     sites = ((0x4cf14, "45f098f8"), (0x4cf4e, "45f07bf8"),

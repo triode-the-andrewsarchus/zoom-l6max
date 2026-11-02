@@ -631,6 +631,14 @@ while the pause was acknowledged and the copy was in progress. The exclusion
 and packed tail are candidates based on limited comparisons, not a proven
 AINR footprint. A successful handoff does not establish a coherent snapshot; see the
 [boundary investigation](../../../docs/firmware/l6max-effect-callback.md#selector-side-boundary-handoff-diagnostic).
+Add `--outer-audio-pause` to test parking the observed AudioProcess task before
+its whole block instead of bypassing just the two AINR calls. The guarded
+call-site hook acknowledges a specific request generation, waits in
+one-tick delays, and invalidates the request if still paused after 20 waits.
+`outer_audio_pause` records the number of acknowledgments, the last wait count,
+and timeouts. This deliberately delays audio and does not cover other state
+users, DMA, real-time deadlines, or audible continuity. The ordinary boundary
+bypass counters do not apply in this mode.
 The pointer ownership, call ordering, 64-frame bypass and return ABI,
 other selector paths, timeout recovery, audio continuity, and target timing
 are not established. The code uses unowned scratch and flash. **Never install

@@ -5437,6 +5437,67 @@ boundary-source and instrumented handoff-source hashes were
 All four runs used stock MAIN, initial NOR, panel state, `l6dbg` and the
 unattested QEMU executable identified in the preceding packed-tail run.
 
+#### Outer audio-block pause diagnostic
+
+An opt-in QEMU-only variant redirects the revision-guarded call at
+`0x80014c84` in `AudioProcess`, immediately before its call to the stock
+block processor. When a selector requests a snapshot, this wrapper
+acknowledges the exact request generation and parks the audio task in
+one-tick delays until the selector closes the pause. It invalidates the
+request after 20 waits. The host protocol test covers a stale acknowledgment
+and a timeout before publication. This does not synchronize other task,
+interrupt, DMA or file-mix users, and intentionally delays audio.
+
+An uninstrumented run and a separate plugin-assisted run each observed
+AINR selected, the learned flag, one acknowledgment, two audio-side waits,
+no timeout and a reported snapshot installation. The sampled sends changed.
+In the instrumented run, the plugin observed the request, acknowledgment,
+copy start and end, and pause closure, with no CPU writes starting in
+`0x20280000..0x20299514` while the pause was acknowledged. This is one
+modeled schedule; it cannot establish absence of DMA or other writers, a
+complete AINR footprint, useful noise reduction, physical timing, or audio
+continuity. The two-tick wait itself is a deadline concern. The hook's
+compiler-reported stack frame was 40 bytes, excluding its callees and
+interrupts. The scratch and heap lifetimes are unqualified. **Do not install
+this image on hardware.**
+
+A separate temporary build forced the selector to delay 30 ticks after
+acknowledgment. The audio-side wait reached 20 and invalidated the pause;
+the diagnostic recorded capture failure, ready token zero and zero AINR
+processing count while the effect callback advanced. This is a forced
+ordering, not proof of all timeout races. The exact-generation acknowledgment
+also prevents an old request from acknowledging a new one, as tested on the
+host and under Miri.
+
+The normal diagnostic MAIN, ELF, recipe and uninstrumented result hashes were
+`7381d49371abb6f89d6bbdced0d52a9accc416d22dfa7717dfac7c236cb9957a`,
+`f40b93ae4d6d72eda60cc1329d5cb9f7650311fa29ee1ac3c31068647fb8e43b`,
+`3bb6c756963a43e1936bc06df57c1bda41018474a626300ead6a7ebe100f409a`, and
+`b628a4a2bd4a22cb0c2e234abb9b44dfeb316d607b83804587aa90d3dbb65f18`.
+The trace and traced result hashes were
+`8febf20ad59a4b44ffd4e278042d02d43e991a7c1e63996913abc90719377f92` and
+`1725fac2ccb83fd77a320311b7772381993f7fd2b2c2682c476580b73142d577`.
+The forced-timeout MAIN, ELF, recipe, result and modified handoff source hashes were
+`21a3a69e8c90fa83e846be8bfd8680173992d11b3dbe7b5f88d275fa56b0d083`,
+`ed1e4dd83d09fca76e710b5db2bc26d5ef06fe0a2fc2085503a4dfb53d876d3a`,
+`d0b43d1f2a4f51398ec165f45b9cdacdafbbd2f325137127159fcbdffc716199`,
+`bdd924615e9e1535677f4058824e2990991f84490c1fa2ea01deb4a75fb86247`, and
+`402968e3107027a5af4d78f95573e078ba74371d41c57871cd97388d2d188a57`.
+The trace plugin source, binary and wrapper hashes were
+`5360ffafd11221adf8d773a7827ce5967fe543f40c97dcad18c3a50c40206b77`,
+`524cd47d8c21984cdcde46b85ef38cc5b59344621ec768d371e43b5c0941697f`, and
+`0dc51401792edfcf3baad8f31493040b1246965f768c40fd413cd70893ab8629`.
+The stack-metadata ELF hash was
+`b71b92855352fcad8858fc07dd00340dd3a5c311446b7b7b5d02a0eca1dd2294`.
+The stock MAIN and input NOR were
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461` and
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`.
+The uninstrumented and plugin-enabled QEMU binaries were respectively
+`53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a` and
+`e5acb1abd30c50ed0413c6a6bf8bd1e99b39780bc0bf80a39f3a11a99c530e25`;
+their source provenance is unattested. `l6dbg` SHA-256 was
+`aed900b0f7f43f225233f7f1a33e5ba8e159d4a698905297e0fb48c5c8519cc0`.
+
 #### Split effect-buffer snapshot experiment
 
 A disposable prototype placed the 56,264-byte candidate snapshot in two

@@ -4,7 +4,7 @@ import subprocess
 import sys
 import unittest
 
-from fixture import MODE_CALL_SITES, install_ainr_pair, install_ainr_selector_veneer, install_ainr_veneer, install_boundary_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, install_selector_admission, install_selector_feedback, validate_probe_entry
+from fixture import MODE_CALL_SITES, install_ainr_pair, install_ainr_selector_veneer, install_ainr_veneer, install_boundary_hook, install_outer_audio_hook, install_file_mix_handoff, install_mode_hooks, install_offline_mix_hook, install_panel_receive_hooks, install_selector_admission, install_selector_feedback, validate_probe_entry
 from thumb_branch import branch
 
 
@@ -267,6 +267,25 @@ class BoundaryHookGuardTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             install_boundary_hook(image, 0x80109000)
         self.assertEqual(image, before)
+
+
+class OuterAudioHookGuardTests(unittest.TestCase):
+    def test_revision_and_target_are_guarded(self):
+        original = bytearray(0x14c88)
+        original[0x14c84:] = bytes.fromhex("fff794fe")
+        for target in (None, 0x80109001, 0x80107ffe, 0x801a2ff8):
+            image = original[:]
+            with self.subTest(target=target), self.assertRaises(ValueError):
+                install_outer_audio_hook(image, target)
+            self.assertEqual(image, original)
+        bad = original[:]
+        bad[0x14c84] ^= 1
+        before = bad[:]
+        with self.assertRaises(ValueError):
+            install_outer_audio_hook(bad, 0x80109000)
+        self.assertEqual(bad, before)
+        install_outer_audio_hook(original, 0x80109000)
+        self.assertEqual(original[0x14c84:], branch(0x80014c84, 0x80109000))
 
 
 class PanelReceiveHookGuardTests(unittest.TestCase):

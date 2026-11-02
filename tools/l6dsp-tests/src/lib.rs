@@ -133,7 +133,7 @@ mod tests {
 
     #[test]
     fn ainr_boundary_pause_rejects_stale_acknowledgment_after_timeout() {
-        use core::sync::atomic::{AtomicU32, Ordering};
+        use core::sync::atomic::AtomicU32;
         let word = AtomicU32::new(0);
         let pause = boundary_pause::BoundaryPause(&word);
         let old = pause.request().unwrap();
@@ -141,10 +141,11 @@ mod tests {
         assert!(!pause.acknowledged(old));
         assert!(pause.finish(old));
         let new = pause.request().unwrap();
-        assert!(word.compare_exchange(old, (old & !3) | 2, Ordering::AcqRel, Ordering::Acquire).is_err());
+        assert!(!pause.acknowledge(old));
+        assert!(!pause.acknowledged(new));
         assert!(!pause.acknowledged(old));
         assert!(!pause.finish(old));
-        assert!(pause.bypass(0));
+        assert!(pause.acknowledge(new));
         assert!(pause.acknowledged(new));
         assert!(pause.bypass(1));
         assert!(!pause.bypass(2));
@@ -216,6 +217,13 @@ mod tests {
         assert!(!pause.publish_capture(third, &capture, cancelled));
         assert!(!capture.done());
         assert!(!pause.bypass(0));
+        capture.arm();
+        let (timeout_claim, _) = capture.claim().unwrap();
+        let timeout = pause.request().unwrap();
+        assert!(pause.bypass(0));
+        assert!(pause.finish(timeout));
+        assert!(!pause.publish_capture(timeout, &capture, timeout_claim));
+        assert!(!capture.done());
     }
 
     #[test]
