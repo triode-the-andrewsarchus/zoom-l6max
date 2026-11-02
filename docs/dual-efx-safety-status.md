@@ -204,6 +204,21 @@ Velvet now supports the full requested density range with up to 285 taps;
 its minimum of two taps and integer rounding constrain short spreads. The
 parameter model displays the resulting target density while retaining the
 requested setting. Meeting the audio deadline remains unresolved.
+Dynamic Velvet renewals now use consecutive generation numbers for left and
+right, matching the pinned upstream core's channel sequence after the two
+initial banks. A host test checks selected tap delays and signs across four
+banks at one parameter setting. Filter edits use this port's incremental
+transition behavior, and this test does not establish complete audio parity.
+A disposable ARM diagnostic selected the custom callback, opened the
+inspector, applied eight queued edits without drops and closed it. Its MAIN,
+ELF, recipe and result hashes were
+`5ac73427509f9f9614c6c3d43dd3a5b97682d11b5bfdf1246ad5a9cc3890c754`,
+`7bf4c1a9b6e69b458cfa0a8b887a2c8ab6c713c4008d3103ce5369ded72d4b66`,
+`b3b7a0c38b8ee5ab6f9a63bae0d385f211af72a7dd2ab530cff3560adcd1814d`, and
+`af20172316b02edf7e95d48be9b9b918e62d6faa828570f4e6fa8abb8958e35b`.
+The stock MAIN, initial NOR, QEMU and `l6dbg` matched the identities in the
+following renewal diagnostic; QEMU source is unattested. This uses unowned
+scratch and does not establish physical timing or audible quality.
 At 285 taps, a 100 ms renewal and a 90 ms fade, the former one-tap-per-frame
 normalization delayed subsequent fade starts by 90 samples. The builder now
 normalizes up to two taps per channel per frame; host tests check the requested

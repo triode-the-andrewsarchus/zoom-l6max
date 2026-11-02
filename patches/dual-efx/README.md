@@ -9,6 +9,9 @@ Replaces the stock mono/reconstructed send effects with high-end modern DSP engi
 1. **Velvet Noise Decorrelator (VND)** (Effect A):
    Ported from [115dkk/Velvet-Noise-Decorrelator-VST3](https://github.com/115dkk/Velvet-Noise-Decorrelator-VST3) to bare-metal `no_std` ARM Cortex-M7. Replaces Spring Reverb (`efx_type = 2`). Generates a sparse, unit-energy impulse sequence to decorrelate stereo audio channels without comb filtering or transient smearing.
    Each generated bank begins with the reference's positive zero-delay tap.
+   The initial banks share their generation number across channels; later
+   renewals use consecutive generation numbers for left and right, as in the
+   reference. Filter edits use this port's incremental transition behavior.
    This send-effect adaptation uses a wet-only output, single-precision math,
    and up to 285 taps; it is not bit-identical to the reference plug-in.
    An out-of-range bank tap count silences that bank instead of panicking;

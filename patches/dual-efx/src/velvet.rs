@@ -300,8 +300,7 @@ impl VelvetDecorrelator {
             if self.transitioning {
                 self.filter_update_pending = true;
             } else {
-                self.start_build(self.pending_bank, self.generation);
-                self.generation = self.generation.wrapping_add(1);
+                self.start_next_build(self.pending_bank);
                 self.filter_update_pending = true;
             }
         }
@@ -313,11 +312,11 @@ impl VelvetDecorrelator {
         self.amount_current = self.current.amount;
         self.amount_step = 0.0;
         self.amount_remaining = 0;
-        self.start_build(0, 0);
+        self.start_build(0, [0, 0]);
         while self.build.phase != 0 {
             self.build_step();
         }
-        self.start_build(1, 1);
+        self.start_build(1, [1, 1]);
         while self.build.phase != 0 {
             self.build_step();
         }
@@ -345,12 +344,18 @@ impl VelvetDecorrelator {
         )
     }
 
-    fn start_build(&mut self, bank: usize, generation: u64) {
+    fn start_next_build(&mut self, bank: usize) {
+        let generation = self.generation;
+        self.start_build(bank, [generation, generation.wrapping_add(1)]);
+        self.generation = generation.wrapping_add(2);
+    }
+
+    fn start_build(&mut self, bank: usize, generations: [u64; 2]) {
         let count = self.tap_count(self.current.density);
         self.build = BankBuild {
             bank, count, index: 0, tail: self.current_tail_samples, phase: 1,
-            random: [mixed_seed(self.current.seed, 0, generation),
-                     mixed_seed(self.current.seed, 1, generation)],
+            random: [mixed_seed(self.current.seed, 0, generations[0]),
+                     mixed_seed(self.current.seed, 1, generations[1])],
             previous: [0; 2], energy: [0.0; 2], scale: [0.0; 2],
             grid: self.current_tail_samples as f32 / (count - 1) as f32,
             decay_db: self.current.decay_db,
@@ -642,8 +647,7 @@ impl VelvetDecorrelator {
             1
         };
 
-        self.start_build(self.pending_bank, self.generation);
-        self.generation = self.generation.wrapping_add(1);
+        self.start_next_build(self.pending_bank);
     }
 
     /// Process a block of stereo frames in-place or from buffer.
@@ -660,6 +664,36 @@ impl VelvetDecorrelator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dynamic_stereo_bank_seeds_follow_the_upstream_sequence() {
+        // Delay/sign samples from upstream a391a12a0b96b190a05cd7cefa25becf4f31660c
+        // at 48 kHz, 25 ms, 400 pps, 100 ms renewal and a 1 ms fade.
+        let expected = [
+            [[144, 366, -648, -903], [-112, 449, -636, 885]],
+            [[-183, -424, -615, 901], [114, 435, 643, -925]],
+            [[88, -413, 696, 939], [102, -442, -670, 899]],
+            [[76, -375, -711, -890], [-167, -430, 724, -896]],
+        ];
+        let mut engine = Box::new(VelvetDecorrelator::new());
+        engine.init(Parameters { length_ms: 25.0, density: 400.0,
+            refresh_seconds: 0.1, transition_ms: 1.0, dynamic: true,
+            ..Parameters::default() });
+        for (bank, expected_channels) in expected.iter().enumerate() {
+            if bank != 0 {
+                let frames = if bank == 1 { 4848 } else { 4800 };
+                for _ in 0..frames { engine.advance_filter(); }
+            }
+            for (c, expected_taps) in expected_channels.iter().enumerate() {
+                let actual = &engine.channels[c].banks[engine.active_bank];
+                let selected = [1, 3, 5, 7].map(|i| {
+                    let tap = actual.storage[i];
+                    if tap.gain < 0.0 { -(tap.delay as i32) } else { tap.delay as i32 }
+                });
+                assert_eq!(&selected, expected_taps, "bank {bank}, channel {c}");
+            }
+        }
+    }
 
     #[test]
     fn maximum_density_renewal_stays_on_schedule_after_long_fades() {
@@ -687,7 +721,7 @@ mod tests {
             effect.init(Parameters { length_ms, density, ..Parameters::default() });
             let expected = [effect.channels[0].banks[1], effect.channels[1].banks[1]];
             let count = expected[0].count;
-            effect.start_build(1, 1);
+            effect.start_build(1, [1, 1]);
             let mut steps = 0;
             let mut sequential = None;
             while effect.build.phase != 0 {
