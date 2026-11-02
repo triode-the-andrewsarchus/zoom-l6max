@@ -8635,6 +8635,41 @@ the QEMU source is unattested. The initial panel flash, options and RTC were
 `473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
 The modified diagnostic image must not be installed.
 
+A later QEMU-only variant acquired the modeled live-bypass lease before the
+entire `AudioProcess` block and redirected its wrapper to the stock silent
+branch while file mixing held the effect lease. During one forced wake, the
+semaphore give succeeded; the observer saw one bypass lease, one silent wrapper
+and one completed stock block, with the file-mix gate held before and after
+the wake. At the wrapper the gate value was 3, indicating both the file-mix
+and live-bypass bits. The bounce completed with 6,144 routed callbacks and passed the
+existing single-block send and output-statistics checks. The CPU trace recorded
+165 instruction addresses touching the live arrays during the mix window,
+including 512 writes from `0x80000714`, with zero table overflow. The
+track-workspace positive control recorded 34,758,145 reads. At the later
+snapshot the mode was 0 and the completed-bypass counter was one.
+
+This is evidence for one forced schedule, not a safe firmware handoff. The
+prototype assumes all wrapper entries pass through the outer hook; it skips
+stock deferred effect work, uses unowned scratch and drops the block when
+neither lease is available. The live block may touch other file-mix globals;
+selector behavior, DMA, output continuity, actual control updates and target
+timing remain unqualified. Never install the diagnostic.
+
+Diagnostic MAIN, ELF, initial NOR, card, recipe, result and CPU trace SHA-256
+values were respectively
+`067f4b504758cee756f90270a153200927bb040bb4ae9ec02387cf584cecd177`,
+`793af46435b09814dae14a8612a354f9d0b36503d742c8cc9f4bf1b15ed2b674`,
+`ffbce2d4538929ac1b674c8131ccf0e3012d411733463be0067c40de86fe6df5`,
+`fb1a78fb2bbce8d8abb6e2f87da342e96aad6a02545bf6bfdecf2c564deb2c44`,
+`792fbcd2bce79eb4a2fbb2958c71c1572591c5c20908582fa3324746c590136f`,
+`806626e139293642048659aa269c11710dd16fd4e2e8abbe4bd2c7fc2a48a2e1`, and
+`d61211cc5e78247db8eb8a0f475659168231f96eeee1b4bc9b5a04d2b959ac1e`.
+The stock MAIN, source NOR, panel fixtures, QEMU and `l6dbg` identities
+matched the preceding live-buffer observation; QEMU source is unattested.
+The plugin source and binary SHA-256 values were
+`e4eff298a7ae45e504a2fa02d965f17acf5f77c5a8473ba0b1992eca4a5484d0` and
+`e37bc7599cbae39314ea84f0f0744fbfe46b3b701a9fef158388a1108bbc9f94`.
+
 The forced-bounce probe also has an inner-guard variant: it allows the stock
 `AudioProcess` block to proceed, but rejects its effect wrapper while file
 mixing holds the lease. In one run the forced semaphore give succeeded, the

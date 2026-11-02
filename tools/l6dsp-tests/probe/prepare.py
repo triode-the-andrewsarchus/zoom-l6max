@@ -34,6 +34,7 @@ parser.add_argument("--file-mix-handoff", choices=("pending", "bypass", "atomic"
 parser.add_argument("--file-mix-project", action="store_true", help="route a recorded project through a QEMU-only file-mix workspace probe")
 parser.add_argument("--file-mix-project-pending", action="store_true", help="force one audio wake during a recorded-project mix callback")
 parser.add_argument("--file-mix-project-inner", action="store_true", help="guard the effect wrapper instead of discarding whole audio blocks (unsafe QEMU experiment)")
+parser.add_argument("--file-mix-project-leased-bypass", action="store_true", help="model an outer live-bypass lease during project mix (unsafe QEMU experiment)")
 parser.add_argument("--selector-admission", action="store_true", help="also gate effect selection after the stock fade (QEMU only)")
 parser.add_argument("--selector-overlap", action="store_true", help="force a live lease across selector closure (QEMU only)")
 parser.add_argument("--selector-timeout", action="store_true", help="force a selector timeout and inspect partial recovery (QEMU only)")
@@ -80,6 +81,8 @@ if args.file_mix_project_pending and not args.file_mix_project:
     parser.error("--file-mix-project-pending requires --file-mix-project")
 if args.file_mix_project_inner and not args.file_mix_project_pending:
     parser.error("--file-mix-project-inner requires --file-mix-project-pending")
+if args.file_mix_project_leased_bypass and (not args.file_mix_project_pending or args.file_mix_project_inner):
+    parser.error("--file-mix-project-leased-bypass requires project pending and excludes inner guard")
 if args.file_mix_project and (args.selector_admission or args.combined_admission_refresh):
     parser.error("--file-mix-project cannot be combined with selector or refresh admission")
 if args.selector_admission and args.file_mix_handoff != "atomic":
@@ -233,6 +236,8 @@ if args.file_mix_project:
     rustc += ["--cfg", "file_mix_project"]
 if args.file_mix_project_pending:
     rustc += ["--cfg", "file_mix_project_pending"]
+if args.file_mix_project_leased_bypass:
+    rustc += ["--cfg", "file_mix_project_leased_bypass"]
 if args.file_mix_handoff:
     rustc += ["--cfg", "file_mix_handoff"]
     if args.file_mix_handoff == "bypass":
@@ -315,12 +320,13 @@ if args.file_mix_handoff:
     symbols = {}
     for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines():
         parts = line.split()
-        if len(parts) == 3 and parts[2] in ("mix_handoff_observer", "mix_handoff_bypass", "file_mix_outer_audio", "file_mix_effect_veneer"):
+        if len(parts) == 3 and parts[2] in ("mix_handoff_observer", "mix_handoff_bypass", "file_mix_outer_audio", "file_mix_effect_veneer", "file_mix_guarded_wrapper"):
             if parts[2] in symbols:
                 raise ValueError("duplicate file-mix handoff symbol")
             symbols[parts[2]] = int(parts[0], 16) & ~1
-    use_inner = args.file_mix_handoff != "pending" and (not args.file_mix_project or args.file_mix_project_inner)
-    bypass = symbols.get("mix_handoff_bypass") if use_inner else None
+    use_inner = args.file_mix_handoff != "pending" and (not args.file_mix_project or args.file_mix_project_inner or args.file_mix_project_leased_bypass)
+    bypass_name = "file_mix_guarded_wrapper" if args.file_mix_project_leased_bypass else "mix_handoff_bypass"
+    bypass = symbols.get(bypass_name) if use_inner else None
     if use_inner and bypass is None:
         raise ValueError("missing file-mix bypass symbol")
     install_file_mix_handoff(image, symbols.get("mix_handoff_observer"), bypass)
@@ -826,6 +832,8 @@ if args.file_mix_project:
     add("memory", name="file_mix_output", address=0x83e0a078, length=16)
     if args.file_mix_project_pending:
         add("memory", name="project_pending", address=0x83e0b800, length=24)
+    if args.file_mix_project_leased_bypass:
+        add("memory", name="project_leased_bypass", address=0x83e0b820, length=24)
 (out / "recipe.toml").write_text(recipe)
 if args.pre_ainr:
     metadata = {"stock_main_sha256": MAIN_SHA, "diagnostic_main_sha256": image_sha,

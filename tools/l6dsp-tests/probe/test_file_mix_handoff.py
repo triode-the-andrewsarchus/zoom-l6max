@@ -3,7 +3,7 @@ import copy
 import struct
 import unittest
 
-from file_mix_handoff import check, check_ainr_admission, check_ainr_timeout, check_learned_marker, check_midi_trace, check_project, check_project_pending, check_timeout
+from file_mix_handoff import check, check_ainr_admission, check_ainr_timeout, check_learned_marker, check_midi_trace, check_project, check_project_leased_bypass, check_project_pending, check_timeout
 
 
 def capture_report(captures):
@@ -39,6 +39,17 @@ class FileMixHandoffTests(unittest.TestCase):
         check_project(capture_report(captures))
         pending = dict(captures, project_pending=('<6I', (2, 2, 0, 1, 1, 2)))
         self.assertEqual(check_project_pending(capture_report(pending)), 1)
+        leased = dict(pending, project_leased_bypass=('<6I', (0, 1, 1, 1, 0, 3)))
+        self.assertEqual(check_project_leased_bypass(capture_report(leased)), 1)
+        running = dict(leased, project_leased_bypass=('<6I', (1, 1, 1, 1, 0, 3)))
+        self.assertEqual(check_project_leased_bypass(capture_report(running)), 1)
+        for index in range(6):
+            bad_leased = dict(leased)
+            words = [0, 1, 1, 1, 0, 3]
+            words[index] = 2 if index == 0 else words[index] ^ 1
+            bad_leased['project_leased_bypass'] = ('<6I', tuple(words))
+            with self.subTest(leased_index=index), self.assertRaises(ValueError):
+                check_project_leased_bypass(capture_report(bad_leased))
         for index, value in enumerate((1, 0, 1, 0, 0, 0)):
             bad_pending = dict(pending)
             words = [2, 2, 0, 1, 1, 2]

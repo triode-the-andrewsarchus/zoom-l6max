@@ -56,11 +56,50 @@ pub unsafe fn queue_if_requested() {
 pub unsafe extern "C" fn file_mix_outer_audio(input: u32) {
     unsafe {
         if !ensure_gate() { return; }
-        if let Some(_lease) = (&*(GATE as *const CallbackAdmission)).try_enter(CallbackPath::Live) {
-            let stock: unsafe extern "C" fn(u32) = core::mem::transmute(0x800149b1usize);
+        let gate = &*(GATE as *const CallbackAdmission);
+        let stock: unsafe extern "C" fn(u32) = core::mem::transmute(0x800149b1usize);
+        #[cfg(file_mix_project_leased_bypass)]
+        let mode = &*(0x83e0b820 as *const AtomicU32);
+        if let Some(_lease) = gate.try_enter(CallbackPath::Live) {
+            #[cfg(file_mix_project_leased_bypass)]
+            mode.store(1, Ordering::Release);
             stock(input);
+            #[cfg(file_mix_project_leased_bypass)]
+            mode.store(0, Ordering::Release);
         } else {
+            #[cfg(file_mix_project_leased_bypass)]
+            if let Some(_bypass) = gate.try_enter_live_bypass() {
+                (&*(0x83e0b004 as *const AtomicU32)).fetch_add(1, Ordering::Relaxed);
+                (&*(0x83e0b824 as *const AtomicU32)).fetch_add(1, Ordering::Relaxed);
+                mode.store(2, Ordering::Release);
+                stock(input);
+                mode.store(0, Ordering::Release);
+                (&*(0x83e0b82c as *const AtomicU32)).fetch_add(1, Ordering::Relaxed);
+                return;
+            }
+            #[cfg(file_mix_project_leased_bypass)]
+            (&*(0x83e0b830 as *const AtomicU32)).fetch_add(1, Ordering::Relaxed);
             (&*(0x83e0b004 as *const AtomicU32)).fetch_add(1, Ordering::Relaxed);
+        }
+    }
+}
+
+// QEMU-only: mode is published by the outer hook while its lease is held.
+// This assumes all wrapper entries arrive from that hook; it is not proven.
+#[cfg(file_mix_project_leased_bypass)]
+#[unsafe(no_mangle)]
+#[unsafe(link_section = ".text.mix_handoff_guarded_wrapper")]
+pub unsafe extern "C" fn file_mix_guarded_wrapper() {
+    unsafe {
+        match (&*(0x83e0b820 as *const AtomicU32)).load(Ordering::Acquire) {
+            1 => mix_handoff_original(),
+            2 => {
+                let state = (&*(GATE as *const AtomicU32)).load(Ordering::Acquire);
+                (&*(0x83e0b834 as *const AtomicU32)).store(state, Ordering::Relaxed);
+                (&*(0x83e0b828 as *const AtomicU32)).fetch_add(1, Ordering::Relaxed);
+                mix_handoff_silence();
+            }
+            _ => { (&*(0x83e0b830 as *const AtomicU32)).fetch_add(1, Ordering::Relaxed); }
         }
     }
 }
@@ -85,6 +124,8 @@ pub unsafe extern "C" fn mix_handoff_observer(a: u32, b: u32, c: u32, d: u32) ->
         };
         #[cfg(file_mix_atomic)]
         write(0x83e0b004 as *mut u32, 0);
+        #[cfg(file_mix_project_leased_bypass)]
+        for i in 1..6 { (&*(0x83e0b820 as *const AtomicU32).add(i)).store(0, Ordering::Relaxed); }
         #[cfg(file_mix_bypass)]
         {
             write(0x83e0b004 as *mut u32, 0);

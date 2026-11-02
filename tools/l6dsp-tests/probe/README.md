@@ -168,6 +168,17 @@ and does not guard the rest of the mixer. This is an intentionally incomplete
 QEMU-only experiment, not an installable fallback. Use the same checker and
 inspect the trace and its overflow count separately.
 
+Alternatively, use `--file-mix-project-leased-bypass` with the project and
+pending options, and add `--project-leased-bypass` to the checker. The outer
+hook holds a modeled live-bypass lease across the stock block, while a wrapper
+hook takes the stock no-callback path. The checker requires the forced wake,
+both lease bits at the wrapper, one bypassed wrapper and a completed block.
+The diagnostic assumes every live
+wrapper entry comes through the outer hook; it uses unowned scratch, skips
+deferred effect work and drops a block if both admissions fail. Stock global
+sharing, the selector, DMA, control updates, output continuity and target
+timing remain unqualified. Never install it.
+
 One instrumented run recorded 6,144 routed calls, a maximum offset of 131,008,
 a maximum captured input difference of `1.46e-11` and 785,470 nonzero output
 samples. Left and right peaks were approximately `0.00042172` and

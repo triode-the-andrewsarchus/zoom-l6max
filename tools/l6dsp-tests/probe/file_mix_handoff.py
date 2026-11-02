@@ -49,8 +49,17 @@ def check_project(report):
 def check_project_pending(report):
     phase, gate_before, before, signaled, after, gate_after = words(observations(report), 'project_pending', '<6I')
     if (phase, gate_before, signaled, gate_after) != (2, 2, 1, 2) or after != before + 1:
-        raise ValueError('forced audio wake was not rejected during the file-mix callback')
+        raise ValueError('forced audio wake did not hit the file-mix guard')
     return after - before
+
+
+def check_project_leased_bypass(report):
+    mode, entered, wrappers, completed, failed, gate = words(observations(report), 'project_leased_bypass', '<6I')
+    # The stream has restarted by this snapshot, so a normal block may own
+    # mode 1. Mode 2 would mean a bypass is still marked active.
+    if mode not in (0, 1) or (entered, wrappers, completed, failed, gate) != (1, 1, 1, 0, 3):
+        raise ValueError('live bypass did not complete one guarded audio block')
+    return completed
 
 
 def check_selector(items):
@@ -233,6 +242,8 @@ def run_ainr_check(args, report):
 
 
 def run_check(args):
+    if args.project_leased_bypass and not args.project_pending:
+        raise ValueError('--project-leased-bypass requires --project-pending')
     if args.project_pending and not args.project:
         raise ValueError('--project-pending requires --project')
     if args.project:
@@ -242,7 +253,10 @@ def run_check(args):
         report = json.loads(args.report.read_text())
         result = check_project(report)
         if args.project_pending:
-            result['forced_audio_rejections'] = check_project_pending(report)
+            key = 'forced_effect_bypasses' if args.project_leased_bypass else 'forced_audio_rejections'
+            result[key] = check_project_pending(report)
+        if args.project_leased_bypass:
+            result['leased_bypass_blocks'] = check_project_leased_bypass(report)
         return result
     validate_options(args)
     validate_ainr_options(args)
@@ -260,6 +274,7 @@ def main():
     parser.add_argument('report', type=Path)
     parser.add_argument('--project', action='store_true', help='check the recorded-project workspace probe')
     parser.add_argument('--project-pending', action='store_true', help='check a forced audio wake inside the project mix callback')
+    parser.add_argument('--project-leased-bypass', action='store_true', help='check the experimental outer-lease bypass')
     parser.add_argument('--bypass', action='store_true')
     parser.add_argument('--selector', action='store_true')
     parser.add_argument('--overlap', action='store_true')

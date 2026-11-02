@@ -115,9 +115,11 @@ The blocking findings for L6max MAIN 1.10
   buffers in use by the admitted call despite having failed to acquire a lease.
   A separate modeled bypass lease can exclude other live entries while file
   mixing holds the effect lease; it grants no access to effect state. Host
-  tests cover concurrent claims and selector drain. This lease is not wired
-  into firmware, and stock resource separation and the selector-closed
-  rejection path remain unproven.
+  tests cover concurrent claims and selector drain. In one QEMU-only forced
+  bounce, an outer lease covered a complete live block and its bypassed
+  wrapper while file mixing continued. This is not a firmware integration:
+  stock resource separation, deferred work, selector-closed rejection,
+  output continuity and hardware behavior remain unproven.
 - In QEMU, the inspector's long-hold gesture was misclassified during a
   stress run with nonzero synthetic sends on all three effect buses. Silent
   input runs passed after a DSP optimization; the active-audio control path
