@@ -654,7 +654,28 @@ The `--pre-ainr` diagnostic calls three relocated AINR copies before the
 routed effects on synthetic sends. It is a QEMU-only experiment: it modifies
 emulated execution and uses scratch code and state with no established physical
 ownership. **Never install or run its output on hardware.** It does not enable
-the patch builder.
+the patch builder. The diagnostic converts its normalized sends to the stock
+mixer's observed float scale before each AINR call and converts the output back.
+This boundary has only been compared against stock for a short captured signal;
+it does not establish full-scale limits, denoising quality, or safe behavior for
+all learned states. Results from older revisions passed normalized sends
+directly to the native-scale AINR call and do not validate this boundary.
+
+One scaled diagnostic run reported the learned word as 1 and an initialized
+callback; its send counter increased from 2,718 to 5,337, the sampled sends
+and output were finite. It does not establish audible noise reduction. The
+stock MAIN and initial NOR were
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461` and
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`.
+Diagnostic MAIN, ELF, recipe and result SHA-256 values were
+`267d91bb290e9d600a1f1407558380b2fa899d4cfe7bb57b6096aaf1218d2944`,
+`cce3adb0e85d6987e80394be10b3102381de001f8bea41a88d7d6fcdfa4512a6`,
+`c5e5052aa36d9cb64bedf7bf47b04d52c53220757a4f6b2794689be9e469b11a` and
+`4aea3add16a1935872794866bd3bfc3844cc37c308423fda92531177a5a36df3`.
+The QEMU executable was
+`eade074b5d7a6fe9d74bbbe1ad36a34f7356cd200cbfc81e772f2a21892012e8`
+with unattested source; `l6dbg` was
+`ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`.
 
 Prepare the fixture, then run the printed `l6dbg` command in one terminal and
 the printed observer command in another. Supply the exact QEMU executable to

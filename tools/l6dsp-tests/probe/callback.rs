@@ -252,9 +252,13 @@ fn process_pre_ainr_sends(sends: &mut [[f32; 64]; 3]) {
         #[cfg(effect_buffer_probe)]
         let entry = 0x80130781usize + bus * 0x6000;
         let ainr: unsafe extern "C" fn(*mut f32, *mut f32, u32) = unsafe { core::mem::transmute(entry) };
+        // The observed stock AINR call uses float samples at the stock mixer
+        // scale. The diagnostic routing engine uses normalized samples.
+        for sample in &mut sends[bus] { *sample *= 2147483648.0; }
         let samples = sends[bus].as_mut_ptr();
         unsafe {
             ainr(samples, samples, 0);
+            for sample in &mut sends[bus] { *sample *= 1.0 / 2147483648.0; }
             core::ptr::write_volatile((0x83e03004usize + bus * 8) as *mut f32, before);
             core::ptr::write_volatile((0x83e03008usize + bus * 8) as *mut f32, sends[bus][63]);
         }

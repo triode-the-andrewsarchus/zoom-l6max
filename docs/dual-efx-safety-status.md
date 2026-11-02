@@ -65,6 +65,18 @@ The blocking findings for L6max MAIN 1.10
   callback stopped EFX SEL cycling because it did not advance the stock
   control stream. The diagnostic now advances it and the tested six-press
   sequence progresses, but the production firmware integration is unfinished.
+- The QEMU-only pre-AINR prototype previously passed normalized sends into
+  copied stock AINR and treated its output as normalized. In an active-input
+  QEMU capture, the learned stock index-0 call instead received float samples
+  peaking at 46,271,680; its output peaked at 30,637,510. Eight fresh-state
+  clone comparisons matched stock output after converting the input through
+  normalized units and back. A second clone given normalized input without
+  conversion still produced native-scale output from the copied learned
+  history. The diagnostic now converts before and after that call. This short
+  capture does not establish independent learning, physical full scale, or
+  denoising quality. Continuous-clone comparisons without refreshed state
+  diverged at zero-based blocks 65 and 73 in two runs; the cause is unproven.
+  See the [research observation](https://github.com/derekstavis/zoom-l6max-research/blob/decb0af/docs/firmware/l6max-effects-ainr.md#selection-learning-and-processing).
 - L6max 1.10 also supports stock effect returns to Sub-Mix and Mix Minus.
   A QEMU diagnostic with synthetic sends and replacement DSP reached modeled
   Sub-Mix transmit slots when enabled. USB Mix Minus, physical output mapping,
