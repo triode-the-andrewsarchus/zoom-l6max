@@ -63,6 +63,7 @@ parser.add_argument("--boundary-handoff", action="store_true", help="QEMU-only s
 parser.add_argument("--outer-audio-pause", action="store_true", help="QEMU-only: park the whole audio block during the boundary snapshot")
 parser.add_argument("--audio-owner-refresh", action="store_true", help="QEMU-only: capture and refresh at audio-task boundaries")
 parser.add_argument("--heap-refresh", action="store_true", help="QEMU-only: retain a firmware heap allocation for refresh scratch")
+parser.add_argument("--release-heap-refresh", action="store_true", help="QEMU-only: free heap refresh scratch after successful copy")
 parser.add_argument("--boundary-noise", action="store_true", help="inject nonzero stock AINR input in the boundary experiment")
 parser.add_argument("--passthrough-unready", action="store_true", help="keep synthetic sends active when AINR is unavailable")
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
@@ -90,7 +91,7 @@ other_diagnostics = (args.switches, args.inspector, args.mixer_input_capture, ar
         args.irq_trace, args.irq_timing, args.ring_timing, args.ring_drop, args.timing_control,
         args.active_sends, args.selector_load_trace, args.max_velvet_density, args.velvet_fade_stress, args.submix_return,
         args.retain_custom_state, args.pre_ainr, args.effect_buffer, args.auto_handoff,
-        args.channel0_prefix, args.hybrid_handoff, args.boundary_handoff, args.outer_audio_pause, args.audio_owner_refresh, args.heap_refresh, args.boundary_noise,
+        args.channel0_prefix, args.hybrid_handoff, args.boundary_handoff, args.outer_audio_pause, args.audio_owner_refresh, args.heap_refresh, args.release_heap_refresh, args.boundary_noise,
         args.passthrough_unready, args.bank_stress)
 if args.file_mix_handoff and (not args.callback or args.admission_probe
         or args.offline_mix_layout or any(other_diagnostics)):
@@ -164,6 +165,8 @@ if args.audio_owner_refresh and not args.outer_audio_pause:
     parser.error("--audio-owner-refresh requires --outer-audio-pause")
 if args.heap_refresh and not args.audio_owner_refresh:
     parser.error("--heap-refresh requires --audio-owner-refresh")
+if args.release_heap_refresh and not args.heap_refresh:
+    parser.error("--release-heap-refresh requires --heap-refresh")
 if args.boundary_noise and not args.boundary_handoff:
     parser.error("--boundary-noise requires --boundary-handoff")
 if args.passthrough_unready and not args.pre_ainr:
@@ -259,6 +262,8 @@ if args.audio_owner_refresh:
     rustc += ["--cfg", "owner_refresh_probe"]
 if args.heap_refresh:
     rustc += ["--cfg", "heap_refresh_probe"]
+if args.release_heap_refresh:
+    rustc += ["--cfg", "release_heap_refresh_probe"]
 if args.boundary_noise:
     rustc += ["--cfg", "boundary_noise_probe"]
 if args.passthrough_unready:
@@ -643,6 +648,8 @@ wall_timeout_s = 420
             memory("owner_refresh", 0x83e03188, 24)
         if args.heap_refresh:
             memory("heap_refresh", 0x83e031a4, 8)
+        if args.release_heap_refresh:
+            memory("heap_refresh_frees", 0x83e031b0, 4)
     memory("ainr_sends_1", 0x83e03000, 28)
     wait(5000)
     memory("ainr_sends_2", 0x83e03000, 28)
@@ -763,6 +770,8 @@ if args.pre_ainr:
                 metadata["audio_owner_refresh"] = True
             if args.heap_refresh:
                 metadata["heap_refresh"] = True
+            if args.release_heap_refresh:
+                metadata["release_heap_refresh"] = True
     if args.effect_buffer:
         matches = [line.split() for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines()
                    if line.endswith(" diagnostic_audio")]

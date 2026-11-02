@@ -14,6 +14,8 @@ compile_error!("outer audio pause requires the boundary diagnostic");
 compile_error!("audio-owned refresh requires the outer audio diagnostic");
 #[cfg(all(heap_refresh_probe, not(owner_refresh_probe)))]
 compile_error!("heap refresh requires the audio-owned refresh diagnostic");
+#[cfg(all(release_heap_refresh_probe, not(heap_refresh_probe)))]
+compile_error!("heap refresh release requires heap refresh");
 
 const POINTER: usize = 0x83e03100;
 const STATUS: usize = 0x83e03104; // 0 waiting, 1 captured, 2 allocation failed, 3 boundary candidate
@@ -508,6 +510,16 @@ unsafe fn refresh_before_install(ptr: *mut u8, original_claim: u32) -> bool {
             }
         }
         let valid = refresh.release(reader) && original.current_claim(original_claim);
+        #[cfg(release_heap_refresh_probe)]
+        if valid && word(REFRESH_SLOT).compare_exchange(
+            scratch as u32, 0, Ordering::AcqRel, Ordering::Acquire,
+        ).is_ok() {
+            // The primary install claim stays held until install() finishes.
+            // Even cancellation cannot rearm it until that reader retires.
+            let free: unsafe extern "C" fn(*mut u8) = core::mem::transmute(0x8008e589usize);
+            free(scratch);
+            word(0x83e031b0).fetch_add(1, Ordering::Relaxed);
+        }
         word(0x83e0319c).store(if valid { 1 } else { 2 }, Ordering::Release);
         valid
     }

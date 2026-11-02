@@ -663,6 +663,11 @@ allocation-failure count. An unavailable or invalid allocation leaves the
 capture unready; the default synthetic sends are then suppressed, which is not
 a production fallback. The allocation persists for the diagnostic session;
 heap headroom and its lifetime under other device workloads are unqualified.
+Add `--release-heap-refresh` to free that scratch after a successful refresh;
+`heap_refresh_frees` counts completed frees. The selector retains its primary
+install claim during the free, and a timeout retains scratch for a later
+attempt because the audio writer may still hold it. This is a QEMU-only
+lifetime experiment, not a production allocation or fallback policy.
 The pointer ownership, call ordering, 64-frame bypass and return ABI,
 other selector paths, timeout recovery, audio continuity, and target timing
 are not established. The code uses unowned scratch and flash. **Never install

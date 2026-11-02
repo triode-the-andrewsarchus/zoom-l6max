@@ -6001,6 +6001,47 @@ the source-watch plugin source and binary were
 `3d82c85971052ac63c9a0287f1bd6181692628795099237f0317df7b7557ddce` and
 `101109b7d63ca6fe4fbf78a79eaba71da40017b177b839a4e709d8df152b61ba`.
 
+The optional `--release-heap-refresh` variant returns scratch to the stock
+allocator after a completed refresh and copy-out, while the primary install
+claim is still held. A failed or timed-out refresh keeps scratch because a
+late audio writer may still be using it. In one QEMU run, two selections each
+completed and freed scratch; sampled free heap returned to 103,728 bytes
+after each selection, the published scratch pointer was zero, and the free
+counter reached two. A separate inspector run opened, edited to 26.0 ms and
+closed, matching the prior high-scratch control's four 32-byte UI metadata
+observations. Its sampled heap remained at 103,728 bytes throughout.
+
+A forced-delay derivative held the first audio writer for 20,000 firmware
+ticks. After the selector timed out and again while the writer was active,
+scratch remained at `0x80907c18`, the free count was zero, the ready token
+was zero and free heap was 47,448 bytes. After the delayed writer retired,
+the buffer remained allocated and unready. This avoids freeing that buffer
+while the observed writer is active; it does not prove all possible callers,
+hardware timing, allocator headroom or a graceful production fallback.
+
+An extended run of the same forced-delay image cycled back to AINR after the
+writer retired. The learned flag remained set; after another selection the
+refresh completed, the scratch pointer was zero, the free counter was one,
+the ready token was nonzero and sampled free heap had returned to 103,728
+bytes. Its recipe and result were
+`03ace334a5434be92a6e7242eb04080c408a628c0c62ab40e0b04bf2044c6eca` and
+`95edacf516f6e9825782411168c357c1f6b42213643e37a594ce847b33cab300`.
+This is one delayed-writer/reentry schedule, not a general recovery proof.
+
+The normal/UI MAIN and ELF were
+`8155a919b478a711315f09ec96dc7dccbcc202c7a406b74a984d668a6a7dded0` and
+`80ebd65bf27fe5bcbd61a7d1e9b958231a0db03c3c0e8e900d2e33151ea1f792`;
+their recipes were `c27bf1693cee7916dc92d1b345121da78b20c194398cd52d47969e12e19a8a67`
+and `40dc8b94e082b665bd7985f9a64ba36a254db53b9eacca6440c13dc311e0eac8`;
+their results were `0789b42135e677cc2117a41239cde4887b1ca582458d338227c4dbbc06662aec`
+and `2ea17361f765c7be1834a97c1ca04e94709b3222f1506ec49ce0bb85e5af24d0`.
+The forced-delay MAIN, ELF, handoff source, recipe and result were
+`d2e65a281fdff849c7bc2837fd860e7d54cd7387bee816d52c87fc32eeafeffa`,
+`468891381a41feca5b0937dab9fa583f2218234a666b3db5b48abebf183b6d5c`,
+`8e847edd38f1be566ffae594369c8a4fe39095af696efbac81ecb7a9e66ab657`,
+`a3cd2458f157024a2174a49a56d3566f15a0cb589802f70dce29d8b9ba3f2100`, and
+`5b7464a91bedb03e3bf963a188730eeebb3bb2c5e7cba51ca3107ecfb493728b`.
+
 An earlier temporary version compared inspector behavior with the existing
 separate high-scratch diagnostic. In each QEMU run the inspector opened,
 an encoder edit set the displayed value to 26.0 ms, and the inspector closed;

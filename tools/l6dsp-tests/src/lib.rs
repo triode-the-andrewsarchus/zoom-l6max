@@ -248,6 +248,39 @@ mod tests {
     }
 
     #[test]
+    fn refresh_reclaim_keeps_primary_install_claim_until_free_finishes() {
+        use core::sync::atomic::{AtomicU32, Ordering};
+        use std::sync::Barrier;
+        let primary_word = AtomicU32::new(0);
+        let primary = handoff_protocol::CaptureProtocol(&primary_word);
+        let (writer, _) = primary.claim().unwrap();
+        assert!(primary.finish(writer, 15, true));
+        let installer = primary.claim_install().unwrap();
+        // The refresh reader has finished; the primary claim still excludes
+        // a selector that could otherwise acquire this scratch pointer.
+        let slot = AtomicU32::new(0x80907c18);
+        let barrier = Barrier::new(2);
+        std::thread::scope(|scope| {
+            let other = scope.spawn(|| {
+                barrier.wait();
+                assert!(primary.cancel(false));
+                primary.arm();
+                assert!(primary.claim().is_none(), "old installer still owns the primary claim");
+                barrier.wait();
+            });
+            // Force cancellation between the validity check and pointer detach.
+            assert!(primary.current_claim(installer));
+            barrier.wait();
+            barrier.wait();
+            assert!(slot.compare_exchange(0x80907c18, 0, Ordering::AcqRel, Ordering::Acquire).is_ok());
+            assert!(primary.claim().is_none(), "no new installer may use the detached buffer");
+            other.join().unwrap();
+        });
+        assert!(!primary.finish(installer, 15, true));
+        assert!(primary.claim().is_some(), "only retirement allows another capture");
+    }
+
+    #[test]
     fn refresh_retries_exclude_stale_writers_and_readers() {
         use core::sync::atomic::AtomicU32;
         let pause = AtomicU32::new(0);
