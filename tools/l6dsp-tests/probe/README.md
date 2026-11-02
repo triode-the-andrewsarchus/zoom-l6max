@@ -179,6 +179,13 @@ deferred effect work and drops a block if both admissions fail. Stock global
 sharing, the selector, DMA, control updates, output continuity and target
 timing remain unqualified. Never install it.
 
+The buffer-trace plugin also records the four stock wrapper helper entries
+separately during the marked live-bypass window and the rest of the mix
+window. Add `--project-helper-trace OUTPUT/logs/engine.stderr` to the checker
+to require all four helpers, one completed bypass window, trace controls and
+no helper entry during that bypass. This is one instrumented CPU schedule,
+not a proof of every caller, DMA behavior or safe deferred-work handling.
+
 One instrumented run recorded 6,144 routed calls, a maximum offset of 131,008,
 a maximum captured input difference of `1.46e-11` and 785,470 nonzero output
 samples. Left and right peaks were approximately `0.00042172` and

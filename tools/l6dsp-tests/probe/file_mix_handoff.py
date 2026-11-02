@@ -62,6 +62,19 @@ def check_project_leased_bypass(report):
     return completed
 
 
+def check_project_helpers(trace, routed_calls):
+    entries = re.findall(r'^MIX_TRACE_HELPER pc=([0-9a-f]{8}) mix=(\d+) bypass=(\d+)$', trace, re.M)
+    expected = {'8002bb18', '8002bba8', '80066180', '800664f0'}
+    if (len(entries) != 4 or {entry[0] for entry in entries} != expected
+            or any(int(mix) < routed_calls or int(bypass) for _, mix, bypass in entries)):
+        raise ValueError('shared helper trace is incomplete or ran during live bypass')
+    if (re.findall(r'^MIX_TRACE_BYPASS windows=(\d+) active=(\d+)$', trace, re.M) != [('1', '0')]
+            or not re.search(r'^MIX_TRACE_BEGIN before_read=[1-9]\d* before_write=[1-9]\d*$', trace, re.M)
+            or not re.search(r'^MIX_TRACE_END workspace_read=[1-9]\d* overflow=0$', trace, re.M)):
+        raise ValueError('shared helper trace lacks its controls or overflows')
+    return {pc: int(mix) for pc, mix, _ in entries}
+
+
 def check_selector(items):
     attempts, acquired, failed, released, _, active = words(items, 'selector_handoff', '<6I')
     callbacks = [words(items, f'selector_callback_{index}', '<I')[0] for index in range(4)]
@@ -242,6 +255,8 @@ def run_ainr_check(args, report):
 
 
 def run_check(args):
+    if args.project_helper_trace and not args.project_leased_bypass:
+        raise ValueError('--project-helper-trace requires --project-leased-bypass')
     if args.project_leased_bypass and not args.project_pending:
         raise ValueError('--project-leased-bypass requires --project-pending')
     if args.project_pending and not args.project:
@@ -257,6 +272,8 @@ def run_check(args):
             result[key] = check_project_pending(report)
         if args.project_leased_bypass:
             result['leased_bypass_blocks'] = check_project_leased_bypass(report)
+        if args.project_helper_trace:
+            result['helper_entries'] = check_project_helpers(args.project_helper_trace.read_text(), result['routed_calls'])
         return result
     validate_options(args)
     validate_ainr_options(args)
@@ -275,6 +292,7 @@ def main():
     parser.add_argument('--project', action='store_true', help='check the recorded-project workspace probe')
     parser.add_argument('--project-pending', action='store_true', help='check a forced audio wake inside the project mix callback')
     parser.add_argument('--project-leased-bypass', action='store_true', help='check the experimental outer-lease bypass')
+    parser.add_argument('--project-helper-trace', type=Path, help='check shared-helper execution in the plugin trace')
     parser.add_argument('--bypass', action='store_true')
     parser.add_argument('--selector', action='store_true')
     parser.add_argument('--overlap', action='store_true')

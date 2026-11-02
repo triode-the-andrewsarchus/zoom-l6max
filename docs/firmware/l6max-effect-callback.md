@@ -8670,6 +8670,33 @@ The plugin source and binary SHA-256 values were
 `e4eff298a7ae45e504a2fa02d965f17acf5f77c5a8473ba0b1992eca4a5484d0` and
 `e37bc7599cbae39314ea84f0f0744fbfe46b3b701a9fef158388a1108bbc9f94`.
 
+Static inspection of MAIN 1.10 shows that the file-mix effect loop calls the
+same four pre-callback helpers as the live wrapper: at `0x80019552`,
+`0x80019556`, `0x8001955a` and `0x8001955e`, respectively, it calls
+`0x8002bb18`, `0x8002bba8`, `0x80066180` and `0x800664f0`. The first two
+consume pending copies through mutable destination pointers; the latter two
+update shared ramp state. Calling them independently in a preempting live
+block could therefore interfere with the file-mix path.
+
+An extended CPU trace of the leased-bypass bounce counted 6,144 entries to
+each helper outside the one marked live-bypass window and zero inside it.
+The same run completed 6,144 routed file-mix callbacks, passed the project
+checker, and had positive controls for the live buffers and track workspace.
+This demonstrates the observed helper calls and skipped bypass work in one
+instrumented schedule; it does not establish that all deferred work is safe to
+delay, that helpers cannot be reached by other callers, or that concurrency,
+DMA and physical timing are safe. The diagnostic must not be installed.
+
+The stock MAIN, source and diagnostic NOR, diagnostic MAIN and ELF, initial
+card and recipe matched the preceding leased-bypass run. QEMU and `l6dbg`
+also matched; QEMU source remains unattested. The extended trace plugin source,
+binary, wrapper, result and trace SHA-256 values were respectively
+`a80fb43b6106bfefe61d3a8da118cb6b661e36104d08bb34785c3e79a9de75f6`,
+`8d5804142878f4c1f7520ae4f191fd713112dc6d8fcea5a326426553ba811eff`,
+`5f1bb283516f419bede88272c66f508a57b244b3dd3702a8818d1494a62d72a4`,
+`1ea4e75b8685ac47854a9e672ca58e14c7df70f1f7eea0070a21b4bc36c49872`, and
+`d849a2050d634f87f3bbcf77b6c5d0c7df1ea83d65c10dec4f38fcc2167a93dc`.
+
 The forced-bounce probe also has an inner-guard variant: it allows the stock
 `AudioProcess` block to proceed, but rejects its effect wrapper while file
 mixing holds the lease. In one run the forced semaphore give succeeded, the

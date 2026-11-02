@@ -3,7 +3,7 @@ import copy
 import struct
 import unittest
 
-from file_mix_handoff import check, check_ainr_admission, check_ainr_timeout, check_learned_marker, check_midi_trace, check_project, check_project_leased_bypass, check_project_pending, check_timeout
+from file_mix_handoff import check, check_ainr_admission, check_ainr_timeout, check_learned_marker, check_midi_trace, check_project, check_project_helpers, check_project_leased_bypass, check_project_pending, check_timeout
 
 
 def capture_report(captures):
@@ -26,6 +26,19 @@ def report(bypass):
 
 
 class FileMixHandoffTests(unittest.TestCase):
+    def test_helper_trace_requires_controls_and_no_bypass_calls(self):
+        lines = ['MIX_TRACE_BEGIN before_read=1 before_write=1']
+        lines += [f'MIX_TRACE_HELPER pc={pc} mix=6144 bypass=0'
+                  for pc in ('8002bb18', '8002bba8', '80066180', '800664f0')]
+        lines += ['MIX_TRACE_BYPASS windows=1 active=0', 'MIX_TRACE_END workspace_read=1 overflow=0']
+        trace = '\n'.join(lines)
+        self.assertEqual(len(check_project_helpers(trace, 6144)), 4)
+        for before, after in (('bypass=0', 'bypass=1'), ('mix=6144', 'mix=0'),
+                              ('windows=1', 'windows=0'), ('overflow=0', 'overflow=1'),
+                              ('before_read=1', 'before_read=0')):
+            with self.subTest(before=before), self.assertRaises(ValueError):
+                check_project_helpers(trace.replace(before, after, 1), 6144)
+
     def test_project_check_rejects_missing_calls_and_bad_audio(self):
         stock = [0.01] * 64
         samples = stock + [0.0] * 64 + stock + [0.0] * 64

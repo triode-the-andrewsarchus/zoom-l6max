@@ -120,6 +120,11 @@ The blocking findings for L6max MAIN 1.10
   wrapper while file mixing continued. This is not a firmware integration:
   stock resource separation, deferred work, selector-closed rejection,
   output continuity and hardware behavior remain unproven.
+  Static inspection shows file mixing calls the same four pre-callback
+  helpers as the live wrapper, including mutable pending copies and shared
+  ramp updates. A QEMU trace observed those helpers during the mix and none
+  during one leased bypass. Running them concurrently or simply discarding
+  their live-side work is not yet qualified.
 - In QEMU, the inspector's long-hold gesture was misclassified during a
   stress run with nonzero synthetic sends on all three effect buses. Silent
   input runs passed after a DSP optimization; the active-audio control path
