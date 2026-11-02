@@ -175,7 +175,9 @@ the patch builder still uses its existing settings and remains disabled.
 The aligned shared-history loop now uses unchecked array reads only after an
 in-range position check and delay normalization; other positions retain checked
 reads. Exhaustive index tests and selected AddressSanitizer tests passed, but
-Miri was unavailable. A matched emulator comparison reached about 527 modeled
+the full target memory and concurrency model is unqualified. Focused aligned,
+invalid-position and malformed-delay tests also passed under host Miri. A matched
+emulator comparison reached about 527 modeled
 callbacks per second and still did not open the inspector. This does not
 qualify physical timing, memory ownership or behavior under corrupted state.
 An instrumented current QEMU diagnostic with the 285 taps needed at 95 ms

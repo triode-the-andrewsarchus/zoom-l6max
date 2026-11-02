@@ -6847,8 +6847,13 @@ checks all 23,059,204 valid position/delay pairs, and a malformed-position
 test exercises the checked fallback. Existing tests also exercise oversized
 bank counts, out-of-range tap delays and routed/stereo path switches. Selected
 malformed-delay, path-switch and fallback tests passed with AddressSanitizer;
-Miri was unavailable. These tests do not establish behavior for arbitrary
+Miri was unavailable for that earlier run. It was subsequently installed for
+the pinned nightly toolchain: the invalid-position fallback, malformed-delay
+and a new 285-tap aligned-read comparison spanning both wrap boundaries and
+`u32::MAX` all passed under host Miri. These focused tests do not establish behavior for arbitrary
 memory corruption or unsafe concurrent access.
+Miri was `0.1.0 (1ed2df61a1 2026-08-04)` and the tested Velvet source hashed
+to `2ba3787447e0e4119d2da7867e00c308384e036d249bbe5916d0d6b091feea91`.
 
 Two matched speed-optimized QEMU pairs at 285 taps counted 2,483 callbacks
 per five guest seconds for the checked control and 2,635/2,634 for the

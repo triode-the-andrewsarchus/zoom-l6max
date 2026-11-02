@@ -678,6 +678,37 @@ mod tests {
     }
 
     #[test]
+    fn aligned_shared_history_reads_match_checked_reference() {
+        let mut channel = Box::new(Channel::new());
+        let mut history = Box::new(MonoHistory::new());
+        for i in 0..MAX_DELAY_SAMPLES {
+            channel.delay_line[i] = (i % 17) as f32 / 32.0;
+            history.delay_line[i] = -((i % 13) as f32) / 32.0;
+        }
+        channel.nonzero_samples = 1;
+        history.nonzero_samples = 1;
+        for wp in [0, 1, MAX_DELAY_SAMPLES / 2, MAX_DELAY_SAMPLES - 2, MAX_DELAY_SAMPLES - 1] {
+            channel.write_position = wp;
+            history.write_position = wp;
+            let delays = [0, 1, wp as u32, (wp + 1) as u32,
+                          (MAX_DELAY_SAMPLES - 1) as u32, MAX_DELAY_SAMPLES as u32, u32::MAX];
+            let bank = &mut channel.banks[0];
+            bank.count = MAX_TAPS;
+            for i in 0..bank.count {
+                bank.storage[i] = Tap { delay: delays[i % delays.len()], gain: (i as f32 + 1.0) / 16.0 };
+            }
+            let mut expected = (0.0f32, 0.0f32);
+            for tap in &bank.storage[..bank.count] {
+                let d = tap.delay as usize % MAX_DELAY_SAMPLES;
+                let read = (wp + MAX_DELAY_SAMPLES - d) % MAX_DELAY_SAMPLES;
+                expected.0 += tap.gain * channel.delay_line[read];
+                expected.1 += tap.gain * history.delay_line[read];
+            }
+            assert_eq!(VelvetDecorrelator::convolve_pair(&channel, &history, 0), expected, "wp={wp}");
+        }
+    }
+
+    #[test]
     fn crossfade_phase_matches_division_and_keeps_its_duration_during_edits() {
         for duration_ms in [1.0, 250.0, 54_000.0] {
             let mut effect = Box::new(VelvetDecorrelator::new());
