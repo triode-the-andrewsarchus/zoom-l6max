@@ -6086,6 +6086,28 @@ QEMU was `eade074b5d7a6fe9d74bbbe1ad36a34f7356cd200cbfc81e772f2a21892012e8`
 with unattested source provenance, and `l6dbg`
 `52af793c1d34e927210f99cf49117180121d8bd62885ce0ee7148be5dedbf2f6`.
 
+A paired forced-pending diagnostic followed the same sequence, but gave the
+`AudioProcess` semaphore at the mix call site after observing both SAI
+channel-enable fields and enable bits clear. The semaphore send returned 1,
+and the diagnostic callback counter increased from 28 to 29 during the
+inserted delay, before the stock mix routine was called. The mix returned 9
+in the no-card setup, and the callback later resumed after stream restart.
+This shows that disabling the stream does not by itself prevent already
+signaled audio work from reaching the effect callback in this modeled
+interleaving. The signal was injected deliberately; the result does not
+establish the frequency or even occurrence of this interleaving in stock
+operation. The observer and scratch remain unsafe for installation.
+
+The forced variant's callback source, MAIN, ELF, recipe and diagnostic
+result SHA-256 values were respectively
+`5763fa8e6ba163880b018a553613fd30c419166b769b1321831a6e764c700855`,
+`7fe463b79c8ef69db57a8df27f5e718457a02323dc4ac0714cee01af7ae8750a`,
+`fc6389e7d74549f24c3b333e50d354b5256f8604d88f70dc798e20110a7c95b9`,
+`4387a088cd34213b72f6b7ad79db0b6b36b1ceabba58c986b4003c743d52e03b`, and
+`392ca138697e3f3df448b9cf2e9efe41ed49dac479f9a2433b286c03f90a9df7`.
+The preparer, linker, stock MAIN, fixtures, QEMU and `l6dbg` matched the
+preceding run.
+
 ### Standalone callback admission model
 
 The original standalone model admitted at most one lease for each of the live

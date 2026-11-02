@@ -45,7 +45,9 @@ The blocking findings for L6max MAIN 1.10
   calls and adds 768 bytes of unowned scratch. The observer's own capture
   bounds checks now fail to zero, but panic paths remain in DSP callees. It
   does not exercise the normal
-  workflow or establish a safe hook. Stock scheduling and
+  workflow or establish a safe hook. A forced QEMU semaphore signal after
+  stock stream shutdown still led to an effect callback before file mixing;
+  whether that signal can be pending naturally is unverified. Stock scheduling and
   exclusion between the two paths are unverified. See the
   [firmware research](https://github.com/derekstavis/zoom-l6max-research/blob/bad532c/docs/firmware/l6max-effects-ainr.md#effects-callback).
 - The active firmware signal path ignores per-channel routing and has no
