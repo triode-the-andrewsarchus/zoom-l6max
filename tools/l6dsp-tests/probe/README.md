@@ -151,6 +151,25 @@ they are not a comparison of stereo audio output. The shared veneer, caller
 register effects, other entry points, signal behavior and memory ownership are
 not qualified. This variant is also QEMU-only and must never be installed.
 
+To compare the stock and paired calls on distinct synthetic left and right
+signals, add `--ainr-pair-replay` to the exit-timeout preparation command.
+Start its generated `l6dbg` command and wait for `OUTPUT/logs/learned_ready.txt`.
+While that disposable guest is running, execute:
+
+```sh
+python3 tools/l6dsp-tests/probe/ainr_pair_replay.py \
+  OUTPUT/gdb.sock OUTPUT/firmware/main_firmware.bin
+```
+
+The replay stops the guest, rewrites its executable memory and restores a
+sampled state range and stack between the two calls. It compares 16 blocks,
+the sampled state, and register values; it requires finite, nonzero output
+on both channels. The reported main hash identifies the supplied image, while
+the guest code checks cover only the observed pair and veneer. The debugger
+perturbs timing and the replay does not restore or compare every possible
+side effect. Stop the disposable guest afterward; never connect this script to
+physical hardware. If the script fails, the guest may remain paused or modified.
+
 ## Synthetic file-mix layout
 
 To examine the candidate file-mix track layout, prepare a separate image with

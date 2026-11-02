@@ -36,6 +36,7 @@ parser.add_argument("--selector-ainr-timeout", choices=("entry", "exit"), help="
 parser.add_argument("--selector-ainr-learned", action="store_true", help="attempt AINR learning before the exit timeout (QEMU only)")
 parser.add_argument("--ainr-admission", action="store_true", help="guard stock AINR dispatch with the diagnostic gate (QEMU only)")
 parser.add_argument("--ainr-pair", action="store_true", help="admit the observed stereo AINR calls together (QEMU only)")
+parser.add_argument("--ainr-pair-replay", action="store_true", help="prepare the learned-state debugger replay recipe (QEMU only)")
 parser.add_argument("--inspector", action="store_true", help="enable QEMU-only inspector event hooks")
 parser.add_argument("--gesture-trace", action="store_true", help="record selector events (perturbs timing)")
 parser.add_argument("--enqueue-trace", action="store_true", help="record panel events before enqueue (perturbs timing)")
@@ -76,6 +77,8 @@ if args.ainr_admission and not args.selector_admission:
     parser.error("--ainr-admission requires --selector-admission")
 if args.ainr_pair and not args.ainr_admission:
     parser.error("--ainr-pair requires --ainr-admission")
+if args.ainr_pair_replay and not (args.ainr_pair and args.selector_ainr_timeout == "exit"):
+    parser.error("--ainr-pair-replay requires --ainr-pair and --selector-ainr-timeout exit")
 other_diagnostics = (args.switches, args.inspector, args.mixer_input_capture, args.gesture_trace, args.enqueue_trace,
         args.irq_trace, args.irq_timing, args.ring_timing, args.ring_drop, args.timing_control,
         args.active_sends, args.selector_load_trace, args.max_velvet_density, args.submix_return,
@@ -687,6 +690,12 @@ if args.selector_ainr_timeout:
     add("memory", name="ainr_right_next", address=0x2028bad0, length=4)
     if args.ainr_admission:
         add("memory", name="ainr_admission", address=0x83e0b200, length=28)
+if args.ainr_pair_replay:
+    recipe = (PROBE / "ainr-isolation.toml").read_text().replace(MAIN_SHA, image_sha)
+    recipe = recipe.replace("wall_timeout_s = 350", "wall_timeout_s = 600")
+    marker = '[[step]]\naction = "wait"\nguest_ms = 4000'
+    recipe = recipe[:recipe.index(marker, recipe.index('name = "learned_ready"'))]
+    recipe += '[[step]]\naction = "wait"\nguest_ms = 120000\n'
 (out / "recipe.toml").write_text(recipe)
 if args.pre_ainr:
     metadata = {"stock_main_sha256": MAIN_SHA, "diagnostic_main_sha256": image_sha,

@@ -34,6 +34,7 @@ class PreparerModeTests(unittest.TestCase):
             (['--selector-ainr-learned'], '--selector-ainr-learned requires'),
             (['--ainr-admission'], '--ainr-admission requires'),
             (['--ainr-pair'], '--ainr-pair requires'),
+            (['--ainr-pair-replay'], '--ainr-pair-replay requires'),
             (['--callback', '--inspector', '--file-mix-handoff', 'pending'], '--file-mix-handoff requires'),
             (['--callback', '--offline-mix-layout', '--inspector'], '--offline-mix-layout requires'),
             (['--callback', '--offline-mix-layout', '--switches'], '--offline-mix-layout requires'),

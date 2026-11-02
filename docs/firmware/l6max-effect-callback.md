@@ -6637,3 +6637,34 @@ The learning recipe, result and trace hashes were
 `4e156ff749c591aace34584e4377cc4913ef2ccfd839f393de903eb2459b953f`, and
 `1be8504ff8b2524a0856c2e64828b3a8bba29d13de15ffb1004341643b2e38ac`.
 Stock MAIN, initial fixture, QEMU and `l6dbg` matched the preceding experiment.
+
+In a debugger-controlled replay on the same paired diagnostic image, a
+16-block learned-state run supplied different nonzero synthetic waveforms to
+the two channels. For each block the debugger ran the stock call pair and the
+paired probe from the same captured registers, stack and `0x27000`-byte state
+range. Their 512-byte stereo outputs and captured state range matched exactly
+in all 16 blocks. The output contained 749 and 744 nonzero samples in the two
+channels. This was the second replay in that guest, after an earlier replay
+had advanced the learned processing state; the debugger stops execution and
+rewrites guest code and memory, so this is not a real-time or hardware test.
+
+At the caller's return boundary, `r1` was `0x808d4a90` in the stock run and
+`0xfffffffe` in the paired run; `r3` was `0` and `0x808d4ed0`, respectively.
+The debugger's ARM M-profile register description identifies the differing
+register packet word at byte offset 64 as `xpsr`: it was `0x81000000` versus
+`0x61000000`. The remaining debugger-visible register packet bytes matched.
+Static inspection of the immediate stock continuation shows a fresh compare
+before the first branch and writes `r1` and `r3` before their next uses on the
+two inspected paths. This does not establish all entry paths, asynchronous
+observers, or the correctness of changes outside the compared range.
+
+The replay script, generated recipe, result and QEMU trace hashes were
+`ef039d7b107efc84a421bffd4c1674cd4f47dedcd84b9b04766aec3315ba0375`,
+`d0fefb18bcada3ac8460756a87ec9c4b277ae76aba65224cdf4fe78e6bfd83b2`,
+`9b62142e4423bb9b08c533bb8fded994cd0c39d8c1b0f33948439c9d10817606`, and
+`d9e80bb298ccf88d278517549ba8b6ec8430aee83deaa6d30e219fa56d132dad`.
+The probe reported input/output hashes
+`761515ba94c535bf10d5990420c6176f93daf7ddd21c53f4edd9ebd96699060b` /
+`58dff128e2b016f896121efecf78f39299afb6424c06e7b169a3b564c4967524`.
+The debugger guest was stopped after observation. The paired MAIN, ELF,
+stock MAIN, initial fixture, QEMU and `l6dbg` matched the preceding experiment.
