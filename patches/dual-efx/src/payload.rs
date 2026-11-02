@@ -19,7 +19,7 @@ use trampolines as original;
 
 /// The DualEfxProcessor instance.
 /// Placed in high SDRAM (0x83e00000) by link.ld (.bss section).
-static mut PROCESSOR: DualEfxProcessor = DualEfxProcessor::new();
+static mut PROCESSOR: core::mem::MaybeUninit<DualEfxProcessor> = core::mem::MaybeUninit::uninit();
 static mut MAGIC_TAG: u32 = 0;
 
 /// Current parameter editing bank:
@@ -40,23 +40,27 @@ const INIT_MAGIC: u32 = 0x44454658; // "DEFX"
 
 unsafe fn get_processor() -> &'static mut DualEfxProcessor {
     unsafe {
-        let tag = read(core::ptr::addr_of!(MAGIC_TAG));
-        let proc = &mut *core::ptr::addr_of_mut!(PROCESSOR);
-        if tag != INIT_MAGIC {
+        let storage = core::ptr::addr_of_mut!(PROCESSOR);
+        if read(core::ptr::addr_of!(MAGIC_TAG)) != INIT_MAGIC {
             // Preserve the caller's interrupt mask; do not unmask a nested
             // critical section when initialization returns.
             let interrupt_mask: u32;
             core::arch::asm!("mrs {}, PRIMASK", "cpsid i", out(reg) interrupt_mask, options(nostack));
-            proc.init();
-            write(core::ptr::addr_of_mut!(EDIT_BANK), 2);
-            write(core::ptr::addr_of_mut!(SELECTED_ROUTING_CHANNEL), 0);
-            write(core::ptr::addr_of_mut!(LAST_PARAM0), 0xffff);
-            write(core::ptr::addr_of_mut!(LAST_PARAM1), 0xffff);
-            write(core::ptr::addr_of_mut!(LAST_EFX_TYPE), 0xffff);
-            write(core::ptr::addr_of_mut!(MAGIC_TAG), INIT_MAGIC);
+            // A second caller could have initialized before masking interrupts.
+            if read(core::ptr::addr_of!(MAGIC_TAG)) != INIT_MAGIC {
+                DualEfxProcessor::initialize_in_place(&mut *storage);
+                write(core::ptr::addr_of_mut!(EDIT_BANK), 2);
+                write(core::ptr::addr_of_mut!(SELECTED_ROUTING_CHANNEL), 0);
+                write(core::ptr::addr_of_mut!(LAST_PARAM0), 0xffff);
+                write(core::ptr::addr_of_mut!(LAST_PARAM1), 0xffff);
+                write(core::ptr::addr_of_mut!(LAST_EFX_TYPE), 0xffff);
+                write(core::ptr::addr_of_mut!(MAGIC_TAG), INIT_MAGIC);
+            }
             core::arch::asm!("msr PRIMASK, {}", in(reg) interrupt_mask, options(nostack));
         }
-        proc
+        // The marker is not yet invalidated on every reset; this legacy hook
+        // remains disabled until lifetime and exclusivity are established.
+        (&mut *storage).assume_init_mut()
     }
 }
 
