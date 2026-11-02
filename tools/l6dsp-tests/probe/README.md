@@ -663,6 +663,26 @@ inverted half-amplitude version before each comparison. The clone receives the
 same modified block. The run requires the two captured input streams and the
 two output streams to differ. This is a debugger-forced correlated signal,
 not an independent physical input or a test of the unmodified mixer path.
+Add `--solo-prefix` to compare a second, channel-zero-only clone alongside the
+full stereo clone. It copies `0x19514` bytes and zeros the remainder of its
+`0x27000`-byte scratch region. At each checkpoint the probe also checks that
+the solo call did not change stock or stereo-clone state. Use `--blocks N`
+to vary the number of blocks per channel from 1 to 1,000; longer runs require
+a correspondingly longer post-snapshot recipe wait. A match is bounded to
+the captured learning state and input; it does not reserve memory or exclude
+other state dependencies.
+One `--stereo --invert-second --solo-prefix --blocks 1000` run matched both
+stock channels and the solo prefix, with checkpoints at 0, 333, 666 and 999.
+Its MAIN, NOR and QEMU matched the identities below. The recipe, probe and
+result hashes were
+`3f7d112139892e4d53311c74afa24b46ff6d0168edad1be06cc05a6ca11f2b66`,
+`8c284fee3cdc9049a031c6c8bc3cd6d46c5c1c489d6ff4cbf3c89f17914972bd` and
+`563859f7990198151b81c791b1b24440f3786491f4ff8c9938d4d7a097775961`.
+A temporary negative control zeroed the solo clone's learned-state word at
+offset `0xba4c`; the comparison rejected its output at block 0. Its wrapper
+and captured error SHA-256 values were
+`6319baa4c92126ea95fab11100fb5754df5059a4aa9b8e23d0aedaa027566cf8` and
+`f2df73b5be71d0613f659d8eeb6412eba01721e1caa89798ae4d030bae093aea`.
 One such run matched 96 blocks per channel, with input peaks 45,698,716 and
 22,849,358. With the same MAIN, NOR, QEMU and recipe as the following run,
 its probe and result hashes were

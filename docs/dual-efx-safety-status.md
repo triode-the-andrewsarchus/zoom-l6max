@@ -78,9 +78,15 @@ The blocking findings for L6max MAIN 1.10
   diverged at zero-based blocks 65 and 73 in two runs. A follow-up observed
   stock state changes before the second channel-0 call; mirroring both stock
   channels then matched for 96 blocks per channel in one active-input run.
-  This suggests an omitted stock update may explain the divergence, but the
-  cause is unproven and independent clones remain unqualified. See the
-  [research observation](https://github.com/derekstavis/zoom-l6max-research/blob/d2867e2/docs/firmware/l6max-effects-ainr.md#selection-learning-and-processing).
+  A later 1,000-block experiment matched stock with a separate channel-zero
+  clone even though it did not mirror channel 1 and copied only the first
+  `0x19514` bytes. That weakens the omitted-update hypothesis; the earlier
+  divergence remains unexplained. The smaller copy is only a candidate, not
+  established independent learning or safe memory ownership. Three such
+  prefixes plus the 279,360-byte processor would occupy 590,460 bytes of the
+  768,000-byte effect buffer before any snapshot or other storage; this is
+  arithmetic, not an allocation or ownership proof. See the
+  [research observation](https://github.com/derekstavis/zoom-l6max-research/blob/0621038/docs/firmware/l6max-effects-ainr.md#selection-learning-and-processing).
 - L6max 1.10 also supports stock effect returns to Sub-Mix and Mix Minus.
   A QEMU diagnostic with synthetic sends and replacement DSP reached modeled
   Sub-Mix transmit slots when enabled. USB Mix Minus, physical output mapping,

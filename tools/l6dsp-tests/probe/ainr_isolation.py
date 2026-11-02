@@ -295,7 +295,17 @@ def wait_stereo_input(g, minimum_input):
     raise RuntimeError('stock input did not reach the requested threshold')
 
 
-def compare_stereo_block(g, frame, channel, invert_second):
+def compare_solo_prefix(g, initial_regs, samples, expected, ret, frame, checkpoint):
+    before = (g.read(0x20280000, 0x27000), g.read(0x80e00000, 0x27000)) if checkpoint else None
+    g.write(0x80e61000, samples)
+    call_clone(g, initial_regs, 0x80e61000, 0x80f10780, 0, ret)
+    if g.reg(15) != ret or g.read(0x80e61000, 256) != expected:
+        raise RuntimeError(f'channel-zero prefix output mismatch at block {frame}')
+    if before is not None and before != (g.read(0x20280000, 0x27000), g.read(0x80e00000, 0x27000)):
+        raise RuntimeError(f'channel-zero clone changed checked state at block {frame}')
+
+
+def compare_stereo_block(g, frame, channel, invert_second, solo_prefix, checkpoints):
     entry = (0x20228d86, 0x20228d94)[channel]
     ret = entry + 4
     if frame or channel:
@@ -315,7 +325,7 @@ def compare_stereo_block(g, frame, channel, invert_second):
         g.write(buffer, samples)
         values = struct.unpack('<64f', samples)
     peak = max(map(abs, values))
-    g.write(0x80e40000, samples)
+    g.write(0x80e60000, samples)
     g.expect(f'Z0,{ret:x},2')
     g.packet('c')
     if g.reg(15) != ret:
@@ -323,20 +333,22 @@ def compare_stereo_block(g, frame, channel, invert_second):
     expected, post_regs = g.read(buffer, 256), g.packet('g')
     if not all(map(math.isfinite, struct.unpack('<64f', expected))):
         raise RuntimeError(f'nonfinite stock output at block {frame}, channel {channel}')
-    call_clone(g, initial_regs, 0x80e40000, 0x80f00780, channel, ret)
-    if g.reg(15) != ret or g.read(0x80e40000, 256) != expected:
+    call_clone(g, initial_regs, 0x80e60000, 0x80f00780, channel, ret)
+    if g.reg(15) != ret or g.read(0x80e60000, 256) != expected:
         raise RuntimeError(f'clone output mismatch at block {frame}, channel {channel}')
-    if frame in (0, 31, 63, 95):
+    if frame in checkpoints:
         for offset, length in ((0xb97c, 20), (0xb9a4, 20), (0xb9cc, 32),
                                (0xba0c, 264), (0xbb14, 0x1b400)):
             if g.read(0x20280000 + offset, length) != g.read(0x80e00000 + offset, length):
                 raise RuntimeError(f'clone state mismatch at block {frame}, channel {channel}, {offset:#x}')
+    if solo_prefix and channel == 0:
+        compare_solo_prefix(g, initial_regs, samples, expected, ret, frame, frame in checkpoints)
     g.expect('G' + post_regs)
     g.expect(f'z0,{ret:x},2')
     return samples, expected, peak
 
 
-def compare_stereo(g, code, minimum_input, invert_second):
+def compare_stereo(g, code, minimum_input, invert_second, solo_prefix, blocks):
     """Mirror both natural stock calls in QEMU, including both working areas."""
     g.expect('Hg1')
     g.expect('Z0,20228d86,2')
@@ -353,22 +365,26 @@ def compare_stereo(g, code, minimum_input, invert_second):
     g.write(0x80f00000, code)
     if g.read(0x80e00000, len(source)) != source or g.read(0x80f00000, len(code)) != code:
         raise RuntimeError('stereo clone readback mismatch')
+    if solo_prefix:
+        prepare_second_clone(g, source[:0x19514] + bytes(0x27000 - 0x19514), code)
     outputs = [bytearray(), bytearray()]
     inputs = [bytearray(), bytearray()]
     peaks = [0.0, 0.0]
-    for frame in range(96):
+    checkpoints = {0, (blocks - 1) // 3, 2 * (blocks - 1) // 3, blocks - 1}
+    for frame in range(blocks):
         for channel in (0, 1):
-            samples, expected, peak = compare_stereo_block(g, frame, channel, invert_second)
+            samples, expected, peak = compare_stereo_block(g, frame, channel, invert_second, solo_prefix, checkpoints)
             peaks[channel] = max(peaks[channel], peak)
             inputs[channel].extend(samples)
             outputs[channel].extend(expected)
     if invert_second and (inputs[0] == inputs[1] or outputs[0] == outputs[1]):
         raise RuntimeError('stereo input or output channels were not distinguishable')
     g.expect('D')
-    return {'blocks_per_channel': 96, 'input_peaks': peaks, 'skipped_blocks': skipped,
+    return {'blocks_per_channel': blocks, 'input_peaks': peaks, 'skipped_blocks': skipped,
             'input_sha256': [sha(samples) for samples in inputs],
             'output_sha256': [sha(output) for output in outputs],
-            'inverted_second': invert_second, 'matches': True}
+            'inverted_second': invert_second, 'solo_prefix_bytes': 0x19514 if solo_prefix else None,
+            'state_checkpoints': sorted(checkpoints), 'matches': True}
 
 
 def parse_arguments():
@@ -384,6 +400,9 @@ def parse_arguments():
     parser.add_argument('--stereo', action='store_true', help='compare both natural stock AINR calls')
     parser.add_argument('--invert-second', action='store_true',
                         help='in QEMU, invert and halve second-channel input before both calls')
+    parser.add_argument('--solo-prefix', action='store_true',
+                        help='also compare a channel-zero-only clone with a 0x19514-byte prefix')
+    parser.add_argument('--blocks', type=int, default=96, help='blocks per channel in stereo mode (1-1000)')
     parser.add_argument('--recipe', type=Path, help='override diagnostic recipe')
     parser.add_argument('--minimum-input', type=float, default=0.0,
                         help='require a finite stock sample larger than this magnitude in stereo mode')
@@ -392,6 +411,10 @@ def parse_arguments():
         parser.error('--stereo cannot be combined with independent, prefix or replay modes')
     if args.invert_second and not args.stereo:
         parser.error('--invert-second requires --stereo')
+    if args.solo_prefix and not args.stereo:
+        parser.error('--solo-prefix requires --stereo')
+    if not 1 <= args.blocks <= 1000 or (args.blocks != 96 and not args.stereo):
+        parser.error('--blocks must be 1-1000 and requires --stereo when changed')
     if not math.isfinite(args.minimum_input) or args.minimum_input < 0 or (args.minimum_input and not args.stereo):
         parser.error('--minimum-input must be finite, nonnegative and used with --stereo')
     return parser, args
@@ -445,7 +468,8 @@ def main():
                     raise TimeoutError('learned snapshot not produced in 300 seconds')
                 time.sleep(.1)
             if args.stereo:
-                result = compare_stereo(Remote(socket_path), code, args.minimum_input, args.invert_second)
+                result = compare_stereo(Remote(socket_path), code, args.minimum_input, args.invert_second,
+                                        args.solo_prefix, args.blocks)
             else:
                 result = compare(Remote(socket_path), code, args.independent, args.channel0_prefix, replay_tails)
             result['snapshot_bytes'] = (0x27000 if args.stereo else len(replay_tails[1]) if replay_tails is not None
