@@ -8234,3 +8234,67 @@ The temporary single-send callback source SHA-256 was
 Stock MAIN, initial NOR, unattested QEMU and `l6dbg` identities matched the
 preceding experiments. The diagnostic images use unowned scratch and must
 not be installed.
+
+### Worker-stack observation for the saved-history prototype
+
+The stock L6max 1.10 `RecPlayCtl` task is created with 4,096 stack words
+(16,384 bytes), whereas `AudioProcess` has 1,024 words (4,096 bytes); see the
+[research analysis](https://github.com/derekstavis/zoom-l6max-research/blob/7693270/docs/firmware/l6max-effects-ainr.md#effects-callback).
+Neither allocation establishes available headroom or identifies every caller.
+
+Two disposable diagnostics combined the forced queued file-mix workflow and
+the synthetic file-mix layout test. After the stock no-card mix returned 9,
+the `RecPlayCtl` observer ran the synthetic mix on that worker. One build
+used the current scalar block path; the other used the experimental four-frame
+saved-history path. In both, the task handle was `0x808f5e70`, the allocated
+stack base was `0x808f1e60`, and the saved top pointer was `0x808f5e58`.
+The observer stack pointer was `0x808f5b88`; the synthetic effect observer
+recorded `0x808f5968` for scalar and `0x808f5928` for the block prototype.
+Before and after the synthetic call, both runs had 13,236 consecutive bytes
+of the allocator's `0xa5` pattern at the stack base. The prior no-card path
+had already established that watermark, so it does not isolate either DSP
+path's deepest stack use. A byte matching the fill pattern is not by itself
+proof that it was never written.
+
+Each synthetic mix produced two callbacks and the same 316-byte observation,
+SHA-256 `9dea592e4b93e6fe00490791a5448d32520a82a1a4eeec901ced709626abd39a`;
+the existing checker accepted both. This is a forced diagnostic: the normal
+file mix had already returned before the synthetic call, so its 2,208-byte
+stock frame was not present during DSP processing. The synthetic test masks
+interrupts and uses unowned scratch, does not include a successful SD-card
+mix, and does not establish worst-case stack use, output continuity, ownership,
+or hardware safety. The block implementation also still needs a solution for
+per-frame live control ordering and increased code complexity. Do not install
+these images.
+
+Scalar and block diagnostic MAIN hashes were
+`89f71806b64f0d897f3e048d37a8893c03d4c23d08536a1f905daae78a4378d1` and
+`4fbc87c2d202219c29e5cb3e632d89d7a64f0a2639f02ace323e680773318c0a`;
+ELFs were `6e18a3294f36bf65bdde678149a7879c49c364af6c301cc388157040cfdaf12f`
+and `75173aee9963c0ae08a00cfd4227cab12c006833de7a7c868c17382d18d43c81`.
+Recipe/result hashes were
+`0c5c10ba40bd8c1afe77030b21498cdd1b2dff2bef51765d2abd2515c5c14f6e` /
+`d3c8a22e4a2862500ea8eabedda842b36e56983d08bcfaa654d43039e53dd298` and
+`be8e2ec851af17fae71f6fcb63c2b07679bda24fff1cde286a1780cc6446d86e` /
+`29d9b87eef2cd1bdd0866657b5d210992a272942dfa0fe30c90fd35a299a8f9c`.
+The diagnostic callback, offline observer, worker observer and preparer sources
+hashed respectively to `a8fa1d140538d9d9c8fd90951fdc9f498e29ab89c1d549bc85adadb0c3dae2c5`,
+`12228b904086487c1f4b09f45b59648a44fbd6d88771b6cb646f26704301909f`,
+`96d9933ae80a7c05e6e9ee81d59d93ea53201861d0d3b243f4e8c27718aa0f2a`, and
+`b8562b2f1a5a215317ea97ebb5dc6135374876049bb88079890a1e9df9080178`.
+Scalar Velvet/routing sources were
+`56c14e693702bf4af7a0c7d971120819cddb699db7189efe9d1e123a3021b493` /
+`67eeeff20d7e3bcd07c9ba77700e6f924c44731cdfab84c24959d4e2de521c87`;
+the block sources were
+`42ec2c87c0aed91b4dc481c73ef73ac12c790ed2854e8b34e5ce7ded64e9f304` /
+`5d36acea48be659689426b0cb86ead60f7ba38ad2ec83b8db58393833455af53`.
+Stock MAIN SHA-256 was `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`;
+initial NOR, panel flash, options and RTC hashes were
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
+The external QEMU and `l6dbg` hashes were
+`53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a` and
+`aed900b0f7f43f225233f7f1a33e5ba8e159d4a698905297e0fb48c5c8519cc0`;
+QEMU's source provenance is unattested.
