@@ -6509,3 +6509,48 @@ trace were `6b0e736f59d92d542906ed3d3866e313396b2b7fef1055f77c239e01bc29cb34`,
 `790350b11f0a91bfe6573f8cf39df220e73392795c35aa11f13fdfe68a203449`, and
 `feb5d8debe67c7260072bbbd4af2c953d475304e0c89a99423f28ad768094cc6`.
 Stock MAIN, initial fixture, QEMU and `l6dbg` matched the preceding run.
+
+The preceding teardown order has a concrete gap. In a successful AINR-to-Hall
+transition, a debugger stopped in the Hall callback at `0x20281648` while the
+live lease was held and both AINR state words still read one. Moving the
+diagnostic teardown into the selector's closed interval, before reopening
+the wrapper gate, changed that observed order: a stop immediately before
+`0x80014830(0)` saw gate value `4` (closed and drained), and the subsequent
+Hall callback stop saw a live lease and both AINR words zero. These stops
+perturb scheduling and do not prove that all Hall callbacks see that order.
+
+The narrower gate is still insufficient for AINR teardown. In a separate
+staged debugger run of the revised image, the selector reached its teardown
+with the gate closed; the next stop at the low-memory dispatcher `0x780` had
+`r0 = r1 = 0x20011010`, `r2 = 0`, LR `0x20228d8b`, gate value `4`, and both
+AINR state words one. Thus AINR processing can enter while the effect-wrapper
+gate is closed. This observation does not prove an actual simultaneous
+write or audible corruption, but it rules out treating this gate as exclusive
+ownership of the AINR processing state.
+
+The revised image completed forced entry and exit timeout checks, modeled
+DIN message checks, a Room timeout/panel check, and a silent-input learned
+marker check. Its MAIN and ELF SHA-256 values were
+`2b7fe563382f58d2a35c092bb72c99f79cf08cd6c02bb3de9abe077af77c2eac` and
+`5cd1a23f7c4a4d610d39a998b624e88ce1607b783aa16983a57897f90047839b`.
+The exit recipe/result were
+`50786ec0d3f56dc8e5dbd352e81c345647422bc5d9fb1d9b90251944f1ede1bc` /
+`98384d3ad48f17b0a7cfde09c917138ca999f71eb2a9107d54519ccf90d2c6d6`;
+entry `c8d3bcd58bf2a254323b6149159512ca4215a0ec53ac8c972f494b5d93ab6c99` /
+`3165bac8d580618047d3a5be511195ff6cb68e5754d806fa84af3e44f6e6c5f4`;
+learning `1bd0e76e7e5f5120f53e1a11400aed52e0f6ac2b52169a7a4721a5e99a1e9635` /
+`0a117fc0755e70d295d1e28e16d4e9a0c47c22390db1fb0e2e5512a2aff5c88b`;
+and Room `eb6ec069407c7c2281c99324defe5cd17b38461a5f8befd8cf9e7f2d261893ea` /
+`1391c785278db4a65a7a3e43209dd946bb83a4a7ad4c5aa8fbc2ef357fb0a7e5`.
+The original gap used preceding MAIN
+`277dfd87948371d880e6da780d26a93f7267ca78a3e2123d0915ad135f95e8b0`,
+recipe `8ec4dac726209b4bb89c472c24ff905694f3224bbb6616df2c66bbab04435f04`
+and debugger transcript
+`42a17b6e4ccc299e7df1ba2c935830c238888cc97e330e48a1dac27edcf3f9a9`.
+The two revised debugger runs used recipe
+`83060463403997bd4a928a259a8d46ae43f942d8cf53bbe56e6574bbbe39778d`,
+and transcript hashes
+`5b4633442f0adfb1566607a38375a3cd5a8213094fe3b6a004910b2ce0e6471a` and
+`54e42c1cf8ab3cb58d5c5edb68b9b1f8c20ba7092d98e105ce22a57358348ff6`.
+Both debugger guests were stopped after observation. Stock MAIN, initial
+fixture, QEMU and `l6dbg` matched the preceding experiment.

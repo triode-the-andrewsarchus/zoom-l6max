@@ -119,11 +119,14 @@ and does not cover other callers, simultaneous selections or all failure
 cases. Add `--selector-ainr-timeout entry` or `exit` and check with
 `--ainr-timeout entry` or `exit` to exercise AINR transitions. The entry
 experiment skips post-selector enable work on timeout. The exit experiment
-defers stock teardown until selection succeeds and keeps the sampled AINR
-fade value on timeout; this changes stock ordering and is not qualified for
+defers stock teardown until selection succeeds, runs it before reopening the
+wrapper gate, and keeps the sampled AINR fade value on timeout. This changes
+stock ordering and is not qualified for
 real audio. Add `--selector-ainr-learned` to attempt learning before the exit
 timeout, and `--ainr-learned` to require the learned marker in the checker.
 Neither case proves complete AINR state preservation or installable firmware.
+The stock AINR dispatcher has been observed running while this wrapper gate is
+closed, so the gate does not exclude all processing during teardown.
 
 ## Synthetic file-mix layout
 

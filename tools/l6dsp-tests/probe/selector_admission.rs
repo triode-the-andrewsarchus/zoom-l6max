@@ -142,6 +142,9 @@ selector_handoff_entry:
 .thumb_func
 selector_handoff_fade:
     push.w {r0, r1, r2, r3, r12, lr}
+    .if selector_feedback_enabled
+    bl selector_handoff_teardown
+    .endif
     bl selector_handoff_end
     pop.w {r0, r1, r2, r3, r12, lr}
     ldr.w r12, .Lfade_argument
@@ -252,10 +255,33 @@ selector_handoff_feedback_inner:
     ldr r0, [r0]
     cmp r0, #1
     beq .Linner_abort
-    ldr.w r0, .Lfeedback_status
-    ldr r0, [r0, #4]
+    b .Linner_compare
+.Linner_compare:
+    pop.w {r0, r1, r2, r3, r12, lr}
+    cmp r4, #5
+    beq .Linner_ainr
+.Linner_done:
+    ldr.w pc, .Linner_return
+.Linner_abort:
+    pop.w {r0, r1, r2, r3, r12, lr}
+    b .Linner_done
+.Linner_ainr:
+    ldr.w pc, .Linner_enable
+.align 2
+.Linner_return: .word 0x800543d3
+.Linner_enable: .word 0x800543ab
+
+.global selector_handoff_teardown
+.thumb_func
+selector_handoff_teardown:
+    push {r4, lr}
+    ldr.w r4, .Lfeedback_status
+    ldr r0, [r4, #8]
+    cmp r0, #1
+    bne .Lteardown_done
+    ldr r0, [r4, #4]
     cmp r0, #5
-    bne .Linner_compare
+    bne .Lteardown_done
     ldr.w r12, .Ldisable_status
     blx r12
     movs r0, #1
@@ -274,20 +300,9 @@ selector_handoff_feedback_inner:
     movs r1, #1
     ldr.w r12, .Ldisable_mute
     blx r12
-.Linner_compare:
-    pop.w {r0, r1, r2, r3, r12, lr}
-    cmp r4, #5
-    beq .Linner_ainr
-.Linner_done:
-    ldr.w pc, .Linner_return
-.Linner_abort:
-    pop.w {r0, r1, r2, r3, r12, lr}
-    b .Linner_done
-.Linner_ainr:
-    ldr.w pc, .Linner_enable
+.Lteardown_done:
+    pop {r4, pc}
 .align 2
-.Linner_return: .word 0x800543d3
-.Linner_enable: .word 0x800543ab
 .Ldisable_status: .word 0x8000b2e1
 .Ldisable_mute: .word 0x80003fc9
 .Ldisable_delay: .word 0x80004ca1
