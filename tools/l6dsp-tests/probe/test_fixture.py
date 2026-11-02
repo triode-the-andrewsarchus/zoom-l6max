@@ -21,6 +21,11 @@ class PreparerModeTests(unittest.TestCase):
     def test_rejects_incomplete_or_conflicting_modes_before_reading_inputs(self):
         preparer = Path(__file__).with_name('prepare.py')
         selector = ['--callback', '--inspector', '--selector-load-trace']
+        combined = ['--combined-admission-refresh', '--callback', '--inspector', '--active-sends',
+                    '--pre-ainr', '--effect-buffer', '--auto-handoff', '--channel0-prefix',
+                    '--boundary-handoff', '--outer-audio-pause', '--audio-owner-refresh',
+                    '--heap-refresh', '--release-heap-refresh', '--file-mix-handoff', 'atomic',
+                    '--selector-admission', '--ainr-admission', '--ainr-pair']
         cases = [
             (['--opt-level', '0'], 'invalid choice'),
             (['--callback', '--admission-probe'], '--admission-probe cannot'),
@@ -37,6 +42,10 @@ class PreparerModeTests(unittest.TestCase):
             (['--ainr-admission'], '--ainr-admission requires'),
             (['--ainr-pair'], '--ainr-pair requires'),
             (['--ainr-pair-replay'], '--ainr-pair-replay requires'),
+            (['--combined-admission-refresh'], '--combined-admission-refresh requires'),
+            (combined[:-1], '--combined-admission-refresh requires'),
+            (combined + ['--selector-overlap'], '--combined-admission-refresh requires'),
+            (combined + ['--switches'], '--combined-admission-refresh requires'),
             (['--callback', '--inspector', '--file-mix-handoff', 'pending'], '--file-mix-handoff requires'),
             (['--callback', '--offline-mix-layout', '--inspector'], '--offline-mix-layout requires'),
             (['--callback', '--offline-mix-layout', '--switches'], '--offline-mix-layout requires'),

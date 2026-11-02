@@ -190,6 +190,11 @@ unsafe fn capture_on_audio_boundary() {
             if let Some((claim, step)) = capture.claim() {
                 if step == 0 && boundary_selection_valid(status, &pause, request) {
                     core::ptr::write_volatile(0x83e03108 as *mut u32, core::ptr::read_volatile(0x8020ab4c as *const u32));
+                    #[cfg(combined_admission_refresh)]
+                    {
+                        word(0x83e0b308).store(word(0x83e0b000).load(Ordering::Acquire), Ordering::Release);
+                        word(0x83e0b30c).fetch_add(1, Ordering::Relaxed);
+                    }
                     crate::boundary_pause::copy_snapshot(0x20280000 as *const u8, ptr);
                     core::ptr::write_volatile(0x83e0310c as *mut u32, core::ptr::read_volatile(0x8020ab4c as *const u32));
                     if boundary_selection_valid(status, &pause, request) {
@@ -231,6 +236,11 @@ unsafe fn refresh_on_audio_boundary() {
             return;
         }
         word(0x83e0316c).store(1, Ordering::Release);
+        #[cfg(combined_admission_refresh)]
+        {
+            word(0x83e0b300).store(word(0x83e0b000).load(Ordering::Acquire), Ordering::Release);
+            word(0x83e0b304).fetch_add(1, Ordering::Relaxed);
+        }
         crate::boundary_pause::copy_snapshot(0x20280000 as *const u8, scratch);
         word(0x83e03170).store(1, Ordering::Release);
         if !refresh.publish(boundary, claim) {

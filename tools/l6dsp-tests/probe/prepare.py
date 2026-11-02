@@ -64,6 +64,7 @@ parser.add_argument("--outer-audio-pause", action="store_true", help="QEMU-only:
 parser.add_argument("--audio-owner-refresh", action="store_true", help="QEMU-only: capture and refresh at audio-task boundaries")
 parser.add_argument("--heap-refresh", action="store_true", help="QEMU-only: retain a firmware heap allocation for refresh scratch")
 parser.add_argument("--release-heap-refresh", action="store_true", help="QEMU-only: free heap refresh scratch after successful copy")
+parser.add_argument("--combined-admission-refresh", action="store_true", help="QEMU-only: combine paired AINR admission and audio-owned refresh")
 parser.add_argument("--boundary-noise", action="store_true", help="inject nonzero stock AINR input in the boundary experiment")
 parser.add_argument("--passthrough-unready", action="store_true", help="keep synthetic sends active when AINR is unavailable")
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
@@ -87,6 +88,18 @@ if args.ainr_pair and not args.ainr_admission:
     parser.error("--ainr-pair requires --ainr-admission")
 if args.ainr_pair_replay and not (args.ainr_pair and args.selector_ainr_timeout == "exit"):
     parser.error("--ainr-pair-replay requires --ainr-pair and --selector-ainr-timeout exit")
+if args.combined_admission_refresh:
+    required = (args.callback, args.inspector, args.active_sends, args.pre_ainr,
+        args.audio_owner_refresh, args.heap_refresh, args.release_heap_refresh,
+        args.file_mix_handoff == "atomic", args.selector_admission, args.ainr_admission, args.ainr_pair)
+    excluded = (args.switches, args.mixer_input_capture, args.offline_mix_layout,
+        args.selector_overlap, args.selector_timeout, args.selector_feedback, args.selector_ainr_timeout,
+        args.selector_ainr_learned, args.ainr_pair_replay, args.gesture_trace, args.enqueue_trace,
+        args.irq_trace, args.irq_timing, args.ring_timing, args.ring_drop, args.timing_control,
+        args.selector_load_trace, args.max_velvet_density, args.velvet_fade_stress, args.submix_return,
+        args.retain_custom_state, args.hybrid_handoff, args.passthrough_unready, args.bank_stress)
+    if not all(required) or any(excluded):
+        parser.error("--combined-admission-refresh requires the paired atomic admission and heap-refresh diagnostic without other variants")
 other_diagnostics = (args.switches, args.inspector, args.mixer_input_capture, args.gesture_trace, args.enqueue_trace,
         args.irq_trace, args.irq_timing, args.ring_timing, args.ring_drop, args.timing_control,
         args.active_sends, args.selector_load_trace, args.max_velvet_density, args.velvet_fade_stress, args.submix_return,
@@ -94,7 +107,7 @@ other_diagnostics = (args.switches, args.inspector, args.mixer_input_capture, ar
         args.channel0_prefix, args.hybrid_handoff, args.boundary_handoff, args.outer_audio_pause, args.audio_owner_refresh, args.heap_refresh, args.release_heap_refresh, args.boundary_noise,
         args.passthrough_unready, args.bank_stress)
 if args.file_mix_handoff and (not args.callback or args.admission_probe
-        or args.offline_mix_layout or any(other_diagnostics)):
+        or args.offline_mix_layout or (any(other_diagnostics) and not args.combined_admission_refresh)):
     parser.error("--file-mix-handoff requires --callback alone")
 if args.admission_probe and args.callback:
     parser.error("--admission-probe cannot be combined with --callback")
@@ -264,6 +277,8 @@ if args.heap_refresh:
     rustc += ["--cfg", "heap_refresh_probe"]
 if args.release_heap_refresh:
     rustc += ["--cfg", "release_heap_refresh_probe"]
+if args.combined_admission_refresh:
+    rustc += ["--cfg", "combined_admission_refresh"]
 if args.boundary_noise:
     rustc += ["--cfg", "boundary_noise_probe"]
 if args.passthrough_unready:
@@ -331,7 +346,8 @@ if args.inspector:
     if args.ring_timing:
         install_panel_receive_hooks(image, symbols.get("inspector_rx_read"))
     install_mode_hooks(image, symbols.get("inspector_mode"))
-    install_ainr_selector_veneer(image, symbols)
+    if not args.combined_admission_refresh:
+        install_ainr_selector_veneer(image, symbols)
     if args.boundary_handoff:
         install_boundary_hook(image, symbols.get("before_ainr_disable"))
     if args.enqueue_trace or args.ring_timing:
@@ -624,6 +640,9 @@ wall_timeout_s = 420
     if args.auto_handoff:
         memory("handoff_learned", 0x83e03100, 28)
         memory("heap_learned", 0x8020ab1c, 4)
+        if args.combined_admission_refresh:
+            memory("combined_gate_learned", 0x83e0b000, 48)
+            memory("combined_ainr_learned", 0x83e0b200, 28)
         if args.hybrid_handoff:
             memory("hybrid_progress_learned", 0x83e03130, 4)
             memory("hybrid_control_learned", 0x83e03134, 4)
@@ -650,6 +669,10 @@ wall_timeout_s = 420
             memory("heap_refresh", 0x83e031a4, 8)
         if args.release_heap_refresh:
             memory("heap_refresh_frees", 0x83e031b0, 4)
+        if args.combined_admission_refresh:
+            memory("combined_gate_selected", 0x83e0b000, 48)
+            memory("combined_ainr_selected", 0x83e0b200, 28)
+            memory("combined_copy_gate", 0x83e0b300, 16)
     memory("ainr_sends_1", 0x83e03000, 28)
     wait(5000)
     memory("ainr_sends_2", 0x83e03000, 28)
@@ -665,14 +688,14 @@ if args.offline_mix_layout:
         add("memory", name="offline_workspace_guards", address=0x83e0713c, length=12)
 if args.admission_probe:
     recipe = recipe.replace('name = "impulse_peaks"', 'name = "admission_result"', 1)
-if args.file_mix_handoff and not args.selector_timeout:
+if args.file_mix_handoff and not args.selector_timeout and not args.combined_admission_refresh:
     recipe = recipe.replace('wall_timeout_s = 180', 'wall_timeout_s = 400', 1)
     add("memory-write", name="trigger", address=0x81fff000, bytes=[71, 73, 82, 84])
     add("press", target=40, hold_ms=150)
     add("wait", guest_ms=4000)
     add("memory", name="callback_after", address=0x83e00000, length=12)
     add("memory", name="mix_handoff", address=0x83e0a000, length=44)
-if args.selector_admission and not args.selector_timeout:
+if args.selector_admission and not args.selector_timeout and not args.combined_admission_refresh:
     for index in range(4):
         if args.selector_overlap and index == 0:
             add("memory-write", name="overlap_trigger", address=0x81fff004, bytes=[0x50, 0x4c, 0x56, 0x4f])
@@ -772,6 +795,8 @@ if args.pre_ainr:
                 metadata["heap_refresh"] = True
             if args.release_heap_refresh:
                 metadata["release_heap_refresh"] = True
+            if args.combined_admission_refresh:
+                metadata["combined_admission_refresh"] = True
     if args.effect_buffer:
         matches = [line.split() for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines()
                    if line.endswith(" diagnostic_audio")]
@@ -789,7 +814,7 @@ command = [
     "--firmware-dir", str(firmware), "--state-dir", str(state), "--logs", str(out / "logs"),
     "--qemu", "QEMU_PATH",
 ]
-if args.file_mix_handoff or (args.pre_ainr and not args.auto_handoff):
+if (args.file_mix_handoff and not args.combined_admission_refresh) or (args.pre_ainr and not args.auto_handoff):
     command += ["--gdb-socket", str(out / "gdb.sock")]
 print("Run: " + shlex.join(command))
 if args.pre_ainr and not args.auto_handoff:

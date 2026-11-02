@@ -6024,6 +6024,75 @@ the source-watch plugin source and binary were
 `3d82c85971052ac63c9a0287f1bd6181692628795099237f0317df7b7557ddce` and
 `101109b7d63ca6fe4fbf78a79eaba71da40017b177b839a4e709d8df152b61ba`.
 
+##### Combined admission and refresh diagnostic
+
+A disposable prototype combined the paired AINR dispatcher gate, selector
+admission and audio-owned heap refresh. Its merged selector veneer preserved
+the inspector's AINR-entry notification; the gated AINR veneer called the
+capture observer under the pair's existing live lease. In an ordinary run
+and a separate instrumented run, the learned marker was set, two custom
+selections completed with ready tokens, and both refreshes recorded gate
+value `4` (closed and drained) at the audio copy. Scratch was released twice
+and sampled free heap returned to 103,728 bytes. The earlier initial snapshot
+recorded gate value `0` at its copy: this selector gate did not protect it.
+Both runs recorded admitted and rejected AINR pairs with equal per-channel
+counts and no observed unknown call forms. Counts do not prove equivalent
+stereo behavior or identify every reason for rejection.
+
+A QEMU plugin observed no CPU store starting in the watched source range and
+no entry to the watched stock block during the first refresh copy. It does
+not observe DMA, aliases, unexecuted paths or every firmware caller. The
+file-mix hook was present but this scenario did not trigger file mixing.
+The live rejection path can clear shared buffers, selector timeout recovery
+and initial snapshot protection remain unqualified, and the image uses
+unowned control words and flash. **Never install this diagnostic image.**
+
+The prototype MAIN and ELF were
+`4fafa5c714255fd3df27d94d822625eb9a0fdd55e1d4bab80832f71d8c9b1000` and
+`151ab561e6b6311d477c6e45ff640d9605bd1df6b3523ab8d0cdc42965c81fc8`.
+The common recipe, ordinary result, traced result and trace were
+`2554aac82bf2f3418af28c4bfcbfe97e16c483de4f139da8d0c4ae5bef82ab6c`,
+`38de14a7cc6fa4a74e962c7e8e1c1f3004ef6e49fee356425ffaab322df54a28`,
+`dca5a83d11f5c2388d28760fda507488340ac395048d974eaab439689ea16821`, and
+`863065a3e6b5224a3ba044e60d8115d3ddc9de1b68a1f83ffbb7d2b6f54abed6`.
+The temporary prepare, handoff, dispatcher and selector sources were
+`93c8940a8efb443cdb265e3209114ff9c64afc92ec695f34086a4f5de25a6aba`,
+`c5031bf8369a924cc33e95a187841fcee15922c97b5308df2fe1a6645fd8c81f`,
+`a1c77b29cd230e388a51ea66f25688199f341d981a46ee051720b2973a83d45c`, and
+`b7099d0e458ced5b7753f479465d2789caa2c795c90ab9ecf7ef878471e2aa42`.
+The source-watch plugin source and binary were
+`3d82c85971052ac63c9a0287f1bd6181692628795099237f0317df7b7557ddce` and
+`101109b7d63ca6fe4fbf78a79eaba71da40017b177b839a4e709d8df152b61ba`.
+The fixture, QEMU and `l6dbg` identities match those recorded below.
+
+The versioned `--combined-admission-refresh` diagnostic repeated two
+selections with the same gate observations and two scratch releases. A
+separate inspector run matched the earlier control's open, edit and close
+metadata and sampled 103,728 free bytes throughout. Its recipe also made an
+unused read at `0x83e0c300` due to an observation-address error; that read
+was not used to establish gate state. The versioned MAIN and ELF were
+`ccebc87d67ed2430d2b25afed25c3904f4045bf5e902be55c209430de385aa85` and
+`d428405f42e901c13467bcd40aba6f592738078632517b32549560172199dd12`.
+The two-selection recipe/result were
+`ad43f25b30ae4e94d6603e7bce1ee1395a8b97c9e3a564795ec7dffddf74ac7c` /
+`cf145e514988002e670e25bbfb7227455d77412f515fdee028c8ebee29faacf6`;
+the inspector recipe/result were
+`7a62a6eba7f245fc83d3789e08e6f7ae253fffae8019076b7c7b40943c73807a` /
+`60db1dd8a6740b9de31f7c5eeffbf03c1d94efe5f47f0598602409febbccb82f`.
+
+A separate combined run injected the existing late audio semaphore signal
+during a no-card file-mix attempt. The file-mix observer returned the expected
+no-card result 9, recorded the forced signal and one rejected live callback,
+and diagnostic callbacks advanced after the handoff. The paired AINR counters
+remained balanced, and the two refresh copies again recorded gate value `4`.
+This uses a debugger memory-write trigger and deliberately perturbs scheduling;
+it does not test a successful file mix, real SD media or safe rejected-entry
+buffers. The recipe and result were
+`2870fea53b0955538e1b7fe796d96b80061d23adeaf667bf5f8ce0738047d00f` and
+`c0258a74507fb40a71ca74b2e21a12fc81de7f9f89f3a5200ac30d98a56e20dc`.
+
+##### Transient refresh scratch
+
 The optional `--release-heap-refresh` variant returns scratch to the stock
 allocator after a completed refresh and copy-out, while the primary install
 claim is still held. A failed or timed-out refresh keeps scratch because a

@@ -672,6 +672,19 @@ Add `--release-heap-refresh` to free that scratch after a successful refresh;
 install claim during the free, and a timeout retains scratch for a later
 attempt because the audio writer may still hold it. This is a QEMU-only
 lifetime experiment, not a production allocation or fallback policy.
+Add `--combined-admission-refresh` together with `--callback --inspector
+--active-sends --pre-ainr --effect-buffer --auto-handoff --channel0-prefix
+--boundary-handoff --outer-audio-pause --audio-owner-refresh --heap-refresh
+--release-heap-refresh --file-mix-handoff atomic --selector-admission
+--ainr-admission --ainr-pair` to exercise the shared selector and paired AINR
+admission hooks with the heap-backed refresh. `combined_gate_*` and
+`combined_ainr_*` record gate and dispatcher counts; `combined_copy_gate`
+records the gate value and count at refresh, then the gate value and count at
+the initial snapshot copy. The
+default recipe does not trigger file mixing, and a successful run is not an
+assertion of safe behavior. The initial snapshot precedes selector closure;
+the rejection path, other callers, DMA and real-time timing remain unqualified.
+This combined image uses unowned control words and flash. **Never install it.**
 The pointer ownership, call ordering, 64-frame bypass and return ABI,
 other selector paths, timeout recovery, audio continuity, and target timing
 are not established. The code uses unowned scratch and flash. **Never install

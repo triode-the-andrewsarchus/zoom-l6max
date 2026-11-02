@@ -337,7 +337,7 @@ mod tests {
     }
 
     #[test]
-    fn refresh_timeout_cannot_reuse_scratch_while_other_thread_writes() {
+    fn refresh_timeout_blocks_reuse_then_closed_gate_allows_retry() {
         use core::sync::atomic::AtomicU32;
         use std::sync::Barrier;
         let pause = AtomicU32::new(0);
@@ -358,10 +358,27 @@ mod tests {
             barrier.wait();
             worker.join().unwrap();
         });
+        // After retirement, the outer audio boundary can service a retry
+        // while the closed gate excludes live and file-mix state users.
+        let gate = admission::CallbackAdmission::new();
+        let active = gate.try_enter(admission::CallbackPath::Live).unwrap();
+        let closed = gate.try_close().unwrap();
+        assert!(!closed.is_drained());
+        drop(active);
+        assert!(closed.is_drained());
         let retry = refresh.request().unwrap();
-        let (boundary, writer) = refresh.claim().unwrap();
-        assert!(refresh.publish(boundary, writer));
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                assert!(gate.try_enter(admission::CallbackPath::Live).is_none());
+                assert!(gate.try_enter(admission::CallbackPath::FileMix).is_none());
+                let (boundary, writer) = refresh.claim().unwrap();
+                assert!(refresh.publish(boundary, writer));
+            }).join().unwrap();
+        });
+        assert!(closed.is_drained());
         assert!(refresh.release(refresh.claim_completed(retry).unwrap()));
+        drop(closed);
+        assert!(gate.try_enter(admission::CallbackPath::Live).is_some());
     }
 
     #[test]

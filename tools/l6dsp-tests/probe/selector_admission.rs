@@ -95,20 +95,28 @@ core::arch::global_asm!(r#"
 .global selector_handoff_entry
 .thumb_func
 selector_handoff_entry:
-    push.w {r0, r1, r2, r3, r12, lr}
+    push.w {{r0, r1, r2, r3, r12, lr}}
     bl selector_handoff_begin
     cmp r0, #0
     beq .Labort
     cmp r0, #2
     beq .Ltimeout
-    pop.w {r0, r1, r2, r3, r12, lr}
+    pop.w {{r0, r1, r2, r3, r12, lr}}
     mov r1, r4
     ldr.w r12, .Lstock_call
     blx r12
+    .if {combined}
+    cmp r6, #4
+    bls .Lcombined_selector_resume
+    push.w {{r0, r1, r2, r3, r12, lr}}
+    bl ainr_selection_close
+    pop.w {{r0, r1, r2, r3, r12, lr}}
+.Lcombined_selector_resume:
+    .endif
     cmp r6, #4
     ldr.w pc, .Lcontinue
 .Ltimeout:
-    pop.w {r0, r1, r2, r3, r12, lr}
+    pop.w {{r0, r1, r2, r3, r12, lr}}
     .if selector_feedback_enabled
     ldr.w r12, .Ltimeout_old_type
     ldr.w r12, [r12]
@@ -132,7 +140,7 @@ selector_handoff_entry:
     movs r3, #0
     ldr.w pc, .Lexit_continue
 .Labort:
-    pop.w {r0, r1, r2, r3, r12, lr}
+    pop.w {{r0, r1, r2, r3, r12, lr}}
     ldr.w r0, [r9]
     movs r1, #0
     movs r2, #0
@@ -141,12 +149,12 @@ selector_handoff_entry:
 .global selector_handoff_fade
 .thumb_func
 selector_handoff_fade:
-    push.w {r0, r1, r2, r3, r12, lr}
+    push.w {{r0, r1, r2, r3, r12, lr}}
     .if selector_feedback_enabled
     bl selector_handoff_teardown
     .endif
     bl selector_handoff_end
-    pop.w {r0, r1, r2, r3, r12, lr}
+    pop.w {{r0, r1, r2, r3, r12, lr}}
     ldr.w r12, .Lfade_argument
     blx r12
     ldr.w r12, .Lfade_call
@@ -155,9 +163,9 @@ selector_handoff_fade:
 .global selector_handoff_exit
 .thumb_func
 selector_handoff_exit:
-    push.w {r0, r1, r2, r3, r12, lr}
+    push.w {{r0, r1, r2, r3, r12, lr}}
     bl selector_handoff_end
-    pop.w {r0, r1, r2, r3, r12, lr}
+    pop.w {{r0, r1, r2, r3, r12, lr}}
     ldr.w r0, [r9]
     movs r1, #0
     movs r2, #0
@@ -172,7 +180,7 @@ selector_handoff_exit:
 .Lflag_clear: .word 0x8002e749
 .Ltimeout_old_type: .word 0x83e0b02c
 .Lfade_continue: .word 0x202806f5
-"#, options(raw));
+"#, combined = const cfg!(combined_admission_refresh) as u8);
 
 // QEMU-only panel handler experiment. The original handler's stack argument
 // is at caller SP+4; only the forced timeout is reported through scratch.

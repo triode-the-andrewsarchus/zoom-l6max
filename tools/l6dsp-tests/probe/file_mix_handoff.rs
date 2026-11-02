@@ -185,6 +185,9 @@ pub unsafe extern "C" fn ainr_admission(input: *mut f32, output: *mut f32, index
         };
         if let Some(_lease) = lease {
             if valid { (&*counters.add(index as usize)).fetch_add(1, Ordering::Relaxed); }
+            #[cfg(combined_admission_refresh)]
+            let stock: unsafe extern "C" fn(*mut f32, *mut f32, u32) -> u32 = crate::auto_handoff::ainr_capture;
+            #[cfg(not(combined_admission_refresh))]
             let stock: unsafe extern "C" fn(*mut f32, *mut f32, u32) -> u32 = core::mem::transmute(0x781usize);
             let result = stock(input, output, index);
             if pair {
