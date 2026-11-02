@@ -4,6 +4,9 @@ pub mod math;
 pub mod velvet;
 #[path = "../../../patches/dual-efx/src/plateau.rs"]
 pub mod plateau;
+#[cfg(experimental_plateau_32k)]
+#[path = "../../../patches/dual-efx/src/plateau_rate.rs"]
+mod plateau_rate;
 #[path = "../../../patches/dual-efx/src/routing.rs"]
 pub mod routing;
 #[path = "../../../patches/dual-efx/src/parameter_view.rs"]

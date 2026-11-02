@@ -11,6 +11,13 @@ it does not establish sound equivalence, target execution time, control-event
 ordering, effect-return alignment or hardware safety. Its impulse peak is
 79 host samples after the input in each of the three input phases.
 
+The matching experimental Rust converter is checked with
+`RUSTFLAGS='--cfg experimental_plateau_32k' cargo test --offline --locked -p l6dsp-tests plateau_rate::tests`.
+The committed filter tables can be verified with
+`PYTHONDONTWRITEBYTECODE=1 python3 tools/l6dsp-tests/experiments/plateau_rate_coeffs.py --check`.
+The converter is not yet connected to the reverb or firmware, and its
+per-frame CPU cost has not been qualified on target.
+
 The `experimental_plateau_32k` compile configuration selects a standalone
 32 kHz core with size 0.01–4 and 0–500 ms predelay. Run its focused test with
 `RUSTFLAGS='--cfg experimental_plateau_32k' cargo test --offline --locked -p l6dsp-tests plateau::tests`.
