@@ -912,10 +912,17 @@ mod tests {
         use parameters::{edit_encoder, ParameterBank};
         let (mut fast, mut reference) = paired_reverb_return();
         let mut peak = 0.0f32;
-        for frame in 0..40_000 {
-            if frame % 997 == 0 {
-                let encoder = [0, 1, 2, 5, 6, 7, 3, 4][(frame / 997) % 8];
-                let delta = if (frame / 997) % 2 == 0 { 3 } else { -4 };
+        for frame in 0..100_000 {
+            let slow = frame < 40_000;
+            let elapsed = if slow { frame } else { frame - 40_000 };
+            let period = if slow { 997 } else { 13 };
+            if elapsed % period == 0 {
+                let turn = elapsed / period;
+                // The rapid sequence reverses predelay and diffusion before
+                // their previous smoothing ramps have finished.
+                let encoder = if slow { [0, 1, 2, 5, 6, 7, 3, 4][turn % 8] }
+                    else { [0, 0, 5, 5, 1, 7, 6, 2, 3, 4][turn % 10] };
+                let delta = if turn % 2 == 0 { 3 } else { -4 };
                 let mut p = reference.plateau.params;
                 match encoder {
                     0 => p.predelay_ms = math::clamp(p.predelay_ms + delta as f32 * 2.0, 0.0, 190.0),
@@ -933,7 +940,7 @@ mod tests {
             let input = if frame % 131 == 0 { 0.5 } else { 0.0 };
             let actual = fast.process_bus_sample(0.0, input, 0.0);
             let expected = reference.process_bus_sample(0.0, input, 0.0);
-            assert_eq!(actual, expected, "frame {frame}");
+            assert_eq!(actual, expected, "frame {frame}, edit period {period}");
             peak = peak.max(actual.0.abs()).max(actual.1.abs());
         }
         assert!(peak > 0.001, "test must observe a reverb response");
