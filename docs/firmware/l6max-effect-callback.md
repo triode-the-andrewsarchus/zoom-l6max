@@ -6939,3 +6939,47 @@ The stock MAIN and initial NOR hashes were
 The external QEMU and `l6dbg` binaries were
 `eade074b5d7a6fe9d74bbbe1ad36a34f7356cd200cbfc81e772f2a21892012e8` and
 `52af793c1d34e927210f99cf49117180121d8bd62885ce0ee7148be5dedbf2f6`.
+
+### Rejected live-entry buffers and tap-check upper bound
+
+In a separate disposable timing-control diagnostic, GDB stopped at the live
+wrapper and inspected the stock no-callback branch used by the experimental
+rejected-live veneer. At `0x20280330` the branch passes `0x20010210`, zero,
+and 256 to the zero-fill thunk at `0x202303c4`; it then passes `0x20010310`,
+zero, and 256 to the same thunk. The thunk targets `0x80000722`. These are
+the live wrapper's two 64-sample input/output buffers, not private rejection
+scratch. If another live invocation is using them when admission rejects an
+entry, this fallback can overwrite its buffers without holding a lease. The
+test did not establish that such live reentry occurs, inspect every possible
+caller or prove audible behavior. It does show why reaching the stock branch
+is not, by itself, a safe rejection design.
+
+The diagnostic MAIN and ELF were
+`48bed2d20faf98211084bcecaf737742abb3b31a4ebda332c7f2249a5b27f8ce` and
+`33fa20d649528219ccc7af46f9a1807be88a271d2c45faa57514f8eb65a59409`.
+The recipe and two GDB transcripts were
+`0001c6c29f102f51277733bc6ee23188ddd0b21f437434ef560f4e1fa9dedea5`,
+`930d286d23aa4bee666cc547b6cfa663fa012011b579d39f8fb67cfc2739a66d`, and
+`fd6834c67b457dc4627f0b0158cfd08f75112f0b5a03b7d1871122a6185bafce`.
+Stock MAIN, input NOR, QEMU and `l6dbg` matched the preceding experiment.
+
+A separate, intentionally unsafe QEMU-only upper-bound prototype omitted
+delay normalization in the aligned shared-Velvet tap loop. In a matched
+285-tap active-sends pair, the checked build advanced 2,635 callbacks in
+five guest seconds and the unchecked prototype advanced 2,973; neither
+inspector opened. A 40,000-frame host run with generated valid taps matched
+the previous output hash. The prototype can perform out-of-bounds unchecked
+reads for malformed delays and is not a candidate firmware fix. Even this
+unsafe omission fell below the nominal 3,750 callbacks; these figures do not
+measure physical timing.
+
+The control and unsafe MAIN hashes were
+`11c63f8b683bc21a3adcd4429691e9d85c15dfd150071b538d2c48fa316cefda` and
+`f8dc7e5cf69ac71dba0fd7463ac9d2f752fec25ae96bd51fd072a5fa06c6a961`;
+their ELFs were `baa61ca3d886899e17ea5e2b8c530ed15dc4be0a24e1f6ee354517aa655ba589`
+and `c2b81f432c725a64f4dfa80215e848f2bb26d77ac465983cd26905402ad3b8a7`.
+Their recipe/result hashes were
+`78869022198e0e6a1d0762d7c42bfc722b9364ec01c6090b16262386be1d38d4` /
+`73b63f721173bea975441d70093ca3e74cd4feba99dbdf568645b4d3f2e8ba10` and
+`38771d4e611b87e47a3ba4082c07dd518c445ec0efecc9212e0401bca19291a5` /
+`1fbfc823c0cb2a62bde5af10364f2262778d3bbbe41fdd63bbcc68b2d10e9317`.

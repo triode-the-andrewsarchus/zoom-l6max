@@ -82,7 +82,9 @@ The blocking findings for L6max MAIN 1.10
   touching shared scratch; these remain unproven. Its
   admission rejects unexpected gate state, but its strong atomic operation
   can retry on the target. Safe rejection behavior and deadlines for the atomic
-  sequence and selector wait remain unproven.
+  sequence and selector wait remain unproven. The diagnostic's rejected-live
+  branch clears two live effect buffers; if live calls overlap, it can write
+  buffers in use by the admitted call despite having failed to acquire a lease.
 - In QEMU, the inspector's long-hold gesture was misclassified during a
   stress run with nonzero synthetic sends on all three effect buses. Silent
   input runs passed after a DSP optimization; the active-audio control path

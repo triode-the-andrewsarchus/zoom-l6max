@@ -133,6 +133,9 @@ pub unsafe extern "C" fn mix_handoff_atomic_live() {
         } else {
             let counter = 0x83e0b004 as *mut u32;
             write(counter, read(counter).wrapping_add(1));
+            // The stock no-callback branch below clears 0x20010210 and
+            // 0x20010310. A rejected overlapping live entry could overwrite
+            // buffers used by an admitted entry; this is not a safe fallback.
             // Experimental only: test whether a stock ramp can advance while
             // effect processing is excluded. Memory ownership is unproven.
             #[cfg(selector_admission)]
