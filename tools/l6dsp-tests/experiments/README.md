@@ -146,3 +146,78 @@ The outer diagnostic MAIN, ELF, recipe, result and plugin log hashes were
 `3e408378a3cb828fc2bd20c19c750986393c6d407d3bf7ca568d3edb0c80a878`, and
 `2548aeb6df6060affa555db0ba500c346e78275f4e6d5dac975549c70b069880`.
 The custom QEMU, stock fixture and `l6dbg` identities match those above.
+
+### Modeled output after the outer-block handoff
+
+For a separate output observation, apply `tone_qemu.patch` after `qemu.patch`
+and `tone_probe.patch` after `probe.patch` in the disposable copies. The
+additional QEMU changes supply a gated 500 Hz square wave to every modeled
+receive word and record DMA-capture offsets for the injected request and TX
+restart. The patches remain model-only and must not be used on hardware.
+Build two fresh outer fixtures, one with `--late-dma-outer` and one with both
+`--late-dma-outer --late-dma-control`. For each generated recipe, insert these
+steps immediately after the initial 45-second wait, before the first EFX press:
+
+```toml
+[[step]]
+action = "press"
+target = 20
+hold_ms = 150
+[[step]]
+action = "encoder"
+channel = 1
+steps = 8
+[[step]]
+action = "wait"
+guest_ms = 2000
+[[step]]
+action = "press"
+target = 35
+hold_ms = 150
+[[step]]
+action = "encoder"
+channel = 1
+steps = 8
+[[step]]
+action = "wait"
+guest_ms = 2000
+```
+
+For each run set `L6_AUDIO_DMA_SOURCE_CAPTURE` to a fresh `dma.bin` in its
+output directory and `L6_DMA_MARKERS` to that directory's `markers.txt`.
+Use the plugin wrapper and GDB socket as above, saving the `l6dbg` output as
+`result.json`. The two directories must each contain `result.json`, `dma.bin`,
+`markers.txt`, and `logs/engine.stderr`. Compare them with:
+
+```sh
+python3 tools/l6dsp-tests/experiments/late_dma_irq/check_restart.py FORCED_DIR CONTROL_DIR
+```
+
+The checker validates the handoff and capture format and reports differences;
+it does not interpret a difference threshold as an audio pass. In one paired
+run, neither capture gained DMA records between injection and restart. Both
+saved TX buffers were all zero, and the first 1,176 resumed source records
+matched those buffers before nonzero data appeared. Over the first 12,000
+records the source addresses matched; nine records differed in sample values,
+with a maximum signed integer difference of one. One 32-byte record contained
+one modeled eight-slot frame. The capture has no per-record timestamps and uses
+a synthetic input, so these counts do not prove wall-time continuity, physical
+output, or safety. In particular, the guard still drops a block and the actual
+successful file-mix path and other admission schedules are unqualified.
+
+The custom QEMU binary was
+`690d309797a4c588b97e50b8508dd0adc90b454a8fef07dcd28c48c38a88803f`
+(source provenance unattested); the plugin, stock fixture and `l6dbg` matched
+the preceding experiment. Forced/control MAIN hashes were
+`83dcd3e8835596f39e50a6e7b374f19406fc6a19b29e3635d7601dbe3a7625af` and
+`7654b8f99b17ac1901bfc0e3d7a97eed4c51e823bc4c986170a29d0b6233a017`;
+ELFs were `528aba8145d46d9a238c1a86c16cef2678862ae2f4c61bf894bfddd5f3c9568b`
+and `a4c5aeff93dc5bb18907becda9767e763dbd76d47e73d397f752ae4f591d0eab`;
+recipes were `c668ea591f83ad05fed8f586c5fff5ec333ffd5b295ae6ecef5266ac3446915c`
+and `d251c1ad7ebec2a42633e4e7bb712089d314b4ee3248c99bf255b63c00d3c289`;
+results were `1ddf7d3d26cd8aa50ed085ccc81eadabd10736710ae52105d069c621f66aad6d`
+and `0824e288ac2aae570cb9f5b2d6ce25fb85e29b4a736e6b13edc68ac6600e25f2`;
+captures were `a3f3455258b6b22ab2a0a3e05e3dfd5042cc85276ead234c479d5932384f3897`
+and `a65deefc0b4f19641ea2036b399b7230d12a677d3ad37458992d3dbdb91641b6`.
+Both marker files hashed to
+`d0ed9cb658aca39d258ef8dc40add502cd57e73900bd4f588651aadeb76c9d2f`.

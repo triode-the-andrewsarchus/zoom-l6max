@@ -1,0 +1,25 @@
+--- a/tools/l6dsp-tests/probe/file_mix_handoff.rs
++++ b/tools/l6dsp-tests/probe/file_mix_handoff.rs
+@@ -98,9 +98,12 @@
+         write(out.add(12), read(0x400e91f0 as *const u32));
+         write(out.add(13), read(0x400e91fc as *const u16) as u32);
+         write(out.add(9), 1);
++        core::ptr::copy_nonoverlapping(0x20009740 as *const u32, 0x83e0c000 as *mut u32, 1024);
+         write(0x83e0e000 as *mut u32, 0x4254474e);
+         #[cfg(not(late_dma_control))]
+         write(0x400e80f0 as *mut u32, 0x4c364951);
++        #[cfg(late_dma_control)]
++        write(0x400e80f0 as *mut u32, 0x4c364950);
+         write(out.add(14), read(0x400e8024 as *const u32));
+         let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
+         delay(50);
+--- a/tools/l6dsp-tests/probe/prepare.py
++++ b/tools/l6dsp-tests/probe/prepare.py
+@@ -715,6 +715,7 @@
+     add("memory", name="mix_handoff", address=0x83e0a000, length=44)
+     add("memory", name="mix_irq", address=0x83e0a02c, length=16)
+     add("memory", name="mix_buffers", address=0x83e0a03c, length=8)
++    add("memory", name="tx_before_inject", address=0x83e0c000, length=4096)
+ if args.selector_admission and not args.selector_timeout and not args.combined_admission_refresh:
+     for index in range(4):
+         if args.selector_overlap and index == 0:

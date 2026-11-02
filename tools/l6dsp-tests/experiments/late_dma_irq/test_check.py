@@ -1,12 +1,46 @@
 import copy
+import io
 import struct
 import sys
+import tempfile
 from pathlib import Path
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'probe'))
 from test_file_mix_handoff import report
 from check import EXPECTED, validate
+from check_restart import BASE, read_markers, records, summarize
+
+
+class DmaRecordTests(unittest.TestCase):
+    def test_reads_addressed_fixed_frames(self):
+        data = struct.pack('<II', BASE, 32) + bytes(range(32))
+        self.assertEqual(records(io.BytesIO(b'head' + data), 4, 1), [(BASE, bytes(range(32)))])
+
+    def test_markers_require_matching_aligned_offsets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'markers.txt'
+            offset = 16 + 5000 * 40
+            path.write_text(f'inject {offset}\nrestart {offset}\n')
+            self.assertEqual(read_markers(path), (offset, offset))
+            for bad in (f'inject {offset}\nrestart {offset + 40}\n', 'inject\nrestart 1\n'):
+                path.write_text(bad)
+                with self.subTest(markers=bad), self.assertRaises(ValueError):
+                    read_markers(path)
+
+    def test_summary_requires_nonzero_output_on_both_sides(self):
+        silent = [(BASE, bytes(32))]
+        active = [(BASE, b'\x01' + bytes(31))]
+        for before, after in ((silent, active), (active, silent)):
+            with self.subTest(before=before), self.assertRaises(ValueError):
+                summarize(bytes(4096), before, after, 0)
+
+    def test_rejects_truncated_or_out_of_range_records(self):
+        for data in (b'bad', struct.pack('<II', BASE - 4, 32) + bytes(32),
+                     struct.pack('<II', BASE, 31) + bytes(32),
+                     struct.pack('<II', BASE + 1, 32) + bytes(32)):
+            with self.subTest(data=data), self.assertRaises(ValueError):
+                records(io.BytesIO(data), 0, 1)
 
 
 class LateDmaIrqTests(unittest.TestCase):

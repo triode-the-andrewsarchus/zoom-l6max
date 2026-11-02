@@ -1,0 +1,58 @@
+--- a/emulator/qemu/hw/arm/l6max.c
++++ b/emulator/qemu/hw/arm/l6max.c
+@@ -2960,6 +2960,9 @@
+  * SAI3 (L6) or SAI1 (L6max) master supplies the frame clock; synchronous
+  * slave instances on L6 share that clock. Each frame advances the configured
+  * TDM word count, then lets the active FIFO watermark pace eDMA. */
++static FILE *irq_capture_markers;
++static bool irq_capture_waiting;
++
+ static unsigned l6_sai_audio_clock_advance(L6ChipState *s, unsigned frames)
+ {
+     bool master_clock = false;
+@@ -3090,6 +3093,12 @@
+                 }
+             }
+             if (rx & L6_SAI_RE) {
++                /* Disposable diagnostic input, not physical jack routing. */
++                static uint64_t input_frame;
++                bool on = (input_frame / 24000) % 2 == 0;
++                int32_t sample = on ? ((input_frame % 96 < 48) ? 0x01000000 : -0x01000000) : 0;
++                for (unsigned j = 0; j < ARRAY_SIZE(silence); j++) silence[j] = (uint32_t)sample;
++                input_frame++;
+                 l6_sai_rx_frame(sai, silence, rx_words);
+                 /* RX requests assert after the frame has been written into
+                  * the FIFO, so evaluate the updated count for this edge. */
+@@ -3380,6 +3389,12 @@
+         hwaddr sai_base = offset - sai_offset;
+         if (sai_offset == L6_SAI_TCSR) {
+             uint32_t control = l6_sai_read(sai, sai_offset, 4);
++            if (irq_capture_waiting && sai_base == 0x384000 && (control & L6_SAI_TE)) {
++                fprintf(irq_capture_markers, "restart %ld\n", ftell(s->audio_dma_source_capture));
++                fclose(irq_capture_markers);
++                irq_capture_markers = NULL;
++                irq_capture_waiting = false;
++            }
+             if ((control & (L6_SAI_TE | L6_SAI_FRDE | L6_SAI_FRF)) ==
+                 (L6_SAI_TE | L6_SAI_FRDE | L6_SAI_FRF)) {
+                 uint8_t source = sai_base == 0x384000 ? 20 : 84;
+@@ -3613,8 +3628,17 @@
+         l6_lpi2c_mtdr_write(s, value);
+     }
+     /* Disposable diagnostic only: synthesize one pending DMA IRQ. */
+-    if (!s->panel && offset == 0x0e80f0 && size == 4 && value == 0x4c364951) {
+-        l6_edma_raise_interrupt(s, 15);
++    if (!s->panel && offset == 0x0e80f0 && size == 4 && (value == 0x4c364950 || value == 0x4c364951)) {
++        const char *marker_path = g_getenv("L6_DMA_MARKERS");
++        if (marker_path && s->audio_dma_source_capture) {
++            irq_capture_markers = g_fopen(marker_path, "w");
++            if (irq_capture_markers) {
++                fprintf(irq_capture_markers, "inject %ld\n", ftell(s->audio_dma_source_capture));
++                fflush(irq_capture_markers);
++                irq_capture_waiting = true;
++            }
++        }
++        if (value == 0x4c364951) l6_edma_raise_interrupt(s, 15);
+         return;
+     }
+     if (offset == 0x0e8024 && size == 4) {
