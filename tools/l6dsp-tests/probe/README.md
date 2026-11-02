@@ -649,6 +649,14 @@ one-tick delays, and invalidates the request if still paused after 20 waits.
 and timeouts. This deliberately delays audio and does not cover other state
 users, DMA, real-time deadlines, or audible continuity. The ordinary boundary
 bypass counters do not apply in this mode.
+Add `--audio-owner-refresh` with `--outer-audio-pause` to copy both the initial
+snapshot and a later refresh in the audio task at block boundaries. The later
+copy uses separate, unowned QEMU scratch; a generation-held reader protects it
+until the selector finishes copying. `owner_refresh` records the pause and
+capture words, audio claims, rejected publications, selector wait, and outcome
+(1 success, 2 timeout or invalidation). The `outer_audio_pause` counters in
+this mode are initial claims, completed captures, and failed captures. This is
+an experimental diagnostic, not a hardware memory layout or timing guarantee.
 The pointer ownership, call ordering, 64-frame bypass and return ABI,
 other selector paths, timeout recovery, audio continuity, and target timing
 are not established. The code uses unowned scratch and flash. **Never install

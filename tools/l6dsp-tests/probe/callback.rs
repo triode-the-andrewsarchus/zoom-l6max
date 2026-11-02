@@ -44,6 +44,8 @@ mod auto_handoff;
 mod handoff_protocol;
 #[cfg(boundary_ainr_probe)]
 mod boundary_pause;
+#[cfg(owner_refresh_probe)]
+mod refresh_handoff;
 #[cfg(effect_buffer_probe)]
 const _: () = assert!(core::mem::size_of::<routing::DualEfxProcessor>() <= 0x50000);
 

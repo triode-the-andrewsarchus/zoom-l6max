@@ -61,6 +61,7 @@ parser.add_argument("--channel0-prefix", action="store_true", help="experimental
 parser.add_argument("--hybrid-handoff", action="store_true", help="experimentally split the channel-0 snapshot over several callbacks")
 parser.add_argument("--boundary-handoff", action="store_true", help="QEMU-only selector-side snapshot after an audio-boundary pause")
 parser.add_argument("--outer-audio-pause", action="store_true", help="QEMU-only: park the whole audio block during the boundary snapshot")
+parser.add_argument("--audio-owner-refresh", action="store_true", help="QEMU-only: capture and refresh at audio-task boundaries")
 parser.add_argument("--boundary-noise", action="store_true", help="inject nonzero stock AINR input in the boundary experiment")
 parser.add_argument("--passthrough-unready", action="store_true", help="keep synthetic sends active when AINR is unavailable")
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
@@ -88,7 +89,7 @@ other_diagnostics = (args.switches, args.inspector, args.mixer_input_capture, ar
         args.irq_trace, args.irq_timing, args.ring_timing, args.ring_drop, args.timing_control,
         args.active_sends, args.selector_load_trace, args.max_velvet_density, args.velvet_fade_stress, args.submix_return,
         args.retain_custom_state, args.pre_ainr, args.effect_buffer, args.auto_handoff,
-        args.channel0_prefix, args.hybrid_handoff, args.boundary_handoff, args.outer_audio_pause, args.boundary_noise,
+        args.channel0_prefix, args.hybrid_handoff, args.boundary_handoff, args.outer_audio_pause, args.audio_owner_refresh, args.boundary_noise,
         args.passthrough_unready, args.bank_stress)
 if args.file_mix_handoff and (not args.callback or args.admission_probe
         or args.offline_mix_layout or any(other_diagnostics)):
@@ -158,6 +159,8 @@ if args.boundary_handoff and (not args.channel0_prefix or args.hybrid_handoff):
     parser.error("--boundary-handoff requires --channel0-prefix and excludes --hybrid-handoff")
 if args.outer_audio_pause and not args.boundary_handoff:
     parser.error("--outer-audio-pause requires --boundary-handoff")
+if args.audio_owner_refresh and not args.outer_audio_pause:
+    parser.error("--audio-owner-refresh requires --outer-audio-pause")
 if args.boundary_noise and not args.boundary_handoff:
     parser.error("--boundary-noise requires --boundary-handoff")
 if args.passthrough_unready and not args.pre_ainr:
@@ -249,6 +252,8 @@ if args.boundary_handoff:
     rustc += ["--cfg", "boundary_ainr_probe"]
 if args.outer_audio_pause:
     rustc += ["--cfg", "outer_audio_pause_probe"]
+if args.audio_owner_refresh:
+    rustc += ["--cfg", "owner_refresh_probe"]
 if args.boundary_noise:
     rustc += ["--cfg", "boundary_noise_probe"]
 if args.passthrough_unready:
@@ -629,6 +634,8 @@ wall_timeout_s = 420
             memory("boundary_handoff", 0x83e03138, 20)
         if args.outer_audio_pause:
             memory("outer_audio_pause", 0x83e03150, 12)
+        if args.audio_owner_refresh:
+            memory("owner_refresh", 0x83e03188, 24)
     memory("ainr_sends_1", 0x83e03000, 28)
     wait(5000)
     memory("ainr_sends_2", 0x83e03000, 28)
@@ -745,6 +752,8 @@ if args.pre_ainr:
             metadata["boundary_noise"] = args.boundary_noise
             if args.outer_audio_pause:
                 metadata["outer_audio_pause"] = True
+            if args.audio_owner_refresh:
+                metadata["audio_owner_refresh"] = True
     if args.effect_buffer:
         matches = [line.split() for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines()
                    if line.endswith(" diagnostic_audio")]

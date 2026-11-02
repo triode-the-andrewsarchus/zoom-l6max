@@ -256,9 +256,11 @@ mod tests {
         assert!(refresh.claim_completed(old).is_none());
         let reader = refresh.claim_completed(next).unwrap();
         assert!(refresh.claim_completed(next).is_none());
+        assert!(handoff_protocol::CaptureProtocol(&capture).current_claim(reader));
 
         // Scratch remains unavailable while an installer holds the reader.
         assert!(refresh.request().is_none(), "reader still owns scratch");
+        assert!(!handoff_protocol::CaptureProtocol(&capture).current_claim(reader));
         assert!(!refresh.release(reader));
         let retry = refresh.request().unwrap();
         let (boundary, writer) = refresh.claim().unwrap();

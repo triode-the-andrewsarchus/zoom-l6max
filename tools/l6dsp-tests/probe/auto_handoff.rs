@@ -10,6 +10,8 @@ compile_error!("the boundary diagnostic requires the channel-0 prefix");
 compile_error!("boundary noise requires the boundary diagnostic");
 #[cfg(all(outer_audio_pause_probe, not(boundary_ainr_probe)))]
 compile_error!("outer audio pause requires the boundary diagnostic");
+#[cfg(all(owner_refresh_probe, not(outer_audio_pause_probe)))]
+compile_error!("audio-owned refresh requires the outer audio diagnostic");
 
 const POINTER: usize = 0x83e03100;
 const STATUS: usize = 0x83e03104; // 0 waiting, 1 captured, 2 allocation failed, 3 boundary candidate
@@ -22,6 +24,13 @@ const PROGRESS: usize = 0x83e03130;
 const CONTROL: usize = 0x83e03134;
 #[cfg(boundary_ainr_probe)]
 const PAUSE: usize = 0x83e03138;
+// Separate unowned QEMU-only scratch; not a hardware memory layout.
+#[cfg(owner_refresh_probe)]
+const REFRESH_PAUSE: usize = 0x83e03188;
+#[cfg(owner_refresh_probe)]
+const REFRESH_CONTROL: usize = 0x83e0318c;
+#[cfg(owner_refresh_probe)]
+const REFRESH_SCRATCH: usize = 0x83e10000;
 #[cfg(boundary_ainr_probe)]
 const CAPTURE_BYTES: usize = crate::boundary_pause::CAPTURE_BYTES;
 #[cfg(all(compact_ainr_probe, not(boundary_ainr_probe)))]
@@ -127,31 +136,90 @@ unsafe fn boundary_audio(input: *mut f32, output: *mut f32, index: u32) -> bool 
     }
 }
 
-/// QEMU-only: park the observed audio task before it enters a whole block.
-/// This changes audio timing and does not cover other callers or DMA.
+/// QEMU-only outer boundary hook; neither variant covers other callers or DMA.
 #[cfg(outer_audio_pause_probe)]
 #[unsafe(no_mangle)]
 #[unsafe(link_section = ".text.selector_handoff_outer_audio")]
 pub unsafe extern "C" fn outer_audio_pause(input: u32) {
     unsafe {
-        let pause_word = word(PAUSE);
-        let request = pause_word.load(Ordering::Acquire);
-        let pause = crate::boundary_pause::BoundaryPause(pause_word);
-        if pause.acknowledge(request) {
-            word(0x83e03150).fetch_add(1, Ordering::Relaxed);
-            let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
-            let mut waited = 0u32;
-            while pause.acknowledged(request) && waited < 20 {
-                delay(1);
-                waited += 1;
-            }
-            word(0x83e03154).store(waited, Ordering::Release);
-            if waited == 20 && pause.finish(request) {
-                word(0x83e03158).fetch_add(1, Ordering::Relaxed);
+        #[cfg(owner_refresh_probe)]
+        {
+            refresh_on_audio_boundary();
+            capture_on_audio_boundary();
+        }
+        #[cfg(not(owner_refresh_probe))]
+        {
+            let pause_word = word(PAUSE);
+            let request = pause_word.load(Ordering::Acquire);
+            let pause = crate::boundary_pause::BoundaryPause(pause_word);
+            if pause.acknowledge(request) {
+                word(0x83e03150).fetch_add(1, Ordering::Relaxed);
+                let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
+                let mut waited = 0u32;
+                while pause.acknowledged(request) && waited < 20 {
+                    delay(1);
+                    waited += 1;
+                }
+                word(0x83e03154).store(waited, Ordering::Release);
+                if waited == 20 && pause.finish(request) {
+                    word(0x83e03158).fetch_add(1, Ordering::Relaxed);
+                }
             }
         }
         let stock: unsafe extern "C" fn(u32) = core::mem::transmute(0x800149b1usize);
         stock(input);
+    }
+}
+
+/// QEMU-only initial capture: the audio task owns the copy, not a parked task.
+#[cfg(owner_refresh_probe)]
+unsafe fn capture_on_audio_boundary() {
+    unsafe {
+        let pause = crate::boundary_pause::BoundaryPause(word(PAUSE));
+        let request = word(PAUSE).load(Ordering::Acquire);
+        if !pause.acknowledge(request) { return; }
+        word(0x83e03150).fetch_add(1, Ordering::Relaxed);
+        let capture = crate::handoff_protocol::CaptureProtocol(word(CONTROL));
+        let status = word(STATUS);
+        let ptr = word(POINTER).load(Ordering::Acquire) as *mut u8;
+        let mut complete = false;
+        if !ptr.is_null() {
+            if let Some((claim, step)) = capture.claim() {
+                if step == 0 && boundary_selection_valid(status, &pause, request) {
+                    core::ptr::write_volatile(0x83e03108 as *mut u32, core::ptr::read_volatile(0x8020ab4c as *const u32));
+                    crate::boundary_pause::copy_snapshot(0x20280000 as *const u8, ptr);
+                    core::ptr::write_volatile(0x83e0310c as *mut u32, core::ptr::read_volatile(0x8020ab4c as *const u32));
+                    if boundary_selection_valid(status, &pause, request) {
+                        complete = pause.publish_capture(request, &capture, claim);
+                    } else { capture.finish(claim, 0, false); }
+                } else { capture.finish(claim, 0, false); }
+            }
+        }
+        if complete {
+            status.store(1, Ordering::Release);
+            word(0x83e03154).fetch_add(1, Ordering::Relaxed);
+        } else {
+            pause.finish(request);
+            word(0x83e03158).fetch_add(1, Ordering::Relaxed);
+        }
+    }
+}
+
+/// QEMU-only refresh into separate scratch, with a generation-held writer.
+#[cfg(owner_refresh_probe)]
+unsafe fn refresh_on_audio_boundary() {
+    unsafe {
+        let refresh = crate::refresh_handoff::RefreshHandoff {
+            pause: word(REFRESH_PAUSE), capture: word(REFRESH_CONTROL),
+        };
+        let Some((boundary, claim)) = refresh.claim() else { return; };
+        word(0x83e03190).fetch_add(1, Ordering::Relaxed);
+        word(0x83e0316c).store(1, Ordering::Release);
+        crate::boundary_pause::copy_snapshot(0x20280000 as *const u8, REFRESH_SCRATCH as *mut u8);
+        word(0x83e03170).store(1, Ordering::Release);
+        if !refresh.publish(boundary, claim) {
+            word(0x83e03194).fetch_add(1, Ordering::Relaxed);
+        }
     }
 }
 
@@ -236,7 +304,7 @@ unsafe fn boundary_selection_valid(status: &AtomicU32, pause: &crate::boundary_p
 
 /// QEMU-only: pause the observed AINR calls at a boundary before snapshotting.
 /// Other state users, the bypass ABI, timing and audible behavior are unproven.
-#[cfg(boundary_ainr_probe)]
+#[cfg(all(boundary_ainr_probe, not(owner_refresh_probe)))]
 pub unsafe fn capture_boundary() {
     unsafe {
         let status = word(STATUS);
@@ -285,6 +353,35 @@ pub unsafe fn capture_boundary() {
     }
 }
 
+/// QEMU-only: request an audio-owned initial snapshot and wait for publication.
+#[cfg(owner_refresh_probe)]
+pub unsafe fn capture_boundary() {
+    unsafe {
+        let status = word(STATUS);
+        if word(POINTER).load(Ordering::Acquire) == 0 || status.load(Ordering::Acquire) != 3 { return; }
+        let capture = crate::handoff_protocol::CaptureProtocol(word(CONTROL));
+        if capture.needs_reset() { return; }
+        let pause = crate::boundary_pause::BoundaryPause(word(PAUSE));
+        let Some(request) = pause.request() else { return; };
+        let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
+        let mut waits = 0u32;
+        while !capture.done() && waits < 20 {
+            delay(1);
+            waits += 1;
+        }
+        word(0x83e0313c).store(waits, Ordering::Release);
+        if capture.done() {
+            word(0x83e03140).store(1, Ordering::Release);
+        } else {
+            pause.finish(request);
+            capture.cancel(false);
+            let _ = status.compare_exchange(3, 0, Ordering::AcqRel, Ordering::Acquire);
+            word(START).store(0, Ordering::Release);
+            word(0x83e03140).store(2, Ordering::Release);
+        }
+    }
+}
+
 // Experimental only: the copied ranges are inferred from limited QEMU runs.
 #[cfg(hybrid_ainr_probe)]
 unsafe fn capture_hybrid(ptr: *mut u8, now: u32) -> bool {
@@ -308,6 +405,57 @@ unsafe fn capture_hybrid(ptr: *mut u8, now: u32) -> bool {
     }
 }
 
+/// QEMU-only: refresh the held snapshot from the audio task's scratch copy.
+#[cfg(owner_refresh_probe)]
+unsafe fn refresh_before_install(ptr: *mut u8, original_claim: u32) -> bool {
+    unsafe {
+        let original = crate::handoff_protocol::CaptureProtocol(word(CONTROL));
+        if !original.current_claim(original_claim) { return false; }
+        let regions = [(0xb97cusize, 20usize), (0xb990, 20), (0xba4c, 4), (0xbad0, 4)];
+        let mut saved = [0u8; 48];
+        let mut pos = 0;
+        for (offset, len) in regions {
+            for i in 0..len {
+                saved[pos] = core::ptr::read_volatile(ptr.add(offset - crate::boundary_pause::SNAPSHOT_START + i));
+                pos += 1;
+            }
+        }
+        let refresh = crate::refresh_handoff::RefreshHandoff {
+            pause: word(REFRESH_PAUSE), capture: word(REFRESH_CONTROL),
+        };
+        let Some(request) = refresh.request() else { return false; };
+        let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
+        let mut waits = 0u32;
+        let reader = loop {
+            if let Some(claim) = refresh.claim_completed(request) { break Some(claim); }
+            if waits == 20 { break None; }
+            delay(1);
+            waits += 1;
+        };
+        word(0x83e03198).store(waits, Ordering::Release);
+        let Some(reader) = reader else {
+            refresh.cancel(request);
+            word(0x83e0319c).store(2, Ordering::Release);
+            return false;
+        };
+        if !original.current_claim(original_claim) {
+            refresh.release(reader);
+            return false;
+        }
+        core::ptr::copy_nonoverlapping(REFRESH_SCRATCH as *const u8, ptr, crate::boundary_pause::CAPTURE_BYTES);
+        pos = 0;
+        for (offset, len) in regions {
+            for i in 0..len {
+                core::ptr::write_volatile(ptr.add(offset - crate::boundary_pause::SNAPSHOT_START + i), saved[pos]);
+                pos += 1;
+            }
+        }
+        let valid = refresh.release(reader) && original.current_claim(original_claim);
+        word(0x83e0319c).store(if valid { 1 } else { 2 }, Ordering::Release);
+        valid
+    }
+}
+
 /// Called after effect initialization and before callback publication.
 pub unsafe fn install() {
     unsafe {
@@ -317,6 +465,13 @@ pub unsafe fn install() {
         // later telemetry word, authorizes installation.
         #[cfg(any(hybrid_ainr_probe, boundary_ainr_probe))]
         let Some(claim) = crate::handoff_protocol::CaptureProtocol(word(CONTROL)).claim_install() else { return; };
+        #[cfg(owner_refresh_probe)]
+        if !refresh_before_install(ptr as *mut u8, claim) {
+            let protocol = crate::handoff_protocol::CaptureProtocol(word(CONTROL));
+            protocol.cancel_epoch(claim, false);
+            protocol.finish(claim, 0, false);
+            return;
+        }
         #[cfg(any(hybrid_ainr_probe, boundary_ainr_probe))]
         word(READY).store(1, Ordering::Release);
         #[cfg(not(any(hybrid_ainr_probe, boundary_ainr_probe)))]

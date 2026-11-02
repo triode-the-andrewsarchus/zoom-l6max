@@ -5820,6 +5820,72 @@ The replay used observer source
 identities `61c1594afdf9a53e173cad67a4ff2a6f6c8bbdec128718ba1a13c23775b4c3a7`.
 All experiments used the stock MAIN, fixture and QEMU identities below.
 
+The opt-in `--audio-owner-refresh` diagnostic now uses a separate
+`RefreshHandoff` generation for the late scratch copy and holds the original
+snapshot claim until it finishes. A successful scratch reader claims the exact
+completed generation; cancellation is scoped to the request's generation,
+and an active writer or reader must retire before scratch is rearmed. Host
+and Miri tests cover stale cancellation, timeout during a write, and a reader
+held across a retry. These are synchronization tests, not firmware safety
+qualification.
+
+In a QEMU run of the final diagnostic image, the first selection completed one
+refresh and set ready token `0x7e`; a second custom-effect selection completed
+a second refresh (scratch capture token `0xbe`) and retained a ready token.
+The traced run recorded no CPU write starting in the watched tail during the
+refresh and no RX completion between the refresh claim and stock block entry.
+A separate forced variant delayed the audio task 30 ticks after its refresh
+claim: the selector timed out after 20, the late writer was rejected, both
+capture controls retired to canceled `0x83`, and ready stayed zero. The forced
+stall intentionally disrupts audio.
+
+A second forced variant delayed only the first refresh. After that timeout,
+the recipe cycled back to AINR, observed the learned flag still set, waited
+for the diagnostic's ten-second settling interval, and selected the custom
+effect again. The next refresh completed in a new generation, ready became
+`0xbe`, and sampled AINR sends advanced. An earlier attempt pressed TAP on
+re-entry and observed the learned flag clear; another left before the settling
+interval and did not request a retry. Those attempts do not establish retry
+failure. Each is a single modeled schedule, and none proves the delay is a
+valid device deadline or that all cancellation and re-entry paths work.
+
+The final MAIN and ELF were
+`9283bd42dbf732ffd6c0126c4adc4b428366757d86ae65cff15938cb2c715818` and
+`8ee7a70e6846e27ef3700fb6cec2ff3d12f2ffba5413b6d829bacd6711e8e5cb`.
+The handoff, refresh protocol, capture protocol and preparer source hashes were
+`c86fbe0db9093e93680ba88443be2571b40ffeffb7da69064662bed5f34c896c`,
+`6c770d658dc467b5d4e08bbaa050bdc31f7778fb6751b7eaf38a06469ca489a5`,
+`b7e4ff6ea1d3b760dcb0b99422b3c90b1a3b02c5a77f333db308c7d07326a355`, and
+`9608fbeae54b426deef5168abce811f4fff51dbc9d05a7b37c7e0406765665f9`.
+The repeat recipe and result hashes were
+`62293164072e0e1239b81e17de7e2b4364f6b923492cbf9912118197c03c6cd9` and
+`ae9a353773e0c29fdbf485df6c8cad94915daca64693289f60151c91b2cf6a53`;
+the trace recipe, result and trace were
+`68d9a7887a34766bee2b1b96378937c53b4f27311d8b623a46c3eeae042f2c02`,
+`17f1cfb55113341e821fc4432ae14cfbc3c6ab3add33d28390387eda5d70da9d`, and
+`69e6ef9ee2a7501e97c161600fb5bb899f78096b1c1795e0acc27da45e055d84`.
+The RX plugin source, binary and combined wrapper were
+`5a25ac0a2de1f0ab70650581ba558d12d15ff10c317b6fb0d5808688056e4701`,
+`1f20198c42cc4d2d45184371dc79744562b1d0e8939b2bb417a41ee08f424c40`, and
+`649df7be78f7f16ea552553310e81e0fea4ee6e18ac1b22939e5690b04aaf2cd`;
+the source-write plugin is identified in the earlier refresh experiment.
+
+The forced-timeout MAIN, ELF, modified handoff source, recipe and result were
+`e764f4af2dd5b26b46ebab03085c94e1ba1dc1220019c417cdbef4c82bca4b1f`,
+`b674ca1ccf2e0090be7b504adc34bd50636fbea20423a0a059e88c9db521aa35`,
+`5f5041b268a2977faafc5ef469627770b3395409a08c2d8b5bf6537f989db5f1`,
+`546355fc325b01154d52109612d4588d87757b007cfa8d58c62ecc761e9f52ec`, and
+`74cc1e3a2a4756a691ec8ed159958898d38364bf9cf5a2c7ea96cba246aa2da1`.
+The timeout-then-retry MAIN, ELF, modified handoff source, recipe and result were
+`cd011c5d4d30c8b6b0b2b6fdc14d789f8b3ad49592470f44518833857b6097a3`,
+`c4a90c74d12af26fa5a298eab7df3155c5803cb55d67bd7500953fe0cb4a79bb`,
+`b8229afe0b114c4c98592de873ba9c1ddd450157406a07828e330408224dea49`,
+`e5162e136856161e84f05ce49d9254f167c7d57a18affe64ae08588063e57445`, and
+`cc48f84ceb111dc8ac4848662f885aac77d5be772eb0bdc1cb3d209ffbe1859d`.
+All runs used the stock fixture and QEMU binaries identified below. The
+scratch, candidate state, reset behavior, all callers, DMA, physical timing,
+UI and audible behavior remain unqualified. Never install these images.
+
 All runs used stock MAIN SHA-256
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
 initial NOR `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,

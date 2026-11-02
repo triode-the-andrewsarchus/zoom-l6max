@@ -121,6 +121,10 @@ impl CaptureProtocol<'_> {
         token & (PHASE | STEP_MASK) == DONE | STEP_MASK && self.0.load(Ordering::Acquire) == token
     }
 
+    pub fn current_claim(&self, claim: u32) -> bool {
+        claim & PHASE == COPYING && self.0.load(Ordering::Acquire) == claim
+    }
+
     pub fn needs_reset(&self) -> bool {
         self.0.load(Ordering::Acquire) & (PHASE | STEP_MASK) != WAIT
     }
