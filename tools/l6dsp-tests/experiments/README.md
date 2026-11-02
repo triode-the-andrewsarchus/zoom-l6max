@@ -65,7 +65,8 @@ stock firmware and state to build `--callback --file-mix-handoff pending` and
 each generated recipe with `l6dbg`, the custom QEMU wrapper, and a private
 GDB socket, as described in the [handoff diagnostic](../probe/README.md#forced-file-mix-handoff).
 Build a third atomic fixture with `--late-dma-control` for the no-interrupt
-control. The probe also fills the live audio block's two scratch arrays with
+control. A fourth atomic fixture using `--late-dma-outer` moves live admission
+to the complete AudioProcess block and removes the inner wrapper guard. The probe also fills the live audio block's two scratch arrays with
 synthetic markers while its file-mix lease is held and checks them after the
 injection window. These arrays are not established file-mix buffers; the
 markers do not constitute a successful file mix.
@@ -76,6 +77,7 @@ Then check the results:
 python3 tools/l6dsp-tests/experiments/late_dma_irq/check.py PENDING_RESULT PENDING_ENGINE_STDERR
 python3 tools/l6dsp-tests/experiments/late_dma_irq/check.py ATOMIC_RESULT ATOMIC_ENGINE_STDERR --guarded
 python3 tools/l6dsp-tests/experiments/late_dma_irq/check.py CONTROL_RESULT CONTROL_ENGINE_STDERR --control
+python3 tools/l6dsp-tests/experiments/late_dma_irq/check.py OUTER_RESULT OUTER_ENGINE_STDERR --outer
 ```
 
 Before the scratch markers were added, one paired run recorded each watched guest entry
@@ -124,4 +126,23 @@ recipes were `65084459b593c8a80f80586424ec8577939310e0e0034acad5d0f2dda2c955ec`
 and `854620750836d6d1de830ebcd28bb49cc7b8d16b9542b56c0d822cfa6781f04c`;
 results were `cfae56431d13fb421a3448c51f622417568a49f79b4020e7f321c2ec0da5cd5d`
 and `0c305c5fa7e18fed2a49f2a0665e007728baf5967c4849f700916c8596166e5b`.
+The custom QEMU, stock fixture and `l6dbg` identities match those above.
+
+In one forced-IRQ run of the outer-block prototype, all four watched IRQ and
+completion entries executed, but the stock audio-block entry did not. Both
+64-word scratch markers stayed intact, the guard counted one rejection, and
+callbacks resumed after the no-card mix returned 9. This is one deliberately
+forced schedule with synthetic markers. The diagnostic drops the entire audio
+block when the gate is unavailable: it does not establish output continuity,
+safe handling of a block rejected while the stream is active, selector or
+other-caller exclusion, or safe initialization and storage. Earlier testing
+showed repeated output when whole audio blocks were skipped while the stream
+was running. This is not an installable handoff.
+
+The outer diagnostic MAIN, ELF, recipe, result and plugin log hashes were
+`59806ddc4111f10901e38148f21a17d5736f9f7b827935f8a7b747f252b97cde`,
+`d0e982113935b635351c6a4c2aa9f8826bc2d07b313f06f529fba0cf61824c1a`,
+`136dd0e48efa4499c7d986d4b6a04378d4c60f91454fd0b379df374d1e196c41`,
+`3e408378a3cb828fc2bd20c19c750986393c6d407d3bf7ca568d3edb0c80a878`, and
+`2548aeb6df6060affa555db0ba500c346e78275f4e6d5dac975549c70b069880`.
 The custom QEMU, stock fixture and `l6dbg` identities match those above.

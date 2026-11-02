@@ -14,20 +14,20 @@ from submix_return import observations, words
 EXPECTED = ('80024b70', '80026658', '80043af8', '8001f360', '800149b0')
 
 
-def validate(report, trace, guarded, control=False):
+def validate(report, trace, guarded, control=False, outer=False):
     items = observations(report)
     result = check(report, guarded or control, injected=not control)
     changed = words(items, 'mix_buffers', '<2I')
-    if changed != ((0, 0) if control else (64, 64)):
+    if changed != ((0, 0) if control or outer else (64, 64)):
         raise ValueError('unexpected live scratch-array marker changes')
     before, destination, csr, after = words(items, 'mix_irq', '<4I')
     if (before | after) & (1 << 15) or csr or not 0x2000a740 <= destination <= 0x2000c740:
         raise ValueError('stopped DMA state did not match the observed experiment')
-    check_trace(trace, control)
+    check_trace(trace, control, outer)
     return result
 
 
-def check_trace(trace, control):
+def check_trace(trace, control, outer):
     lines = trace.splitlines()
     if lines.count('IRQ_PROFILE_BEGIN') != 1 or lines.count('IRQ_PROFILE_END') != 1:
         raise ValueError('missing or repeated IRQ observation window')
@@ -39,7 +39,9 @@ def check_trace(trace, control):
     if any(match is None for match in matches):
         raise ValueError('unexpected IRQ trace entry')
     counts = [(match.group(1), int(match.group(2))) for match in matches]
-    if counts != [(address, 0 if control else 1) for address in EXPECTED]:
+    expected = [(address, 0 if control or (outer and index == 4) else 1)
+                for index, address in enumerate(EXPECTED)]
+    if counts != expected:
         raise ValueError('expected IRQ-to-audio instruction entries were not observed once')
 
 
@@ -49,11 +51,12 @@ def main():
     parser.add_argument('trace', type=Path)
     parser.add_argument('--guarded', action='store_true')
     parser.add_argument('--control', action='store_true')
+    parser.add_argument('--outer', action='store_true')
     args = parser.parse_args()
-    if args.control and args.guarded:
-        parser.error('--control and --guarded are mutually exclusive')
+    if args.control and (args.guarded or args.outer):
+        parser.error('--control cannot be combined with --guarded or --outer')
     try:
-        result = validate(json.loads(args.report.read_text()), args.trace.read_text(), args.guarded, args.control)
+        result = validate(json.loads(args.report.read_text()), args.trace.read_text(), args.guarded or args.outer, args.control, args.outer)
     except (OSError, json.JSONDecodeError, KeyError, ValueError) as error:
         parser.exit(1, f'check failed: {error}\n')
     print(json.dumps(result, indent=2))

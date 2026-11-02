@@ -1,6 +1,30 @@
 --- a/tools/l6dsp-tests/probe/file_mix_handoff.rs
 +++ b/tools/l6dsp-tests/probe/file_mix_handoff.rs
-@@ -73,11 +73,27 @@
+@@ -48,6 +48,23 @@
+     }
+ }
+
++// Disposable QEMU-only experiment: hold the live admission lease around the
++// whole AudioProcess block, rather than just the effect wrapper.
++#[cfg(all(file_mix_atomic, late_dma_outer))]
++#[unsafe(no_mangle)]
++#[unsafe(link_section = ".text.mix_handoff_outer_audio")]
++pub unsafe extern "C" fn file_mix_outer_audio(input: u32) {
++    unsafe {
++        if !ensure_gate() { return; }
++        if let Some(_lease) = (&*(GATE as *const CallbackAdmission)).try_enter(CallbackPath::Live) {
++            let stock: unsafe extern "C" fn(u32) = core::mem::transmute(0x800149b1usize);
++            stock(input);
++        } else {
++            (&*(0x83e0b004 as *const AtomicU32)).fetch_add(1, Ordering::Relaxed);
++        }
++    }
++}
++
+ #[unsafe(no_mangle)]
+ #[unsafe(link_section = ".text.mix_handoff_observer")]
+ pub unsafe extern "C" fn mix_handoff_observer(a: u32, b: u32, c: u32, d: u32) -> u32 {
+@@ -73,11 +90,27 @@
              write(0x83e0b004 as *mut u32, 0);
              write(0x83e0b000 as *mut u32, 1);
          }
@@ -33,33 +57,59 @@
          write(out.add(10), read(0x83e0b004 as *const u32));
 --- a/tools/l6dsp-tests/probe/prepare.py
 +++ b/tools/l6dsp-tests/probe/prepare.py
-@@ -31,6 +31,7 @@
+@@ -31,6 +31,8 @@
  parser.add_argument("--offline-mix-layout", action="store_true", help="run a destructive synthetic file-mix layout probe in QEMU")
  parser.add_argument("--offline-effect-workspace", action="store_true", help="place file-mix workspace at the end of the candidate effect buffer (QEMU only)")
  parser.add_argument("--file-mix-handoff", choices=("pending", "bypass", "atomic"), help="force a late audio signal in the stock file-mix workflow (QEMU only)")
 +parser.add_argument("--late-dma-control", action="store_true", help="leave the QEMU-only late-DMA interrupt unforced")
++parser.add_argument("--late-dma-outer", action="store_true", help="guard the complete QEMU-only AudioProcess block")
  parser.add_argument("--selector-admission", action="store_true", help="also gate effect selection after the stock fade (QEMU only)")
  parser.add_argument("--selector-overlap", action="store_true", help="force a live lease across selector closure (QEMU only)")
  parser.add_argument("--selector-timeout", action="store_true", help="force a selector timeout and inspect partial recovery (QEMU only)")
-@@ -109,6 +110,8 @@
+@@ -109,6 +111,10 @@
          args.retain_custom_state, args.pre_ainr, args.effect_buffer, args.auto_handoff,
          args.channel0_prefix, args.hybrid_handoff, args.boundary_handoff, args.outer_audio_pause, args.audio_owner_refresh, args.heap_refresh, args.release_heap_refresh, args.boundary_noise,
          args.passthrough_unready, args.bank_stress)
++if args.late_dma_outer and args.file_mix_handoff != "atomic":
++    parser.error("--late-dma-outer requires --file-mix-handoff atomic")
 +if args.late_dma_control and args.file_mix_handoff != "atomic":
 +    parser.error("--late-dma-control requires --file-mix-handoff atomic")
  if args.file_mix_handoff and (not args.callback or args.admission_probe
          or args.offline_mix_layout or (any(other_diagnostics) and not args.combined_admission_refresh)):
      parser.error("--file-mix-handoff requires --callback alone")
-@@ -218,6 +221,8 @@
+@@ -218,6 +224,10 @@
      rustc += ["--cfg", "offline_mix_layout"]
  if args.offline_effect_workspace:
      rustc += ["--cfg", "offline_effect_workspace"]
++if args.late_dma_outer:
++    rustc += ["--cfg", "late_dma_outer"]
 +if args.late_dma_control:
 +    rustc += ["--cfg", "late_dma_control"]
  if args.file_mix_handoff:
      rustc += ["--cfg", "file_mix_handoff"]
      if args.file_mix_handoff == "bypass":
-@@ -700,6 +705,8 @@
+@@ -300,14 +310,17 @@
+     symbols = {}
+     for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines():
+         parts = line.split()
+-        if len(parts) == 3 and parts[2] in ("mix_handoff_observer", "mix_handoff_bypass"):
++        if len(parts) == 3 and parts[2] in ("mix_handoff_observer", "mix_handoff_bypass", "file_mix_outer_audio"):
+             if parts[2] in symbols:
+                 raise ValueError("duplicate file-mix handoff symbol")
+             symbols[parts[2]] = int(parts[0], 16) & ~1
+-    bypass = symbols.get("mix_handoff_bypass") if args.file_mix_handoff != "pending" else None
+-    if args.file_mix_handoff != "pending" and bypass is None:
++    bypass = symbols.get("mix_handoff_bypass") if args.file_mix_handoff != "pending" and not args.late_dma_outer else None
++    if args.file_mix_handoff != "pending" and not args.late_dma_outer and bypass is None:
+         raise ValueError("missing file-mix bypass symbol")
+     install_file_mix_handoff(image, symbols.get("mix_handoff_observer"), bypass)
++    if args.late_dma_outer:
++        install_outer_audio_hook(image, symbols.get("file_mix_outer_audio"))
++
+ if args.selector_admission:
+     symbols = {}
+     for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines():
+@@ -700,6 +713,8 @@
      add("wait", guest_ms=4000)
      add("memory", name="callback_after", address=0x83e00000, length=12)
      add("memory", name="mix_handoff", address=0x83e0a000, length=44)

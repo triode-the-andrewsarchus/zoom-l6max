@@ -48,6 +48,18 @@ class LateDmaIrqTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate(control, quiet, False, True)
 
+    def test_outer_guard_rejects_audio_before_scratch_writes(self):
+        outer = report(True)
+        outer['events'].extend(copy.deepcopy(self.report['events'][-2:]))
+        outer['events'][-1]['observation']['bytes'] = list(struct.pack('<2I', 0, 0))
+        outer_trace = self.trace.replace('IRQ_PC 800149b0 1', 'IRQ_PC 800149b0 0')
+        self.assertEqual(validate(outer, outer_trace, True, outer=True)['bypasses'], 1)
+        with self.assertRaises(ValueError):
+            validate(outer, self.trace, True, outer=True)
+        outer['events'][-1]['observation']['bytes'] = list(struct.pack('<2I', 1, 0))
+        with self.assertRaises(ValueError):
+            validate(outer, outer_trace, True, outer=True)
+
     def test_guarded_result_cannot_be_confused_with_unguarded(self):
         guarded = report(True)
         guarded['events'].extend(self.report['events'][-2:])
