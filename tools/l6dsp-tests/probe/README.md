@@ -685,6 +685,12 @@ default recipe does not trigger file mixing, and a successful run is not an
 assertion of safe behavior. The initial snapshot precedes selector closure;
 the rejection path, other callers, DMA and real-time timing remain unqualified.
 This combined image uses unowned control words and flash. **Never install it.**
+Add `--selector-feedback --guard-initial-capture` to defer AINR teardown and
+request the initial capture after the observed panel selector closes and
+drains the gate. This changes stock teardown and MIDI ordering and can bypass
+AINR while the gate is closed. Other selection callers can still reach the
+earlier unguarded hook; timeout recovery, audible continuity and all writers
+remain unqualified. This variant is also QEMU-only and must never be installed.
 The pointer ownership, call ordering, 64-frame bypass and return ABI,
 other selector paths, timeout recovery, audio continuity, and target timing
 are not established. The code uses unowned scratch and flash. **Never install

@@ -6091,6 +6091,70 @@ buffers. The recipe and result were
 `2870fea53b0955538e1b7fe796d96b80061d23adeaf667bf5f8ce0738047d00f` and
 `c0258a74507fb40a71ca74b2e21a12fc81de7f9f89f3a5200ac30d98a56e20dc`.
 
+A later temporary variant used the existing panel feedback experiment to
+defer AINR teardown, then requested the initial snapshot after selector
+admission had closed and drained. Ordinary and traced runs each observed the
+initial copy and two refreshes with gate value `4`. After the first selection,
+the two stock AINR enable words were zero; the admission telemetry recorded
+40 rejected calls per channel during the guarded transition. Those rejections
+can affect audio continuity. A trace recorded no watched source CPU stores or
+stock block entries during the initial copy or first refresh; it does not
+cover DMA, other addresses, or unexecuted paths.
+
+A separate inspector run matched the earlier control's open, edit and close
+metadata. In another run, the selector returned to AINR with its learned
+marker and both enable words set, then completed a further guarded snapshot
+and refresh; the scratch-free counter reached three. These tests cover the
+observed panel selector only. The changed teardown and MIDI ordering, other
+callers, rejected-entry buffers, physical timing and audible behavior remain
+unqualified. The prototype must not be installed.
+
+The temporary MAIN and ELF were
+`309bd946faa8d930df444d2a9d1d7a76e9d99127ac4848c82d5073b6a5dc92ce` and
+`9bb033934aad209e4dc1a2bcefb34bcd6f9927e7cd3e71150afe9474d03be25b`.
+The ordinary/traced common recipe and results were
+`9d62c9a96617796e64ee33c7cba86d41b8f77d13e73bfa6ea5a675d355c3f2fb`,
+`36db2b2a165294981ead989f3878904aff88fde291f4b9629aeaca666e9436b4`, and
+`e97350231b6f84c4941f30ca610f573a1dfb275dd366c43444f15b0f95491bee`;
+the trace was `dbe5f7cc05d732726606350494670954fd91a292f278178d0011d96d9021ef54`.
+The inspector and re-entry recipe/result pairs were
+`d79d192a133571e0bb4fb22ca989d71e203349bce7e3183892b719afa69da2f2` /
+`ac7425f455a1a84038a20756148ae7a3ba4b52bcfaccd694ae992d9fc921bce5` and
+`72e7421dfec4dc4832fa808baa6bfd106092dfe3421b9669223831acce8b1e49` /
+`e199ecb2be4c19164d50b22b752d6c17ece94af6e04e17630870a5db938bda19`.
+The initial-copy trace source, binary and wrapper were
+`d672025dd55f654e5c953384813e70cad7c893c259e71cb33f15a4bde990759a`,
+`83a00eabc0e2676922362d366c293cdc1f4a1f935fc930fc8a257faa80c21e7f`, and
+`ea15e60b28d3dc4f03ae4e2d5afbbfbc4f0701b6d48008cdea4696a40baa9d83`.
+The temporary prepare and selector sources were
+`e7d9527dcce1c133edf993bf84332dc0ae467bd0b47e471fe17d44200795cf4d` and
+`764babd16a6c83816dcc2868204f7c55389fbe1c1db3a088b891b0d95b5c9f85`;
+the source-refresh plugin and fixture identities are recorded above and below.
+
+The versioned `--selector-feedback --guard-initial-capture` variant repeated
+the initial snapshot and two refreshes with gate value `4`, cleared both
+sampled AINR enable words after selection and freed scratch twice. It recorded
+40 paired rejections during the guarded transition. Its MAIN, ELF, recipe and
+result were `68a8af41975dc317944d5647b130ecebaab0714750cdb047da18e5b25df3529a`,
+`d0720bda48ed84b4e0eddeac9f91c2c7dea6cc939137d08b2889e6a132494da1`,
+`dc3b2b41174828fbf704f006a1fc859cbfc9f16dd30403353b0b4b05c272d6ef`, and
+`28adcff781ddd49eb0faee2ff010148b36f213098bc5f1ab080e5c8c2d9ad36a`.
+
+A further temporary variant forced an AINR-exit gate-drain timeout while a
+paired live lease was held. The sampled old effect type, callback, enable
+words, fade value and learned marker remained unchanged; no initial capture
+was recorded on that failed attempt. The next selection recorded the initial
+copy with gate value `4` and the sampled AINR words cleared. Paired admission
+counts remained balanced. This uses an injected semaphore signal, delay and
+debugger write; it is one timeout schedule, not a complete rollback or audio
+test. These forced-overlap options remain excluded from the versioned
+combined mode. The MAIN, ELF, temporary preparer, recipe and result were
+`3158e7832ecab14a977f70e7eed632d7bbe3cbbc8909f10769f3eacd129942ca`,
+`84bfef5d4c77c07a8dbd8f5f4e734398a764bfeb73910187b64d9af58f102f2a`,
+`374fc9bafe5cfee2be218ff4ef3efe2c1bbdd69ceb631d4dbfc49e75b88c7ff0`,
+`e7f4ae4862712cd8afd0aa0dcd50f9a446f7cbc1ba4d5ea6d6a351ed1ad8ea48`, and
+`edbf1472c3ce1d779f8a7102d8e24c273dcf763950ca2ed45ee4fa1569f8fb28`.
+
 ##### Transient refresh scratch
 
 The optional `--release-heap-refresh` variant returns scratch to the stock

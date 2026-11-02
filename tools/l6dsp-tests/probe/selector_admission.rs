@@ -51,6 +51,10 @@ pub unsafe extern "C" fn selector_handoff_begin() -> u32 {
                 if overlap { write(0x83e0b114 as *mut u32, 4); }
                 (GUARD as *mut CloseGuard<'static>).write(guard);
                 write(ACTIVE as *mut u32, 1);
+                #[cfg(guard_initial_capture)]
+                if read(0x83e0b030 as *const u32) == 1 && read(0x83e0b02c as *const u32) == 5 {
+                    crate::auto_handoff::capture_boundary();
+                }
                 increment(1);
                 return 1;
             }

@@ -6,6 +6,8 @@
     ainr_admission, ainr_pair, owner_refresh_probe, heap_refresh_probe,
     release_heap_refresh_probe, inspector_probe, pre_ainr_probe))))]
 compile_error!("combined admission refresh requires all participating diagnostic hooks");
+#[cfg(all(guard_initial_capture, not(all(combined_admission_refresh, selector_feedback))))]
+compile_error!("guarded initial capture requires combined admission and selector feedback");
 #[path = "../../../patches/dual-efx/src/math.rs"]
 mod math;
 #[path = "../../../patches/dual-efx/src/plateau.rs"]

@@ -65,6 +65,7 @@ parser.add_argument("--audio-owner-refresh", action="store_true", help="QEMU-onl
 parser.add_argument("--heap-refresh", action="store_true", help="QEMU-only: retain a firmware heap allocation for refresh scratch")
 parser.add_argument("--release-heap-refresh", action="store_true", help="QEMU-only: free heap refresh scratch after successful copy")
 parser.add_argument("--combined-admission-refresh", action="store_true", help="QEMU-only: combine paired AINR admission and audio-owned refresh")
+parser.add_argument("--guard-initial-capture", action="store_true", help="QEMU-only: capture initial AINR state while selector admission is closed")
 parser.add_argument("--boundary-noise", action="store_true", help="inject nonzero stock AINR input in the boundary experiment")
 parser.add_argument("--passthrough-unready", action="store_true", help="keep synthetic sends active when AINR is unavailable")
 parser.add_argument("--bank-stress", action="store_true", help="repeat bank changes and capture state")
@@ -88,12 +89,14 @@ if args.ainr_pair and not args.ainr_admission:
     parser.error("--ainr-pair requires --ainr-admission")
 if args.ainr_pair_replay and not (args.ainr_pair and args.selector_ainr_timeout == "exit"):
     parser.error("--ainr-pair-replay requires --ainr-pair and --selector-ainr-timeout exit")
+if args.guard_initial_capture and not (args.combined_admission_refresh and args.selector_feedback):
+    parser.error("--guard-initial-capture requires --combined-admission-refresh and --selector-feedback")
 if args.combined_admission_refresh:
     required = (args.callback, args.inspector, args.active_sends, args.pre_ainr,
         args.audio_owner_refresh, args.heap_refresh, args.release_heap_refresh,
         args.file_mix_handoff == "atomic", args.selector_admission, args.ainr_admission, args.ainr_pair)
     excluded = (args.switches, args.mixer_input_capture, args.offline_mix_layout,
-        args.selector_overlap, args.selector_timeout, args.selector_feedback, args.selector_ainr_timeout,
+        args.selector_overlap, args.selector_timeout, args.selector_feedback and not args.guard_initial_capture, args.selector_ainr_timeout,
         args.selector_ainr_learned, args.ainr_pair_replay, args.gesture_trace, args.enqueue_trace,
         args.irq_trace, args.irq_timing, args.ring_timing, args.ring_drop, args.timing_control,
         args.selector_load_trace, args.max_velvet_density, args.velvet_fade_stress, args.submix_return,
@@ -279,6 +282,8 @@ if args.release_heap_refresh:
     rustc += ["--cfg", "release_heap_refresh_probe"]
 if args.combined_admission_refresh:
     rustc += ["--cfg", "combined_admission_refresh"]
+if args.guard_initial_capture:
+    rustc += ["--cfg", "guard_initial_capture"]
 if args.boundary_noise:
     rustc += ["--cfg", "boundary_noise_probe"]
 if args.passthrough_unready:
@@ -797,6 +802,8 @@ if args.pre_ainr:
                 metadata["release_heap_refresh"] = True
             if args.combined_admission_refresh:
                 metadata["combined_admission_refresh"] = True
+            if args.guard_initial_capture:
+                metadata["guard_initial_capture"] = True
     if args.effect_buffer:
         matches = [line.split() for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines()
                    if line.endswith(" diagnostic_audio")]
