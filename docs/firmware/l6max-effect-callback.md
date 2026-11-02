@@ -8298,3 +8298,48 @@ The external QEMU and `l6dbg` hashes were
 `53504c7bcb0d883f911a286a7359799bf1dec67b4c32dd9be85ef35ed6f4de9a` and
 `aed900b0f7f43f225233f7f1a33e5ba8e159d4a698905297e0fb48c5c8519cc0`;
 QEMU's source provenance is unattested.
+
+### Ordered control and output stores in a four-frame diagnostic
+
+A QEMU-only experiment compared the scalar callback with the saved-history
+four-frame prototype. The scalar version processed one frame between each
+control, left and right store. The prototype computed four frames first, then
+issued the same control, left and right stores for each frame. For the first
+callback at or after count 32 whose descriptor buffer was `0x202a6f3c` and
+control destination was `0x20007d74`, both versions substituted the same 64
+synthetic, varying control values. A CPU memory plugin recorded exactly 64
+control/left/right store triples per build; all store addresses, order and
+values matched, and the audio output was nonzero. The comparison ignored the
+store instructions' differing program counters. Both scenarios completed.
+
+A preceding attempt assumed the control destination would be `0x805c5960`,
+based on stock snapshots; neither callback triggered that capture. In both
+revised diagnostic runs, the descriptor's destination at callback 32 was
+`0x20007d74`. This is consistent with the separately observed reuse of its
+pointer slot and shows why the callback must use the live descriptor, not a
+snapshot-derived constant. The experiment covers one selected callback with
+synthetic sends and controls. It does not establish what can observe state
+between stores, cover other destinations or DMA, prove deadline compliance,
+or resolve ownership of the mix buffers and effect state. The prototype is
+not enabled for an installable build.
+
+The QEMU-only scalar/block MAIN hashes were
+`535d343688481b9b3784975382a0b2224f1ff7f3b3cff193dd0c3831090e5b37` and
+`1a184f53fab96308a7d0ab944999a607d9025e3109ddc219c63c255f570104ab`;
+the corresponding ELF hashes were
+`e678124ffd57c04ef78766d946dc6414ec6fe37f74ebe74c9f5d9771ee8772fc` and
+`0782016a2b03b41a4e7451b1d938a5b900881aeaee415efe71e009b973e16770`.
+The temporary scalar/block callback sources hashed to
+`ec03a1176576b20372756bf317325c8501e69f510fe4380ffb9a449e52f0bf3c` and
+`77d5e56a4d4c073eb0c28d80972f3706d77f9348231bf273a8424c53099746b6`.
+The temporary block Velvet/routing sources hashed to
+`42ec2c87c0aed91b4dc481c73ef73ac12c790ed2854e8b34e5ce7ded64e9f304` and
+`5d36acea48be659689426b0cb86ead60f7ba38ad2ec83b8db58393833455af53`.
+The plugin source/binary hashes were
+`0389135141de666544ffa4d10056e1f9c0de491673c40d5907c2581afec697b5` and
+`d08123ce20e62482298afdaf4b56bddd952a5b4bb7f58d227013b90c84487edc`.
+The stock MAIN, initial NOR and `l6dbg` identities were those of the
+preceding worker-stack observation. The plugin-enabled QEMU executable SHA-256
+was `e5acb1abd30c50ed0413c6a6bf8bd1e99b39780bc0bf80a39f3a11a99c530e25`;
+its source provenance is unattested. These disposable images use unowned
+scratch and must not be installed.
