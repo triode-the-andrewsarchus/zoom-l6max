@@ -43,8 +43,10 @@ unsafe fn get_processor() -> &'static mut DualEfxProcessor {
         let tag = read(core::ptr::addr_of!(MAGIC_TAG));
         let proc = &mut *core::ptr::addr_of_mut!(PROCESSOR);
         if tag != INIT_MAGIC {
-            // Mask interrupts during critical cold-start initialization
-            core::arch::asm!("cpsid i", options(nomem, nostack));
+            // Preserve the caller's interrupt mask; do not unmask a nested
+            // critical section when initialization returns.
+            let interrupt_mask: u32;
+            core::arch::asm!("mrs {}, PRIMASK", "cpsid i", out(reg) interrupt_mask, options(nostack));
             proc.init();
             write(core::ptr::addr_of_mut!(EDIT_BANK), 2);
             write(core::ptr::addr_of_mut!(SELECTED_ROUTING_CHANNEL), 0);
@@ -52,7 +54,7 @@ unsafe fn get_processor() -> &'static mut DualEfxProcessor {
             write(core::ptr::addr_of_mut!(LAST_PARAM1), 0xffff);
             write(core::ptr::addr_of_mut!(LAST_EFX_TYPE), 0xffff);
             write(core::ptr::addr_of_mut!(MAGIC_TAG), INIT_MAGIC);
-            core::arch::asm!("cpsie i", options(nomem, nostack));
+            core::arch::asm!("msr PRIMASK, {}", in(reg) interrupt_mask, options(nostack));
         }
         proc
     }
@@ -210,8 +212,9 @@ pub unsafe extern "C" fn knob_changed(
                 _ => if efx_type == 1 { 1 } else { 0 },
             };
 
-            // Mask interrupts during parameter updates to prevent torn state in audio ISR
-            core::arch::asm!("cpsid i", options(nomem, nostack));
+            // Keep the caller's interrupt-mask state across this update.
+            let interrupt_mask: u32;
+            core::arch::asm!("mrs {}, PRIMASK", "cpsid i", out(reg) interrupt_mask, options(nostack));
 
             // Map the 8 encoders (channels 0..7) to extended parameters:
             match channel {
@@ -376,7 +379,7 @@ pub unsafe extern "C" fn knob_changed(
                 }
                 _ => {}
             }
-            core::arch::asm!("cpsie i", options(nomem, nostack));
+            core::arch::asm!("msr PRIMASK, {}", in(reg) interrupt_mask, options(nostack));
         } else {
             // For other modes on dialog screens, apply normally
             core::mem::transmute::<usize, unsafe extern "C" fn(u32, u32, u32, i32, u32)>(
