@@ -165,9 +165,22 @@ Verified on Ubuntu 26.04 x86_64 unless otherwise noted:
   from Linux (`cargo check`; not linked or run).
 - The headless host boots the stock firmware; the `knob-dialog` smoke case passes on a
   patched image.
-- On CachyOS x86_64, the GUI connected a 48 kHz stereo stream to PipeWire's
-  PulseAudio service. This checked the connection, not audible playback, waveform
-  fidelity or underruns.
+- On CachyOS x86_64, a GUI using a minimal QEMU build connected a 48 kHz stereo stream to the
+  local PipeWire PulseAudio service. This checked connection, not audible
+  playback, waveform fidelity or underruns. The GUI and QEMU executable
+  SHA-256 values were `90f90a4e63ed4ef7159c662fc70c1bca7476561c98c59d52c65697d9a63b6461`
+  and `4e19f0810692f188dbf18de1635806ddd06abe032cec37a7ea324ba1885c5a47`;
+  stock L6max MAIN 1.10 was
+  `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+  and panel firmware was
+  `4640747acf15fb7a1d53da1d4b20c1412e9426349aeb260275ebd192924433ff`.
+  Initial MAIN NOR, panel flash, panel options and RTC were respectively
+  `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+  `6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+  `bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+  `473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
+  QEMU was built from a temporary source copy based on upstream commit
+  `4fc49f46dc95d4a27de2509e7fceb2931e91faeb` with local board and patches.
 - The `l6test` driver through live ALSA ports passes on a knob+midi-sync image: knob CC,
   host CC to the LED ring, 80 replies to CC 127, and the ports disappear on
   shutdown. The same check passes in direct USB mode, and on the stock image
