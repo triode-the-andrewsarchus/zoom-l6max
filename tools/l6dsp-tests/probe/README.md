@@ -599,6 +599,37 @@ combined image uses emulator-only state, and does not qualify notification
 contention, queue overflow, effect switching, timing or physical hardware.
 Do not install it.
 
+## Stock effect clear trace
+
+`clear_path_trace.c` is a QEMU instruction plugin scoped to the observed
+L6max MAIN 1.10 startup and effect-clear sites. It only logs instruction
+execution; it does not establish all indirect callers, memory ownership, DMA
+behavior or timing. Use a plugin-enabled QEMU and disposable stock state. For
+example, with absolute paths to the QEMU executable and its source tree:
+
+```sh
+export L6_QEMU=/absolute/path/to/qemu-system-arm
+export L6_QEMU_SOURCE=/absolute/path/to/qemu-source
+L6_TRACE_DIR=$(mktemp -d /tmp/l6-clear-path.XXXXXX)
+export L6_PLUGIN="$L6_TRACE_DIR/trace.so"
+cc -shared -fPIC -O2 $(pkg-config --cflags glib-2.0) \
+  -I "$L6_QEMU_SOURCE/include/plugins" -o "$L6_PLUGIN" \
+  tools/l6dsp-tests/probe/clear_path_trace.c
+cat > "$L6_TRACE_DIR/qemu-wrapper" <<'EOF'
+#!/bin/sh
+exec "$L6_QEMU" -plugin "$L6_PLUGIN" "$@"
+EOF
+chmod +x "$L6_TRACE_DIR/qemu-wrapper"
+```
+
+Run `l6dbg` with `ainr-isolation.toml`, unpacked stock firmware, a disposable
+copy of stock state, and `--qemu "$L6_TRACE_DIR/qemu-wrapper"`. Inspect
+`CLEAR_PATH` lines in the main engine's stderr and the scenario observations;
+recipe completion alone does not validate the trace. Record the actual QEMU,
+plugin, wrapper, fixture and result hashes. One startup and effect-selection
+observation, with exact identities and its limits, is in the
+[research findings](https://github.com/derekstavis/zoom-l6max-research/blob/290eb3d/docs/firmware/l6max-effects-ainr.md#effect-storage-and-adjacent-conversion-buffers).
+
 ## Isolated AINR comparison
 
 This focused QEMU diagnostic reruns the copied-AINR experiment described in

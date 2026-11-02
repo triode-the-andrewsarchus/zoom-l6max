@@ -30,6 +30,12 @@ The blocking findings for L6max MAIN 1.10
   Stock code
   also references several regions well above that heap; a high SDRAM address
   cannot be treated as reserved merely because it is distant from the heap.
+- The additional observed clear call at `0x20280750` is reached from the
+  stock audio initializer during startup in one traced emulator run. The same
+  trace later observed selector clears; it does not exclude reinitialization
+  or indirect callers. The experimental dispatcher must continue to preserve
+  stock behavior for this path. See the
+  [firmware research](https://github.com/derekstavis/zoom-l6max-research/blob/290eb3d/docs/firmware/l6max-effects-ainr.md#effect-storage-and-adjacent-conversion-buffers).
 - The hook at `0x8000277c` is in a routine containing file-output and card-error
   handling. The branch has not established an audio-buffer ABI or a live
   audio callback at that call site.
