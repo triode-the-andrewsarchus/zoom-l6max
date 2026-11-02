@@ -12,6 +12,7 @@ use super::math::*;
 
 pub const SAMPLE_RATE: f32 = 48000.0;
 const OUTPUT_FADE_SAMPLES: u32 = 64;
+const DIFFUSION_BYPASS_FADE_SAMPLES: u32 = 64;
 const DATTORRO_SR: f32 = 29761.0;
 const SR_SCALE: f32 = SAMPLE_RATE / DATTORRO_SR; // ~1.61285
 
@@ -313,6 +314,9 @@ pub struct PlateauReverb {
     transition_remaining: u32,
     transition_anchor: [f32; 2],
     previous_output: [f32; 2],
+    diffusion_mix: f32,
+    diffusion_step: f32,
+    diffusion_remaining: u32,
     pub params: PlateauParameters,
 }
 
@@ -353,6 +357,9 @@ impl PlateauReverb {
             transition_remaining: 0,
             transition_anchor: [0.0; 2],
             previous_output: [0.0; 2],
+            diffusion_mix: 1.0,
+            diffusion_step: 0.0,
+            diffusion_remaining: 0,
             params: PlateauParameters {
                 predelay_ms: 10.0,
                 size: 1.0,
@@ -421,6 +428,9 @@ impl PlateauReverb {
         self.transition_remaining = 0;
         self.transition_anchor = [0.0; 2];
         self.previous_output = [0.0; 2];
+        self.diffusion_mix = if self.params.diffusion == 0.0 { 0.0 } else { 1.0 };
+        self.diffusion_step = 0.0;
+        self.diffusion_remaining = 0;
     }
 
     pub fn set_parameters(&mut self, mut params: PlateauParameters) {
@@ -435,6 +445,11 @@ impl PlateauReverb {
         params.low_cut_hz = clamp(params.low_cut_hz, 20.0, SAMPLE_RATE * 0.49);
         params.high_cut_hz = clamp(params.high_cut_hz, 20.0, SAMPLE_RATE * 0.49);
 
+        if (self.params.diffusion == 0.0) != (params.diffusion == 0.0) {
+            let target = if params.diffusion == 0.0 { 0.0 } else { 1.0 };
+            self.diffusion_step = (target - self.diffusion_mix) / DIFFUSION_BYPASS_FADE_SAMPLES as f32;
+            self.diffusion_remaining = DIFFUSION_BYPASS_FADE_SAMPLES;
+        }
         if self.params.size != params.size || self.params.freeze != params.freeze {
             self.begin_output_transition();
         }
@@ -484,6 +499,19 @@ impl PlateauReverb {
         self.transition_remaining = OUTPUT_FADE_SAMPLES;
     }
 
+    #[inline(always)]
+    fn advance_diffusion_mix(&mut self) -> f32 {
+        if self.diffusion_remaining != 0 {
+            self.diffusion_remaining -= 1;
+            if self.diffusion_remaining == 0 {
+                self.diffusion_mix = if self.params.diffusion == 0.0 { 0.0 } else { 1.0 };
+            } else {
+                self.diffusion_mix += self.diffusion_step;
+            }
+        }
+        self.diffusion_mix
+    }
+
     // The audio callback updates these controls without rebuilding delays or
     // filters; a freeze edge needs the same output transition as the full setter.
     pub(crate) fn set_live_parameters(&mut self, params: PlateauParameters) {
@@ -520,6 +548,11 @@ impl PlateauReverb {
         let diff2 = self.in_apf2.process(diff1);
         let diff3 = self.in_apf3.process(diff2);
         let diffused = self.in_apf4.process(diff3);
+        // A zero-gain allpass is still a delay. Bypass the input diffusers
+        // at zero, but keep their histories advancing for subsequent edits.
+        let mix = self.advance_diffusion_mix();
+        let diffused = if mix == 0.0 { filtered_in } else if mix == 1.0 { diffused }
+            else { filtered_in * (1.0 - mix) + diffused * mix };
         // The diffusers may still contain pre-freeze audio. Do not inject it
         // into the frozen feedback tank while that history drains.
         let diff_in = if self.params.freeze { 0.0 } else { diffused };
@@ -637,6 +670,7 @@ impl PlateauReverb {
         advance!(self.r_del2);
         self.lfo1.step();
         self.lfo2.step();
+        self.advance_diffusion_mix();
         self.transition_remaining = self.transition_remaining.saturating_sub(1);
     }
 

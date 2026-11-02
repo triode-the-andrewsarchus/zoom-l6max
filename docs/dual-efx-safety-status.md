@@ -16,15 +16,15 @@ The blocking findings for L6max MAIN 1.10
   emulator run the largest stock-heap free block was 160,008 bytes, less than
   the then-current payload state of 319,216 bytes; see the
   [callback investigation](firmware/l6max-effect-callback.md). The current
-  processor type measures 272,160 bytes for `thumbv7em-none-eabihf` after a
+  processor type measures 272,176 bytes for `thumbv7em-none-eabihf` after a
   25,824-byte reduction in raw Plateau delay arrays; it still exceeds that free
   block. The current size query object SHA-256 is
-  `1680359f8fd11c014d8e2a6aacb19708cd32ca9cecd361a911eaf8c7dd815b7d`
+  `b504b2cc36d10e1f6a3feec60a8c811b40cf6a87ecf5d6e00687e263d11f3be0`
   using `rustc 1.99.0-nightly (1ed2df61a 2026-08-04)`.
   Of that state, the raw `f32` histories comprise 36,484 bytes of
   Plateau predelay, 7,024 bytes of Plateau input diffusion, 168,300 bytes of
   Plateau tank delays and 57,624 bytes of Velvet histories (including the
-  separate cascade history). The remaining 2,728 bytes include filter banks,
+  separate cascade history). The remaining 2,744 bytes include filter banks,
   parameters and bookkeeping. These counts describe allocated capacity,
   not a proof that any stock firmware memory can be reused.
   Stock code
@@ -105,6 +105,10 @@ The blocking findings for L6max MAIN 1.10
 
 Some standalone DSP defects have been fixed and tested on the host. Those
 tests do not exercise the firmware bindings or establish hardware safety.
+Plateau's zero-diffusion setting now bypasses its input diffuser chain while
+advancing that chain's history, and crossfades the bypass over 64 frames.
+Host tests cover the immediate impulse path and edits while idle; target
+execution time and audible transitions remain unqualified.
 The Velvet crossfade now calculates its phase step once per transition;
 host tests compare its weights with the previous calculation. In a disposable
 ARM diagnostic build, the former per-sample divide moved to transition start

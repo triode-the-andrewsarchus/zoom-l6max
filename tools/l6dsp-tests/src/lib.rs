@@ -1023,6 +1023,52 @@ mod tests {
     }
 
     #[test]
+    fn plateau_zero_diffusion_bypasses_input_delays_and_keeps_histories_current() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        params.predelay_ms = 0.0;
+        params.diffusion = 0.0;
+        reverb.init(params);
+        let first = reverb.process_sample(0.5, 0.5);
+        assert!(first.0.abs() > 0.01 && first.1.abs() > 0.01,
+                "zero diffusion should reach the tank without the input delay chain: {first:?}");
+        for _ in 0..2500 { reverb.process_sample(0.0, 0.0); }
+        assert!(reverb.in_apf4.delay.buffer.iter().any(|x| *x != 0.0),
+                "bypassed diffusers must continue receiving input");
+
+        params.diffusion = 0.5;
+        reverb.set_parameters(params);
+        for _ in 0..96 {
+            let (l, r) = reverb.process_sample(0.0, 0.0);
+            assert!(l.is_finite() && r.is_finite() && l.abs() <= 1.0 && r.abs() <= 1.0);
+        }
+    }
+
+    #[test]
+    fn plateau_diffusion_bypass_tracks_edits_while_idle() {
+        let mut idle = Box::new(routing::IdlePlateau::new());
+        let mut full = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        params.predelay_ms = 0.0;
+        idle.init(params);
+        full.init(params);
+        for frame in 0..3000 {
+            match frame {
+                0 | 35 | 220 => params.diffusion = 0.0,
+                20 | 180 | 240 => params.diffusion = 0.5,
+                _ => {}
+            }
+            if [0, 20, 35, 180, 220, 240].contains(&frame) {
+                idle.set_parameters(params);
+                full.set_parameters(params);
+            }
+            let input = if frame == 200 { 0.5 } else { 0.0 };
+            assert_eq!(idle.process_sample(input, input), full.process_sample(input, input),
+                       "frame {frame}");
+        }
+    }
+
+    #[test]
     fn plateau_first_tank_allpass_reaches_each_output() {
         let mut reverb = Box::new(plateau::PlateauReverb::new());
         reverb.init(plateau::PlateauParameters::default());
