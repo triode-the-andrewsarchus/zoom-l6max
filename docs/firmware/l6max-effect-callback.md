@@ -8136,6 +8136,39 @@ stock MAIN, input NOR, panel state and QEMU matched the preceding experiment.
 
 ### High-density renewal and crossfade workload
 
+A later sequential pair used the current external QEMU with its normal L6max
+deferred-audio-queue behavior. In five modeled seconds the active 285-tap,
+90 ms fade case advanced 1,697 callbacks, with 1,543 fade-start samples;
+the effect-bypass control advanced 2,513. The nominal count is 3,750. The
+inspector remained closed in the active case and opened in the bypass case
+after the sampled interval. Both diagnostics use synthetic
+signals and tracing; the active case omits pre-AINR. Since even the bypass
+case fell short, this pair cannot isolate the DSP workload or establish a
+physical deadline. Host load and emulation overhead are not controlled target
+timing. These images use unowned scratch and must not be installed.
+
+In active/bypass order, diagnostic MAIN hashes were
+`501fba33d633f694d1eb5d31d2d06122ca7c58d5f1a84c54bb36b46fcd45c4bc` and
+`ecb599995cf380b8cbef335b5203eceb33df12239c988e1cb085d17d22c7d315`;
+ELF hashes were
+`5234b079850760183ba93708b3dc08f4feba525f836e7b10231bbfb91869ce09` and
+`7a7a11bb5edda33cd5a41bb3c483f1a7040b33427613e136e2bf7d54dce1b46d`;
+recipe hashes were
+`bb9109ea6f3b8b9d84726a2b07aa147a83f0d8710ae21748f8ec26ecb5827d14` and
+`694df8bb014fb65e4480bafef1e20a9a01e4421f8112c9e9b216c30444f73a68`;
+result hashes were
+`b14ef44b9364e575539554d84b810ce8c0202c1c5438db4fe5ad333296f3a13a` and
+`8deaca49df11d49f2abe4b03974187b746f64ac404e8fbab62025cfadb0ccc19`.
+Initial diagnostic NOR hashes were
+`f3d2efc48ce2a81d0f0f9ed8c302bf346a00b64920f4c104541264a348decbce` and
+`a24c023d27a0bdaeebc3a8ad457a34d872b8d0ef344248da6cf25ba4da2f45d7`.
+Panel flash, options and RTC hashes in both cases were
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
+Stock MAIN, input NOR, external QEMU and `l6dbg` matched the identities in the
+eight- and sixteen-frame section below. QEMU source is unattested.
+
 The reusable selector-load diagnostic now supports a paired renewal stress
 case with 95 ms spread, 3,000 impulses per second, 100 ms refresh, and either
 a 1 ms or 90 ms crossfade. Both use nonzero synthetic sends and omit pre-AINR.

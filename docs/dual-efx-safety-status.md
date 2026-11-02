@@ -456,6 +456,11 @@ qualify the replacement's workload at nominal cadence. A later diagnostic model
 switched to regular RX after startup. Mainline's subsequent audio update removes
 that compatibility mode and changes DMA servicing; the earlier diagnostic
 results do not qualify this new model. Physical timing remains unverified.
+A later matched diagnostic using the current external QEMU and the normal
+L6max audio-queue behavior counted 1,697 active high-density callbacks and
+2,513 bypass callbacks in five modeled seconds, both below the nominal 3,750.
+The shortfall in the bypass control means that run cannot isolate effect cost
+or establish a physical deadline.
 
 Before re-enabling the builder, trace the relevant firmware interfaces against
 the exact supported MAIN image; reserve and initialize state with a documented
