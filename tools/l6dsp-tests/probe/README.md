@@ -196,6 +196,68 @@ globals and writes an unowned emulator address. It does not test real request
 producers, competing edits, other destinations, an aborted mix, the doubleword
 copy path, or hardware. Never install it.
 
+The separate `deferred_copy_trace.c` plugin watches CPU accesses overlapping
+the stock L6max 1.10 pending word-copy pointer and count at
+`0x80464fc8..0x80464fd0`. It records each store's PC, address, total count,
+32-bit count and nonzero 32-bit count, plus watched reads and overflow. Build
+it against the headers of the QEMU used for the run and enable it on a
+disposable stock-state run, for example:
+
+```sh
+cc -shared -fPIC -O2 -I QEMU_SOURCE/include/plugins $(pkg-config --cflags glib-2.0) \
+  -o /tmp/deferred-copy-trace.so tools/l6dsp-tests/probe/deferred_copy_trace.c
+L6_QEMU_PLUGIN=/tmp/deferred-copy-trace.so target/debug/l6dbg \
+  tools/l6dsp-tests/probe/deferred-copy-stock.toml \
+  --firmware-dir FIRMWARE --state-dir DISPOSABLE_STATE --logs OUTPUT \
+  --qemu QEMU
+```
+
+Inspect `DEFERRED_WRITE` and the final `DEFERRED_DONE` in `OUTPUT/engine.stderr`;
+require zero overflow, watched reads and an independent positive control
+before interpreting an absence. A `words` count smaller than `count` means
+the nonzero counter does not cover every store. The stock recipe sends inputs
+but does not assert that a particular control changed. This CPU trace can
+perturb scheduling, does not observe DMA and cannot establish that other
+workflows or callers do not submit requests.
+
+In one stock run of this recipe, the trace recorded 51,524 watched reads and
+one 32-bit zero store to each field at `0x80093e74`, with no overflow. A
+separate positive control used the injected-copy bounce above with this
+plugin: it recorded nonzero stores to both fields by the diagnostic and zero
+stores by the stock helper; the project and deferred-copy checks passed. This
+confirms the trace can observe that synthetic request, not that the stock
+sequence exercises all producers. The positive diagnostic uses unowned scratch
+and must not be installed.
+
+Stock MAIN and initial NOR SHA-256 values were
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461` and
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`;
+panel flash, options and RTC were
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
+The plugin source and binary, stock recipe, result and trace hashes were
+`c5e5d0f9443cd48cb3251781a8d2ef01ca0c030e3ab825f44a52f6124f9b0de1`,
+`0fd130bd2cbf4014605fe65700f9e678a6c4d3bb0e31702210c0f66fe0d50f52`,
+`3537c0ebe149a2f701c243b876950f17f7bee3f6e377bd9a7f597fdc86c06dbb`,
+`53689d8db5c7846bba09daf8245d9f3f569cfcfb2e186e98e557b46a3d97df51`, and
+`a37a0e06b799d269fab04411e70af97863a891d5b5bb26b731ba684ec1f59829`.
+The positive diagnostic MAIN, ELF, initial NOR, card, recipe, result and trace
+hashes were
+`22376a59db2dab2ab9d6f9aeecea86e21835921d1ea7cdb874cd20ee258fc79b`,
+`342f0d386e4f656a67d5e4fa2cb04c07dcbe7c967cc5257bc2dd6dc22a4633ee`,
+`c507dd41f3bf6cd9e3dbe7616dd87c05bc7c64a9c1e0570d0260365e9df7a3c7`,
+`fb1a78fb2bbce8d8abb6e2f87da342e96aad6a02545bf6bfdecf2c564deb2c44`,
+`21e28d6ffaccf34ae0f49bde63d40252a3e518e23c70c3318ea2df8a88f958ed`,
+`ca13b19c0ca16f9d9340d3b7bae3a01ed5c89191598bd340a908159f19f8bbe4`, and
+`08d04176cf830a72a2726f9cc4d9708b1f1b4a782d14c36066d5906f337f2290`.
+Both used external QEMU
+`4902e96e8375adb69b1ebe0e5572fe1ba3fb6a0e413c8595605128a297dfd910`
+and `l6dbg`
+`ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`;
+the QEMU source is unattested. The positive run used
+`L6_SERVICE_AUDIO_QUEUE=0`, unlike the stock run.
+
 For the generated card used in this experiment, add
 `--file-mix-project-deferred-last` to the preparer and
 `--project-deferred-last` to the checker to inject at callback 6,144. The

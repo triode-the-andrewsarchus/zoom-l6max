@@ -1,0 +1,64 @@
+# Trace control inputs against stock L6max MAIN 1.10. Successful execution
+# does not prove that a deferred copy was submitted or a control took effect.
+version = 1
+model = "l6max"
+main_sha256 = "980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461"
+wall_timeout_s = 420
+[[step]]
+action = "wait"
+guest_ms = 45000
+[[step]]
+action = "press"
+target = 20
+hold_ms = 150
+[[step]]
+action = "encoder"
+channel = 1
+steps = 8
+[[step]]
+action = "wait"
+guest_ms = 3000
+[[step]]
+action = "press"
+target = 35
+hold_ms = 150
+[[step]]
+action = "encoder"
+channel = 1
+steps = -8
+[[step]]
+action = "wait"
+guest_ms = 3000
+[[step]]
+action = "press"
+target = 40
+hold_ms = 150
+[[step]]
+action = "wait"
+guest_ms = 3000
+[[step]]
+action = "press"
+target = 40
+hold_ms = 150
+[[step]]
+action = "wait"
+guest_ms = 3000
+[[step]]
+action = "press"
+target = 40
+hold_ms = 150
+[[step]]
+action = "wait"
+guest_ms = 3000
+[[step]]
+action = "press"
+target = 40
+hold_ms = 150
+[[step]]
+action = "wait"
+guest_ms = 3000
+[[step]]
+action = "memory"
+name = "pending_copy"
+address = 2152091592
+length = 8
