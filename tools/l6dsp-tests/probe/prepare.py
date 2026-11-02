@@ -33,6 +33,7 @@ parser.add_argument("--selector-overlap", action="store_true", help="force a liv
 parser.add_argument("--selector-timeout", action="store_true", help="force a selector timeout and inspect partial recovery (QEMU only)")
 parser.add_argument("--selector-feedback", action="store_true", help="experiment with panel rollback and deferred MIDI on timeout (QEMU only)")
 parser.add_argument("--selector-ainr-timeout", choices=("entry", "exit"), help="inspect AINR flags across a selector timeout (QEMU only)")
+parser.add_argument("--selector-ainr-learned", action="store_true", help="attempt AINR learning before the exit timeout (QEMU only)")
 parser.add_argument("--inspector", action="store_true", help="enable QEMU-only inspector event hooks")
 parser.add_argument("--gesture-trace", action="store_true", help="record selector events (perturbs timing)")
 parser.add_argument("--enqueue-trace", action="store_true", help="record panel events before enqueue (perturbs timing)")
@@ -67,6 +68,8 @@ if args.selector_feedback and not args.selector_admission:
     parser.error("--selector-feedback requires --selector-admission")
 if args.selector_ainr_timeout and not (args.selector_timeout and args.selector_feedback):
     parser.error("--selector-ainr-timeout requires --selector-timeout and --selector-feedback")
+if args.selector_ainr_learned and args.selector_ainr_timeout != "exit":
+    parser.error("--selector-ainr-learned requires --selector-ainr-timeout exit")
 other_diagnostics = (args.switches, args.inspector, args.mixer_input_capture, args.gesture_trace, args.enqueue_trace,
         args.irq_trace, args.irq_timing, args.ring_timing, args.ring_drop, args.timing_control,
         args.active_sends, args.selector_load_trace, args.max_velvet_density, args.submix_return,
@@ -251,11 +254,11 @@ if args.selector_feedback:
     symbols = {}
     for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines():
         parts = line.split()
-        if len(parts) == 3 and parts[2] in ("selector_handoff_feedback", "selector_handoff_feedback_inner"):
+        if len(parts) == 3 and parts[2] in ("selector_handoff_feedback", "selector_handoff_feedback_pre", "selector_handoff_feedback_inner"):
             if parts[2] in symbols:
                 raise ValueError("duplicate selector feedback symbol")
             symbols[parts[2]] = int(parts[0], 16) & ~1
-    install_selector_feedback(image, symbols.get("selector_handoff_feedback"), symbols.get("selector_handoff_feedback_inner"))
+    install_selector_feedback(image, symbols.get("selector_handoff_feedback"), symbols.get("selector_handoff_feedback_pre"), symbols.get("selector_handoff_feedback_inner"))
 if args.offline_mix_layout:
     matches = [line.split() for line in subprocess.check_output(["llvm-nm", "-n", str(elf)], text=True).splitlines()
                if line.endswith(" offline_mix_veneer")]
@@ -642,11 +645,16 @@ if args.selector_timeout and not args.selector_ainr_timeout:
         add("memory", name="type_next", address=0x804600b2, length=1)
         add("snapshot", name="selector_feedback_next")
 if args.selector_ainr_timeout:
-    recipe = f'version = 1\nmodel = "l6max"\nmain_sha256 = "{image_sha}"\nwall_timeout_s = 400\n'
+    timeout = 600 if args.selector_ainr_learned else 400
+    recipe = f'version = 1\nmodel = "l6max"\nmain_sha256 = "{image_sha}"\nwall_timeout_s = {timeout}\n'
     add("wait", guest_ms=45000)
     for _ in range(4 if args.selector_ainr_timeout == "entry" else 5):
         add("press", target=40, hold_ms=150)
         add("wait", guest_ms=3000)
+    if args.selector_ainr_learned:
+        add("press", target=48, hold_ms=150)
+        add("wait", guest_ms=16000)
+        add("memory", name="learned_before", address=0x8046300c, length=4)
     for suffix in ("before", "after"):
         if suffix == "after":
             add("memory-write", name="trigger", address=0x81fff004, bytes=[0x50, 0x4c, 0x56, 0x4f])
@@ -657,6 +665,8 @@ if args.selector_ainr_timeout:
         add("memory", name=f"ainr_left_{suffix}", address=0x2028ba4c, length=4)
         add("memory", name=f"ainr_right_{suffix}", address=0x2028bad0, length=4)
         add("memory", name=f"gain_{suffix}", address=0x20007d74, length=4)
+    if args.selector_ainr_learned:
+        add("memory", name="learned_after", address=0x8046300c, length=4)
     add("memory", name="selector_handoff", address=0x83e0b010, length=24)
     add("memory", name="selector_overlap", address=0x83e0b100, length=24)
     add("press", target=40, hold_ms=150)

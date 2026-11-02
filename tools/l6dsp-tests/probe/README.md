@@ -118,9 +118,12 @@ modeled DIN messages. This uses unowned shared status, changes MIDI ordering,
 and does not cover other callers, simultaneous selections or all failure
 cases. Add `--selector-ainr-timeout entry` or `exit` and check with
 `--ainr-timeout entry` or `exit` to exercise AINR transitions. The entry
-experiment skips post-selector enable work on timeout. The exit case remains
-known to fail: AINR is disabled before the timeout and its prior state is not
-restored. Neither case qualifies AINR operation or installable firmware.
+experiment skips post-selector enable work on timeout. The exit experiment
+defers stock teardown until selection succeeds and keeps the sampled AINR
+fade value on timeout; this changes stock ordering and is not qualified for
+real audio. Add `--selector-ainr-learned` to attempt learning before the exit
+timeout, and `--ainr-learned` to require the learned marker in the checker.
+Neither case proves complete AINR state preservation or installable firmware.
 
 ## Synthetic file-mix layout
 

@@ -79,9 +79,9 @@ def check_timeout(report, feedback=False):
             'selection_mismatch': not feedback, 'requested_effect_skipped': not feedback}
 
 
-def check_midi_trace(trace):
+def check_midi_trace(trace, values=('2b', '2b', '40')):
     payload = re.findall(r'l6 main LPUART3 \(MIDI jacks\) TX ([0-9a-f]{2})', trace)
-    expected = 'b0 75 2b b0 75 2b b0 75 40'.split()
+    expected = [byte for value in values for byte in ('b0', '75', value)]
     if payload != expected:
         raise ValueError(f'unexpected modeled MIDI output: {" ".join(payload)}')
     return len(payload) // 3
@@ -93,6 +93,11 @@ def check_ainr_state(items, suffix, effect, callback, flag):
             or words(items, f'ainr_left_{suffix}', '<I') != (flag,)
             or words(items, f'ainr_right_{suffix}', '<I') != (flag,)):
         raise ValueError(f'AINR {suffix} state differs from expectation')
+
+
+def check_learned_marker(items):
+    if words(items, 'learned_before', '<I') != (1,) or words(items, 'learned_after', '<I') != (1,):
+        raise ValueError('AINR learned marker was not established and retained')
 
 
 def check_ainr_timeout(report, transition):
@@ -111,7 +116,7 @@ def check_ainr_timeout(report, transition):
     attempts, acquired, failed, released, _, active = words(items, 'selector_handoff', '<6I')
     if attempts != acquired + 1 or failed != 1 or released != acquired or active:
         raise ValueError('forced AINR timeout did not release its guard')
-    return {'transition': transition, 'state_preserved': True, 'retry_selected': True}
+    return {'transition': transition, 'sampled_state_preserved': True, 'retry_selected': True}
 
 
 def check(report, bypass, selector=False, overlap=False):
@@ -146,18 +151,35 @@ def validate_options(args):
         raise ValueError('--overlap requires --selector')
     if args.feedback and (not args.timeout or not args.midi_trace):
         raise ValueError('--feedback requires --timeout and --midi-trace')
-    if args.midi_trace and not args.feedback:
-        raise ValueError('--midi-trace requires --feedback')
+
+
+def validate_ainr_options(args):
+    if args.midi_trace and not (args.feedback or args.ainr_timeout):
+        raise ValueError('--midi-trace requires --feedback or --ainr-timeout')
     if args.ainr_timeout and any((args.timeout, args.feedback, args.bypass,
-                                  args.selector, args.overlap, args.midi_trace)):
+                                  args.selector, args.overlap)):
         raise ValueError('--ainr-timeout cannot be combined with other checks')
+    if args.ainr_learned and args.ainr_timeout != 'exit':
+        raise ValueError('--ainr-learned requires --ainr-timeout exit')
+
+
+def run_ainr_check(args, report):
+    result = check_ainr_timeout(report, args.ainr_timeout)
+    if args.ainr_learned:
+        check_learned_marker(observations(report))
+        result['learned_marker_retained'] = True
+    if args.midi_trace:
+        values = ('2b', '40', '55', '6b', '6b', '00') if args.ainr_timeout == 'entry' else ('2b', '40', '55', '6b', '00', '00', '15')
+        result['midi_packets'] = check_midi_trace(args.midi_trace.read_text(), values)
+    return result
 
 
 def run_check(args):
     validate_options(args)
+    validate_ainr_options(args)
     report = json.loads(args.report.read_text())
     if args.ainr_timeout:
-        return check_ainr_timeout(report, args.ainr_timeout)
+        return run_ainr_check(args, report)
     result = check_timeout(report, args.feedback) if args.timeout else check(report, args.bypass, args.selector, args.overlap)
     if args.feedback:
         result['midi_packets'] = check_midi_trace(args.midi_trace.read_text())
@@ -174,6 +196,7 @@ def main():
     parser.add_argument('--feedback', action='store_true', help='check experimental panel rollback')
     parser.add_argument('--midi-trace', type=Path, help='check the modeled DIN output trace')
     parser.add_argument('--ainr-timeout', choices=('entry', 'exit'))
+    parser.add_argument('--ainr-learned', action='store_true')
     args = parser.parse_args()
     try:
         result = run_check(args)

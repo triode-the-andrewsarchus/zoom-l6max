@@ -6468,3 +6468,44 @@ The Room timeout recipe, result and trace hashes were
 `d32f96212701258736e8f160c71ade1912abd6bcbefb9ff2e4112be7ef8b3f4d`, and
 `848c9c4acf6431fe5125012cff50201f621c311a8542ad7d96cbb855a86fa21d`.
 Stock MAIN, initial fixture, QEMU and `l6dbg` matched the preceding run.
+
+A further panel-only diagnostic defers the stock AINR teardown until after a
+successful selector return, skips it on the observed timeout, and preserves
+the prior AINR fade value on that timeout. In separate forced AINR-entry and
+AINR-exit runs, the type, callback, two AINR words and sampled fade matched
+their pre-timeout values, and the following press selected the requested
+effect. Their modeled DIN traces contained the expected six and seven effect
+messages respectively. A separate silent-input learning run recorded the
+firmware's learned marker as one before and after the exit timeout, with the
+same sampled selection and AINR-word behavior. One Room-to-Spring timeout
+also passed the indicator and MIDI checks.
+
+This deliberately changes stock teardown ordering. The selector can reopen
+audio before the deferred teardown finishes, and the scratch status is not
+qualified for other callers or concurrent transitions. A retained marker is
+not evidence that the full learned model, DSP history or denoising is intact;
+the silent-input run does not measure audio quality. Other failure paths,
+memory ownership, resets, deadlines and physical behavior remain unproven.
+Do not install this image.
+
+All four runs used diagnostic MAIN and ELF SHA-256 values
+`277dfd87948371d880e6da780d26a93f7267ca78a3e2123d0915ad135f95e8b0` and
+`32f455efa71f50a0dff105bed85ec5ceb2d86ab96b1d6ccf2ab256d3809fd0f1`.
+The exit recipe, result and trace hashes were
+`dc57d045a5de031797ddef6c5ffc482506411868e3e58be3e279f7a5c323f653`,
+`5a76b42072d1c5c0ab6176ad9f11366cf77b4c0434251655649fce93bc71d498`, and
+`893ea5f08960e7492fdd76fb952c2006f54906cea43de7bfedd2d97558804b65`.
+The entry recipe, result and trace were
+`c662dc1171e7ca339a199fcb22aea6fdfa76e970af90a7b257551cacf6e12946`,
+`2ce8e940d3059f13817c335c4de6b5774e7fdf900e167396e9680f05f4c26976`, and
+`6d387ceb1de49e079f70c146dc32c77f541fbaf55e2a3e7d6aa109e2dae43d11`.
+The learning recipe, result and trace were
+`379bbcb73a9dc160662c476c6882f648a06a8768d912ff0aeee13858d102c7a5`,
+`d5740b2904b623a96084140e0148c9366a54539e46218607ba2be069258cd55f`, and
+`9eb63522c4bce77953a97d7026d8ed9d34a96575dbd41d923bb51ea7bfaabc2e`.
+The generated learning recipe has equivalent addresses in decimal and a
+different hash from the manually composed run. The Room recipe, result and
+trace were `6b0e736f59d92d542906ed3d3866e313396b2b7fef1055f77c239e01bc29cb34`,
+`790350b11f0a91bfe6573f8cf39df220e73392795c35aa11f13fdfe68a203449`, and
+`feb5d8debe67c7260072bbbd4af2c953d475304e0c89a99423f28ad768094cc6`.
+Stock MAIN, initial fixture, QEMU and `l6dbg` matched the preceding run.

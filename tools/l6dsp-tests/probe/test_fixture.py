@@ -31,6 +31,7 @@ class PreparerModeTests(unittest.TestCase):
             (['--selector-timeout'], '--selector-timeout requires'),
             (['--selector-feedback'], '--selector-feedback requires'),
             (['--selector-ainr-timeout', 'entry'], '--selector-ainr-timeout requires'),
+            (['--selector-ainr-learned'], '--selector-ainr-learned requires'),
             (['--callback', '--inspector', '--file-mix-handoff', 'pending'], '--file-mix-handoff requires'),
             (['--callback', '--offline-mix-layout', '--inspector'], '--offline-mix-layout requires'),
             (['--callback', '--offline-mix-layout', '--switches'], '--offline-mix-layout requires'),
@@ -155,24 +156,27 @@ class FeedbackHookGuardTests(unittest.TestCase):
         image = bytearray(0x543aa)
         image[0x542dc:0x542e0] = bytes.fromhex('b8f70cfd')
         image[0x542ee:0x542f2] = bytes.fromhex('00f027f8')
+        image[0x54358:0x5435c] = bytes.fromhex('052811d1')
         image[0x543a6:0x543aa] = bytes.fromhex('052c13d1')
-        for offset in (0x542dc, 0x542ee, 0x543a6):
+        for offset in (0x542dc, 0x542ee, 0x54358, 0x543a6):
             changed = image[:]
             changed[offset] ^= 1
             before = changed[:]
             with self.subTest(offset=offset), self.assertRaises(ValueError):
-                install_selector_feedback(changed, 0x80109000, 0x80109100)
+                install_selector_feedback(changed, 0x80109000, 0x80109200, 0x80109100)
             self.assertEqual(changed, before)
-        for target, inner in ((None, 0x80109100), (0x80109000, None),
-                              (0x80109001, 0x80109100), (0x80109000, 0x80109101)):
+        for target, pre, inner in ((None, 0x80109200, 0x80109100), (0x80109000, None, 0x80109100),
+                                   (0x80109000, 0x80109200, None), (0x80109001, 0x80109200, 0x80109100),
+                                   (0x80109000, 0x80109201, 0x80109100), (0x80109000, 0x80109200, 0x80109101)):
             changed = image[:]
-            with self.subTest(target=target, inner=inner), self.assertRaises(ValueError):
-                install_selector_feedback(changed, target, inner)
+            with self.subTest(target=target, pre=pre, inner=inner), self.assertRaises(ValueError):
+                install_selector_feedback(changed, target, pre, inner)
             self.assertEqual(changed, image)
-        install_selector_feedback(image, 0x80109000, 0x80109100)
+        install_selector_feedback(image, 0x80109000, 0x80109200, 0x80109100)
         self.assertEqual(image[0x542dc:0x542e0], bytes.fromhex('00bf00bf'))
         self.assertEqual(image[0x542ee:0x542f2], branch(0x800542ee, 0x80109000))
-        self.assertEqual(image[0x543a6:0x543aa], branch(0x800543a6, 0x80109100))
+        self.assertEqual(image[0x54358:0x5435c], branch(0x80054358, 0x80109200, link=False))
+        self.assertEqual(image[0x543a6:0x543aa], branch(0x800543a6, 0x80109100, link=False))
 
 
 class ModeHookGuardTests(unittest.TestCase):

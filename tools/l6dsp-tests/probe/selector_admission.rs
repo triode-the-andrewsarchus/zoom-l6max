@@ -84,6 +84,10 @@ pub unsafe extern "C" fn selector_handoff_end() {
 // before the stock call, which resets control structures. Failure skips that
 // call and the requested selection; the timeout path only attempts fade and
 // flag cleanup. These paths are diagnostic only.
+#[cfg(selector_feedback)]
+core::arch::global_asm!(".equ selector_feedback_enabled, 1");
+#[cfg(not(selector_feedback))]
+core::arch::global_asm!(".equ selector_feedback_enabled, 0");
 core::arch::global_asm!(r#"
 .syntax unified
 .thumb
@@ -105,11 +109,18 @@ selector_handoff_entry:
     ldr.w pc, .Lcontinue
 .Ltimeout:
     pop.w {r0, r1, r2, r3, r12, lr}
+    .if selector_feedback_enabled
+    ldr.w r12, .Ltimeout_old_type
+    ldr.w r12, [r12]
+    cmp.w r12, #5
+    beq .Ltimeout_flag
+    .endif
     movs r0, #0
     ldr.w r12, .Lfade_argument
     blx r12
     ldr.w r12, .Lfade_call
     blx r12
+.Ltimeout_flag:
     cmp.w r10, #0
     bne .Ltimeout_cleanup
     ldr.w r12, .Lflag_clear
@@ -156,6 +167,7 @@ selector_handoff_exit:
 .Lfade_argument: .word 0x80049a21
 .Lfade_call: .word 0x8002c011
 .Lflag_clear: .word 0x8002e749
+.Ltimeout_old_type: .word 0x83e0b02c
 .Lfade_continue: .word 0x202806f5
 "#, options(raw));
 
@@ -174,12 +186,20 @@ selector_handoff_feedback:
     ldr.w r4, .Lfeedback_status
     movs r2, #0
     str r2, [r4]
+    movs r2, #1
+    str r2, [r4, #8]
+    movs r0, #0
+    ldr.w r12, .Lfeedback_get_active_type
+    blx r12
+    str r0, [r4, #4]
     pop {r0, r1, r2, r3}
     ldr.w r12, .Lfeedback_select
     blx r12
     ldr r2, [r4]
     movs r3, #0
     str r3, [r4]
+    str r3, [r4, #4]
+    str r3, [r4, #8]
     cmp r2, #1
     bne .Lfeedback_send
     movs r0, #0
@@ -199,24 +219,78 @@ selector_handoff_feedback:
 .Lfeedback_status: .word 0x83e0b028
 .Lfeedback_select: .word 0x80054341
 .Lfeedback_get_type: .word 0x8000b271
+.Lfeedback_get_active_type: .word 0x8000b379
 .Lfeedback_midi: .word 0x8000ccf9
+
+.global selector_handoff_feedback_pre
+.thumb_func
+selector_handoff_feedback_pre:
+    push {r1, r2}
+    ldr.w r1, .Lfeedback_status
+    ldr r1, [r1, #8]
+    cmp r1, #1
+    pop {r1, r2}
+    beq .Lpre_skip
+    cmp r0, #5
+    beq .Lpre_disable
+.Lpre_skip:
+    ldr.w pc, .Lpre_continue
+.Lpre_disable:
+    ldr.w pc, .Lpre_stock
+.align 2
+.Lpre_continue: .word 0x80054381
+.Lpre_stock: .word 0x8005435d
 
 .global selector_handoff_feedback_inner
 .thumb_func
 selector_handoff_feedback_inner:
-    push {r0, r1}
+    push.w {r0, r1, r2, r3, r12, lr}
     ldr.w r0, .Lfeedback_status
+    ldr r1, [r0, #8]
+    cmp r1, #1
+    bne .Linner_compare
     ldr r0, [r0]
     cmp r0, #1
-    pop {r0, r1}
-    beq .Linner_done
+    beq .Linner_abort
+    ldr.w r0, .Lfeedback_status
+    ldr r0, [r0, #4]
+    cmp r0, #5
+    bne .Linner_compare
+    ldr.w r12, .Ldisable_status
+    blx r12
+    movs r0, #1
+    movs r1, #1
+    ldr.w r12, .Ldisable_mute
+    blx r12
+    ldr.w r12, .Ldisable_delay
+    blx r12
+    movs r0, #0
+    ldr.w r12, .Ldisable_route
+    blx r12
+    movs r0, #0
+    ldr.w r12, .Ldisable_ainr
+    blx r12
+    movs r0, #0
+    movs r1, #1
+    ldr.w r12, .Ldisable_mute
+    blx r12
+.Linner_compare:
+    pop.w {r0, r1, r2, r3, r12, lr}
     cmp r4, #5
     beq .Linner_ainr
 .Linner_done:
     ldr.w pc, .Linner_return
+.Linner_abort:
+    pop.w {r0, r1, r2, r3, r12, lr}
+    b .Linner_done
 .Linner_ainr:
     ldr.w pc, .Linner_enable
 .align 2
 .Linner_return: .word 0x800543d3
 .Linner_enable: .word 0x800543ab
+.Ldisable_status: .word 0x8000b2e1
+.Ldisable_mute: .word 0x80003fc9
+.Ldisable_delay: .word 0x80004ca1
+.Ldisable_route: .word 0x80003bb1
+.Ldisable_ainr: .word 0x80003f99
 "#, options(raw));

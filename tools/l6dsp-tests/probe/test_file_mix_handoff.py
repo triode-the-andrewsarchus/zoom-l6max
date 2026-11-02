@@ -3,7 +3,7 @@ import copy
 import struct
 import unittest
 
-from file_mix_handoff import check, check_ainr_timeout, check_midi_trace, check_timeout
+from file_mix_handoff import check, check_ainr_timeout, check_learned_marker, check_midi_trace, check_timeout
 
 
 def capture_report(captures):
@@ -26,6 +26,15 @@ def report(bypass):
 
 
 class FileMixHandoffTests(unittest.TestCase):
+    def test_learned_marker_must_exist_before_and_after_timeout(self):
+        items = {'learned_before': {'bytes': [1, 0, 0, 0]}, 'learned_after': {'bytes': [1, 0, 0, 0]}}
+        check_learned_marker(items)
+        for name in items:
+            bad = copy.deepcopy(items)
+            bad[name]['bytes'] = [0, 0, 0, 0]
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                check_learned_marker(bad)
+
     def test_ainr_entry_timeout_rejects_enabled_flags(self):
         captures = {
             'type_before': ('<B', (4,)), 'type_after': ('<B', (4,)), 'type_next': ('<B', (5,)),
@@ -39,7 +48,7 @@ class FileMixHandoffTests(unittest.TestCase):
             'selector_handoff': ('<6I', (6, 5, 1, 5, 0x83e0b000, 0)),
         }
         value = capture_report(captures)
-        self.assertTrue(check_ainr_timeout(value, 'entry')['state_preserved'])
+        self.assertTrue(check_ainr_timeout(value, 'entry')['sampled_state_preserved'])
         bad = copy.deepcopy(value)
         next(event for event in bad['events'] if event['observation']['name'] == 'ainr_left_after')['observation']['bytes'][0] = 1
         with self.assertRaises(ValueError):
