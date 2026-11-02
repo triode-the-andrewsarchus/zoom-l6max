@@ -5773,3 +5773,21 @@ values were respectively
 The stock MAIN, initial NOR, panel state, popup ELF, QEMU and `l6dbg` match
 the preceding modeled-input routing experiment; QEMU's build provenance is
 unattested.
+
+After aligning Plateau's output tap positions with the supplied Multistomp
+reference, a separate QEMU-only `--mixer-input-capture` run used the same
+modeled gated tone and fixed test routes. The checker reconstructed all
+captured send samples and found finite nonzero stereo returns for both
+callbacks. Plateau's captured send and output peaks were approximately
+`1.2645e-5` and `2.1475e-5`; Velvet's were `1.2834e-5` and `1.3997e-5`.
+The callback counts were 4,666 and 4,662 respectively. The test does not
+establish reference audio equivalence, physical routing, audible quality,
+real-time performance or safe installation; its capture uses unowned scratch.
+
+The diagnostic MAIN, ELF, recipe and diagnostic JSON hashes were
+`57774b70230ce5fd497f85639ac6f3ee3828deba85765105675708af4664c745`,
+`21b06eae25ced9e8b27e1e580bbbeaa519d94cc9133953d6f3f1e57cd306eba8`,
+`a26d79248ad48c1d841835db41e1f2f55afaa2b2a7c90c0cd644ef1c9b118992`, and
+`ff8505801a191db2ad79fbd2f45dacb84e938e0a2dbbdfb04a70fda0ac692f63`.
+Stock MAIN, input NOR and panel state, QEMU and `l6dbg` match the preceding
+modeled-input routing experiment; QEMU's build provenance is unattested.

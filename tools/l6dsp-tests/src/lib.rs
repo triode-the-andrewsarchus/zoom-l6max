@@ -1117,6 +1117,54 @@ mod tests {
     }
 
     #[test]
+    fn plateau_output_taps_use_full_history_independent_of_size() {
+        let mut reverb = Box::new(plateau::PlateauReverb::new());
+        let mut params = plateau::PlateauParameters::default();
+        params.size = 0.2;
+        params.freeze = true;
+        reverb.init(params);
+
+        // Plateau's seven tap offsets and signs, in 29,761 Hz samples.
+        // The first value names the retained line (L/R delay 1, allpass 2,
+        // or delay 2); the final value selects the output channel.
+        let cases = [
+            (0, 266.0f32, 1.0, false), (0, 2974.0, 1.0, false),
+            (1, 1913.0, -1.0, false), (2, 1996.0, 1.0, false),
+            (3, 1990.0, -1.0, false), (4, 187.0, -1.0, false),
+            (5, 1066.0, -1.0, false),
+            (3, 266.0, 1.0, true), (3, 2974.0, 1.0, true),
+            (4, 1913.0, -1.0, true), (5, 1996.0, 1.0, true),
+            (0, 1990.0, -1.0, true), (1, 187.0, -1.0, true),
+            (2, 1066.0, -1.0, true),
+        ];
+        assert!((2974.0f32 * (48_000.0 / 29_761.0)) as usize > reverb.r_del1.length);
+        for (line, offset, sign, right_channel) in cases {
+            reverb.clear();
+            let history: &mut [f32] = match line {
+                0 => &mut reverb.l_del1.buffer,
+                1 => &mut reverb.l_apf2.delay.buffer,
+                2 => &mut reverb.l_del2.buffer,
+                3 => &mut reverb.r_del1.buffer,
+                4 => &mut reverb.r_apf2.delay.buffer,
+                5 => &mut reverb.r_del2.buffer,
+                _ => unreachable!(),
+            };
+            let tap = (offset * (48_000.0 / 29_761.0)) as usize;
+            assert!(tap < history.len());
+            let index = (1 + history.len() - tap) % history.len();
+            history[index] = 0.5;
+            let (left, right) = reverb.process_sample(0.0, 0.0);
+            let mut dc = plateau::OnePoleHP::new();
+            dc.set_cutoff(20.0);
+            let expected = math::soft_clip(dc.process(sign * 0.5 * 0.6));
+            let (actual, other) = if right_channel { (right, left) } else { (left, right) };
+            assert!(other.abs() < 1e-7, "line {line}, tap {tap}: opposite channel {other}");
+            assert!((actual - expected).abs() < 1e-6,
+                    "line {line}, tap {tap}: actual {actual}, expected {expected}");
+        }
+    }
+
+    #[test]
     fn plateau_first_tank_allpass_reaches_each_output() {
         let mut reverb = Box::new(plateau::PlateauReverb::new());
         reverb.init(plateau::PlateauParameters::default());
@@ -1657,14 +1705,15 @@ mod tests {
             assert!(delay + params.mod_depth as usize <= capacity - 2);
         }
         for (tap, capacity) in [
-            (2974.0, reverb.l_del1.length),
-            (1913.0, reverb.l_apf2.delay.length),
-            (1996.0, reverb.l_del2.length),
-            (3627.0, reverb.r_del1.length),
-            (1228.0, reverb.r_apf2.delay.length),
-            (2673.0, reverb.r_del2.length),
+            (2974.0, reverb.l_del1.buffer.len()),
+            (1913.0, reverb.l_apf2.delay.buffer.len()),
+            (1996.0, reverb.l_del2.buffer.len()),
+            (2974.0, reverb.r_del1.buffer.len()),
+            (1913.0, reverb.r_apf2.delay.buffer.len()),
+            (1996.0, reverb.r_del2.buffer.len()),
         ] {
-            assert!(samples(tap) < capacity, "maximum output tap was clamped");
+            let tap_samples = (tap * (48_000.0f32 / 29_761.0)) as usize;
+            assert!(tap_samples < capacity, "output tap exceeded retained history");
         }
     }
 

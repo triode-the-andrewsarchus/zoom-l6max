@@ -110,6 +110,11 @@ advancing that chain's history. Its bypass and allpass gains ramp over 64
 frames on diffusion edits. Host tests cover the immediate impulse path, an
 active-signal first-frame edit, reversals and edits while idle; target
 execution time and audible transitions remain unqualified.
+Plateau's output taps now use the same sample-rate-scaled positions on both
+channels as the supplied Multistomp reference, independently of tank size.
+They read the full retained delay histories. Host tests exercise each tap at
+the smallest tank size; this does not establish overall audio equivalence with
+the reference or physical behavior.
 The Velvet crossfade now calculates its phase step once per transition;
 host tests compare its weights with the previous calculation. In a disposable
 ARM diagnostic build, the former per-sample divide moved to transition start
