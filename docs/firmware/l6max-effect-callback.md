@@ -5728,3 +5728,26 @@ The QEMU executable and `l6dbg` hashes were
 `52af793c1d34e927210f99cf49117180121d8bd62885ce0ee7148be5dedbf2f6`;
 the QEMU build's full source provenance is unattested. The diagnostic JSON
 hash was `1b9b4fe51f2afb36b67bfbc54f75528e68ad88d3a271fc3a1b154849f32f6302`.
+
+A later QEMU-only combined inspector run built with the zero-diffusion bypass
+change used the same gated receive tone and changed the Room parameter-page
+recipe to send sixteen individual negative turns on encoder 6, with 120 guest
+milliseconds between turns. The inspector summary recorded 16 consumed
+edits. The subsequent route checker found the expected B, A→B, B send
+sequence, 19 consumed queue events with no drops, and 13,591 Room callbacks.
+The observed send peaks were approximately `1.2646e-5`, `1.2663e-5`, and
+`1.2645e-5`. This run did not independently capture the applied diffusion
+value or isolate the reverb return, so it does not establish that the final
+value reached zero or validate the bypass sound. Host tests cover the direct
+zero-diffusion impulse and idle edits. The diagnostic still uses unowned
+scratch and must not be installed.
+
+The diagnostic MAIN, effect ELF, popup ELF, edited recipe and diagnostic JSON
+SHA-256 values were respectively
+`50dce261a0f84b4336c164f4651cfdfe8f49845d83d0941ed54f91b094c55583`,
+`0d5c3c82e69b1ac4fbca5f1cfef6fcf276f50594bd8e0c606a33450bb1507574`,
+`b22eb39c1ffb970f375a01345e6bfc68e3a179e19321560c2e46f5b7fe465d62`,
+`cc3a9f9ba9ad67d7002ce4b482dd89f17050b665fc55d129b5a19ccdb57641ea`, and
+`6e5c224a66cb60e98daaf6b06f7369988b500953e3eee93cb2787ec2f8c0bf96`.
+Stock MAIN, initial NOR, panel state, QEMU and `l6dbg` identities match the
+preceding modeled-input routing run; QEMU build provenance remains unattested.
