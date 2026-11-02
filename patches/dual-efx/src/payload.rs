@@ -96,9 +96,10 @@ pub unsafe extern "C" fn efx_dispatch_hook(
 
                 if efx_type == 1 {
                     // Room Reverb: param0 = PreDelay, param1 = Decay
-                    proc.plateau.params.predelay_ms = (param0 as f32 / 127.0) * 150.0;
-                    proc.plateau.params.decay = 0.1 + (param1 as f32 / 127.0) * 0.899;
-                    proc.plateau.set_parameters(proc.plateau.params);
+                    let mut params = proc.plateau.params;
+                    params.predelay_ms = (param0 as f32 / 127.0) * 150.0;
+                    params.decay = 0.1 + (param1 as f32 / 127.0) * 0.899;
+                    proc.plateau.set_parameters(params);
                 } else {
                     // Spring Reverb: param0 = VND Time Spread, param1 = VND Decay
                     let mut params = proc.velvet.current;
@@ -225,12 +226,13 @@ pub unsafe extern "C" fn knob_changed(
                         );
                         proc.velvet.set_parameters(params);
                     } else {
-                        proc.plateau.params.predelay_ms = math::clamp(
-                            proc.plateau.params.predelay_ms + (delta as f32 * 2.0),
+                        let mut params = proc.plateau.params;
+                        params.predelay_ms = math::clamp(
+                            params.predelay_ms + (delta as f32 * 2.0),
                             0.0,
                             150.0,
                         );
-                        proc.plateau.set_parameters(proc.plateau.params);
+                        proc.plateau.set_parameters(params);
                     }
                 }
                 1 => {
@@ -244,12 +246,13 @@ pub unsafe extern "C" fn knob_changed(
                         );
                         proc.velvet.set_parameters(params);
                     } else {
-                        proc.plateau.params.size = math::clamp(
-                            proc.plateau.params.size + (delta as f32 * 0.02),
+                        let mut params = proc.plateau.params;
+                        params.size = math::clamp(
+                            params.size + (delta as f32 * 0.02),
                             0.2,
                             1.2,
                         );
-                        proc.plateau.set_parameters(proc.plateau.params);
+                        proc.plateau.set_parameters(params);
                     }
                 }
                 2 => {
@@ -263,12 +266,13 @@ pub unsafe extern "C" fn knob_changed(
                         );
                         proc.velvet.set_parameters(params);
                     } else {
-                        proc.plateau.params.decay = math::clamp(
-                            proc.plateau.params.decay + (delta as f32 * 0.02),
+                        let mut params = proc.plateau.params;
+                        params.decay = math::clamp(
+                            params.decay + (delta as f32 * 0.02),
                             0.1,
                             0.999,
                         );
-                        proc.plateau.set_parameters(proc.plateau.params);
+                        proc.plateau.set_parameters(params);
                     }
                 }
                 3 => {
@@ -282,12 +286,13 @@ pub unsafe extern "C" fn knob_changed(
                         );
                         proc.velvet.set_parameters(params);
                     } else {
-                        proc.plateau.params.low_cut_hz = math::clamp(
-                            proc.plateau.params.low_cut_hz + (delta as f32 * 20.0),
+                        let mut params = proc.plateau.params;
+                        params.low_cut_hz = math::clamp(
+                            params.low_cut_hz + (delta as f32 * 20.0),
                             20.0,
                             1000.0,
                         );
-                        proc.plateau.set_parameters(proc.plateau.params);
+                        proc.plateau.set_parameters(params);
                     }
                 }
                 4 => {
@@ -301,12 +306,13 @@ pub unsafe extern "C" fn knob_changed(
                         );
                         proc.velvet.set_parameters(params);
                     } else {
-                        proc.plateau.params.high_cut_hz = math::clamp(
-                            proc.plateau.params.high_cut_hz + (delta as f32 * 250.0),
+                        let mut params = proc.plateau.params;
+                        params.high_cut_hz = math::clamp(
+                            params.high_cut_hz + (delta as f32 * 250.0),
                             1000.0,
                             16000.0,
                         );
-                        proc.plateau.set_parameters(proc.plateau.params);
+                        proc.plateau.set_parameters(params);
                     }
                 }
                 5 => {
@@ -318,12 +324,13 @@ pub unsafe extern "C" fn knob_changed(
                             proc.velvet.current.dynamic = false;
                         }
                     } else {
-                        proc.plateau.params.diffusion = math::clamp(
-                            proc.plateau.params.diffusion + (delta as f32 * 0.05),
+                        let mut params = proc.plateau.params;
+                        params.diffusion = math::clamp(
+                            params.diffusion + (delta as f32 * 0.05),
                             0.0,
                             1.0,
                         );
-                        proc.plateau.set_parameters(proc.plateau.params);
+                        proc.plateau.set_parameters(params);
                     }
                 }
                 6 => {
@@ -348,12 +355,13 @@ pub unsafe extern "C" fn knob_changed(
                         proc.channel_routing[sel] = next;
                     } else {
                         // Plateau Modulation Depth (0.0 to 10.0 samples)
-                        proc.plateau.params.mod_depth = math::clamp(
-                            proc.plateau.params.mod_depth + (delta as f32 * 0.25),
+                        let mut params = proc.plateau.params;
+                        params.mod_depth = math::clamp(
+                            params.mod_depth + (delta as f32 * 0.25),
                             0.0,
                             10.0,
                         );
-                        proc.plateau.set_parameters(proc.plateau.params);
+                        proc.plateau.set_parameters(params);
                     }
                 }
                 7 => {
@@ -361,8 +369,9 @@ pub unsafe extern "C" fn knob_changed(
                     if bank == 0 {
                         proc.cascade_gain = if proc.cascade_gain > 0.5 { 0.0 } else { 1.0 };
                     } else {
-                        proc.plateau.params.freeze = !proc.plateau.params.freeze;
-                        proc.plateau.set_parameters(proc.plateau.params);
+                        let mut params = proc.plateau.params;
+                        params.freeze = !params.freeze;
+                        proc.plateau.set_parameters(params);
                     }
                 }
                 _ => {}
