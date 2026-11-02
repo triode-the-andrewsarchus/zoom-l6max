@@ -3,6 +3,23 @@
 Original Rust code, patch source, diagnostic tools, and project documentation are
 licensed under [MIT](LICENSE), except where another license is stated.
 
+## Dual-EFX upstream provenance
+
+The dual-EFX source describes its Velvet implementation as a port of
+[Velvet-Noise-Decorrelator-VST3](https://github.com/115dkk/Velvet-Noise-Decorrelator-VST3),
+whose [MIT copyright and license notice](patches/dual-efx/licenses/velvet-upstream-MIT.txt)
+is retained here.
+
+The Plateau source describes itself as adapted from Valley Plateau /
+[PlateauNEVersio](https://github.com/digitalartifactmusic/PlateauNEVersio).
+The reference's [copyright notice](patches/dual-efx/licenses/plateau-upstream-notice.txt)
+states GPL-3.0-or-later; its [GPL-3.0 text](patches/dual-efx/licenses/GPL-3.0.txt)
+is included. The provenance and applicable licensing of this Rust adaptation
+and any distribution combining it with other project components require review;
+the general MIT statement above must not be taken as resolving that question.
+These reference notices do not establish that every third-party component of
+the upstream projects is included in this repository.
+
 ## QEMU model
 
 The C board/peripheral model and C tests under `emulator/qemu/` are
