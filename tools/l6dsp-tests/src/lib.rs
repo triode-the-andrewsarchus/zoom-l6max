@@ -1563,7 +1563,7 @@ mod tests {
         params.diffusion = 1.0;
         reverb.set_parameters(params);
         assert_eq!(reverb.l_apf2.gain, halfway, "reversal must start at the applied gain");
-        for _ in 0..64 { reverb.process_sample(0.0, 0.0); }
+        for _ in 0..256 { reverb.process_sample(0.0, 0.0); }
         assert_eq!([reverb.l_apf1.gain, reverb.l_apf2.gain, reverb.r_apf1.gain, reverb.r_apf2.gain],
                    [-0.7, 0.7, -0.7, 0.7]);
         assert_eq!([reverb.in_apf1.gain, reverb.in_apf2.gain, reverb.in_apf3.gain, reverb.in_apf4.gain],

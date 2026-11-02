@@ -16,15 +16,15 @@ The blocking findings for L6max MAIN 1.10
   emulator run the largest stock-heap free block was 160,008 bytes, less than
   the then-current payload state of 319,216 bytes; see the
   [callback investigation](firmware/l6max-effect-callback.md). The current
-  processor type measures 279,416 bytes for `thumbv7em-none-eabihf` after a
+  processor type measures 279,464 bytes for `thumbv7em-none-eabihf` after a
   25,824-byte reduction in raw Plateau delay arrays; it still exceeds that free
   block. The current size query object SHA-256 is
-  `5345b512683381ed642e94a5bbc07c9a97c2053dead07dc7619d41a4ea3e2d1b`
+  `a75b7b6386e0e98324e775815ecb22f295856522777c89507321da708547d2ee`
   using `rustc 1.99.0-nightly (1ed2df61a 2026-08-04)`.
   Of that state, the raw `f32` histories comprise 36,484 bytes of
   Plateau predelay, 7,024 bytes of Plateau input diffusion, 168,372 bytes of
   Plateau tank delays and 57,624 bytes of Velvet histories (including the
-  separate cascade history). The remaining 9,912 bytes include filter banks,
+  separate cascade history). The remaining 9,960 bytes include filter banks,
   parameters and bookkeeping. These counts describe allocated capacity,
   not a proof that any stock firmware memory can be reused.
   Stock code
@@ -89,7 +89,7 @@ The blocking findings for L6max MAIN 1.10
   `0x19514` bytes. That weakens the omitted-update hypothesis; the earlier
   divergence remains unexplained. The smaller copy is only a candidate, not
   established independent learning or safe memory ownership. Three such
-  prefixes plus the 279,416-byte processor would occupy 590,516 bytes of the
+  prefixes plus the 279,464-byte processor would occupy 590,564 bytes of the
   768,000-byte effect buffer before any snapshot or other storage; this is
   arithmetic, not an allocation or ownership proof. See the
   [research observation](https://github.com/derekstavis/zoom-l6max-research/blob/0621038/docs/firmware/l6max-effects-ainr.md#selection-learning-and-processing).
@@ -202,7 +202,7 @@ Plateau's zero-diffusion setting now bypasses its input diffuser chain while
 advancing that chain's history. Its input allpass gains stay fixed, while its
 four tank allpass gains follow ±0.7 times diffusion, as in the supplied
 Multistomp control implementation. The input bypass and tank gains ramp over
-64 frames on edits. Host tests cover the input-to-tank path, tank impulse
+256 frames on edits. Host tests cover the input-to-tank path, tank impulse
 response, an active-signal first-frame edit, reversals, freeze and idle edits;
 target execution time and audible transitions remain unqualified.
 An ARM QEMU impulse diagnostic after this correction reported Velvet and
@@ -282,6 +282,28 @@ The allpasses now consume the preceding frame's delay output, matching the
 supplied Multistomp core's ordering. Fixed, modulated and short-delay impulse
 checks match that core; this adds 32 bytes of processor state and does not
 establish whole-effect parity, physical timing or audible quality.
+Scaled input and tank delay times now retain their fractional samples and
+interpolate between history values, as the supplied Multistomp core does.
+Freeze intentionally holds tank delays at integer samples to sustain energy.
+Reference impulse checks and host freeze tests cover these paths; audible
+transitions, full parity and target performance remain unqualified.
+A modeled-input QEMU capture passed the existing send and nonzero-return
+checks after this change, but its single Plateau return block peaked at only
+`1.49e-8`; that check alone does not establish useful output level. A separate
+four-second host render of a 500 Hz tone at default size had per-second stereo
+RMS between 0.054 and 0.063 in both the preceding version and a candidate
+before the maximum-size boundary adjustment. These finite
+observations do not establish the cause of the quiet capture or audio fidelity.
+The fractional-delay diagnostic MAIN, ELF, initial diagnostic NOR, recipe and
+result SHA-256 values were
+`366dc235cf6a92e3c34a6c5590ea53816163250a3461fdd8fd89d919ff25bc9c`,
+`82bc2c4e1e620cfe640db04f138673d4adf1cb5e3f5e51c57500ad19814f0eee`,
+`54feb7372272d5e6fcd33d0762bfee3a339fbb1d2345d252611cebdf1f316134`,
+`2762dc523196a9fa964267a99cc71fb834c533b65576e17e6b5376ee3b80d7a5`, and
+`5249e55fe09c688ce6b37a983cd9e2bff6983bf09408fabb3d756e48cdc1f3e3`.
+It used the same stock MAIN, source NOR, modeled-input QEMU and `l6dbg`
+identities as the following capture. The diagnostic uses unowned scratch and
+must not be installed.
 An active modeled-input QEMU capture passed the existing send reconstruction
 and finite, nonzero stereo return checks for both effects. The diagnostic
 MAIN, ELF, initial diagnostic NOR, recipe and result SHA-256 values were

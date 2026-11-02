@@ -13,7 +13,7 @@ use super::math::*;
 pub const SAMPLE_RATE: f32 = 48000.0;
 const OUTPUT_FADE_SAMPLES: u32 = 64;
 const PREDELAY_FADE_SAMPLES: u32 = 64;
-const DIFFUSION_BYPASS_FADE_SAMPLES: u32 = 64;
+const DIFFUSION_BYPASS_FADE_SAMPLES: u32 = 256;
 const DAMPING_FADE_SAMPLES: u32 = 64;
 const DATTORRO_SR: f32 = 29761.0;
 const SR_SCALE: f32 = SAMPLE_RATE / DATTORRO_SR; // ~1.61285
@@ -111,12 +111,29 @@ impl<const N: usize> Delay<N> {
         // feedback delay's current length.
         self.read_history(offset.min(N - 1))
     }
+
+    // Keep one extra history sample for fractional interpolation.
+    fn set_tank_time(&mut self, samples: f32) -> f32 {
+        let samples = clamp(samples, 10.0, (N - 1) as f32);
+        self.length = samples as usize;
+        samples - self.length as f32
+    }
+
+    #[inline(always)]
+    fn read_tank(&self, fraction: f32) -> f32 {
+        let newer = self.read_history(self.length);
+        if fraction == 0.0 { newer } else {
+            let older = self.read_history(self.length + 1);
+            newer + fraction * (older - newer)
+        }
+    }
 }
 
 pub struct Allpass<const N: usize> {
     pub delay: Delay<N>,
     pub gain: f32,
     pub delay_time: usize,
+    delay_fraction: f32,
     // The reference allpass consumes the delay output from the prior frame.
     delayed: f32,
 }
@@ -127,6 +144,7 @@ impl<const N: usize> Allpass<N> {
             delay: Delay::new(),
             gain,
             delay_time,
+            delay_fraction: 0.0,
             delayed: 0.0,
         }
     }
@@ -136,14 +154,15 @@ impl<const N: usize> Allpass<N> {
         self.delayed = 0.0;
     }
 
+    fn set_delay_samples(&mut self, samples: f32, max: usize) {
+        let samples = clamp(samples, 1.0, max as f32);
+        self.delay_time = samples as usize;
+        self.delay_fraction = samples - self.delay_time as f32;
+    }
+
     #[inline(always)]
     pub fn process(&mut self, input: f32) -> f32 {
-        let delayed = self.delayed;
-        let in_sum = input + delayed * self.gain;
-        let output = delayed - in_sum * self.gain;
-        self.delayed = if self.delay_time == 0 { in_sum } else { self.delay.read(self.delay_time) };
-        self.delay.write(in_sum);
-        output
+        self.process_modulated(input, self.delay_time as f32 + self.delay_fraction)
     }
 
     #[inline(always)]
@@ -312,19 +331,23 @@ pub struct PlateauReverb {
     // Left tank loop
     pub l_apf1: Allpass<L_APF1_MAX>,
     pub l_del1: Delay<L_DEL1_MAX>,
+    l_del1_fraction: f32,
     pub l_lp: OnePoleLP,
     pub l_hp: OnePoleHP,
     pub l_apf2: Allpass<L_APF2_MAX>,
     pub l_del2: Delay<L_DEL2_MAX>,
+    l_del2_fraction: f32,
     pub l_sum: f32,
 
     // Right tank loop
     pub r_apf1: Allpass<R_APF1_MAX>,
     pub r_del1: Delay<R_DEL1_MAX>,
+    r_del1_fraction: f32,
     pub r_lp: OnePoleLP,
     pub r_hp: OnePoleHP,
     pub r_apf2: Allpass<R_APF2_MAX>,
     pub r_del2: Delay<R_DEL2_MAX>,
+    r_del2_fraction: f32,
     pub r_sum: f32,
 
     // Modulation
@@ -373,18 +396,22 @@ impl PlateauReverb {
 
             l_apf1: Allpass::new(-0.525, 1084),
             l_del1: Delay::new(),
+            l_del1_fraction: 0.0,
             l_lp: OnePoleLP::new(),
             l_hp: OnePoleHP::new(),
             l_apf2: Allpass::new(0.525, 2903),
             l_del2: Delay::new(),
+            l_del2_fraction: 0.0,
             l_sum: 0.0,
 
             r_apf1: Allpass::new(-0.525, 1465),
             r_del1: Delay::new(),
+            r_del1_fraction: 0.0,
             r_lp: OnePoleLP::new(),
             r_hp: OnePoleHP::new(),
             r_apf2: Allpass::new(0.525, 4284),
             r_del2: Delay::new(),
+            r_del2_fraction: 0.0,
             r_sum: 0.0,
 
             lfo1: TriangleLFO::new(0.10),
@@ -530,10 +557,10 @@ impl PlateauReverb {
 
         // Plateau scales the tank with size; input diffuser times depend only
         // on sample rate, so changing size does not retime their histories.
-        self.in_apf1.delay_time = clamp_usize((141.0 * SR_SCALE) as usize, 1, IN_APF1_MAX - 1);
-        self.in_apf2.delay_time = clamp_usize((107.0 * SR_SCALE) as usize, 1, IN_APF2_MAX - 1);
-        self.in_apf3.delay_time = clamp_usize((379.0 * SR_SCALE) as usize, 1, IN_APF3_MAX - 1);
-        self.in_apf4.delay_time = clamp_usize((277.0 * SR_SCALE) as usize, 1, IN_APF4_MAX - 1);
+        self.in_apf1.set_delay_samples(141.0 * SR_SCALE, IN_APF1_MAX - 2);
+        self.in_apf2.set_delay_samples(107.0 * SR_SCALE, IN_APF2_MAX - 2);
+        self.in_apf3.set_delay_samples(379.0 * SR_SCALE, IN_APF3_MAX - 2);
+        self.in_apf4.set_delay_samples(277.0 * SR_SCALE, IN_APF4_MAX - 2);
 
         self.apply_tank_size(params.size);
 
@@ -587,15 +614,15 @@ impl PlateauReverb {
 
     fn apply_tank_size(&mut self, size: f32) {
         let scale = SR_SCALE * size;
-        self.l_apf1.delay_time = clamp_usize((672.0 * scale) as usize, 1, L_APF1_MAX - 32);
-        self.l_del1.length = clamp_usize((4453.0 * scale) as usize, 10, L_DEL1_MAX - 1);
-        self.l_apf2.delay_time = clamp_usize((1800.0 * scale) as usize, 1, L_APF2_MAX - 1);
-        self.l_del2.length = clamp_usize((3720.0 * scale) as usize, 10, L_DEL2_MAX - 1);
+        self.l_apf1.set_delay_samples(672.0 * scale, L_APF1_MAX - 32);
+        self.l_del1_fraction = self.l_del1.set_tank_time(4453.0 * scale);
+        self.l_apf2.set_delay_samples(1800.0 * scale, L_APF2_MAX - 2);
+        self.l_del2_fraction = self.l_del2.set_tank_time(3720.0 * scale);
 
-        self.r_apf1.delay_time = clamp_usize((908.0 * scale) as usize, 1, R_APF1_MAX - 32);
-        self.r_del1.length = clamp_usize((4217.0 * scale) as usize, 10, R_DEL1_MAX - 1);
-        self.r_apf2.delay_time = clamp_usize((2656.0 * scale) as usize, 1, R_APF2_MAX - 1);
-        self.r_del2.length = clamp_usize((3163.0 * scale) as usize, 10, R_DEL2_MAX - 1);
+        self.r_apf1.set_delay_samples(908.0 * scale, R_APF1_MAX - 32);
+        self.r_del1_fraction = self.r_del1.set_tank_time(4217.0 * scale);
+        self.r_apf2.set_delay_samples(2656.0 * scale, R_APF2_MAX - 2);
+        self.r_del2_fraction = self.r_del2.set_tank_time(3163.0 * scale);
 
     }
 
@@ -748,11 +775,13 @@ impl PlateauReverb {
         // Interpolating a moving delay dissipates energy in the feedback
         // loop. Hold it at an integer delay during freeze while advancing the
         // LFOs, so the tank sustains and modulation resumes on release.
-        let depth = if self.params.freeze { 0.0 } else { self.params.mod_depth };
-        let l_mod = self.l_apf1.delay_time as f32 + lfo1_val * depth;
-        let l_mod2 = self.l_apf2.delay_time as f32 + lfo2_val * depth;
-        let r_mod = self.r_apf1.delay_time as f32 + lfo3_val * depth;
-        let r_mod2 = self.r_apf2.delay_time as f32 + lfo4_val * depth;
+        let frozen = self.params.freeze;
+        let depth = if frozen { 0.0 } else { self.params.mod_depth };
+        let fraction = |value| if frozen { 0.0 } else { value };
+        let l_mod = self.l_apf1.delay_time as f32 + fraction(self.l_apf1.delay_fraction) + lfo1_val * depth;
+        let l_mod2 = self.l_apf2.delay_time as f32 + fraction(self.l_apf2.delay_fraction) + lfo2_val * depth;
+        let r_mod = self.r_apf1.delay_time as f32 + fraction(self.r_apf1.delay_fraction) + lfo3_val * depth;
+        let r_mod2 = self.r_apf2.delay_time as f32 + fraction(self.r_apf2.delay_fraction) + lfo4_val * depth;
 
         let decay = if self.params.freeze { 1.0 } else { self.params.decay };
         self.advance_damping();
@@ -761,7 +790,7 @@ impl PlateauReverb {
         self.l_sum += diff_in;
         let l_ap1_out = self.l_apf1.process_modulated(self.l_sum, l_mod);
         // Read the configured delay from continuously advancing history.
-        let l_del1_out = self.l_del1.read_history(self.l_del1.length);
+        let l_del1_out = self.l_del1.read_tank(fraction(self.l_del1_fraction));
         self.l_del1.write(l_ap1_out);
 
         // Keep damping history current while bypassed so releasing freeze
@@ -770,20 +799,20 @@ impl PlateauReverb {
         let l_filtered = if self.params.freeze { l_del1_out } else { l_damped };
 
         let l_ap2_out = self.l_apf2.process_modulated(l_filtered * decay, l_mod2);
-        let l_del2_out = self.l_del2.read_history(self.l_del2.length);
+        let l_del2_out = self.l_del2.read_tank(fraction(self.l_del2_fraction));
         self.l_del2.write(l_ap2_out);
 
         // 5. Right Tank Loop
         self.r_sum += diff_in;
         let r_ap1_out = self.r_apf1.process_modulated(self.r_sum, r_mod);
-        let r_del1_out = self.r_del1.read_history(self.r_del1.length);
+        let r_del1_out = self.r_del1.read_tank(fraction(self.r_del1_fraction));
         self.r_del1.write(r_ap1_out);
 
         let r_damped = self.r_hp.process(self.r_lp.process(r_del1_out));
         let r_filtered = if self.params.freeze { r_del1_out } else { r_damped };
 
         let r_ap2_out = self.r_apf2.process_modulated(r_filtered * decay, r_mod2);
-        let r_del2_out = self.r_del2.read_history(self.r_del2.length);
+        let r_del2_out = self.r_del2.read_tank(fraction(self.r_del2_fraction));
         self.r_del2.write(r_ap2_out);
 
         // Cross feedback
@@ -878,16 +907,21 @@ impl PlateauReverb {
 
 #[cfg(test)]
 mod tests {
-    use super::Allpass;
+    use super::{Allpass, Delay, PlateauParameters, PlateauReverb, SR_SCALE};
 
     #[test]
     fn allpass_impulse_timing_matches_multistomp_core() {
         // AllpassFilter from ZoomMultistompZDL commit 7ea50ae6, with a
         // 16-sample ring, gain 0.5 and delay 3, processing a unit impulse.
-        let mut ap = Allpass::<16>::new(0.5, 3);
-        let expected = [-0.5, 0.0, 0.0, 0.0, 0.75, 0.0, 0.0, 0.0, 0.375, 0.0];
-        for (frame, expected) in expected.into_iter().enumerate() {
-            assert_eq!(ap.process(if frame == 0 { 1.0 } else { 0.0 }), expected);
+        for (delay, expected) in [
+            (3.0, [-0.5, 0.0, 0.0, 0.0, 0.75, 0.0, 0.0, 0.0, 0.375, 0.0]),
+            (3.5, [-0.5, 0.0, 0.0, 0.0, 0.375, 0.375, 0.0, 0.0, 0.09375, 0.1875]),
+        ] {
+            let mut ap = Allpass::<16>::new(0.5, 3);
+            ap.set_delay_samples(delay, 14);
+            for (frame, expected) in expected.into_iter().enumerate() {
+                assert_eq!(ap.process(if frame == 0 { 1.0 } else { 0.0 }), expected);
+            }
         }
     }
 
@@ -900,6 +934,45 @@ mod tests {
         let mut ap = Allpass::<16>::new(0.5, 3);
         for (frame, (delay, expected)) in times.into_iter().zip(expected).enumerate() {
             assert_eq!(ap.process_modulated(if frame == 0 { 1.0 } else { 0.0 }, delay), expected);
+        }
+    }
+
+    #[test]
+    fn tank_delay_interpolates_between_adjacent_history_samples() {
+        let mut delay = Delay::<16>::new();
+        let fraction = delay.set_tank_time(10.5);
+        let mut output = [0.0; 13];
+        for (frame, sample) in output.iter_mut().enumerate() {
+            *sample = delay.read_tank(fraction);
+            delay.write(if frame == 0 { 1.0 } else { 0.0 });
+        }
+        assert_eq!(output[10], 0.5);
+        assert_eq!(output[11], 0.5);
+        assert_eq!(output.iter().sum::<f32>(), 1.0);
+        let fraction = delay.set_tank_time(1000.0);
+        assert_eq!((delay.length, fraction), (15, 0.0));
+    }
+
+    #[test]
+    fn configured_size_retains_reference_fractions() {
+        let mut reverb = Box::new(PlateauReverb::new());
+        let params = PlateauParameters { size: 1.0, ..PlateauParameters::default() };
+        reverb.init(params);
+        let expected = 4453.0 * SR_SCALE;
+        assert_eq!(reverb.l_del1.length as f32 + reverb.l_del1_fraction, expected);
+        let expected_apf = 141.0 * SR_SCALE;
+        assert_eq!(reverb.in_apf1.delay_time as f32 + reverb.in_apf1.delay_fraction, expected_apf);
+        let expected_mod_apf = 2656.0 * SR_SCALE;
+        assert_eq!(reverb.r_apf2.delay_time as f32 + reverb.r_apf2.delay_fraction, expected_mod_apf);
+        reverb.set_size_live(1.2);
+        let scale = SR_SCALE * 1.2;
+        for (actual, expected) in [
+            (reverb.l_del1.length as f32 + reverb.l_del1_fraction, 4453.0 * scale),
+            (reverb.l_del2.length as f32 + reverb.l_del2_fraction, 3720.0 * scale),
+            (reverb.r_del1.length as f32 + reverb.r_del1_fraction, 4217.0 * scale),
+            (reverb.r_del2.length as f32 + reverb.r_del2_fraction, 3163.0 * scale),
+        ] {
+            assert_eq!(actual, expected);
         }
     }
 
