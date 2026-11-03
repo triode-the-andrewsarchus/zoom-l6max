@@ -218,15 +218,27 @@ hardware. The printed buffer sizes exclude additional DSP and AINR state and
 workspace.
 
 `rustc --edition=2024 --test -O tools/l6dsp-tests/experiments/velvet_block.rs -o /tmp/velvet-block-test && /tmp/velvet-block-test`
-checks a separate tap-outer, mirrored-history FIR against a direct sample
-reference. It exercises 285 taps, two filter banks, two channels, independent
-send histories, a per-frame crossfade, a non-aligned split and wraparound.
-It does not implement live parameter delivery, bank generation, output
-clipping, firmware integration or memory ownership. The extra mirrored history
-is included in neither the existing processor size nor the heap estimate. The
-two mirrored sample arrays take 76,832 bytes; the current processor's three
-unmirrored sample arrays take 57,624 bytes, excluding other state in both cases.
-The block size and implementation are informed by the MIT-licensed
+checks a separate tap-outer FIR against a direct sample reference. It exercises
+400 taps up to the full 4,800-sample delay, two filter banks, two channels,
+independent send histories, a per-frame crossfade, a non-aligned split and
+ring wraparound. Each bank's output matches the reference bit for bit in this
+test. It extends the ring to 4,864 samples so prewriting 64 frames cannot
+overwrite history needed by the first frame; each tap splits its read into
+at most two contiguous slices at the ring boundary. Two sample histories take
+38,912 bytes. Extending the current processor's three 4,802-sample histories
+by the same 62 samples would add 744 bytes, excluding block output buffers,
+other state and integration changes. The experiment does not implement
+in-block bank publication, live parameter delivery, bank generation, output
+clipping, firmware integration, target timing or memory ownership. Compiling
+it for `thumbv7em-none-eabihf` confirms only that it builds for ARM; the
+generated bounds/panic paths have not been qualified for an audio callback.
+The passing host test executable was
+`27895815df24f4ec3a6f4b9f7617c2841f7f8b24515790e0a982ece2e5cf4c11`;
+the ARM assembly was
+`2280ad4d8d11b4fb0af93e67fb7172558e29c46901c50c214054def99c2cc7d6`.
+Both used `rustc 1.99.0-nightly (1ed2df61a 2026-08-04)` and source
+`81f0e3451701586709f2e4ecc423fdffed0971b80e893faf0c88c6acb1db953e`.
+The approach is informed by the MIT-licensed
 Multistomp Velvet port at commit `7ea50ae6e30705989d0b8414ad5a83c97dbef0db`;
 that pedal's tests do not qualify the L6max implementation.
 

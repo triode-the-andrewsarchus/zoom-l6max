@@ -1,12 +1,14 @@
 //! Experimental tap-outer FIR, not firmware integration.
 //!
-//! The mirrored-history approach is informed by the MIT-licensed Multistomp
-//! Velvet port at ZoomMultistompZDL commit 7ea50ae6e30705989d0b8414ad5a83c97dbef0db.
+//! The tap-outer approach is informed by the MIT-licensed Multistomp Velvet
+//! port at ZoomMultistompZDL commit 7ea50ae6e30705989d0b8414ad5a83c97dbef0db.
 //! This experiment covers two independent mono sends and two filter channels.
 
-pub const MAX_DELAY: usize = 4560; // 95 ms at 48 kHz
-pub const BLOCK: usize = 16;
-pub const RING: usize = 4802;
+#![cfg_attr(not(test), no_std)]
+
+pub const MAX_DELAY: usize = 4800; // 100 ms at 48 kHz
+pub const BLOCK: usize = 64;
+pub const RING: usize = MAX_DELAY + BLOCK;
 // Prewriting a block must not overwrite history needed by its first frame.
 const _: () = assert!(MAX_DELAY + BLOCK <= RING);
 
@@ -17,14 +19,14 @@ pub struct Tap {
 }
 
 pub struct Histories {
-    pub samples: [[f32; RING * 2]; 2],
+    pub samples: [[f32; RING]; 2],
     pub position: usize,
 }
 
 impl Histories {
     pub fn new() -> Self {
         Self {
-            samples: [[0.0; RING * 2]; 2],
+            samples: [[0.0; RING]; 2],
             position: 0,
         }
     }
@@ -37,7 +39,6 @@ impl Histories {
             for bus in 0..2 {
                 let sample = input[bus][frame];
                 self.samples[bus][self.position] = sample;
-                self.samples[bus][self.position + RING] = sample;
             }
             self.position += 1;
             if self.position == RING {
@@ -61,16 +62,22 @@ impl Histories {
                 start + RING - tap.delay
             };
             let gain = tap.gain;
-            let first = &self.samples[0][read..read + frames];
-            let second = &self.samples[1][read..read + frames];
-            for (((a, b), x), y) in left[0][..frames]
-                .iter_mut()
-                .zip(right[0][..frames].iter_mut())
-                .zip(first)
-                .zip(second)
-            {
-                *a += gain * *x;
-                *b += gain * *y;
+            let before_wrap = frames.min(RING - read);
+            for (history_start, output_start, len) in [
+                (read, 0, before_wrap),
+                (0, before_wrap, frames - before_wrap),
+            ] {
+                let first = &self.samples[0][history_start..history_start + len];
+                let second = &self.samples[1][history_start..history_start + len];
+                for (((a, b), x), y) in left[0][output_start..output_start + len]
+                    .iter_mut()
+                    .zip(right[0][output_start..output_start + len].iter_mut())
+                    .zip(first)
+                    .zip(second)
+                {
+                    *a += gain * *x;
+                    *b += gain * *y;
+                }
             }
         }
     }
@@ -95,14 +102,14 @@ mod tests {
         let mut banks = [[Vec::new(), Vec::new()], [Vec::new(), Vec::new()]];
         for bank in 0..2 {
             for channel in 0..2 {
-                for i in 0..285 {
+                for i in 0..400 {
                     let sign = if (i + channel + bank) % 2 == 0 {
                         1.0
                     } else {
                         -1.0
                     };
                     banks[bank][channel].push(Tap {
-                        delay: i * MAX_DELAY / 284,
+                        delay: i * MAX_DELAY / 399,
                         gain: sign * (1.0 / (i + 1) as f32),
                     });
                 }
@@ -141,6 +148,13 @@ mod tests {
                             reference_sample(&banks[0][channel], &source[bus], index),
                             reference_sample(&banks[1][channel], &source[bus], index),
                         ];
+                        for bank in 0..2 {
+                            assert_eq!(
+                                actual[bank][bus][frame].to_bits(),
+                                expected[bank].to_bits(),
+                                "frame={index} bus={bus} channel={channel} bank={bank}"
+                            );
+                        }
                         // Exercise a per-frame crossfade as well as a bank
                         // change at a non-aligned boundary.
                         let weight = ((index.saturating_sub(4800)).min(179) as f32) / 179.0;
