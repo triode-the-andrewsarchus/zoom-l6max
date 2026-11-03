@@ -6,6 +6,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import shutil
 import signal
 import socket
@@ -155,17 +156,7 @@ def compare(g, code, independent=False, channel0_prefix=False, replay_tails=None
     if g.read(0x80e00000, len(source)) != source or g.read(0x80f00000, len(code)) != code:
         raise RuntimeError('clone readback mismatch')
     if trace_control:
-        # QEMU-only positive control for the instruction-scoped memory plugin.
-        # Save and restore registers while executing a single Thumb load from
-        # the cloned state's prefix, then stop at the existing return site.
-        registers = g.packet('g')
-        g.write(0x80f1ff00, bytes.fromhex('00687047'))
-        g.expect('Z0,20228d8a,2')
-        call_clone(g, registers, 0x80e00000, 0x80f1ff00)
-        if g.reg(15) != 0x20228d8a:
-            raise RuntimeError('trace positive-control return mismatch')
-        g.expect('z0,20228d8a,2')
-        g.expect('G' + registers)
+        trace_controls(g, stereo=False)
     waveform = struct.pack('<64f', *(0.25 * math.sin(2 * math.pi * i / 16) for i in range(64)))
     other_code = prepare_second_clone(g, source, code) if independent else None
     other_waveform = (struct.pack('<64f', *(0.125 * math.sin(2 * math.pi * i / 11) for i in range(64)))
@@ -304,6 +295,36 @@ def call_clone(g, initial_regs, buffer, entry, channel=0, return_address=0x20228
     g.packet('c')
 
 
+def trace_controls(g, stereo):
+    """Execute watched prefix/suffix reads without changing the stopped call."""
+    addresses = (0x80e00000, 0x80e20000, 0x80e30000, 0x80e50000) if stereo else (0x80e00000,)
+    registers = g.packet('g')
+    g.write(0x80f1ff00, bytes.fromhex('00687047') * len(addresses))
+    g.expect('Z0,20228d8a,2')
+    for index, address in enumerate(addresses):
+        call_clone(g, registers, address, 0x80f1ff00 + index * 4)
+        if g.reg(15) != 0x20228d8a:
+            raise RuntimeError('trace positive-control return mismatch')
+    g.expect('z0,20228d8a,2')
+    g.expect('G' + registers)
+
+
+def check_trace_controls(stderr, stereo):
+    """Reject missing or unexpected QEMU plugin positive controls."""
+    matches = re.findall(r'^CLONE_TRACE positive=(\d+),(\d+),(\d+),(\d+)$', stderr, re.MULTILINE)
+    expected = (1, 1, 1, 1) if stereo else (1, 0, 0, 0)
+    if len(matches) != 1 or tuple(map(int, matches[0])) != expected:
+        raise RuntimeError('trace positive controls missing or unexpected')
+    return list(expected)
+
+
+def synthetic_stereo_input(frame, channel):
+    """Generate distinct deterministic native-scale test signals."""
+    period = 37 if channel == 0 else 53
+    return struct.pack('<64f', *(12000000.0 * math.sin(2 * math.pi * (frame * 64 + i) / period)
+                                 for i in range(64)))
+
+
 def check_state(g, frame, original_after):
     if g.read(0x20280000, 0x20000) != original_after:
         raise RuntimeError(f'clone changed stock memory at block {frame}')
@@ -341,7 +362,7 @@ def compare_solo_prefix(g, initial_regs, samples, expected, ret, frame, checkpoi
         raise RuntimeError(f'channel-zero clone changed checked state at block {frame}')
 
 
-def compare_stereo_block(g, frame, channel, invert_second, solo_prefix, checkpoints):
+def compare_stereo_block(g, frame, channel, invert_second, solo_prefix, checkpoints, synthetic_input=False):
     entry = (0x20228d86, 0x20228d94)[channel]
     ret = entry + 4
     if frame or channel:
@@ -352,6 +373,8 @@ def compare_stereo_block(g, frame, channel, invert_second, solo_prefix, checkpoi
         raise RuntimeError(f'unexpected entry at block {frame}, channel {channel}')
     g.expect(f'z0,{entry:x},2')
     initial_regs = g.packet('g')
+    if synthetic_input:
+        g.write(buffer, synthetic_stereo_input(frame, channel))
     samples = g.read(buffer, 256)
     values = struct.unpack('<64f', samples)
     if not all(map(math.isfinite, values)):
@@ -396,7 +419,8 @@ def prepare_stereo_clones(g, code, solo_prefix, solo_tail):
         prepare_second_clone(g, bytes(start) + source[start:0x19514] + bytes(0x27000 - 0x19514), code)
 
 
-def compare_stereo(g, code, minimum_input, invert_second, solo_prefix, blocks, solo_tail=False):
+def compare_stereo(g, code, minimum_input, invert_second, solo_prefix, blocks, solo_tail=False,
+                   trace_control=False, synthetic_input=False):
     """Mirror both natural stock calls in QEMU, including both working areas."""
     g.expect('Hg1')
     g.expect('Z0,20228d86,2')
@@ -405,17 +429,21 @@ def compare_stereo(g, code, minimum_input, invert_second, solo_prefix, blocks, s
         raise RuntimeError('unexpected first stock AINR call')
     if struct.unpack('<I', g.read(0x2028ba4c, 4))[0] != 1:
         raise RuntimeError('AINR processor is not learned')
+    if synthetic_input:
+        g.write(0x20011010, synthetic_stereo_input(0, 0))
     skipped = wait_stereo_input(g, minimum_input)
     if struct.unpack('<I', g.read(0x2028ba4c, 4))[0] != 1:
         raise RuntimeError('AINR processor left the learned state while waiting for input')
     prepare_stereo_clones(g, code, solo_prefix, solo_tail)
+    if trace_control:
+        trace_controls(g, stereo=True)
     outputs = [bytearray(), bytearray()]
     inputs = [bytearray(), bytearray()]
     peaks = [0.0, 0.0]
     checkpoints = {0, (blocks - 1) // 3, 2 * (blocks - 1) // 3, blocks - 1}
     for frame in range(blocks):
         for channel in (0, 1):
-            samples, expected, peak = compare_stereo_block(g, frame, channel, invert_second, solo_prefix, checkpoints)
+            samples, expected, peak = compare_stereo_block(g, frame, channel, invert_second, solo_prefix, checkpoints, synthetic_input)
             peaks[channel] = max(peaks[channel], peak)
             inputs[channel].extend(samples)
             outputs[channel].extend(expected)
@@ -425,7 +453,8 @@ def compare_stereo(g, code, minimum_input, invert_second, solo_prefix, blocks, s
     return {'blocks_per_channel': blocks, 'input_peaks': peaks, 'skipped_blocks': skipped,
             'input_sha256': [sha(samples) for samples in inputs],
             'output_sha256': [sha(output) for output in outputs],
-            'inverted_second': invert_second, 'solo_prefix_bytes': 0x19514 if solo_prefix and not solo_tail else None,
+            'inverted_second': invert_second, 'synthetic_input': synthetic_input,
+            'solo_prefix_bytes': 0x19514 if solo_prefix and not solo_tail else None,
             'solo_tail_bytes': 0xdbc8 if solo_tail else None,
             'state_checkpoints': sorted(checkpoints), 'matches': True}
 
@@ -438,13 +467,15 @@ def parse_arguments():
     parser.add_argument('--qemu', required=True, type=Path, help='QEMU executable')
     parser.add_argument('--independent', action='store_true', help='compare a second clone using a different signal')
     parser.add_argument('--inspect-tail', action='store_true', help='report candidate-tail differences before each clone call')
-    parser.add_argument('--trace-control', action='store_true', help='execute one QEMU-only watched-prefix read as a plugin positive control')
+    parser.add_argument('--trace-control', action='store_true', help='execute watched reads as plugin positive controls')
     parser.add_argument('--channel0-prefix', action='store_true', help='zero the unobserved state suffix in the copied states')
     parser.add_argument('--replay-tails', nargs=2, type=replay_tail, metavar=('REFERENCE', 'CANDIDATE'),
                         help='QEMU-only: replay captured reference and candidate tails')
     parser.add_argument('--stereo', action='store_true', help='compare both natural stock AINR calls')
     parser.add_argument('--invert-second', action='store_true',
                         help='in QEMU, invert and halve second-channel input before both calls')
+    parser.add_argument('--synthetic-stereo', action='store_true',
+                        help='inject distinct deterministic inputs at each stopped stereo call')
     solo = parser.add_mutually_exclusive_group()
     solo.add_argument('--solo-prefix', dest='solo', action='store_const', const='prefix',
                       help='also compare a channel-zero-only clone with a 0x19514-byte prefix')
@@ -456,10 +487,12 @@ def parse_arguments():
                         help='require a finite stock sample larger than this magnitude in stereo mode')
     args = parser.parse_args()
     if args.stereo and any((args.independent, args.channel0_prefix, args.replay_tails,
-                            args.inspect_tail, args.trace_control)):
+                            args.inspect_tail)):
         parser.error('--stereo cannot be combined with mono comparison options')
     if args.invert_second and not args.stereo:
         parser.error('--invert-second requires --stereo')
+    if args.synthetic_stereo and not args.stereo:
+        parser.error('--synthetic-stereo requires --stereo')
     if args.solo and not args.stereo:
         parser.error('--solo-prefix and --solo-tail require --stereo')
     if not 1 <= args.blocks <= 1000 or (args.blocks != 96 and not args.stereo):
@@ -489,6 +522,7 @@ def main():
                   'qemu_source': 'unattested', 'recipe_sha256': sha(recipe.read_bytes()),
                   'probe_sha256': sha(Path(__file__).read_bytes()), 'clone_sha256': sha(code),
                   'probe_options': {'inspect_tail': args.inspect_tail, 'trace_control': args.trace_control,
+                                    'synthetic_stereo': args.synthetic_stereo,
                                     'stereo': args.stereo, 'solo': args.solo,
                                     'invert_second': args.invert_second,
                                     'blocks': args.blocks, 'minimum_input': args.minimum_input},
@@ -522,7 +556,8 @@ def main():
                 time.sleep(.1)
             if args.stereo:
                 result = compare_stereo(Remote(socket_path), code, args.minimum_input, args.invert_second,
-                                        bool(args.solo), args.blocks, args.solo == 'tail')
+                                        bool(args.solo), args.blocks, args.solo == 'tail',
+                                        args.trace_control, args.synthetic_stereo)
             else:
                 result = compare(Remote(socket_path), code, args.independent, args.channel0_prefix,
                                  replay_tails, args.inspect_tail, args.trace_control)
@@ -531,6 +566,8 @@ def main():
             process.wait(timeout=180)
             if process.returncode:
                 raise RuntimeError(f'l6dbg exited {process.returncode}')
+            if args.trace_control:
+                result['trace_controls'] = check_trace_controls((out / 'logs' / 'engine.stderr').read_text(), args.stereo)
             (out / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
             print(json.dumps(result, indent=2), flush=True)
         finally:

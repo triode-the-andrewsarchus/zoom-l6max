@@ -871,8 +871,13 @@ and hashes rather than raw samples.
 writes to each clone's prefix, candidate tail, suffix, and original stock
 state from instructions in the two copied code ranges. Build it as for the
 clear trace above and pass the wrapper as `--qemu`. The mono comparison's
-`--trace-control` additionally executes a single watched-prefix read in
-QEMU-only scratch; the plugin reports `positive=1` when it sees that load.
+`--trace-control` additionally executes a watched-prefix read in QEMU-only
+scratch; the plugin reports `positive=1,0,0,0` when it sees that load. In
+stereo mode the same option exercises both prefixes and both suffixes and
+reports `positive=1,1,1,1` when all four reads are observed. The suffix range
+extends through offset `0x27000`; older traces monitored only through `0x20000`.
+The probe rejects a missing, duplicated or unexpected positive-control report;
+it does not automatically interpret the other access counts as a safety pass.
 Record the actual QEMU, wrapper, plugin, probe, fixture and replay identities.
 The trace does not cover helper instructions outside those copied ranges,
 other tasks' accesses, DMA, all input/state paths, or physical hardware.
@@ -898,6 +903,10 @@ inverted half-amplitude version before each comparison. The clone receives the
 same modified block. The run requires the two captured input streams and the
 two output streams to differ. This is a debugger-forced correlated signal,
 not an independent physical input or a test of the unmodified mixer path.
+Alternatively, `--synthetic-stereo` injects distinct deterministic signals at
+the two stopped calls. It uses native-scale values and can be combined with
+`--invert-second`; the signals and debugger stops are synthetic and do not
+establish behavior for physical inputs or natural scheduling.
 Add `--solo-prefix` to compare a second, channel-zero-only clone alongside the
 full stereo clone. It copies `0x19514` bytes and zeros the remainder of its
 `0x27000`-byte scratch region. At each checkpoint the probe also checks that
@@ -912,6 +921,38 @@ following scratch. The full stereo clone and stock retain their full state;
 `result.json` distinguishes the solo-tail size from the stereo snapshot.
 This checks output equivalence for the observed state and signals, not the
 ownership or initialization of a physical allocation.
+
+One run combined `--stereo --invert-second --synthetic-stereo --trace-control
+--solo-tail --blocks 128 --minimum-input 1000000`. Both full-clone channels and
+the tail-only channel-zero clone matched stock outputs for all 128 blocks;
+sampled full-clone state matched at blocks 0, 42, 84 and 127. All four trace
+controls fired. Instructions in the solo clone's copied code recorded 461,440
+reads and 296,000 writes in its candidate tail and none in its monitored
+prefix, suffix or original stock-state range. The full stereo clone recorded
+440,640 reads and 286,848 writes in its suffix during the stereo calls; the
+aggregate trace does not attribute those accesses to an individual call.
+Counts exclude the four control reads. The
+clone still had a full zero-padded scratch region: this is not a test of a
+56,264-byte allocation. Helper code, other tasks, DMA, learning paths, physical
+inputs and other execution states remain outside the trace's proof.
+
+The stock MAIN, initial NOR, panel flash and panel options were respectively
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`, and
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`;
+the initial RTC was `a739c81a2de75821cd9c526bc049fa10f7b902577cadf5af3faaad15d38991b1`.
+The unattested QEMU, wrapper, plugin and `l6dbg` were
+`23e4c6a57b2a265cc4fa460d67ae561b7b69bc81de74ec724503f4686dc75f21`,
+`0e79d9a371343393563a308a30b6c1860bf4716197d644c318b979660dbc6d73`,
+`96a7180860b89136f48a1fcb49364aad5e19e5b592325c612f32423fe25b9d0a`, and
+`5696507a3c93a86c04df62d65ae7e2b4d3309a412d39b01cfd1b217f1c6dfd6a`.
+The probe, recipe, identity manifest, result and main plugin log were
+`568ea250bffc00cefae34ce59d234c16b646aa9e43366e8b42a34b476bfd9e71`,
+`3f7d112139892e4d53311c74afa24b46ff6d0168edad1be06cc05a6ca11f2b66`,
+`d55d24070dc61980c1f17f00e4d1fb74ccc7e757d1b0a558ec06dd663b1e0c32`,
+`fc7bf0997ce73da017387de5ce31bb6f59d0d982a053fbd6b0e56a6603736075`, and
+`d16fb1ed2dfa9932d154c3101153bf0e4a593a489fb7ff3de86f48a7c0b821c3`.
 
 One temporary implementation of this tail-only comparison matched 1,000
 blocks per channel, including the solo clone, with inverted half-amplitude
