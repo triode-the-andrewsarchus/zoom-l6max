@@ -1,0 +1,27 @@
+version = 1
+model = "l6max"
+main_sha256 = "980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461"
+wall_timeout_s = 300
+[[step]]
+action = "wait"
+guest_ms = 45000
+[[step]]
+action = "snapshot"
+name = "ready"
+[[step]]
+action = "press"
+target = 40
+hold_ms = 150
+[[step]]
+action = "wait"
+guest_ms = 3000
+[[step]]
+action = "press"
+target = 40
+hold_ms = 150
+[[step]]
+action = "wait"
+guest_ms = 3000
+[[step]]
+action = "snapshot"
+name = "finish"

@@ -817,6 +817,40 @@ plugin, wrapper, fixture and result hashes. One startup and effect-selection
 observation, with exact identities and its limits, is in the
 [research findings](https://github.com/derekstavis/zoom-l6max-research/blob/290eb3d/docs/firmware/l6max-effects-ainr.md#effect-storage-and-adjacent-conversion-buffers).
 
+To include the observed mixer-control and button paths into the selector,
+pass `-plugin "$L6_PLUGIN,selector=on"` in the wrapper and run the short
+`selector-path.toml` recipe with a disposable stock state. The plugin logs
+both the original clear sites and the additional selector sites in execution
+order, without per-event timestamps. Interpret those lines alongside the
+recipe; a completed recipe is not an assertion. Only the listed CPU
+instruction addresses are watched. The trace does not establish other callers, task ownership, DMA,
+timeout recovery, or physical behavior.
+
+One run recorded the mixer-control batch path through `0x80051278`,
+`0x8005292c`, `0x80088dd8`, `0x80088de6`, `0x80054340`, `0x800543a2`
+and `0x20280580`, followed by two button-handler selection sequences through
+`0x800542a8` and `0x800542ee`. It also recorded one startup clear and three
+selector clears. The recipe completed; the logged PCs establish this ordering
+only, not timing, registers, task identity, or every possible caller.
+
+The stock MAIN, initial NOR, panel flash, options and RTC were respectively
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`a739c81a2de75821cd9c526bc049fa10f7b902577cadf5af3faaad15d38991b1`.
+The external QEMU, `l6dbg`, plugin source, plugin, wrapper, recipe, result
+and main trace were
+`23e4c6a57b2a265cc4fa460d67ae561b7b69bc81de74ec724503f4686dc75f21`,
+`5696507a3c93a86c04df62d65ae7e2b4d3309a412d39b01cfd1b217f1c6dfd6a`,
+`43bc082d7deeb405bd7fe1ed3e3ec26c223392a6b17b4edb6e534b8a2dcec2f0`,
+`c11c8e5a359f3ed8ec785ba180e3d32eedbaba349c67a0cc42337789cbf40774`,
+`73a9ef9dcded1309a4093ef795b0e53f19c30c21d2d04dc199c0685c1e9201fd`,
+`19a955f0dd06abe87aa1c1ec49c0609921a6882fa0d7ef1b4945b1c128096c08`,
+`7311423ac1fc918f48e1d84f30ead7c032dc272c6ad0033bdfca05b98a4a0626`, and
+`4191f7dc10218e81a8a1742e9cac190bb61526be9993a20a69129785e3cdbfde`.
+QEMU source provenance is unattested.
+
 ## Isolated AINR comparison
 
 This focused QEMU diagnostic reruns the copied-AINR experiment described in
