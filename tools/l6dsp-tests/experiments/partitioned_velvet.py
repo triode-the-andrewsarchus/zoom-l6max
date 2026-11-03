@@ -12,15 +12,19 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--tap-file', type=Path, help='optional channel, index, delay, gain text from the Rust generator')
 parser.add_argument('--partition', type=int, choices=(256, 512), default=256,
                     help='tail partition size in frames (default: 256)')
-parser.add_argument('--build-ffts', type=int, choices=(1, 2), default=2,
+parser.add_argument('--build-ffts', type=int, choices=range(1, 9), default=2,
                     help='maximum bank-rebuild FFTs per callback (default: 2)')
+parser.add_argument('--restart-slot', type=int, default=3,
+                    help='slot within a partition at which the interrupted build restarts')
 args = parser.parse_args()
 
 B = args.partition
 HEAD = 2 * B
-TAIL = 4560
-TAPS = 285
+TAIL = 4800
+TAPS = 400
 N = B * 40
+if not 0 <= args.restart_slot < B // 64:
+    parser.error('--restart-slot must identify a 64-frame slot in the partition')
 rng = np.random.default_rng(0x16ef)
 signals = rng.uniform(-0.25, 0.25, (2, N)).astype(np.float32)
 # Each bank has independent stereo channels. Preserve the real generator's
@@ -28,7 +32,7 @@ signals = rng.uniform(-0.25, 0.25, (2, N)).astype(np.float32)
 def make_bank():
     bank = np.zeros((2, TAIL + 1), dtype=np.float32)
     for ch in range(2):
-        delays = np.r_[0, np.sort(rng.choice(np.arange(1, TAIL + 1), TAPS - 1, replace=False))]
+        delays = np.r_[0, np.sort(rng.choice(np.arange(1, TAIL), TAPS - 2, replace=False)), TAIL]
         gains = rng.choice(np.array([-1, 1], np.float32), len(delays)) * np.exp(-3 * delays / TAIL).astype(np.float32)
         gains[0] = 1.0
         gains /= np.linalg.norm(gains)
@@ -41,13 +45,22 @@ kernels = np.stack([make_bank(), make_bank()])
 # generated test artifacts must not be committed to the repository.
 if args.tap_file is not None:
     kernels[0].fill(0.0)
-    for row in np.loadtxt(args.tap_file):
-        ch, _, delay, gain = row
-        if ch not in (0, 1) or delay != int(delay) or not 0 <= delay <= TAIL:
+    rows = np.loadtxt(args.tap_file, ndmin=2)
+    if rows.shape[1] != 4 or not np.isfinite(rows).all():
+        raise ValueError('tap file must have four finite columns')
+    indices = [[], []]
+    delays = [[], []]
+    for row in rows:
+        ch, index, delay, gain = row
+        if ch not in (0, 1) or index != int(index) or delay != int(delay) or not 0 <= delay <= TAIL or gain == 0:
             raise ValueError(f'invalid tap: {row}')
-        kernels[0, int(ch), int(delay)] = np.float32(gain)
-    if any(np.count_nonzero(kernels[0, ch]) != TAPS for ch in range(2)):
-        raise ValueError('each channel must contain 285 distinct nonzero taps')
+        ch = int(ch)
+        indices[ch].append(int(index))
+        delays[ch].append(int(delay))
+        kernels[0, ch, int(delay)] = np.float32(gain)
+    for ch in range(2):
+        if indices[ch] != list(range(TAPS)) or delays[ch][0] != 0 or any(a >= b for a, b in zip(delays[ch], delays[ch][1:])):
+            raise ValueError(f'channel {ch} must contain {TAPS} ordered taps with increasing delays from zero')
 
 # The second edit interrupts the first. Both are queued while bank 0 is
 # active; the experiment does not model editing an already audible bank.
@@ -71,7 +84,8 @@ previous = np.zeros((2, B), np.float32)
 actual = np.zeros((2, 2, 2, N), np.float32)
 tail_ready = np.zeros((2, 2, 2, 2, B), np.float32)
 tail_epoch = np.zeros((2, 2, 2, 2), np.int32)
-edit_points = {(9, 1): 0, (9, 3): 1}
+restart_frame = 9 * B + args.restart_slot * 64
+edit_points = {restart_frame - 64: 0, restart_frame: 1}
 epoch = 0
 build_job = None
 completed_at = None
@@ -87,8 +101,8 @@ for block in range(N // B):
     for slot in range(slots):
         begin = base + slot * 64
         end = begin + 64
-        if (block, slot) in edit_points:
-            candidate = edit_points[block, slot]
+        if begin in edit_points:
+            candidate = edit_points[begin]
             if candidate == 1:
                 assert build_job is not None and published_at is None
             epoch += 1
@@ -140,15 +154,14 @@ for block in range(N // B):
         previous[bus] = signals[bus, base:base+B]
 
 assert epoch == 2 and completed_at is not None and published_at is not None
-assert skipped_pending_outputs > 0
-assert published_at > completed_at >= 9*B + 3*64
+assert published_at > completed_at >= restart_frame
 reference = np.empty_like(actual)
 for bank in range(2):
     for ch in range(2):
         for bus in range(2):
             reference[bank,ch,bus] = np.convolve(signals[bus], kernels[bank,ch])[:N]
             if bank == 1:
-                first_edit = 9*B + 64
+                first_edit = restart_frame - 64
                 reference[bank,ch,bus,:first_edit] = np.convolve(signals[bus], old_bank1[ch])[:first_edit]
 # A rebuilding pending bank can contain mixed generations. It is inaudible
 # until publication; bank 0 must remain correct over the entire interval.
@@ -157,12 +170,14 @@ mask = np.ones(N, bool)
 mask[first_edit:published_at] = False
 error = np.abs(actual[...,mask] - reference[...,mask])
 assert np.max(error) < 2e-6, (np.max(error), np.unravel_index(np.argmax(error), error.shape))
-weights = np.zeros(N, np.float32)
+phase = np.zeros(N, np.float32)
 start = published_at + 37
-weights[start:start+1200] = np.linspace(0, 1, 1200, dtype=np.float32)
-weights[start+1200:] = 1
-mixed = actual[0] * (1-weights) + actual[1] * weights
-expected = reference[0] * (1-weights) + reference[1] * weights
+fade_samples = 4320  # 90 ms at 48 kHz
+phase[start:start+fade_samples] = np.linspace(0, np.pi / 2, fade_samples, dtype=np.float32)
+phase[start+fade_samples:] = np.pi / 2
+old_weight, new_weight = np.cos(phase), np.sin(phase)
+mixed = actual[0] * old_weight + actual[1] * new_weight
+expected = reference[0] * old_weight + reference[1] * new_weight
 assert np.max(np.abs(mixed-expected)) < 2e-6
 # The first input sample must affect the first output sample.
 assert np.allclose(actual[0, :, :, 0], reference[0, :, :, 0], atol=2e-6)
@@ -174,4 +189,7 @@ print('complex_MAC_per_64', (8//(B//64))*(P-2)*(B+1))
 print('max_rebuild_forward_FFTs_per_64', args.build_ffts)
 print('skipped_pending_outputs', skipped_pending_outputs)
 print('replacement_build_completed_frame', completed_at, 'published_frame', published_at)
+print('restart_to_publication_frames', published_at - restart_frame,
+      'shortest_renewal_gap_frames', 480,
+      'within_gap_without_compute_time', published_at - restart_frame <= 480)
 print('prototype_spectra_bytes', freq.nbytes, 'input_spectra_bytes', xhist.nbytes, 'tail_ready_bytes', tail_ready.nbytes)

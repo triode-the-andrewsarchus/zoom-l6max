@@ -204,12 +204,21 @@ for the run and its limits.
 
 `python3 tools/l6dsp-tests/experiments/partitioned_velvet.py` requires NumPy
 and compares a proposed full-density, partitioned convolution schedule with
-direct convolution. It covers two inputs, stereo filters, two banks, an
-interrupted incremental bank rebuild and a crossfade after the replacement
-tail is ready. An optional `--tap-file PATH` loads channel,
-index, delay and gain columns from a locally generated 285-tap Rust bank.
+direct convolution at 400 taps and a 4,800-sample maximum delay. It covers
+two inputs, stereo filters, two banks, an interrupted incremental bank rebuild
+and a 90 ms equal-power crossfade after the replacement tail is ready. An
+optional `--tap-file PATH` loads channel, index, delay and gain columns from
+the Rust bank generator. To create a local full-range bank:
+
+```sh
+rustc --edition=2024 -O tools/l6dsp-tests/experiments/velvet_tap_export.rs -o /tmp/velvet-tap-export
+/tmp/velvet-tap-export > /tmp/velvet-taps.txt
+python3 tools/l6dsp-tests/experiments/partitioned_velvet.py --tap-file /tmp/velvet-taps.txt
+```
+
 Use `--partition 512` to compare the larger partition with the default 256.
-Use `--build-ffts 1` to spread each stereo bank rebuild over more callbacks.
+Use `--build-ffts 1` through `8` to vary the per-callback rebuild budget and
+`--restart-slot` to vary the alignment of the second edit within a partition.
 The pending bank's tail transforms are skipped while its spectra are incomplete.
 
 This is a mathematical experiment, not a firmware implementation or a
@@ -218,6 +227,27 @@ bound individual FFT execution, model edits to an audible bank, measure ARM
 deadlines, establish firmware memory ownership or test controls and audio on
 hardware. The printed buffer sizes exclude additional DSP and AINR state and
 workspace.
+
+With eight rebuild FFTs per callback, publication after a restarted build
+took 384–576 frames across the four 256-frame partition alignments and
+320–768 across the eight 512-frame alignments. Two and six alignments,
+respectively, exceeded the 480-frame gap between a 90 ms fade and a 100 ms
+renewal. This assumes generated taps already exist and treats every FFT as
+instantaneous; a value within the gap is not evidence that the target meets
+it. The schedule also uses about 226,096 or 229,760 bytes for the printed
+spectra and ready buffers, respectively, before other state and workspace.
+These findings apply to this schedule, not every possible convolution design.
+
+With one Rust-generated 400-tap bank and the other modeled banks, the 256- and
+512-frame variants' maximum bank errors were `2.39e-7` and `2.99e-7`, and
+their maximum crossfade errors were `2.24e-7` and `2.99e-7`, against direct
+convolution. These are bounded host examples, not an audio equivalence proof.
+The Rust exporter and generated tap file hashed to
+`20bd6d3cbf2f6143bc5744e5d4c1e651fb960b4fd230ac0e603187af67e0e1fd` and
+`5e58fd3e684ce6f4392594c1b596d45cd238d08137daed99cf24a857eb883623`;
+the Python model was
+`5e25f96ef3c07ea42bdfd24a80ca7595bc5b98b763ba98999899cd69de4013d7`.
+The runs used NumPy 2.5.4 and `rustc 1.99.0-nightly (1ed2df61a 2026-08-04)`.
 
 `rustc --edition=2024 --test -O tools/l6dsp-tests/experiments/velvet_block.rs -o /tmp/velvet-block-test && /tmp/velvet-block-test`
 checks a separate tap-outer FIR against a direct sample reference. It exercises
