@@ -69,6 +69,8 @@ The standalone inspector parameter model maps encoders 1–8 as follows:
 | 7 | Transition time | Modulation depth |
 | 8 | Cascade amount | Freeze |
 
+The Velvet refresh control spans 0.1–60 seconds.
+
 For the two on/off settings, clockwise selects on and counterclockwise selects
 off. The model and value formatter are host-tested; firmware event handling,
 display presentation, bank selection and routing controls are not connected.

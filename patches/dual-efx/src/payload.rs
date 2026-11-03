@@ -311,7 +311,7 @@ pub unsafe extern "C" fn knob_changed(
                         params.refresh_seconds = math::clamp(
                             proc.velvet.current.refresh_seconds + (delta as f32 * 0.5),
                             0.1,
-                            30.0,
+                            60.0,
                         );
                         proc.velvet.set_parameters(params);
                     } else {

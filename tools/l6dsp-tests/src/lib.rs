@@ -1206,6 +1206,30 @@ mod tests {
     }
 
     #[test]
+    fn velvet_refresh_encoder_covers_full_range_after_restore() {
+        use parameters::{edit_encoder, snapshot_parameter, EfxParamId, ParameterBank, ParameterHandoff, ParameterSnapshot};
+        let mut source_storage = Box::<routing::DualEfxProcessor>::new_uninit();
+        let source = routing::DualEfxProcessor::initialize_in_place(&mut source_storage);
+        assert_eq!(edit_encoder(source, ParameterBank::Velvet, 4, 110), Some(EfxParamId::VndRefresh));
+        assert_eq!(source.velvet.current.refresh_seconds, 60.0);
+        edit_encoder(source, ParameterBank::Velvet, 4, 1);
+        assert_eq!(source.velvet.current.refresh_seconds, 60.0);
+        let snapshot = snapshot_parameter(EfxParamId::VndRefresh, source);
+        assert!(ParameterSnapshot::from_words(EfxParamId::VndRefresh as u32, snapshot.value.to_bits()).is_some());
+
+        let handoff = ParameterHandoff::new();
+        handoff.record(EfxParamId::VndRefresh, source);
+        let mut restored_storage = Box::<routing::DualEfxProcessor>::new_uninit();
+        let restored = routing::DualEfxProcessor::initialize_in_place(&mut restored_storage);
+        handoff.restore(restored);
+        assert_eq!(restored.velvet.current.refresh_seconds, 60.0);
+        edit_encoder(restored, ParameterBank::Velvet, 4, -1);
+        assert_eq!(restored.velvet.current.refresh_seconds, 59.5);
+        edit_encoder(restored, ParameterBank::Velvet, 4, -200);
+        assert_eq!(restored.velvet.current.refresh_seconds, 0.1);
+    }
+
+    #[test]
     fn velvet_density_display_tracks_the_generated_tap_count() {
         use parameters::{snapshot_parameter, EfxParamId, ParameterSnapshot};
         let mut processor = Box::new(routing::DualEfxProcessor::new());

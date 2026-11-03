@@ -108,7 +108,7 @@ pub fn edit_encoder(
                 1 => { p.length_ms += step; VndTimeSpread }
                 2 => { p.density = clamp(p.density + step * 50.0, 100.0, 4000.0); VndDensity }
                 3 => { p.decay_db += step * 2.0; VndDecay }
-                4 => { p.refresh_seconds = clamp(p.refresh_seconds + step * 0.5, 0.1, 30.0); VndRefresh }
+                4 => { p.refresh_seconds = clamp(p.refresh_seconds + step * 0.5, 0.1, 60.0); VndRefresh }
                 5 => { p.dynamic = delta > 0; VndMode }
                 6 => { p.transition_ms += step * 25.0; VndTransition }
                 _ => {
