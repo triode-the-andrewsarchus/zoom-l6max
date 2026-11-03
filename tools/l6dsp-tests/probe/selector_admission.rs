@@ -14,13 +14,21 @@ unsafe fn increment(index: usize) {
     }
 }
 
+unsafe fn reject(code: u32) -> u32 {
+    unsafe {
+        increment(2);
+        #[cfg(selector_feedback)]
+        write(0x83e0b028 as *mut u32, 1);
+        code
+    }
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn selector_handoff_begin() -> u32 {
     unsafe {
         increment(0);
         if !crate::file_mix_handoff::ensure_gate() {
-            increment(2);
-            return 0;
+            return reject(0);
         }
         let gate: &'static CallbackAdmission = &*(GATE as *const CallbackAdmission);
         #[cfg(selector_overlap)]
@@ -36,8 +44,7 @@ pub unsafe extern "C" fn selector_handoff_begin() -> u32 {
             write(0x83e0b108 as *mut u32, read(0x83e0b100 as *const u32));
         }
         let Some(guard) = gate.try_close() else {
-            increment(2);
-            return 0;
+            return reject(0);
         };
         #[cfg(selector_overlap)]
         if overlap {
@@ -66,10 +73,7 @@ pub unsafe extern "C" fn selector_handoff_begin() -> u32 {
             delay(1);
         }
         drop(guard);
-        increment(2);
-        #[cfg(selector_feedback)]
-        write(0x83e0b028 as *mut u32, 1);
-        2
+        reject(2)
     }
 }
 

@@ -383,6 +383,75 @@ but does not complete the requested selection. The checker explicitly reports
 the observed effect-selection mismatch and skipped request; a successful check
 means the partial recovery was observed, not that timeout handling is correct.
 
+The feedback variant also reports immediate admission failures to the panel
+handler, including a failed gate initialization or a competing close. To
+exercise that separate branch, prepare the timeout/feedback diagnostic and
+build `selector_reject_inject.c` as a QEMU plugin. Inspect the exact `probe.elf`
+with `llvm-nm` and `llvm-objdump` and pass the even addresses of
+`selector_handoff_begin` and the instruction immediately after its call from
+`selector_handoff_entry` as `begin=...` and `return=...` plugin arguments.
+For the image identified below, the addresses were `0x801083ac` and
+`0x801082ec`. The plugin consumes the recipe's overlap trigger, temporarily
+invalidates the gate-ready word at entry, and restores it on return. It must
+only be used with disposable emulation. Check the run with
+`selector_reject_check.py RESULT.json LOGS/engine.stderr`; it requires one
+injection and restoration, a failure status, the old callback and type, the
+next selection and panel lamps. It also requires the observed **unrestored
+zero fade**, and reports `fade_restored: false`. A successful check therefore
+demonstrates a remaining failure, not a safe recovery. This forced gate state
+does not model all reasons for an immediate rejection or concurrent selectors.
+
+For example, after preparing that exact diagnostic and using the QEMU/plugin
+environment from the clear-trace section:
+
+```sh
+cc -shared -fPIC -O2 $(pkg-config --cflags glib-2.0) \
+  -I "$L6_QEMU_SOURCE/include/plugins" \
+  tools/l6dsp-tests/probe/selector_reject_inject.c -o "$L6_PLUGIN" \
+  $(pkg-config --libs glib-2.0)
+cat > "$L6_TRACE_DIR/qemu-wrapper" <<'EOF'
+#!/bin/sh
+exec "$L6_QEMU" -plugin "$L6_PLUGIN,begin=0x801083ac,return=0x801082ec" "$@"
+EOF
+chmod +x "$L6_TRACE_DIR/qemu-wrapper"
+```
+
+Run the prepared recipe with its GDB socket and this wrapper, save `l6dbg`'s
+JSON output, and pass it and the main engine's stderr to the checker above.
+
+In a matched pre-fix/fixed pair, both runs retained the old callback and left
+the sampled fade at zero. The effect type advanced from 1 to 2 on rejection
+before the fix; after it, the type stayed 1 and the next press selected 2.
+The plugin's logged failure status changed from 0 to 1. The stock MAIN and
+initial NOR were `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`
+and `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`.
+In pre-fix/fixed order, diagnostic MAIN hashes were
+`259665efbcc8cb2dca60d997d01e32c34acde44d65d1cde9d6582d42dc187b0a` /
+`3f6705954bbfd5c93ae07d23137b9486ff1f6b4e25be84944a10b99ba36e8bc0`,
+ELFs were `a7539d9a8ca857b9e90ced2bd388e84f71cd49186c1b07d51ae313d9387f3f5e` /
+`63691a1fa423e148c06ace11f1506a60c5bbcf398e739ef9b56fc560419f8630`,
+and results were `4651f7eb2430ec6931bc65ad466e4e8dde3b562d4510daa97bce51512554c183` /
+`3d0051fd9e91ecf4644d50fa17d6fb41b6d8dabbb5979cb368fa800726bb7780`.
+The respective recipes were
+`084bf0a516f51ad85875207246e435dfbd8b8108effafb04c477f3c2af9595a9` /
+`ba151972acc0bd1292766453cea3c3fd8a81f2cbb40c4f551ff0eb5639c12517`,
+and main plugin logs were
+`68aaabcffc52357d09d10777ce95529c7138520a413bf39d4eff9ea17d4c5d26` /
+`1791d36d3ec12e5cdc893a93d8c64c9cdb5e913dc5a32e5365d9976e67c03633`.
+The plugin source and binary were
+`ad1c4dbc5bae8735c24db6d26da8fc5b0a06172ce881c05021d5a841b6827082` and
+`3853125385b72834f30fdedc6936d20d74ed8b41811b9070976f2481d42486a0`;
+external QEMU was `23e4c6a57b2a265cc4fa460d67ae561b7b69bc81de74ec724503f4686dc75f21`
+with unattested source. Initial panel flash, options and RTC were
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d` and
+`a739c81a2de75821cd9c526bc049fa10f7b902577cadf5af3faaad15d38991b1`;
+`l6dbg` was `5696507a3c93a86c04df62d65ae7e2b4d3309a412d39b01cfd1b217f1c6dfd6a`.
+A separate existing timeout/feedback scenario still
+passed its fade, selection and three modeled MIDI-packet checks after this
+change; its result was
+`82fbf93c05b52fcfea98329d4964f0889f0db71755d289e7b8143909a2d5a035`.
+
 Add `--selector-feedback` to experiment with rollback in the observed panel
 handler and defer its effect-selection MIDI message until after that handler's
 selector call. Use `--timeout --feedback --midi-trace LOGS/engine.trace` to

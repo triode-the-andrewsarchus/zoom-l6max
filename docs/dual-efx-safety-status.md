@@ -179,6 +179,9 @@ The blocking findings for L6max MAIN 1.10
   handler; static firmware analysis also found a separate mixer-control batch
   path into the shared effect selector. Recovery and notifications for that
   path remain unqualified; see the [call-chain analysis](https://github.com/derekstavis/zoom-l6max-research/blob/5d21e7d/docs/firmware/l6max-effects-ainr.md#effect-selection-and-callback-lifetime).
+  A forced immediate gate failure now reports rejection to the panel handler,
+  but the sampled old-effect fade remained at zero. Its recovery is incomplete;
+  see the [QEMU-only rejection experiment](../tools/l6dsp-tests/probe/README.md#callback-admission-model).
 - The QEMU-only pre-AINR prototype previously passed normalized sends into
   copied stock AINR and treated its output as normalized. In an active-input
   QEMU capture, the learned stock index-0 call instead received float samples
