@@ -1175,6 +1175,39 @@ from these snapshots. A successful recipe collects
 observations only; it does not establish physical input mapping, control
 responsiveness, state ownership, or hardware timing.
 
+The prepared channel files from `l6max-audio-input` can also exercise this
+probe with the normal QEMU audio-input path. Set `L6_AUDIO_INPUT_DIR` to a
+disposable copy of those files and insert an `audio-input-transport` `play`
+step after the recipe's initial 45-second wait. One such run completed with
+the default 48 kHz Plateau configuration. The capture checker reconstructed
+the selected sends and found finite, nonzero stereo returns for both effects:
+Plateau recorded 3,044 active blocks and Velvet 3,159. This is a single
+instrumented, fixed-route observation with modeled tones; it does not test
+the full-range 32 kHz configuration, physical audio, timing, or ownership.
+
+The stock MAIN, initial NOR, panel flash, options, and RTC were respectively
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
+The diagnostic MAIN, ELF, recipe and observation hashes were
+`b2f2052dfff2f5b97a456bedc7f7837fb16f98976f3333af70454d87073d79c7`,
+`fe8238c2a9cb22b3cafeb7b29d019989d91fa0ba75556df82bee189c97cbcde3`,
+`8fc283c421f89e7af7c31cac0041830221fc1622144536dd0f0902ab2db53b84`, and
+`e2f409647d01f8d705209d86703045d55b1f84b7b88f38aa1c355cb7307174f4`.
+The diagnostic NOR reconstructed from the stock NOR and MAIN hashed to
+`5a60de004d00538d64a550f1c10dd583b641d2ff0993b4eee0257a5f59fee381`.
+The QEMU executable, `l6dbg`, and checker hashes were
+`fdc2d63b786e987c4468e9f03cfddba791e76392afd649aed3c0917cd120aafd`,
+`01acee87b6d9406552a1166d1025f02b5af50b705fa5cd4a85683e98bd2594e9`, and
+`4364e25990ea8c192197c32671aa8691f23128c91ab4a800485e99d7ba66e23c`.
+The source scenario hashed to
+`a14f3c06db9a78406e78059d06131cf5f367c94da6324f30dae9f4ab76621682`;
+the SHA-256 of the sorted `sha256sum channel-*.f32` manifest of the eight
+prepared channel files was
+`9f85a760475efca779cbb61e17bfffd9cffa41023a61971fa5155a29be981338`.
+
 For a repeatable L6max stimulus, `sai-test-tone.patch` applies to a disposable
 copy of the configured QEMU source tree's `hw/arm/l6max.c`. It replaces the
 silent receive data with a 500 Hz square wave, gated at 0.5-second intervals,
