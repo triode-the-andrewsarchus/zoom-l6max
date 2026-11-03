@@ -232,6 +232,33 @@ mod tests {
     }
 
     #[test]
+    fn reserved_selector_excludes_competing_close_while_audio_keeps_running() {
+        use admission::{CallbackAdmission, CallbackPath};
+        use std::sync::mpsc::sync_channel;
+        use std::time::Duration;
+        let gate = CallbackAdmission::new();
+        let (ready_tx, ready_rx) = sync_channel(1);
+        let (finish_tx, finish_rx) = sync_channel(1);
+        std::thread::scope(|scope| {
+            let gate_ref = &gate;
+            scope.spawn(move || {
+                let mut selector = gate_ref.try_reserve_selector().unwrap();
+                ready_tx.send(()).unwrap();
+                finish_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+                selector.close();
+                assert!(selector.is_drained());
+            });
+            ready_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            assert!(gate.try_reserve_selector().is_none());
+            assert!(gate.try_close().is_none());
+            let live = gate.try_enter(CallbackPath::Live).unwrap();
+            drop(live);
+            finish_tx.send(()).unwrap();
+        });
+        assert!(gate.try_close().is_some());
+    }
+
+    #[test]
     fn live_bypass_is_exclusive_and_selector_waits_for_it() {
         use admission::{CallbackAdmission, CallbackPath};
         use core::sync::atomic::{AtomicUsize, Ordering};

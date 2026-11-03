@@ -11,6 +11,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 const LIVE: u32 = 1;
 const FILE_MIX: u32 = 2;
 const CLOSED: u32 = 4;
+const RESERVED: u32 = 8;
 
 #[derive(Clone, Copy)]
 pub enum CallbackPath {
@@ -32,7 +33,9 @@ impl CallbackAdmission {
     /// The target's atomic implementation may retry and needs deadline qualification.
     pub fn try_enter(&self, path: CallbackPath) -> Option<CallbackLease<'_>> {
         let bit = match path { CallbackPath::Live => LIVE, CallbackPath::FileMix => FILE_MIX };
-        self.state.compare_exchange(0, bit, Ordering::AcqRel, Ordering::Acquire)
+        let state = self.state.load(Ordering::Acquire);
+        if state != 0 && state != RESERVED { return None; }
+        self.state.compare_exchange(state, state | bit, Ordering::AcqRel, Ordering::Acquire)
             .ok().map(|_| CallbackLease { gate: self, bit })
     }
 
@@ -41,15 +44,57 @@ impl CallbackAdmission {
     /// or invoke the effect callback. Acquire before touching live scratch.
     /// This model does not establish those resource boundaries in firmware.
     pub fn try_enter_live_bypass(&self) -> Option<LiveBypassLease<'_>> {
-        self.state.compare_exchange(FILE_MIX, FILE_MIX | LIVE, Ordering::AcqRel, Ordering::Acquire)
+        let state = self.state.load(Ordering::Acquire);
+        if state != FILE_MIX && state != (FILE_MIX | RESERVED) { return None; }
+        self.state.compare_exchange(state, state | LIVE, Ordering::AcqRel, Ordering::Acquire)
             .ok().map(|_| LiveBypassLease { gate: self })
     }
 
     /// Stops new leases. Only one selector can hold the close guard; a caller
-    /// must wait for `is_drained` before touching callback-owned state.
+    /// must wait for `is_drained` before touching callback-owned state. The
+    /// compare-exchange loop and target atomics need deadline qualification.
     pub fn try_close(&self) -> Option<CloseGuard<'_>> {
-        let previous = self.state.fetch_or(CLOSED, Ordering::AcqRel);
-        (previous & CLOSED == 0).then(|| CloseGuard { gate: self })
+        let mut state = self.state.load(Ordering::Acquire);
+        loop {
+            if state & !(LIVE | FILE_MIX) != 0 { return None; }
+            match self.state.compare_exchange_weak(state, state | CLOSED, Ordering::AcqRel, Ordering::Acquire) {
+                Ok(_) => return Some(CloseGuard { gate: self }),
+                Err(actual) => state = actual,
+            }
+        }
+    }
+
+    /// Reserves the next selector transition while admitting callbacks. One
+    /// failed atomic attempt rejects the request before the stock fade starts.
+    /// No firmware hook or deadline is established by this model.
+    pub fn try_reserve_selector(&self) -> Option<SelectorReservation<'_>> {
+        let state = self.state.load(Ordering::Acquire);
+        if state & !(LIVE | FILE_MIX) != 0 { return None; }
+        self.state.compare_exchange(state, state | RESERVED, Ordering::AcqRel, Ordering::Acquire)
+            .ok().map(|_| SelectorReservation { gate: self })
+    }
+}
+
+/// Exclusive selector intent; audio remains admitted until `close`.
+#[must_use]
+pub struct SelectorReservation<'a> {
+    gate: &'a CallbackAdmission,
+}
+
+impl SelectorReservation<'_> {
+    /// Prevent new leases after the fade; existing leases must still drain.
+    pub fn close(&mut self) {
+        self.gate.state.fetch_or(CLOSED, Ordering::AcqRel);
+    }
+
+    pub fn is_drained(&self) -> bool {
+        self.gate.state.load(Ordering::Acquire) == (RESERVED | CLOSED)
+    }
+}
+
+impl Drop for SelectorReservation<'_> {
+    fn drop(&mut self) {
+        self.gate.state.fetch_and(!(RESERVED | CLOSED), Ordering::Release);
     }
 }
 
@@ -102,10 +147,47 @@ mod tests {
     #[test]
     fn invalid_state_rejects_both_callback_paths() {
         let gate = CallbackAdmission::new();
-        gate.state.store(8, Ordering::Relaxed);
+        gate.state.store(16, Ordering::Relaxed);
         assert!(gate.try_enter(CallbackPath::Live).is_none());
         assert!(gate.try_enter(CallbackPath::FileMix).is_none());
         assert!(gate.try_enter_live_bypass().is_none());
+    }
+
+    #[test]
+    fn selector_reservation_keeps_audio_open_until_close_and_drains_existing_work() {
+        let gate = CallbackAdmission::new();
+        let live = gate.try_enter(CallbackPath::Live).unwrap();
+        let mut selector = gate.try_reserve_selector().unwrap();
+        assert!(gate.try_reserve_selector().is_none());
+        assert!(gate.try_close().is_none());
+        assert!(!selector.is_drained());
+        drop(live);
+        let file = gate.try_enter(CallbackPath::FileMix).unwrap();
+        let bypass = gate.try_enter_live_bypass().unwrap();
+        selector.close();
+        assert!(!selector.is_drained());
+        assert!(gate.try_enter(CallbackPath::Live).is_none());
+        assert!(gate.try_reserve_selector().is_none());
+        drop(file);
+        assert!(!selector.is_drained());
+        drop(bypass);
+        assert!(selector.is_drained());
+        drop(selector);
+        assert!(gate.try_enter(CallbackPath::Live).is_some());
+    }
+
+    #[test]
+    fn cancelling_reservation_preserves_active_leases_and_reopens_gate() {
+        for close_first in [false, true] {
+            let gate = CallbackAdmission::new();
+            let live = gate.try_enter(CallbackPath::Live).unwrap();
+            let mut selector = gate.try_reserve_selector().unwrap();
+            if close_first { selector.close(); }
+            drop(selector);
+            assert!(gate.try_enter(CallbackPath::FileMix).is_none());
+            drop(live);
+            assert!(gate.try_enter(CallbackPath::FileMix).is_some());
+        }
     }
 
     #[test]

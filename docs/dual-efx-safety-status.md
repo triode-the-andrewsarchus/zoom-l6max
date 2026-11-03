@@ -186,6 +186,11 @@ The blocking findings for L6max MAIN 1.10
   injected gate remained closed through the observation, and its fade was
   zero at the first post-rejection snapshot; see the
   [held-gate experiment](../tools/l6dsp-tests/experiments/README.md#selector-early-rejection-fade-experiment).
+  The standalone admission model now permits a selector to reserve its
+  transition before fading while callbacks remain admissible, then close and
+  drain it afterward. This is not wired to firmware; a reservation race may
+  reject a callback, and selector callers, fade side effects, fallback,
+  target atomic timing and a safe hook remain unqualified.
 - The QEMU-only pre-AINR prototype previously passed normalized sends into
   copied stock AINR and treated its output as normalized. In an active-input
   QEMU capture, the learned stock index-0 call instead received float samples
