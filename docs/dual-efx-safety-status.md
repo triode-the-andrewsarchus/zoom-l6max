@@ -191,6 +191,10 @@ The blocking findings for L6max MAIN 1.10
   drain it afterward. This is not wired to firmware; a reservation race may
   reject a callback, and selector callers, fade side effects, fallback,
   target atomic timing and a safe hook remain unqualified.
+  A [panel-only QEMU prototype](../tools/l6dsp-tests/experiments/README.md#panel-selector-reservation-experiment)
+  left a reservation active across ten additional guest seconds during a
+  selection; the later fade sample was zero. It does not establish the
+  blocked instruction or a safe recovery.
 - The QEMU-only pre-AINR prototype previously passed normalized sends into
   copied stock AINR and treated its output as normalized. In an active-input
   QEMU capture, the learned stock index-0 call instead received float samples

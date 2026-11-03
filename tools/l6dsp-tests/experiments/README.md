@@ -1,5 +1,48 @@
 # DSP and QEMU-only experiments
 
+## Panel selector reservation experiment
+
+`selector_reservation.patch` applies to a disposable copy of the probe. It
+reserves the admission gate around the observed panel apply call, closes it
+at the existing post-fade hook, and releases it at the existing fade or exit
+hook. It also defers the existing panel feedback as in the feedback probe.
+It does not cover the mixer-batch or other callers and uses unowned scratch;
+never install it. In particular, releasing the reservation at the inner hook
+also stops serializing the remainder of the high-level apply call.
+
+Prepare the patched copy with `--callback --file-mix-handoff atomic
+--selector-admission --selector-feedback`. For the observation below, append
+a 10,000 ms guest wait to the generated recipe and then read 28 bytes at
+`0x83e0b040`, 24 bytes at `0x83e0b010`, one byte at `0x804600b2`, four bytes
+at `0x20007d74`, and 12 bytes at `0x83e00000`. Use fresh disposable state and
+verify the recipe image hash. These addresses and the patch are specific to
+the diagnostic and MAIN 1.10.
+
+In one QEMU run, the generated sequence reached four successful reservation
+starts and three releases. The selector's active field was 2 at guest time
+61,633 ms and still 2 at 71,633 ms; its release counter stayed at four. The
+later effect type was 3 and its sampled fade value was zero. The recipe
+completed, but this selection did not complete during that interval. This
+does not establish its eventual behavior, identify the blocked instruction,
+measure audio, or qualify real hardware. It is not evidence that reservation
+alone solves the existing post-publication ramp dependency.
+
+The stock MAIN, source NOR, panel flash, options and RTC hashes were
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d`, and
+`473ef0237adcc70aa6ba783e573df1258ecd1ae74d1ff7bb0e97ce7e9932d85f`.
+The diagnostic MAIN, ELF, recipe, result, QEMU and `l6dbg` hashes were
+`beea9d7ca1dbf067f6136e7d46f01daac80837b8a6a2c9f1ea25bd0c202d77fb`,
+`e725b3c505280c1b559916bdd769ac560f1f85bfffd41fb0b091a69d0fa47524`,
+`72e62ac758f3887c52fb6b0c4b087665eb86305ec28fa1d8b41fbf7fc00fd826`,
+`fd62d5fdb7bc57dc112a2b905626be4b74580f1db48ee5b65615970608268af8`,
+`23e4c6a57b2a265cc4fa460d67ae561b7b69bc81de74ec724503f4686dc75f21`, and
+`5696507a3c93a86c04df62d65ae7e2b4d3309a412d39b01cfd1b217f1c6dfd6a`.
+QEMU source provenance is unattested. The modified selector source hash was
+`e890b011b61ccc1a81cdf3909ace22a6b0a7839a1205b343b27564a0cd4b0984`.
+
 ## Selector early-rejection fade experiment
 
 `selector_early_fade.patch` changes the QEMU-only selector diagnostic to

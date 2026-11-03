@@ -1,0 +1,103 @@
+--- a/tools/l6dsp-tests/probe/selector_admission.rs
++++ b/tools/l6dsp-tests/probe/selector_admission.rs
+@@ -1,11 +1,38 @@
+ //! Selector admission experiment; unowned QEMU scratch, never install.
+ use core::ptr::{read_volatile as read, write_volatile as write};
+-use crate::admission::{CallbackAdmission, CloseGuard};
++use crate::admission::{CallbackAdmission, CloseGuard, SelectorReservation};
+ 
+ const GATE: usize = 0x83e0b000;
+ const COUNTS: usize = 0x83e0b010;
+ const GUARD: usize = 0x83e0b020;
+ const ACTIVE: usize = 0x83e0b024;
++const RESERVATION: usize = 0x83e0b040;
++const RESERVED_ACTIVE: usize = 0x83e0b044;
++
++#[unsafe(no_mangle)]
++pub unsafe extern "C" fn reservation_start() -> u32 {
++    unsafe {
++        if !crate::file_mix_handoff::ensure_gate() { return 0; }
++        let gate = &*(GATE as *const CallbackAdmission);
++        let Some(reservation) = gate.try_reserve_selector() else { return 0; };
++        (RESERVATION as *mut SelectorReservation<'static>).write(reservation);
++        write(RESERVED_ACTIVE as *mut u32, 1);
++        write(0x83e0b048 as *mut u32, read(0x83e00008 as *const u32));
++        write(0x83e0b054 as *mut u32, read(0x83e0b054 as *const u32).wrapping_add(1));
++        1
++    }
++}
++
++#[unsafe(no_mangle)]
++pub unsafe extern "C" fn reservation_finish() {
++    unsafe {
++        if read(RESERVED_ACTIVE as *const u32) == 1 {
++            write(RESERVED_ACTIVE as *mut u32, 0);
++            core::ptr::drop_in_place(RESERVATION as *mut SelectorReservation<'static>);
++            write(0x83e0b058 as *mut u32, read(0x83e0b058 as *const u32).wrapping_add(1));
++        }
++    }
++}
+ 
+ unsafe fn increment(index: usize) {
+     unsafe {
+@@ -43,6 +70,22 @@
+             delay(1);
+             write(0x83e0b108 as *mut u32, read(0x83e0b100 as *const u32));
+         }
++        if read(RESERVED_ACTIVE as *const u32) == 1 {
++            let reservation = &mut *(RESERVATION as *mut SelectorReservation<'static>);
++            write(0x83e0b04c as *mut u32, read(0x83e00008 as *const u32));
++            reservation.close();
++            let delay: unsafe extern "C" fn(u32) = core::mem::transmute(0x8008e771usize);
++            for _ in 0..20 {
++                if reservation.is_drained() {
++                    write(ACTIVE as *mut u32, 2);
++                    increment(1);
++                    return 1;
++                }
++                delay(1);
++            }
++            reservation_finish();
++            return reject(2);
++        }
+         let Some(guard) = gate.try_close() else {
+             return reject(0);
+         };
+@@ -80,6 +123,12 @@
+ #[unsafe(no_mangle)]
+ pub unsafe extern "C" fn selector_handoff_end() {
+     unsafe {
++        if read(ACTIVE as *const u32) == 2 {
++            write(ACTIVE as *mut u32, 0);
++            reservation_finish();
++            increment(3);
++            return;
++        }
+         if read(ACTIVE as *const u32) == 1 {
+             write(ACTIVE as *mut u32, 0);
+             core::ptr::drop_in_place(GUARD as *mut CloseGuard<'static>);
+@@ -211,9 +260,24 @@
+     ldr.w r12, .Lfeedback_get_active_type
+     blx r12
+     str r0, [r4, #4]
++    bl reservation_start
++    mov r7, r0
+     pop {r0, r1, r2, r3}
++    cmp r7, #1
++    bne .Lreservation_failed
+     ldr.w r12, .Lfeedback_select
+     blx r12
++    b .Lreservation_done
++.Lreservation_failed:
++    movs r2, #1
++    str r2, [r4]
++.Lreservation_done:
++    cmp r7, #1
++    bne .Lreservation_not_owner
++    push {r0, r1, r2, r3}
++    bl reservation_finish
++    pop {r0, r1, r2, r3}
++.Lreservation_not_owner:
+     ldr r2, [r4]
+     movs r3, #0
+     str r3, [r4]
