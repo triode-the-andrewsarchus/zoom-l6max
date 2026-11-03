@@ -384,7 +384,19 @@ def compare_stereo_block(g, frame, channel, invert_second, solo_prefix, checkpoi
     return samples, expected, peak
 
 
-def compare_stereo(g, code, minimum_input, invert_second, solo_prefix, blocks):
+def prepare_stereo_clones(g, code, solo_prefix, solo_tail):
+    """Copy the full stereo state and optional bounded channel-zero state."""
+    source = g.read(0x20280000, 0x27000)
+    g.write(0x80e00000, source)
+    g.write(0x80f00000, code)
+    if g.read(0x80e00000, len(source)) != source or g.read(0x80f00000, len(code)) != code:
+        raise RuntimeError('stereo clone readback mismatch')
+    if solo_prefix:
+        start = 0xb94c if solo_tail else 0
+        prepare_second_clone(g, bytes(start) + source[start:0x19514] + bytes(0x27000 - 0x19514), code)
+
+
+def compare_stereo(g, code, minimum_input, invert_second, solo_prefix, blocks, solo_tail=False):
     """Mirror both natural stock calls in QEMU, including both working areas."""
     g.expect('Hg1')
     g.expect('Z0,20228d86,2')
@@ -396,13 +408,7 @@ def compare_stereo(g, code, minimum_input, invert_second, solo_prefix, blocks):
     skipped = wait_stereo_input(g, minimum_input)
     if struct.unpack('<I', g.read(0x2028ba4c, 4))[0] != 1:
         raise RuntimeError('AINR processor left the learned state while waiting for input')
-    source = g.read(0x20280000, 0x27000)
-    g.write(0x80e00000, source)
-    g.write(0x80f00000, code)
-    if g.read(0x80e00000, len(source)) != source or g.read(0x80f00000, len(code)) != code:
-        raise RuntimeError('stereo clone readback mismatch')
-    if solo_prefix:
-        prepare_second_clone(g, source[:0x19514] + bytes(0x27000 - 0x19514), code)
+    prepare_stereo_clones(g, code, solo_prefix, solo_tail)
     outputs = [bytearray(), bytearray()]
     inputs = [bytearray(), bytearray()]
     peaks = [0.0, 0.0]
@@ -419,7 +425,8 @@ def compare_stereo(g, code, minimum_input, invert_second, solo_prefix, blocks):
     return {'blocks_per_channel': blocks, 'input_peaks': peaks, 'skipped_blocks': skipped,
             'input_sha256': [sha(samples) for samples in inputs],
             'output_sha256': [sha(output) for output in outputs],
-            'inverted_second': invert_second, 'solo_prefix_bytes': 0x19514 if solo_prefix else None,
+            'inverted_second': invert_second, 'solo_prefix_bytes': 0x19514 if solo_prefix and not solo_tail else None,
+            'solo_tail_bytes': 0xdbc8 if solo_tail else None,
             'state_checkpoints': sorted(checkpoints), 'matches': True}
 
 
@@ -438,8 +445,11 @@ def parse_arguments():
     parser.add_argument('--stereo', action='store_true', help='compare both natural stock AINR calls')
     parser.add_argument('--invert-second', action='store_true',
                         help='in QEMU, invert and halve second-channel input before both calls')
-    parser.add_argument('--solo-prefix', action='store_true',
-                        help='also compare a channel-zero-only clone with a 0x19514-byte prefix')
+    solo = parser.add_mutually_exclusive_group()
+    solo.add_argument('--solo-prefix', dest='solo', action='store_const', const='prefix',
+                      help='also compare a channel-zero-only clone with a 0x19514-byte prefix')
+    solo.add_argument('--solo-tail', dest='solo', action='store_const', const='tail',
+                      help='also compare a channel-zero-only clone with only its candidate tail')
     parser.add_argument('--blocks', type=int, default=96, help='blocks per channel in stereo mode (1-1000)')
     parser.add_argument('--recipe', type=Path, help='override diagnostic recipe')
     parser.add_argument('--minimum-input', type=float, default=0.0,
@@ -450,8 +460,8 @@ def parse_arguments():
         parser.error('--stereo cannot be combined with mono comparison options')
     if args.invert_second and not args.stereo:
         parser.error('--invert-second requires --stereo')
-    if args.solo_prefix and not args.stereo:
-        parser.error('--solo-prefix requires --stereo')
+    if args.solo and not args.stereo:
+        parser.error('--solo-prefix and --solo-tail require --stereo')
     if not 1 <= args.blocks <= 1000 or (args.blocks != 96 and not args.stereo):
         parser.error('--blocks must be 1-1000 and requires --stereo when changed')
     if not math.isfinite(args.minimum_input) or args.minimum_input < 0 or (args.minimum_input and not args.stereo):
@@ -478,7 +488,10 @@ def main():
                   'qemu_path': str(qemu), 'qemu_sha256': sha(qemu.read_bytes()),
                   'qemu_source': 'unattested', 'recipe_sha256': sha(recipe.read_bytes()),
                   'probe_sha256': sha(Path(__file__).read_bytes()), 'clone_sha256': sha(code),
-                  'probe_options': {'inspect_tail': args.inspect_tail, 'trace_control': args.trace_control},
+                  'probe_options': {'inspect_tail': args.inspect_tail, 'trace_control': args.trace_control,
+                                    'stereo': args.stereo, 'solo': args.solo,
+                                    'invert_second': args.invert_second,
+                                    'blocks': args.blocks, 'minimum_input': args.minimum_input},
                   'initial_state_files': {
                       str(path.relative_to(out / 'state')): sha(path.read_bytes())
                       for path in sorted((out / 'state').rglob('*')) if path.is_file()},
@@ -509,7 +522,7 @@ def main():
                 time.sleep(.1)
             if args.stereo:
                 result = compare_stereo(Remote(socket_path), code, args.minimum_input, args.invert_second,
-                                        args.solo_prefix, args.blocks)
+                                        bool(args.solo), args.blocks, args.solo == 'tail')
             else:
                 result = compare(Remote(socket_path), code, args.independent, args.channel0_prefix,
                                  replay_tails, args.inspect_tail, args.trace_control)

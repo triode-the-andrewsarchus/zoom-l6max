@@ -905,6 +905,23 @@ to vary the number of blocks per channel from 1 to 1,000; longer runs require
 a correspondingly longer post-snapshot recipe wait. A match is bounded to
 the captured learning state and input; it does not reserve memory or exclude
 other state dependencies.
+Use `--solo-tail` instead of `--solo-prefix` to copy only offsets
+`0xb94c..0x19514` into the solo clone, zeroing both the preceding and
+following scratch. The full stereo clone and stock retain their full state;
+`result.json` distinguishes the solo-tail size from the stereo snapshot.
+This checks output equivalence for the observed state and signals, not the
+ownership or initialization of a physical allocation.
+
+One temporary implementation of this tail-only comparison matched 1,000
+blocks per channel, including the solo clone, with inverted half-amplitude
+second-channel input and checkpoints at 0, 333, 666 and 999. Its stock MAIN,
+NOR and external QEMU match the identities below. The recipe, temporary probe,
+identity manifest and result hashes were
+`ec8b48843465ae06dc67892357863d4e333dc7298cee79d1d7c6573c2a24d90b`,
+`8efea2dc08638c25bf5fe07519eb6277a4508e47cfedcd7b1ef6a215e58409cc`,
+`73ef9cb707779eff4094d32702906d099d55344c3766d890411b51daa3c81297`, and
+`33a355f09fefe5164270e8a9d81a8d0cd3efaba71347dd2e8bd0c952068b1ea3`.
+The temporary probe was integrated as `--solo-tail` after that run.
 One `--stereo --invert-second --solo-prefix --blocks 1000` run matched both
 stock channels and the solo prefix, with checkpoints at 0, 333, 666 and 999.
 Its MAIN, NOR and QEMU matched the identities below. The recipe, probe and
