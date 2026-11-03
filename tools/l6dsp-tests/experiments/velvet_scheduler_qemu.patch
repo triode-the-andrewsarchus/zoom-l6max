@@ -1,0 +1,306 @@
+--- a/patches/dual-efx/src/velvet.rs
++++ b/patches/dual-efx/src/velvet.rs
+@@ -13 +13 @@
+-pub const MAX_DELAY_SAMPLES: usize = 4802; // Up to 100 ms at 48 kHz
++pub const HISTORY_SAMPLES: usize = 4864; // Up to 100 ms at 48 kHz
+@@ -21 +21 @@
+-    delay % MAX_DELAY_SAMPLES
++    delay % HISTORY_SAMPLES
+@@ -28 +28 @@
+-        MAX_DELAY_SAMPLES & 0usize.wrapping_sub((write_position < delay) as usize),
++        HISTORY_SAMPLES & 0usize.wrapping_sub((write_position < delay) as usize),
+@@ -61 +61 @@
+-    delay_line: [f32; MAX_DELAY_SAMPLES],
++    delay_line: [f32; HISTORY_SAMPLES],
+@@ -68 +68 @@
+-        Self { delay_line: [0.0; MAX_DELAY_SAMPLES], write_position: 0, nonzero_samples: 0 }
++        Self { delay_line: [0.0; HISTORY_SAMPLES], write_position: 0, nonzero_samples: 0 }
+@@ -89 +89 @@
+-        if self.write_position == MAX_DELAY_SAMPLES {
++        if self.write_position == HISTORY_SAMPLES {
+@@ -97 +97 @@
+-        if self.write_position >= MAX_DELAY_SAMPLES { return; }
++        if self.write_position >= HISTORY_SAMPLES { return; }
+@@ -105 +105 @@
+-    delay_line: [f32; MAX_DELAY_SAMPLES],
++    delay_line: [f32; HISTORY_SAMPLES],
+@@ -140 +140 @@
+-            delay_line: [0.0; MAX_DELAY_SAMPLES],
++            delay_line: [0.0; HISTORY_SAMPLES],
+@@ -288 +288 @@
+-            MAX_DELAY_SAMPLES - 2,
++            HISTORY_SAMPLES - 2,
+@@ -436 +436 @@
+-    fn convolve(bank: &Bank, delay_line: &[f32; MAX_DELAY_SAMPLES], wp: usize) -> f32 {
++    fn convolve(bank: &Bank, delay_line: &[f32; HISTORY_SAMPLES], wp: usize) -> f32 {
+@@ -438 +438 @@
+-        let size = MAX_DELAY_SAMPLES;
++        let size = HISTORY_SAMPLES;
+@@ -476 +476 @@
+-            && wp == history.write_position && wp < MAX_DELAY_SAMPLES {
++            && wp == history.write_position && wp < HISTORY_SAMPLES {
+@@ -479 +479 @@
+-                let d = if delay < MAX_DELAY_SAMPLES { delay } else { wrap_out_of_range_delay(delay) };
++                let d = if delay < HISTORY_SAMPLES { delay } else { wrap_out_of_range_delay(delay) };
+@@ -483 +483 @@
+-                // than MAX_DELAY_SAMPLES, the length of both arrays.
++                // than HISTORY_SAMPLES, the length of both arrays.
+@@ -492 +492 @@
+-                let d = if delay < MAX_DELAY_SAMPLES { delay } else { wrap_out_of_range_delay(delay) };
++                let d = if delay < HISTORY_SAMPLES { delay } else { wrap_out_of_range_delay(delay) };
+@@ -511,2 +511,2 @@
+-        if !self.valid_banks() || self.channels[0].write_position >= MAX_DELAY_SAMPLES
+-            || self.channels[1].write_position >= MAX_DELAY_SAMPLES {
++        if !self.valid_banks() || self.channels[0].write_position >= HISTORY_SAMPLES
++            || self.channels[1].write_position >= HISTORY_SAMPLES {
+@@ -551 +551 @@
+-            if wp >= MAX_DELAY_SAMPLES {
++            if wp >= HISTORY_SAMPLES {
+@@ -568,3 +568,3 @@
+-        if !self.valid_banks() || self.channels[0].write_position >= MAX_DELAY_SAMPLES
+-            || self.channels[1].write_position >= MAX_DELAY_SAMPLES
+-            || history.write_position >= MAX_DELAY_SAMPLES {
++        if !self.valid_banks() || self.channels[0].write_position >= HISTORY_SAMPLES
++            || self.channels[1].write_position >= HISTORY_SAMPLES
++            || history.write_position >= HISTORY_SAMPLES {
+@@ -598 +598 @@
+-            ca.write_position = if wp + 1 >= MAX_DELAY_SAMPLES { 0 } else { wp + 1 };
++            ca.write_position = if wp + 1 >= HISTORY_SAMPLES { 0 } else { wp + 1 };
+@@ -803 +803 @@
+-        for invalid in [MAX_DELAY_SAMPLES, usize::MAX] {
++        for invalid in [HISTORY_SAMPLES, usize::MAX] {
+@@ -871 +871 @@
+-        for write_position in 0..MAX_DELAY_SAMPLES {
++        for write_position in 0..HISTORY_SAMPLES {
+@@ -874 +874 @@
+-                (write_position + 1).min(MAX_DELAY_SAMPLES - 1), MAX_DELAY_SAMPLES - 1,
++                (write_position + 1).min(HISTORY_SAMPLES - 1), HISTORY_SAMPLES - 1,
+@@ -878 +878 @@
+-                    (write_position + MAX_DELAY_SAMPLES - delay) % MAX_DELAY_SAMPLES,
++                    (write_position + HISTORY_SAMPLES - delay) % HISTORY_SAMPLES,
+@@ -886,2 +886,2 @@
+-        for write_position in 0..MAX_DELAY_SAMPLES {
+-            for delay in 0..MAX_DELAY_SAMPLES {
++        for write_position in 0..HISTORY_SAMPLES {
++            for delay in 0..HISTORY_SAMPLES {
+@@ -889,2 +889,2 @@
+-                assert!(index < MAX_DELAY_SAMPLES);
+-                assert_eq!(index, (write_position + MAX_DELAY_SAMPLES - delay) % MAX_DELAY_SAMPLES);
++                assert!(index < HISTORY_SAMPLES);
++                assert_eq!(index, (write_position + HISTORY_SAMPLES - delay) % HISTORY_SAMPLES);
+@@ -899,2 +899,2 @@
+-        channel.write_position = MAX_DELAY_SAMPLES;
+-        history.write_position = MAX_DELAY_SAMPLES;
++        channel.write_position = HISTORY_SAMPLES;
++        history.write_position = HISTORY_SAMPLES;
+@@ -906 +906 @@
+-        assert_eq!(VelvetDecorrelator::convolve(&channel.banks[0], &channel.delay_line, MAX_DELAY_SAMPLES), 0.0);
++        assert_eq!(VelvetDecorrelator::convolve(&channel.banks[0], &channel.delay_line, HISTORY_SAMPLES), 0.0);
+@@ -915 +915 @@
+-        for i in 0..MAX_DELAY_SAMPLES {
++        for i in 0..HISTORY_SAMPLES {
+@@ -921 +921 @@
+-        for wp in [0, 1, MAX_DELAY_SAMPLES / 2, MAX_DELAY_SAMPLES - 2, MAX_DELAY_SAMPLES - 1] {
++        for wp in [0, 1, HISTORY_SAMPLES / 2, HISTORY_SAMPLES - 2, HISTORY_SAMPLES - 1] {
+@@ -925 +925 @@
+-                          (MAX_DELAY_SAMPLES - 1) as u32, MAX_DELAY_SAMPLES as u32, u32::MAX];
++                          (HISTORY_SAMPLES - 1) as u32, HISTORY_SAMPLES as u32, u32::MAX];
+@@ -933,2 +933,2 @@
+-                let d = tap.delay as usize % MAX_DELAY_SAMPLES;
+-                let read = (wp + MAX_DELAY_SAMPLES - d) % MAX_DELAY_SAMPLES;
++                let d = tap.delay as usize % HISTORY_SAMPLES;
++                let read = (wp + HISTORY_SAMPLES - d) % HISTORY_SAMPLES;
+@@ -972,0 +973,2 @@
++#[path = "block.rs"]
++mod block;
+--- a/patches/dual-efx/src/routing.rs
++++ b/patches/dual-efx/src/routing.rs
+@@ -422,0 +423,12 @@
++    pub(crate) fn experimental_bus_block(&mut self, sends: &[[f32; 64]; 3], output: &mut [[f32; 2]; 64]) {
++        let velvet = unsafe { &mut *(0x83e10800 as *mut [[f32; 4]; 64]) };
++        self.velvet.experimental_shared_block(&mut self.cascade_history, &sends[0], &sends[2], velvet);
++        for i in 0..64 {
++            let cascade_gain = self.advance_cascade_gain();
++            let send_b = super::math::audio_input(sends[1][i]);
++            let (wet_l, wet_r) = self.plateau.process_sample(send_b + velvet[i][2] * cascade_gain, send_b + velvet[i][3] * cascade_gain);
++            output[i] = [super::math::soft_clip((velvet[i][0] + velvet[i][2]) * self.return_gain_a + wet_l * self.return_gain_b),
++                         super::math::soft_clip((velvet[i][1] + velvet[i][3]) * self.return_gain_a + wet_r * self.return_gain_b)];
++        }
++    }
++
+--- /dev/null
++++ b/patches/dual-efx/src/block.rs
+@@ -0,0 +1,155 @@
++//! Disposable block scheduler experiment; not installable firmware.
++use super::*;
++const BLOCK: usize = 64;
++const MAX_FAST_DELAY: usize = 4800;
++
++fn fast_bank(bank: &Bank) -> bool {
++    bank.storage.get(..bank.count).is_some_and(|taps| taps.iter().all(|t| t.delay as usize <= MAX_FAST_DELAY))
++}
++
++fn block_convolve(bank: &Bank, a: &[f32; HISTORY_SAMPLES], b: &[f32; HISTORY_SAMPLES], start: usize, len: usize, out: &mut [[f32; BLOCK]; 2]) {
++    for tap in &bank.storage[..bank.count] {
++        let delay = tap.delay as usize;
++        let read = if start >= delay { start - delay } else { start + HISTORY_SAMPLES - delay };
++        let first = len.min(HISTORY_SAMPLES - read);
++        for (pos, dst, count) in [(read, 0, first), (0, first, len - first)] {
++            let (left, right) = out.split_at_mut(1);
++            for (((out_a, out_b), input_a), input_b) in left[0][dst..dst + count].iter_mut()
++                .zip(right[0][dst..dst + count].iter_mut())
++                .zip(&a[pos..pos + count]).zip(&b[pos..pos + count])
++            {
++                *out_a += tap.gain * *input_a;
++                *out_b += tap.gain * *input_b;
++            }
++        }
++    }
++}
++
++impl VelvetDecorrelator {
++    pub(crate) fn experimental_shared_block(&mut self, history: &mut MonoHistory, a: &[f32], b: &[f32], out: &mut [[f32; 4]]) {
++        let len = a.len();
++        assert!(len <= BLOCK && b.len() == len && out.len() == len);
++        let mut offset = 0;
++        while offset < len {
++            let aligned = self.valid_banks()
++                && self.channels[0].write_position == self.channels[1].write_position
++                && self.channels[0].write_position == history.write_position
++                && history.write_position < HISTORY_SAMPLES;
++            let valid = aligned && (0..2).all(|c| fast_bank(&self.channels[c].banks[self.active_bank]))
++                && (!self.transitioning || (0..2).all(|c| fast_bank(&self.channels[c].banks[self.pending_bank])));
++            if !valid || self.build.phase != 0 {
++                let ((al, ar), (bl, br)) = self.process_shared_mono(history, a[offset], b[offset]);
++                out[offset] = [al, ar, bl, br];
++                offset += 1;
++                continue;
++            }
++            let mut count = len - offset;
++            if self.transitioning {
++                count = count.min(self.active_transition_samples.saturating_sub(self.transition_position).max(1));
++            } else if self.filter_update_pending || (self.current.dynamic && self.samples_until_transition == 0) {
++                count = 1;
++            } else if self.current.dynamic {
++                count = count.min(self.samples_until_transition);
++            }
++            let start = history.write_position;
++            for i in offset..offset + count {
++                let input_a = audio_input(a[i]);
++                history.write(audio_input(b[i]));
++                history.advance();
++                for c in &mut self.channels {
++                    let wp = c.write_position;
++                    if c.delay_line[wp] != 0.0 { c.nonzero_samples -= 1; }
++                    if input_a != 0.0 { c.nonzero_samples += 1; }
++                    c.delay_line[wp] = input_a;
++                    c.write_position = if wp + 1 == HISTORY_SAMPLES { 0 } else { wp + 1 };
++                }
++            }
++            let sums = unsafe { &mut *(0x83e10000 as *mut [[[[f32; BLOCK]; 2]; 2]; 2]) };
++            unsafe { core::ptr::write_bytes(sums as *mut _, 0, 1); }
++            for c in 0..2 {
++                block_convolve(&self.channels[c].banks[self.active_bank], &self.channels[c].delay_line, &history.delay_line, start, count, &mut sums[0][c]);
++                if self.transitioning {
++                    block_convolve(&self.channels[c].banks[self.pending_bank], &self.channels[c].delay_line, &history.delay_line, start, count, &mut sums[1][c]);
++                }
++            }
++            for i in 0..count {
++                let amount = self.advance_amount();
++                let (old, new) = self.transition_weights();
++                for c in 0..2 {
++                    for bus in 0..2 {
++                        let mut wet = sums[0][c][bus][i];
++                        if self.transitioning { wet = old * wet + new * sums[1][c][bus][i]; }
++                        out[offset + i][bus * 2 + c] = soft_clip(wet * amount);
++                    }
++                }
++                self.advance_filter();
++            }
++            offset += count;
++        }
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    #[test]
++    fn fallback_and_nonfinite_inputs_match_sample_path() {
++        for case in 0..4 {
++            let params=Parameters { dynamic: false, ..Parameters::default() };
++            let mut scalar=Box::new(VelvetDecorrelator::new());scalar.init(params);
++            let mut block=Box::new(VelvetDecorrelator::new());block.init(params);
++            let mut sh=Box::new(MonoHistory::new());let mut bh=Box::new(MonoHistory::new());
++            match case {
++                1 => { scalar.channels[1].write_position=20;block.channels[1].write_position=20; }
++                2 => { scalar.channels[0].banks[0].storage[0].delay=HISTORY_SAMPLES as u32+5;block.channels[0].banks[0].storage[0].delay=HISTORY_SAMPLES as u32+5; }
++                3 => { scalar.channels[0].banks[0].count=401;block.channels[0].banks[0].count=401; }
++                _ => {}
++            }
++            let mut a=[0.0f32;64];let mut b=a;
++            for i in 0..64 {a[i]=if i==7 {f32::NAN} else if i==9 {f32::INFINITY} else if i%3==0 {-0.0} else {i as f32/128.0};b[i]=-a[i];}
++            let mut actual=[[0.0f32;4];64];block.experimental_shared_block(&mut bh,&a,&b,&mut actual);
++            for i in 0..64 {let ((al,ar),(bl,br))=scalar.process_shared_mono(&mut sh,a[i],b[i]);let expected=[al,ar,bl,br];for j in 0..4 {assert_eq!(actual[i][j].to_bits(),expected[j].to_bits(),"case={case} frame={i} output={j}");}}
++        }
++    }
++    #[test]
++    fn block_matches_real_scheduler_across_edits_fades_and_wraps() {
++        let params = Parameters { length_ms: 100.0, density: 4000.0, refresh_seconds: 0.1, transition_ms: 90.0, ..Parameters::default() };
++        let mut scalar = Box::new(VelvetDecorrelator::new()); scalar.init(params);
++        let mut block = Box::new(VelvetDecorrelator::new()); block.init(params);
++        let mut sh = Box::new(MonoHistory::new()); let mut bh = Box::new(MonoHistory::new());
++        let mut position=0usize;
++        while position < 30000 {
++            if [0, 4979, 10031, 17003, 22001].contains(&position) {
++                let mut p=scalar.current;
++                p.amount=if position%2==0 {0.25} else {0.9};
++                p.decay_db=if position%2==0 {-36.0} else {-63.0};
++                p.transition_ms=if position%2==0 {30.0} else {90.0};
++                scalar.set_parameters(p); block.set_parameters(p);
++            }
++            let next=[4979,10031,17003,22001,30000].into_iter().find(|&x| x>position).unwrap();
++            let len=(next-position).min(64);
++            let mut a=[0.0f32;64];let mut b=a;
++            for i in 0..len { a[i]=(((position+i)*37%101) as f32-50.0)/200.0;b[i]=(((position+i)*71%103) as f32-51.0)/210.0; }
++            let mut actual=[[0.0f32;4];64];block.experimental_shared_block(&mut bh,&a[..len],&b[..len],&mut actual[..len]);
++            for i in 0..len {let ((al,ar),(bl,br))=scalar.process_shared_mono(&mut sh,a[i],b[i]);let expected=[al,ar,bl,br];for j in 0..4 {assert_eq!(actual[i][j].to_bits(),expected[j].to_bits(),"frame={} output={j}",position+i);}}
++            for c in 0..2 {
++                assert_eq!(block.channels[c].write_position, scalar.channels[c].write_position);
++                assert_eq!(block.channels[c].nonzero_samples, scalar.channels[c].nonzero_samples);
++                assert_eq!(block.channels[c].delay_line, scalar.channels[c].delay_line);
++                for bank in 0..2 {
++                    assert_eq!(block.channels[c].banks[bank].count, scalar.channels[c].banks[bank].count);
++                    for i in 0..400 {
++                        let x=block.channels[c].banks[bank].storage[i];let y=scalar.channels[c].banks[bank].storage[i];
++                        assert_eq!((x.delay,x.gain.to_bits()),(y.delay,y.gain.to_bits()));
++                    }
++                }
++            }
++            assert_eq!(bh.write_position,sh.write_position);assert_eq!(bh.nonzero_samples,sh.nonzero_samples);assert_eq!(bh.delay_line,sh.delay_line);
++            assert_eq!(block.amount_current.to_bits(),scalar.amount_current.to_bits());
++            assert_eq!(block.amount_remaining,scalar.amount_remaining);assert_eq!(block.samples_until_transition,scalar.samples_until_transition);
++            assert_eq!(block.filter_update_pending,scalar.filter_update_pending);
++            assert_eq!(block.active_bank,scalar.active_bank);assert_eq!(block.pending_bank,scalar.pending_bank);assert_eq!(block.transitioning,scalar.transitioning);assert_eq!(block.transition_position,scalar.transition_position);assert_eq!(block.build.phase,scalar.build.phase);assert_eq!(block.build.index,scalar.build.index);assert_eq!(block.generation,scalar.generation);
++            position+=len;
++        }
++    }
++}
+--- a/tools/l6dsp-tests/probe/callback.rs
++++ b/tools/l6dsp-tests/probe/callback.rs
+@@ -381,0 +382,2 @@
++        let block_output = unsafe { &mut *(0x83e10c00 as *mut [[f32; 2]; 64]) };
++        state.experimental_bus_block(&sends, block_output);
+@@ -384,9 +386,3 @@
+-                core::ptr::write_volatile(
+-                    control_target,
+-                    core::ptr::read_volatile(control_source.add(i)),
+-                );
+-            }
+-            let (l, r) = state.process_bus_sample(sends[0][i], sends[1][i], sends[2][i]);
+-            unsafe {
+-                core::ptr::write_volatile(buffer.add(i), l);
+-                core::ptr::write_volatile(buffer.add(i + 64), r);
++                core::ptr::write_volatile(control_target, core::ptr::read_volatile(control_source.add(i)));
++                core::ptr::write_volatile(buffer.add(i), block_output[i][0]);
++                core::ptr::write_volatile(buffer.add(i + 64), block_output[i][1]);

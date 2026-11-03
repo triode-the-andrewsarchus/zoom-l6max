@@ -242,7 +242,7 @@ The approach is informed by the MIT-licensed
 Multistomp Velvet port at commit `7ea50ae6e30705989d0b8414ad5a83c97dbef0db`;
 that pedal's tests do not qualify the L6max implementation.
 
-An uncommitted follow-up combined the block loop with the actual Velvet bank
+The QEMU-only `velvet_scheduler_qemu.patch` preserves a follow-up combining the block loop with the actual Velvet bank
 scheduler. It split processing at fades and fell back to per-sample processing
 while building banks or handling unsuitable state. In one 30,000-frame host
 test, it matched the original 4,802-sample-ring sample path bit for bit through
@@ -271,7 +271,39 @@ pair reached 4,067/4,234; both missed the second selection. These are single
 instrumented runs, not physical timing measurements or a demonstrated
 solution. The prototype also reorders control writes and changes malformed
 delay handling; its scratch, stack, concurrency and full state semantics
-are not qualified. It was not integrated into the patch.
+are not qualified. It was not integrated into the installable patch.
+
+To inspect the follow-up, apply `plateau_32k_input.patch` and
+`combined_input_stress.patch` to the disposable probe sources as described
+above, then apply `velvet_scheduler_qemu.patch` with
+`git apply --unidiff-zero`. The zero-context patch assumes those exact inputs;
+check the resulting sources before building. It writes three buffers to
+unowned addresses and is strictly for the emulator, never hardware. Its block
+routine includes bounded host comparisons, but the callback reorders control
+writes and the expanded ring changes malformed-delay behavior.
+
+Replacing the inner indexed loop with slice iterators improved the same
+`opt-level=3` workload: two first-observation runs completed 6,165 and 6,035
+callbacks, versus 4,067 and 3,961 for the matched scalar build. All four
+missed the second selection. Both block runs reconstructed all three modeled
+sends and produced bounded nonzero stereo output at the first selection. The
+nominal count is 15,000; these instrumented QEMU runs do not measure target
+timing or establish an adequate deadline. The updated host suite passed 25
+tests, including the bounded scheduler and cross-ring comparisons described
+above. The saved QEMU patch reproduces the measured block source, not the
+separate temporary host harness.
+
+For the iterator build, MAIN and ELF were
+`e18e80e37750a1b7ab7139c220171b13eb911c67712bb636242ba24cfccab910` and
+`75562ad8187658e5359d83734f1a57caa67e2489fd7c35f2e60ad0740cdb24e7`;
+the recipe was `0b89340c6eb10827169a286951bfcb68934d2a9e6650b473b26594f176afc851`.
+Observations were
+`cff04b5a5c8424b8f20939494ce823d7e306cc2db46a42df622c20bc96137cd3` and
+`5c5dfa903d1e895c563120f249a9a866d87181a2ab3e8af27b168356594bf470`.
+The repeated scalar observation was
+`9b6f9ea74c1d354439d4f76af29ee72aee55c917589e65718b51d184be639c68`;
+its executable and recipe match the scalar run identified below. QEMU and
+the input fixtures match the preceding comparison, with unattested QEMU source.
 
 The stock and panel identities, modeled channel files, QEMU
 `13040494f8a58c681b18bef05886196ac37be526772bcb93c301875ed93d34da` and
