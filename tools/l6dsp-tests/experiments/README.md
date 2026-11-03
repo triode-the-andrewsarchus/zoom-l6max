@@ -18,7 +18,7 @@ at `0x20007d74`, and 12 bytes at `0x83e00000`. Use fresh disposable state and
 verify the recipe image hash. These addresses and the patch are specific to
 the diagnostic and MAIN 1.10.
 
-In one QEMU run, the generated sequence reached four successful reservation
+With `file_mix_handoff.rs` from commit `430713e1`, one QEMU run reached four successful reservation
 starts and three releases. The selector's active field was 2 at guest time
 61,633 ms and still 2 at 71,633 ms; its release counter stayed at four. The
 later effect type was 3 and its sampled fade value was zero. The recipe
@@ -26,6 +26,26 @@ completed, but this selection did not complete during that interval. This
 does not establish its eventual behavior, identify the blocked instruction,
 measure audio, or qualify real hardware. It is not evidence that reservation
 alone solves the existing post-publication ramp dependency.
+
+The reservation prototype marks its closed selector guard with 2, whereas
+the old diagnostic ramp branch recognized only 1. After extending that branch
+to recognize both values, a matched QEMU run progressed through all six panel
+reservations and released all six. Its selector begin, drained and release
+counts were each seven including startup, with no recorded rejections; after
+another ten guest seconds the effect type was 0 and the sampled fade was one.
+This supports the branch mismatch as the reason the first run stalled. The
+branch still runs an approximated ramp and a silence path using unproven shared
+scratch; no audio continuity, safe ownership, real concurrency, independent
+AINR, target timing or complete caller coverage is established.
+
+For the second run, the modified `file_mix_handoff.rs`, diagnostic MAIN, ELF,
+recipe and result SHA-256 values were respectively
+`4f5fa983e55242f0fceb8e196a388e388c675c8d734451223ab4837866801835`,
+`bce9c1e027f89626d92448657efa92dd3f75d968ab4b8863e0adb4cdbceaedc5`,
+`3c984581498eefe31628af175aa4a1460e6956189250714ba58a090941895395`,
+`67b7c7c4d7c51e1b01a755c648434b17e5cf2b357f31a3183a42f9d30f6bf154`, and
+`e56ce0b3fe58d0af0ad3cfba8b072c7cc34a5f53bbf8f26c0542b7db2d672267`.
+The other inputs and tools match the first run below.
 
 The stock MAIN, source NOR, panel flash, options and RTC hashes were
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,

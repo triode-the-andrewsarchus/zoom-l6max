@@ -208,7 +208,7 @@ pub unsafe extern "C" fn mix_handoff_atomic_live() {
             // Experimental only: test whether a stock ramp can advance while
             // effect processing is excluded. Memory ownership is unproven.
             #[cfg(selector_admission)]
-            if read(0x83e0b024 as *const u32) == 1 {
+            if matches!(read(0x83e0b024 as *const u32), 1 | 2) {
                 let ramp: unsafe extern "C" fn() = core::mem::transmute(0x80066181usize);
                 ramp();
                 // Selected stock callbacks propagate the float ramp to this
