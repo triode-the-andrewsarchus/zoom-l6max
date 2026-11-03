@@ -182,6 +182,9 @@ The blocking findings for L6max MAIN 1.10
   A forced immediate gate failure now reports rejection to the panel handler,
   but the sampled old-effect fade remained at zero. Its recovery is incomplete;
   see the [QEMU-only rejection experiment](../tools/l6dsp-tests/probe/README.md#callback-admission-model).
+  A separate fade-replay candidate did not recover a callback or fade while
+  the injected gate remained closed through the observation; see the
+  [held-gate experiment](../tools/l6dsp-tests/experiments/README.md#selector-early-rejection-fade-experiment).
 - The QEMU-only pre-AINR prototype previously passed normalized sends into
   copied stock AINR and treated its output as normalized. In an active-input
   QEMU capture, the learned stock index-0 call instead received float samples

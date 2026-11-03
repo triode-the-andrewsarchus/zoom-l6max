@@ -43,6 +43,24 @@ plugin log were respectively
 `88fcb21f1f73f01ea540c976280ae74658617ee52e612dc18cd3653a3e9c3313`.
 QEMU source provenance is unattested.
 
+A separate run used the same candidate and fixtures with
+`closed=on,hold=1000000`; check it with `selector_reject_check.py --closed
+--hold 1000000 --held-until-exit`. The injector reported that its forced
+closure remained active at exit. After the first rejection snapshot, the
+sampled callback count did not advance, the fade remained zero, and a later
+selection press left the type and Room lamps unchanged. Recipe completion is
+not recovery. This bounded injection does not prove that a real gate can
+stay closed indefinitely, measure audio output, or model a competing owner.
+It shows that fade replay alone is insufficient when the closure persists.
+
+For this run, the injector source, plugin, wrapper, result and plugin log
+SHA-256 were respectively
+`a5d62004ce28b3d09b8adb63cde26ed3d7ccf40d01142aeeb874b2375ab48454`,
+`5b555a95a651ff4a20c3b27e56bfdb381cb2decf8d465932b13568b01f64194c`,
+`239b79ecbdc16fcc74b20f79781482daad85d6f3f5fbad91b46f4696041aea8a`,
+`c1a1c2a92dfab298cd81a9fa6637be391bddae4996518d86ea5f4a6e72fc5761`, and
+`392ec898686796bd6aaf5a7848bdd135b9779a222f84939e3fdf280a45f79628`.
+
 `python3 tools/l6dsp-tests/experiments/plateau_rate.py` requires NumPy and
 models a 48 kHz → 32 kHz → 48 kHz stereo identity path. It uses the supplied
 Multistomp converter's 64-tap, 14 kHz Kaiser-window design, with two down and

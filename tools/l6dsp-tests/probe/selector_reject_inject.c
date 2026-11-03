@@ -52,7 +52,7 @@ static void selector_return(void) {
     if (!read_word(0x83e0b028, &status)) { errors++; return; }
     if (hold_callbacks) {
         active = 2;
-        fprintf(stderr, "SELECTOR_REJECT held status=%" PRIu32 "\n", status);
+        fprintf(stderr, "SELECTOR_REJECT held status=%" PRIu32 " target=%u\n", status, hold_callbacks);
         return;
     }
     if (!write_word(target_address, saved_word)) { errors++; return; }
