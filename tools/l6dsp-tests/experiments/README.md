@@ -117,6 +117,60 @@ each MAIN, hashed to
 Stock and panel identities, channel files, QEMU and `l6dbg` matched the
 modeled-input capture cited above. QEMU source provenance is unattested.
 
+After the audio-queue shortcut was removed, a matched set on the rebuilt QEMU
+isolated the DSP paths. Apply either `combined_input_velvetonly.patch` or
+`combined_input_plateauonly.patch` after the stress patch in a disposable
+tree. The Velvet-only variant skips Plateau; the Plateau-only variant sends
+the B and cascade inputs directly to Plateau without Velvet. These are
+diagnostic substitutions, not the intended audio routing. Both retain the
+same 400-tap and full-range Plateau initialization, inputs, control sequence,
+capture instrumentation and 20-second observation as the combined run.
+
+| QEMU-only variant | First callback count | Second selection |
+| --- | ---: | --- |
+| Both effects | 3,359 | Still Room |
+| Velvet only | 4,351 | Still Room |
+| Plateau only | 10,024 | Spring selected |
+| Both bypassed | 9,889 | Spring selected |
+
+The checker accepted the Plateau-only and bypass observations and rejected
+both cases that stayed on Room. It also verified the three source/gain sends
+and nonzero bounded stereo output in the accepted cases. The nominal count
+is 15,000 per 20 seconds. These substitutions and instrumented modeled inputs
+make Velvet the stronger optimization lead in this workload; the figures do
+not measure hardware execution time or establish why the selection failed.
+
+The QEMU and `l6dbg` executable hashes were
+`13040494f8a58c681b18bef05886196ac37be526772bcb93c301875ed93d34da` and
+`0f113207ad23054dc91f1e8900f294c60b68fd985892213515c2e7aaf4ee87ba`.
+QEMU source provenance is unattested. Stock MAIN, original NOR, panel state
+and prepared channel files match the preceding modeled-input runs.
+In table order, the MAIN hashes were
+`452b330109a78867b29f2df04ced30613521b1eb0623e99468c528b1685ecba0`,
+`a6925b9a43c8318882e70c372c2f82ac1aaec9924deaf030c590539d7dc85b63`,
+`5f793b0378bd9734fb3800eb9903dbe2b05dfef1e644b3cb6d40f91699c754e5`, and
+`61e2a241cefef0b0c2438f43ca5c34fd07419b3bcfe252cc7637c8cecfb561c5`;
+the corresponding ELF hashes were
+`0e147599a43509dcf9d4e6adc189442fa1bb65ceabc0c5ad473369e7d4e8bd9e`,
+`d90b4c635cca36193956a1fd29d99bee5b8c42184efed2d235a25a1dbe30049e`,
+`715cc4b0ff10e04ecce6ef20c1ba271e950cd8a2ebedc958817c5da48c82760c`, and
+`a65d62f7be635da0b386b804fe22d4d6aeb3f6abe5a3e42e77d865566e545351`.
+The recipes hashed to
+`3a2a1022076123637ca4276a026f8da5dbf6f66d6f91787894f8dd789eeff6cd`,
+`02a54547193f94bd2b66205ed033c16ef30626f7a8341758722017c471411784`,
+`08eb815b951c978a20f1595d670b6067e3131af52b875cfe40d3fd86241a6d8b`, and
+`5745ef76677239ce2d14bc23f40bf7932823fb203c389025cc1fe8ce6170a887`;
+the observations hashed to
+`6e709d36cd96aa45cd8497d9f2691229d477ffcdec6063a41cfaa99907e36252`,
+`8b5db0a385abf49790a4c76115945193ae5003c190ab3217f5cb85500990312c`,
+`aca2d920fc9a9e83f62751ac306903953ce03663df78deb616e1adf1efa20ad7`, and
+`05f49dfef8d6432d558a97f0f8408ae2886514e58476a02f5a9fbc0a3cd96c4e`.
+Initial diagnostic NOR hashes in the same order were
+`f17354889c55b206589a4c995e65180281c0b4206d74b41efa8a8970c316eb68`,
+`5e0b6212e13bad8fd0770de525504fd63ba4d892ad2395362b7ead6a90de25a3`,
+`bcdf22c4a217957aa371ac7591c06d7cb37fa8f2e061aebed8e44f1819d972d5`, and
+`99ef280ccc69e46e933fadfa4a8fd9a0037f7a1d8764ce875869f777137e6688`.
+
 An unmodulated, low-level 128,000-frame impulse comparison against the derived
 Multistomp core at commit `7ea50ae6e30705989d0b8414ad5a83c97dbef0db` used
 size/predelay pairs 0.01/0 ms, 1.0/0 ms and 4.0/500 ms. The two inputs to

@@ -1,0 +1,27 @@
+--- a/patches/dual-efx/src/routing.rs
++++ b/patches/dual-efx/src/routing.rs
+@@ -403,21 +403,9 @@
+     /// Processes one frame, allowing firmware control updates to remain
+     /// interleaved with audio frames.
+     #[inline(always)]
+-    pub fn process_bus_sample(&mut self, send_a: f32, send_b: f32, send_cascade: f32) -> (f32, f32) {
+-        let cascade_gain = self.advance_cascade_gain();
+-        let ((a_l, a_r), (cascade_l, cascade_r)) = self.velvet
+-            .process_shared_mono(&mut self.cascade_history, send_a, send_cascade);
+-        // Reject a corrupt direct send before it can contaminate the separate
+-        // cascade contribution to the reverb.
+-        let send_b = super::math::audio_input(send_b);
+-        let (wet_b_l, wet_b_r) = self.plateau.process_sample(
+-            send_b + cascade_l * cascade_gain,
+-            send_b + cascade_r * cascade_gain,
+-        );
+-        (
+-            super::math::soft_clip((a_l + cascade_l) * self.return_gain_a + wet_b_l * self.return_gain_b),
+-            super::math::soft_clip((a_r + cascade_r) * self.return_gain_a + wet_b_r * self.return_gain_b),
+-        )
++    pub fn process_bus_sample(&mut self, _send_a: f32, send_b: f32, send_cascade: f32) -> (f32, f32) {
++        let input = super::math::audio_input(send_b + send_cascade);
++        self.plateau.process_sample(input, input)
+     }
+ 
+     /// Processes a stereo send block through the dual effect engine.
