@@ -140,7 +140,8 @@ def prepare_states(g, channel0_prefix, replay_tails):
     return original_source, source
 
 
-def compare(g, code, independent=False, channel0_prefix=False, replay_tails=None):
+def compare(g, code, independent=False, channel0_prefix=False, replay_tails=None,
+            inspect_tail=False, trace_control=False):
     g.expect('Hg1')
     g.expect('Z0,20228d86,2')
     g.packet('c')
@@ -153,6 +154,18 @@ def compare(g, code, independent=False, channel0_prefix=False, replay_tails=None
     g.write(0x80f00000, code)
     if g.read(0x80e00000, len(source)) != source or g.read(0x80f00000, len(code)) != code:
         raise RuntimeError('clone readback mismatch')
+    if trace_control:
+        # QEMU-only positive control for the instruction-scoped memory plugin.
+        # Save and restore registers while executing a single Thumb load from
+        # the cloned state's prefix, then stop at the existing return site.
+        registers = g.packet('g')
+        g.write(0x80f1ff00, bytes.fromhex('00687047'))
+        g.expect('Z0,20228d8a,2')
+        call_clone(g, registers, 0x80e00000, 0x80f1ff00)
+        if g.reg(15) != 0x20228d8a:
+            raise RuntimeError('trace positive-control return mismatch')
+        g.expect('z0,20228d8a,2')
+        g.expect('G' + registers)
     waveform = struct.pack('<64f', *(0.25 * math.sin(2 * math.pi * i / 16) for i in range(64)))
     other_code = prepare_second_clone(g, source, code) if independent else None
     other_waveform = (struct.pack('<64f', *(0.125 * math.sin(2 * math.pi * i / 11) for i in range(64)))
@@ -162,7 +175,8 @@ def compare(g, code, independent=False, channel0_prefix=False, replay_tails=None
     other_outputs = bytearray()
     checkpoints = {0, 15, 31, 63, 95}
     for frame in range(96):
-        output, other, reference_state = compare_block(g, frame, waveform, frame in checkpoints, other_waveform, reference_state)
+        output, other, reference_state = compare_block(g, frame, waveform, frame in checkpoints,
+                                                       other_waveform, reference_state, inspect_tail)
         outputs.extend(output)
         other_outputs.extend(other)
     result = summarize_outputs(outputs, other_outputs, checkpoints, other_code)
@@ -202,7 +216,28 @@ def prepare_second_clone(g, source, code):
     return other_code
 
 
-def compare_block(g, frame, waveform, checkpoint, other_waveform, reference_state):
+def report_tail_differences(g, frame):
+    stock = g.read(0x2028b94c, 0xdbc8)
+    clone = g.read(0x80e0b94c, 0xdbc8)
+    differences = [i for i, (a, b) in enumerate(zip(stock, clone)) if a != b]
+    if frame < 4 or differences:
+        first = hex(0xb94c + differences[0]) if differences else 'none'
+        last = hex(0xb94c + differences[-1]) if differences else 'none'
+        print(f'PRE_CALL frame={frame} differing_bytes={len(differences)} first={first} last={last}', flush=True)
+
+
+def check_clone_output(g, frame, original):
+    actual_return = g.reg(15)
+    actual = g.read(0x80e21000, 256)
+    if actual_return != 0x20228d8a or actual != original:
+        differing = [i for i in range(64) if original[4*i:4*i+4] != actual[4*i:4*i+4]]
+        first = differing[0] if differing else None
+        raise RuntimeError(f'clone return or output mismatch at block {frame}: return={actual_return:#x}, '
+                           f'differing_samples={len(differing)}, first_sample={first}, '
+                           f'stock_sha256={sha(original)}, clone_sha256={sha(actual)}')
+
+
+def compare_block(g, frame, waveform, checkpoint, other_waveform, reference_state, inspect_tail=False):
     if frame:
         g.expect('Z0,20228d86,2')
         g.packet('c')
@@ -210,6 +245,8 @@ def compare_block(g, frame, waveform, checkpoint, other_waveform, reference_stat
             raise RuntimeError(f'unexpected entry at block {frame}')
     g.expect('z0,20228d86,2')
     initial_regs = g.packet('g')
+    if inspect_tail:
+        report_tail_differences(g, frame)
     g.write(0x20011010, waveform)
     g.write(0x80e21000, waveform)
     if other_waveform is not None:
@@ -222,8 +259,7 @@ def compare_block(g, frame, waveform, checkpoint, other_waveform, reference_stat
     post_regs = g.packet('g')
     original_after = g.read(0x20280000, 0x20000) if checkpoint or other_waveform is not None else None
     call_clone(g, initial_regs, 0x80e21000, 0x80f00780)
-    if g.reg(15) != 0x20228d8a or g.read(0x80e21000, 256) != original:
-        raise RuntimeError(f'clone return or output mismatch at block {frame}')
+    check_clone_output(g, frame, original)
     if checkpoint:
         check_state(g, frame, original_after)
     other = b''
@@ -394,6 +430,8 @@ def parse_arguments():
     parser.add_argument('output', type=Path, help='new directory under the system temp directory')
     parser.add_argument('--qemu', required=True, type=Path, help='QEMU executable')
     parser.add_argument('--independent', action='store_true', help='compare a second clone using a different signal')
+    parser.add_argument('--inspect-tail', action='store_true', help='report candidate-tail differences before each clone call')
+    parser.add_argument('--trace-control', action='store_true', help='execute one QEMU-only watched-prefix read as a plugin positive control')
     parser.add_argument('--channel0-prefix', action='store_true', help='zero the unobserved state suffix in the copied states')
     parser.add_argument('--replay-tails', nargs=2, type=replay_tail, metavar=('REFERENCE', 'CANDIDATE'),
                         help='QEMU-only: replay captured reference and candidate tails')
@@ -407,8 +445,9 @@ def parse_arguments():
     parser.add_argument('--minimum-input', type=float, default=0.0,
                         help='require a finite stock sample larger than this magnitude in stereo mode')
     args = parser.parse_args()
-    if args.stereo and (args.independent or args.channel0_prefix or args.replay_tails):
-        parser.error('--stereo cannot be combined with independent, prefix or replay modes')
+    if args.stereo and any((args.independent, args.channel0_prefix, args.replay_tails,
+                            args.inspect_tail, args.trace_control)):
+        parser.error('--stereo cannot be combined with mono comparison options')
     if args.invert_second and not args.stereo:
         parser.error('--invert-second requires --stereo')
     if args.solo_prefix and not args.stereo:
@@ -439,6 +478,7 @@ def main():
                   'qemu_path': str(qemu), 'qemu_sha256': sha(qemu.read_bytes()),
                   'qemu_source': 'unattested', 'recipe_sha256': sha(recipe.read_bytes()),
                   'probe_sha256': sha(Path(__file__).read_bytes()), 'clone_sha256': sha(code),
+                  'probe_options': {'inspect_tail': args.inspect_tail, 'trace_control': args.trace_control},
                   'initial_state_files': {
                       str(path.relative_to(out / 'state')): sha(path.read_bytes())
                       for path in sorted((out / 'state').rglob('*')) if path.is_file()},
@@ -471,7 +511,8 @@ def main():
                 result = compare_stereo(Remote(socket_path), code, args.minimum_input, args.invert_second,
                                         args.solo_prefix, args.blocks)
             else:
-                result = compare(Remote(socket_path), code, args.independent, args.channel0_prefix, replay_tails)
+                result = compare(Remote(socket_path), code, args.independent, args.channel0_prefix,
+                                 replay_tails, args.inspect_tail, args.trace_control)
             result['snapshot_bytes'] = (0x27000 if args.stereo else len(replay_tails[1]) if replay_tails is not None
                                         else 0x19514 if args.channel0_prefix else 0x20000)
             process.wait(timeout=180)

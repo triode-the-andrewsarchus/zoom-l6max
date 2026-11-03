@@ -859,6 +859,23 @@ state word at offset `0xba4c` set to 1. The two input hashes are recorded in
 state or a test of capture synchronization. Keep captured firmware state in
 local temporary storage and never commit it.
 
+For the mono comparison, `--inspect-tail` reads the stock and first-clone
+candidate tails immediately before each first-clone comparison and reports byte-difference
+counts and first/last offsets. It adds debugger reads and perturbs timing; it
+does not identify the writer or establish a coherent snapshot. A mismatch
+reports the return address, number and first index of differing output words,
+and hashes rather than raw samples.
+
+`ainr_clone_trace.c` is an optional QEMU plugin that counts CPU reads and
+writes to each clone's prefix, candidate tail, suffix, and original stock
+state from instructions in the two copied code ranges. Build it as for the
+clear trace above and pass the wrapper as `--qemu`. The mono comparison's
+`--trace-control` additionally executes a single watched-prefix read in
+QEMU-only scratch; the plugin reports `positive=1` when it sees that load.
+Record the actual QEMU, wrapper, plugin, probe, fixture and replay identities.
+The trace does not cover helper instructions outside those copied ranges,
+other tasks' accesses, DMA, all input/state paths, or physical hardware.
+
 `--stereo` instead mirrors both natural stock calls, using 159,744 bytes of
 copied state and 96 blocks per channel. It compares each clone output and
 checks both working areas at four checkpoints. This mode needs modeled input
