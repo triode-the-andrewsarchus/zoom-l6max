@@ -47,6 +47,35 @@ recipe and result SHA-256 values were respectively
 `e56ce0b3fe58d0af0ad3cfba8b072c7cc34a5f53bbf8f26c0542b7db2d672267`.
 The other inputs and tools match the first run below.
 
+Applying `selector_reservation_lifetime.patch` on top of the reservation
+patch makes the inner hook resume callbacks while keeping the reservation
+until the panel apply call returns. This is still a disposable diagnostic;
+it does not prove that the inner hook is a safe point to resume callbacks or
+that the preexisting shared feedback scratch handles concurrent callers. For
+this variant read 40 bytes, rather than 28, at `0x83e0b040` after the wait.
+The additional words record the result of a diagnostic competing reservation,
+the sampled gate state, and the number of reopen attempts.
+
+One QEMU run of this variant recorded six starts, reopens and releases; at
+the last reopen the competing reservation was rejected and the gate value
+was 8 (reserved, open). After ten guest seconds, the selector counts were
+seven starts, drains and releases including startup, with no recorded
+rejections, and the sampled type and fade were 0 and one. The injected
+reservation check is not an actual concurrent caller. This run does not
+establish audio continuity, callback scheduling, state ownership or target
+timing. The modeled `resume_callbacks` operation requires the caller to have
+finished all state changes protected by the closure.
+
+The admission source, patched selector source, diagnostic MAIN, ELF, recipe
+and result SHA-256 values were respectively
+`652d3825c74b5f595a9b525dae0ed074d31da28ab2f809213a95a9d9b5289b53`,
+`9327fe3cc8ebe34ff58bc46288cb113e3032f213994c4a38212982f66714bec2`,
+`05529591a58d269579334e1ff5cb73f0f42f02b425b0dcd6874455302697c1dd`,
+`10bf0559f7082a3bde73f0b726cea0e513f5f2af937cde02d34a0caa4fa65c2b`,
+`ef455f79539dc3fc019a5b86951e5c234e87d01d9b6773a26d811d4bd0f949e1`, and
+`4cb9588944953f8d2038d9992d22c737f4094b4135ba26425e8a2e5637b2bcf7`.
+Stock fixture and tool identities match the first run below.
+
 The stock MAIN, source NOR, panel flash, options and RTC hashes were
 `980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
 `866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,

@@ -196,7 +196,9 @@ The blocking findings for L6max MAIN 1.10
   selection; the later fade sample was zero. It does not establish the
   blocked instruction or a safe recovery. Correcting its missing ramp branch
   for reservation guards let a matched sequence finish, but the ramp and
-  silence paths still use unproven shared scratch.
+  silence paths still use unproven shared scratch. A further disposable
+  variant kept the reservation after reopening callbacks until the observed
+  panel apply call returned; it does not prove that reopening is safe.
 - The QEMU-only pre-AINR prototype previously passed normalized sends into
   copied stock AINR and treated its output as normalized. In an active-input
   QEMU capture, the learned stock index-0 call instead received float samples

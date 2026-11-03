@@ -90,6 +90,14 @@ impl SelectorReservation<'_> {
     pub fn is_drained(&self) -> bool {
         self.gate.state.load(Ordering::Acquire) == (RESERVED | CLOSED)
     }
+
+    /// Admit callbacks again without allowing a competing selector. Call only
+    /// after all state changes protected by the closure are complete, or when
+    /// abandoning a closure before making any changes. The model cannot prove
+    /// that a firmware call site satisfies this requirement.
+    pub fn resume_callbacks(&mut self) {
+        self.gate.state.fetch_and(!CLOSED, Ordering::Release);
+    }
 }
 
 impl Drop for SelectorReservation<'_> {
@@ -188,6 +196,26 @@ mod tests {
             drop(live);
             assert!(gate.try_enter(CallbackPath::FileMix).is_some());
         }
+    }
+
+    #[test]
+    fn resumed_callbacks_do_not_release_selector_reservation() {
+        let gate = CallbackAdmission::new();
+        let mut selector = gate.try_reserve_selector().unwrap();
+        selector.close();
+        assert!(selector.is_drained());
+        selector.resume_callbacks();
+        assert!(!selector.is_drained());
+        assert!(gate.try_reserve_selector().is_none());
+        assert!(gate.try_close().is_none());
+        let live = gate.try_enter(CallbackPath::Live).unwrap();
+        selector.close();
+        assert!(!selector.is_drained());
+        drop(live);
+        assert!(selector.is_drained());
+        selector.resume_callbacks();
+        drop(selector);
+        assert!(gate.try_reserve_selector().is_some());
     }
 
     #[test]

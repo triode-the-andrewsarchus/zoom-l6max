@@ -1,0 +1,15 @@
+--- a/tools/l6dsp-tests/probe/selector_admission.rs
++++ b/tools/l6dsp-tests/probe/selector_admission.rs
+@@ -125,7 +125,11 @@
+     unsafe {
+         if read(ACTIVE as *const u32) == 2 {
+             write(ACTIVE as *mut u32, 0);
+-            reservation_finish();
++            (&mut *(RESERVATION as *mut SelectorReservation<'static>)).resume_callbacks();
++            let gate = &*(GATE as *const CallbackAdmission);
++            write(0x83e0b05c as *mut u32, u32::from(gate.try_reserve_selector().is_none()));
++            write(0x83e0b060 as *mut u32, read(GATE as *const u32));
++            write(0x83e0b064 as *mut u32, read(0x83e0b064 as *const u32).wrapping_add(1));
+             increment(3);
+             return;
+         }
