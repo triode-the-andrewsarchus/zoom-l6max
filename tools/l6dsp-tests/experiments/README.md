@@ -1,4 +1,47 @@
-# Host-only DSP experiments
+# DSP and QEMU-only experiments
+
+## Selector early-rejection fade experiment
+
+`selector_early_fade.patch` changes the QEMU-only selector diagnostic to
+attempt the same fade-in cleanup after immediate rejection as after a drained
+gate timeout. Apply it only to a disposable copy of the probe sources; it is
+not part of an installable patch. Build the timeout/feedback diagnostic and
+fault injector as described in the [selector rejection probe](../probe/README.md#callback-admission-model).
+The injector accepts `closed=on,hold=750` to force an initially idle gate
+closed at selector entry, then restore it after 750 entries to the observed
+effect wrapper. It does not create a second selector or own the gate as a
+real selector would. Use the ELF's verified `begin` and `return` addresses;
+the observed build used `0x801083ac` and `0x801082ec`. Check the resulting
+report and plugin log with `selector_reject_check.py --fade-restored --closed
+--hold 750`.
+
+In one such run, the old callback and effect type remained selected, the
+sampled fade returned from zero to one, and the next button press selected
+Spring. The injector observed exactly 750 wrapper entries before restoring
+the gate. This does not measure audio continuity or the duration of the
+interruption, model a real competing owner, cover a gate that never reopens,
+or establish target timing, ownership, or physical safety. The ordinary
+diagnostic retains its original immediate-rejection path and still has the
+unrestored-fade limitation.
+
+The stock MAIN, initial NOR, panel flash, options and RTC were respectively
+`980d92272c1f84bed200b4d2f83575202f6a00082c928d99b9e8b53af8d44461`,
+`866ac2f085a00ccf208e9bf9394df31fb847a5bf69fe90f0e674fe88a1e9791a`,
+`6569a6b15c745b7ca05339180f67a04dc3c0be7de2cc8559b34baa6486918443`,
+`bf906cd362964d265fdb27547a75d2ad2ce86cccec49cdc613764a77dc5f149d` and
+`a739c81a2de75821cd9c526bc049fa10f7b902577cadf5af3faaad15d38991b1`.
+The diagnostic MAIN, ELF, recipe, QEMU, `l6dbg`, plugin, wrapper, result and
+plugin log were respectively
+`bd22e86bc5497ae5ccb99b15b7234912dcbb10fd705851e6680136be86a30892`,
+`c627043e12f77bdd9dddac594df47dd65719498b7b2f8dd5edae5f106ceac652`,
+`3192274a7cb6a1dfd051132308037696b0436d3dc69523308cf230795c26dd89`,
+`23e4c6a57b2a265cc4fa460d67ae561b7b69bc81de74ec724503f4686dc75f21`,
+`5696507a3c93a86c04df62d65ae7e2b4d3309a412d39b01cfd1b217f1c6dfd6a`,
+`70aee63436ab2b93772b17262f6b75bed4e26c32b3fee9d9fc489553f7bccc57`,
+`f37dd7144ac312579ff82c219c91582b13bd7d9c772fd842221c84efafc5b7eb`,
+`0d08af8ba6799859ca98d3df778d12499d224f13726b91cae48057f2806d0cdf`, and
+`88fcb21f1f73f01ea540c976280ae74658617ee52e612dc18cd3653a3e9c3313`.
+QEMU source provenance is unattested.
 
 `python3 tools/l6dsp-tests/experiments/plateau_rate.py` requires NumPy and
 models a 48 kHz → 32 kHz → 48 kHz stereo identity path. It uses the supplied

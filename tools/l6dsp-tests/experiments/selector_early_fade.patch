@@ -1,0 +1,11 @@
+--- a/tools/l6dsp-tests/probe/selector_admission.rs
++++ b/tools/l6dsp-tests/probe/selector_admission.rs
+@@ -106,7 +106,7 @@
+     push.w {{r0, r1, r2, r3, r12, lr}}
+     bl selector_handoff_begin
+     cmp r0, #0
+-    beq .Labort
++    beq .Ltimeout
+     cmp r0, #2
+     beq .Ltimeout
+     pop.w {{r0, r1, r2, r3, r12, lr}}

@@ -41,6 +41,21 @@ class SelectorRejectCheckTests(unittest.TestCase):
             with self.subTest(name=name), self.assertRaises(ValueError):
                 check(bad, trace)
 
+    def test_held_closed_gate_requires_matching_trace_and_restored_fade(self):
+        report, _ = fixture()
+        fade = next(e['observation'] for e in report['events'] if e['observation']['name'] == 'fade_after')
+        fade['bytes'] = list(struct.pack('<I', 0x3f800000))
+        trace = ('SELECTOR_REJECT injected gate=00000000\n'
+                 'SELECTOR_REJECT held status=1\n'
+                 'SELECTOR_REJECT restored callbacks=750\n'
+                 'SELECTOR_REJECT injected=1 restored=1 active=0 errors=0\n')
+        self.assertTrue(check(report, trace, fade_restored=True, hold=750, closed=True)['fade_restored'])
+        for kwargs in ({'fade_restored': False, 'hold': 750, 'closed': True},
+                       {'fade_restored': True, 'hold': 749, 'closed': True},
+                       {'fade_restored': True, 'hold': 750, 'closed': False}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
+                check(report, trace, **kwargs)
+
 
 if __name__ == '__main__':
     unittest.main()
