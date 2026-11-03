@@ -1,0 +1,89 @@
+--- a/patches/dual-efx/src/block.rs
++++ b/patches/dual-efx/src/block.rs
+@@ -10 +10,64 @@
+-fn block_convolve(bank: &Bank, a: &[f32; HISTORY_SAMPLES], b: &[f32; HISTORY_SAMPLES], start: usize, len: usize, out: &mut [[f32; BLOCK]; 2]) {
++fn block_convolve(
++    bank: &Bank,
++    a: &[f32; HISTORY_SAMPLES],
++    b: &[f32; HISTORY_SAMPLES],
++    start: usize,
++    len: usize,
++    out: &mut [[f32; BLOCK]; 2],
++) {
++    let mut offset = 0;
++    while offset + 8 <= len {
++        let pos = (start + offset) % HISTORY_SAMPLES;
++        let (mut a0, mut a1, mut a2, mut a3, mut a4, mut a5, mut a6, mut a7) =
++            (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
++        let (mut b0, mut b1, mut b2, mut b3, mut b4, mut b5, mut b6, mut b7) =
++            (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
++        for tap in &bank.storage[..bank.count] {
++            let delay = tap.delay as usize;
++            let read = if pos >= delay {
++                pos - delay
++            } else {
++                pos + HISTORY_SAMPLES - delay
++            };
++            if read <= HISTORY_SAMPLES - 8 {
++                let aa = &a[read..read + 8];
++                let bb = &b[read..read + 8];
++                a0 += tap.gain * aa[0];
++                a1 += tap.gain * aa[1];
++                a2 += tap.gain * aa[2];
++                a3 += tap.gain * aa[3];
++                a4 += tap.gain * aa[4];
++                a5 += tap.gain * aa[5];
++                a6 += tap.gain * aa[6];
++                a7 += tap.gain * aa[7];
++                b0 += tap.gain * bb[0];
++                b1 += tap.gain * bb[1];
++                b2 += tap.gain * bb[2];
++                b3 += tap.gain * bb[3];
++                b4 += tap.gain * bb[4];
++                b5 += tap.gain * bb[5];
++                b6 += tap.gain * bb[6];
++                b7 += tap.gain * bb[7];
++            } else {
++                a0 += tap.gain * a[(read + 0) % HISTORY_SAMPLES];
++                a1 += tap.gain * a[(read + 1) % HISTORY_SAMPLES];
++                a2 += tap.gain * a[(read + 2) % HISTORY_SAMPLES];
++                a3 += tap.gain * a[(read + 3) % HISTORY_SAMPLES];
++                a4 += tap.gain * a[(read + 4) % HISTORY_SAMPLES];
++                a5 += tap.gain * a[(read + 5) % HISTORY_SAMPLES];
++                a6 += tap.gain * a[(read + 6) % HISTORY_SAMPLES];
++                a7 += tap.gain * a[(read + 7) % HISTORY_SAMPLES];
++                b0 += tap.gain * b[(read + 0) % HISTORY_SAMPLES];
++                b1 += tap.gain * b[(read + 1) % HISTORY_SAMPLES];
++                b2 += tap.gain * b[(read + 2) % HISTORY_SAMPLES];
++                b3 += tap.gain * b[(read + 3) % HISTORY_SAMPLES];
++                b4 += tap.gain * b[(read + 4) % HISTORY_SAMPLES];
++                b5 += tap.gain * b[(read + 5) % HISTORY_SAMPLES];
++                b6 += tap.gain * b[(read + 6) % HISTORY_SAMPLES];
++                b7 += tap.gain * b[(read + 7) % HISTORY_SAMPLES];
++            }
++        }
++        out[0][offset..offset + 8].copy_from_slice(&[a0, a1, a2, a3, a4, a5, a6, a7]);
++        out[1][offset..offset + 8].copy_from_slice(&[b0, b1, b2, b3, b4, b5, b6, b7]);
++        offset += 8;
++    }
+@@ -13,11 +76,9 @@
+-        let read = if start >= delay { start - delay } else { start + HISTORY_SAMPLES - delay };
+-        let first = len.min(HISTORY_SAMPLES - read);
+-        for (pos, dst, count) in [(read, 0, first), (0, first, len - first)] {
+-            let (left, right) = out.split_at_mut(1);
+-            for (((out_a, out_b), input_a), input_b) in left[0][dst..dst + count].iter_mut()
+-                .zip(right[0][dst..dst + count].iter_mut())
+-                .zip(&a[pos..pos + count]).zip(&b[pos..pos + count])
+-            {
+-                *out_a += tap.gain * *input_a;
+-                *out_b += tap.gain * *input_b;
+-            }
++        for i in offset..len {
++            let pos = (start + i) % HISTORY_SAMPLES;
++            let read = if pos >= delay {
++                pos - delay
++            } else {
++                pos + HISTORY_SAMPLES - delay
++            };
++            out[0][i] += tap.gain * a[read];
++            out[1][i] += tap.gain * b[read];

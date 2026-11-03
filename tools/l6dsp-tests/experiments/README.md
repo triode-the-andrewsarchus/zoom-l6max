@@ -402,6 +402,52 @@ observations `5019455a306de7ab835dd708b69b6919c612a129115a007525fae9896fd17745` 
 callback sources `35861bec5ef772a4a0e8931de20e65465e835f8de3f327cb2fcf68a0f842cf88` /
 `059e4e3e0383efc83975d7c7a0d6217c71b3e7df49da64a9292de8d686297bff`.
 
+`velvet_tile_qemu.patch` applies after `velvet_scheduler_qemu.patch` with
+`git apply --unidiff-zero`. It changes the experimental convolution to compute
+eight samples at a time, keeping their sums local and retaining tap order.
+The patch still uses the scheduler's unowned QEMU scratch and must never be
+installed. It requires the scratch output sums to start at zero, as the
+diagnostic caller currently arranges.
+
+For host checks, save an unmodified copy of `patches/dual-efx/src/velvet.rs`
+as `original.rs` beside it before applying the disposable patch chain. After
+applying the tile patch, apply `velvet_tile_host.patch` with
+`git apply --unidiff-zero`, copy `velvet_scheduler_host.rs` into that source
+directory as `host.rs`, and from that directory run `rustc --edition=2024 -O --test host.rs -o
+/tmp/velvet-scheduler-test && /tmp/velvet-scheduler-test`. The host patch
+substitutes local buffers for the QEMU-only addresses and adds a direct
+convolution test. It does not test the QEMU scratch. The 26 host tests include
+bitwise comparisons over all chunk lengths and several ring-boundary starts,
+plus bounded scheduler, edit, fade, fallback and expanded-ring comparisons.
+
+One `opt-level=3` run of the formatted eight-sample variant completed 6,836
+callbacks at the first observation, reconstructing the three modeled sends
+and producing bounded nonzero stereo output. The second selection still
+remained Room; the nominal first count is 15,000. Two earlier, unformatted
+builds of the same algorithm counted 6,839 and 6,840; two prior untiled runs
+on the same QEMU and input fixture counted 6,219 and 6,369. These instrumented
+runs suggest a modest model-specific improvement, not a target deadline or a
+hardware-safe integration. Stack metadata for the formatted diagnostic reports
+896 bytes for the callback, 200 for the scheduler, and 168 for the convolution;
+these local sizes exclude other callees and interrupts. The host substitution
+uses a stack buffer and does not qualify the diagnostic's scratch ownership.
+
+The QEMU executable, stock inputs, initial panel state and `l6dbg` match the
+preceding matched pair. The formatted tile MAIN, ELF, recipe and observation
+were `abfd030020c89de417149153fcd25d6a52204a543331d74c7180250e56f074cd`,
+`38472994b7414341d477c1c4291710a333e4ce4d0deec861e911d61dd9e3c833`,
+`70b2664c413178b10893b4c2f035b724ef0abc7e503910246a3e12188744117c`, and
+`92d889fcb0878b0104f83958f3be1c83b2cddb945564c15a3d07ef06fd42e6a3`.
+The initial diagnostic NOR was
+`4316c774076061c10e08ee4bc47362169180989aabe292c0623cdcaffc870f5e`;
+the stack-metadata ELF was
+`ef93565f90788fb88e0fed201d3ce6085084ebad7972f4d601c944c8fa10fc18`.
+The QEMU and host block sources were
+`7cdd1ea28ae987ce028a7736d55c46a6e0242f92721024e30190e1d72079387b` and
+`bd205fd821af5c79272087bc15ad0aca9e4ee1973bfe4900361f57812dcace5e`;
+the host test executable was
+`7ef9685b69692d2a7aa8fa01ac6827ea15ea46a849204dbbc2804d7239a5c6ec`.
+
 The stock and panel identities, modeled channel files, QEMU
 `13040494f8a58c681b18bef05886196ac37be526772bcb93c301875ed93d34da` and
 `l6dbg` `0f113207ad23054dc91f1e8900f294c60b68fd985892213515c2e7aaf4ee87ba`

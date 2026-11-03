@@ -1,0 +1,119 @@
+--- a/patches/dual-efx/src/block.rs
++++ b/patches/dual-efx/src/block.rs
+@@ -128,2 +128 @@
+-            let sums = unsafe { &mut *(0x83e10000 as *mut [[[[f32; BLOCK]; 2]; 2]; 2]) };
+-            unsafe { core::ptr::write_bytes(sums as *mut _, 0, 1); }
++            let mut sums = [[[[0.0f32; BLOCK]; 2]; 2]; 2];
+@@ -156,0 +156,49 @@
++    fn tile_convolution_matches_reference_for_every_chunk_length_and_wrap() {
++        let mut bank = Bank::new();
++        bank.count = 400;
++        for i in 0..400 {
++            bank.storage[i] = Tap {
++                delay: ((i * 97) % 4801) as u32,
++                gain: ((i % 17) as f32 - 8.0) / 64.0,
++            };
++        }
++        let mut a = Box::new([0.0f32; HISTORY_SAMPLES]);
++        let mut b = Box::new([0.0f32; HISTORY_SAMPLES]);
++        for i in 0..HISTORY_SAMPLES {
++            a[i] = ((i * 31 % 103) as f32 - 51.0) / 128.0;
++            b[i] = ((i * 17 % 97) as f32 - 48.0) / 128.0;
++        }
++        for start in [
++            0,
++            1,
++            2,
++            3,
++            59,
++            4800,
++            HISTORY_SAMPLES - 4,
++            HISTORY_SAMPLES - 3,
++            HISTORY_SAMPLES - 2,
++            HISTORY_SAMPLES - 1,
++        ] {
++            for len in 0..=64 {
++                let mut actual = [[0.0f32; BLOCK]; 2];
++                block_convolve(&bank, &a, &b, start, len, &mut actual);
++                for i in 0..len {
++                    let mut expected = [0.0f32; 2];
++                    for tap in &bank.storage[..bank.count] {
++                        let read = (start + i + HISTORY_SAMPLES - tap.delay as usize) % HISTORY_SAMPLES;
++                        expected[0] += tap.gain * a[read];
++                        expected[1] += tap.gain * b[read];
++                    }
++                    for bus in 0..2 {
++                        assert_eq!(
++                            actual[bus][i].to_bits(),
++                            expected[bus].to_bits(),
++                            "start={start} len={len} sample={i} bus={bus}"
++                        );
++                    }
++                }
++            }
++        }
++    }
++    #[test]
+@@ -159,4 +207,10 @@
+-            let params=Parameters { dynamic: false, ..Parameters::default() };
+-            let mut scalar=Box::new(VelvetDecorrelator::new());scalar.init(params);
+-            let mut block=Box::new(VelvetDecorrelator::new());block.init(params);
+-            let mut sh=Box::new(MonoHistory::new());let mut bh=Box::new(MonoHistory::new());
++            let params = Parameters {
++                dynamic: false,
++                ..Parameters::default()
++            };
++            let mut scalar = Box::new(VelvetDecorrelator::new());
++            scalar.init(params);
++            let mut block = Box::new(VelvetDecorrelator::new());
++            block.init(params);
++            let mut sh = Box::new(MonoHistory::new());
++            let mut bh = Box::new(MonoHistory::new());
+@@ -164,3 +218,12 @@
+-                1 => { scalar.channels[1].write_position=20;block.channels[1].write_position=20; }
+-                2 => { scalar.channels[0].banks[0].storage[0].delay=HISTORY_SAMPLES as u32+5;block.channels[0].banks[0].storage[0].delay=HISTORY_SAMPLES as u32+5; }
+-                3 => { scalar.channels[0].banks[0].count=401;block.channels[0].banks[0].count=401; }
++                1 => {
++                    scalar.channels[1].write_position = 20;
++                    block.channels[1].write_position = 20;
++                }
++                2 => {
++                    scalar.channels[0].banks[0].storage[0].delay = HISTORY_SAMPLES as u32 + 5;
++                    block.channels[0].banks[0].storage[0].delay = HISTORY_SAMPLES as u32 + 5;
++                }
++                3 => {
++                    scalar.channels[0].banks[0].count = 401;
++                    block.channels[0].banks[0].count = 401;
++                }
+@@ -169,4 +232,27 @@
+-            let mut a=[0.0f32;64];let mut b=a;
+-            for i in 0..64 {a[i]=if i==7 {f32::NAN} else if i==9 {f32::INFINITY} else if i%3==0 {-0.0} else {i as f32/128.0};b[i]=-a[i];}
+-            let mut actual=[[0.0f32;4];64];block.experimental_shared_block(&mut bh,&a,&b,&mut actual);
+-            for i in 0..64 {let ((al,ar),(bl,br))=scalar.process_shared_mono(&mut sh,a[i],b[i]);let expected=[al,ar,bl,br];for j in 0..4 {assert_eq!(actual[i][j].to_bits(),expected[j].to_bits(),"case={case} frame={i} output={j}");}}
++            let mut a = [0.0f32; 64];
++            let mut b = a;
++            for i in 0..64 {
++                a[i] = if i == 7 {
++                    f32::NAN
++                } else if i == 9 {
++                    f32::INFINITY
++                } else if i % 3 == 0 {
++                    -0.0
++                } else {
++                    i as f32 / 128.0
++                };
++                b[i] = -a[i];
++            }
++            let mut actual = [[0.0f32; 4]; 64];
++            block.experimental_shared_block(&mut bh, &a, &b, &mut actual);
++            for i in 0..64 {
++                let ((al, ar), (bl, br)) = scalar.process_shared_mono(&mut sh, a[i], b[i]);
++                let expected = [al, ar, bl, br];
++                for j in 0..4 {
++                    assert_eq!(
++                        actual[i][j].to_bits(),
++                        expected[j].to_bits(),
++                        "case={case} frame={i} output={j}"
++                    );
++                }
++            }
