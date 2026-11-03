@@ -851,6 +851,26 @@ and main trace were
 `4191f7dc10218e81a8a1742e9cac190bb61526be9993a20a69129785e3cdbfde`.
 QEMU source provenance is unattested.
 
+Add `task=on` alongside `selector=on` in the plugin argument to read the
+L6max 1.10 current-TCB pointer, priority and task name at the extra selector
+sites. Inspect every `CLEAR_TASK` line and reject read errors. This reads guest
+memory through QEMU's plugin API, which does not guarantee prior writes have
+been flushed; it perturbs execution and does not distinguish task execution
+from an interrupt that interrupted that task. The fixed addresses and TCB
+layout are scoped to this firmware revision.
+
+With the same stock MAIN, initial fixture, QEMU, `l6dbg` and recipe as the
+preceding run, all 19 selector-site observations read TCB `0x808ad2d0`, name
+`Main` and priority 12, with no read errors. This includes the batch path and
+the two button-selection paths in this single run; it does not establish
+other contexts, stack bounds, synchronization or physical behavior. The
+plugin source, binary, wrapper, result and main trace were respectively
+`0fe8a2a23f143c2b8fc0302a3757967f2259cb15d7b2b1b6b744aedfe329c566`,
+`599edc8870e4ca1d2944df8c108c038dd9c34c1040658f908e8f34a59b763d1e`,
+`a4b59227b9d54a671223aa6030183929f2774ebd4aa941f4b547b3e205b7a109`,
+`985e8ec3b11bc947d6c12c84aa13df5f1df8443f025903e6689c5a81d3745556`, and
+`70c920339a9efe5fd66ad8ec29b16ac1d6022c16758800c41779770c8f20f7a6`.
+
 ## Isolated AINR comparison
 
 This focused QEMU diagnostic reruns the copied-AINR experiment described in
