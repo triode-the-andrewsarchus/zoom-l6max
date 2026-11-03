@@ -120,9 +120,9 @@ def check_combined_sends(source, sends, gains, label):
     return peaks
 
 
-def check_combined_effect(events, label, descriptor):
+def check_combined_effect(events, label, descriptor, processor_size=512112):
     config = struct.unpack('<ffII', capture(events, label, 'config', 16))
-    if config != (4.0, 500.0, 512112, 400):
+    if config != (4.0, 500.0, processor_size, 400):
         raise ValueError(f'{label}: unexpected processor configuration {config}')
     marker, selected, count = struct.unpack('<III', capture(events, label, 'state', 12))
     signal, captured = struct.unpack('<II', capture(events, label, 'marker', 8))
@@ -134,11 +134,11 @@ def check_combined_effect(events, label, descriptor):
             'levels': check_levels(events, label, count)}
 
 
-def check_combined(report):
+def check_combined(report, processor_size=512112):
     if report.get('outcome') != 'complete' or report.get('model') != 'l6max':
         raise ValueError('diagnostic did not complete for L6max')
     events = {e['observation'].get('name'): e['observation'] for e in report['events']}
-    return {label: check_combined_effect(events, label, descriptor)
+    return {label: check_combined_effect(events, label, descriptor, processor_size)
             for label, descriptor in (('plateau', 0x2028b8dc), ('velvet', 0x2028b8f8))}
 
 
@@ -222,12 +222,15 @@ def main():
     parser.add_argument('--ui-route', action='store_true', help='check the combined UI routing probe')
     parser.add_argument('--ui-overflow', action='store_true', help='check the forced inspector rejection probe')
     parser.add_argument('--combined-stress', action='store_true', help='check the QEMU-only three-bus stress capture')
+    parser.add_argument('--combined-processor-size', type=int, help='expected processor bytes for a modified three-bus stress probe')
     parser.add_argument('--probe-elf', type=Path, help='effect ELF from this combined UI diagnostic')
     args = parser.parse_args()
     if sum((args.ui_route, args.ui_overflow, args.combined_stress)) > 1:
         parser.error('capture check modes cannot be combined')
     if (args.ui_route or args.ui_overflow) != (args.probe_elf is not None):
         parser.error('a UI check and --probe-elf must be supplied together')
+    if args.combined_processor_size is not None and (not args.combined_stress or args.combined_processor_size <= 0):
+        parser.error('--combined-processor-size requires --combined-stress and a positive byte count')
     try:
         report = json.loads(args.report.read_text())
         if args.ui_route:
@@ -235,7 +238,7 @@ def main():
         elif args.ui_overflow:
             result = check_ui_overflow(report, callback_from_elf(args.probe_elf))
         elif args.combined_stress:
-            result = check_combined(report)
+            result = check_combined(report, args.combined_processor_size or 512112)
         else:
             result = check(report)
     except (OSError, ValueError, KeyError, TypeError, struct.error, OverflowError, subprocess.CalledProcessError) as error:

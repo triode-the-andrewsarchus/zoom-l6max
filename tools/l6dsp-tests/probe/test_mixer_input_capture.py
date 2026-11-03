@@ -50,6 +50,14 @@ class MixerInputCaptureTests(unittest.TestCase):
                 struct.pack_into('<f', gains, 0x38 + 8 * slot, 0.25)
             field(good, f'{label}_gains')[:] = gains
         self.assertEqual(check_combined(good)['plateau']['send_peaks'], [0.125] * 3)
+        expanded = copy.deepcopy(good)
+        for label in ('plateau', 'velvet'):
+            field(expanded, f'{label}_config')[8:12] = list(struct.pack('<I', 512856))
+        with self.assertRaisesRegex(ValueError, 'unexpected processor configuration'):
+            check_combined(expanded)
+        self.assertEqual(check_combined(expanded, 512856)['plateau']['send_peaks'], [0.125] * 3)
+        with self.assertRaisesRegex(ValueError, 'unexpected processor configuration'):
+            check_combined(expanded, 512855)
         bad = copy.deepcopy(good)
         field(bad, 'plateau_sends')[:256] = [0] * 256
         with self.assertRaisesRegex(ValueError, 'bus 0'):

@@ -98,7 +98,9 @@ responsiveness, audio parity, memory ownership or safe installation.
 
 `mixer_input_capture.py --combined-stress REPORT` checks the parameters,
 selections, individual sends, bounded stereo output and aggregate levels for
-this variant. The loaded observation is expected to fail its second
+this variant. For a modified processor layout, provide its independently
+verified size with `--combined-processor-size BYTES`; the checker still
+requires both selections and all other checks to pass. The loaded observation is expected to fail its second
 selection check; the bypass observation passed. The original temporary
 checker was `c9b4b677dc459eb0865bcdd6ceb5f058464735feed7e7c49edbe246caced537b`.
 The loaded/control diagnostic MAIN hashes were
