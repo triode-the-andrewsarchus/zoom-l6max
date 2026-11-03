@@ -33,6 +33,41 @@ test exposed that error and the current buffers include it. The host model's
 input/output histories add 1,024 bytes; coefficients and other overhead are
 separate. This does not qualify allocation or target timing.
 
+### Modeled audio at the full-range endpoints
+
+`plateau_32k_input.patch` is a **QEMU-only** adaptation of the existing
+`--callback --mixer-input-capture` probe. Apply it only in a disposable tree
+containing copies of `tools/l6dsp-tests/probe` and `patches/dual-efx/src`;
+it enables `experimental_plateau_32k`, initializes Plateau with size 4.0 and
+500 ms predelay, records those parameters and the processor size in unowned
+scratch, and delays the one-shot capture to callback 2,500. Build the probe
+with the repository's pinned Rust toolchain. Never install its image.
+
+For one run, prepared channel files from the `l6max-audio-input` scenario
+were supplied through `L6_AUDIO_INPUT_DIR`; the generated diagnostic recipe
+started audio after its initial wait, waited 12 seconds at each custom effect,
+and read 12 bytes at `0x83e03f20` after each selection. Both reads reported
+size 4.0, predelay 500.0 ms, and processor size 512,112 bytes. The normal
+capture checker reconstructed the routed sends and found finite, nonzero
+stereo returns for Plateau and Velvet. It counted 6,192 and 5,858 active
+blocks, respectively. This is one fixed-route, instrumented modeled-input
+run; it does not establish audio parity, physical timing, memory ownership,
+UI control, or safe installation.
+
+The stock MAIN, initial NOR, panel state, input files, QEMU, `l6dbg`, and
+checker match the modeled-input run in the [probe README](../probe/README.md#mixer-input-capture).
+The diagnostic MAIN, ELF, recipe and observation hashes were
+`4f167ee7ff9d9f5b11d1df209c50b14d16f27f89ecb08755205f4b2202ea6fed`,
+`3f154cf90f3a1ec970153ea00020d7905709aed2b82896c68ee18f32a7c900f5`,
+`5f0932d77af9ee156c7bf055c50547674dd2a357d621e1b70105acaf90239753`, and
+`28179c23ebc5e592c8414693ea21453dfc454f3b51aba67cea969756b858548f`.
+The initial diagnostic NOR reconstructed from the stock NOR and diagnostic
+MAIN hashed to `3857f483f7d7339b54ca21081a2f0cc8c414d1c7de73427ea7013f4e8c182582`.
+The modified preparer, callback and capture source hashes were
+`accef9c75f4c49686905669617179f21f2cb4ef667fb4d1aa6c7ffc17d8a9106`,
+`34c09dbbc9b6bdffe5798df96f0cf03f08c187daf9d280fc7341da9ba7eb622d`, and
+`a720d406a23dba63694a2fbfc93ab249132e65f6bd0ebce6e1b91d0555340709`.
+
 An unmodulated, low-level 128,000-frame impulse comparison against the derived
 Multistomp core at commit `7ea50ae6e30705989d0b8414ad5a83c97dbef0db` used
 size/predelay pairs 0.01/0 ms, 1.0/0 ms and 4.0/500 ms. The two inputs to

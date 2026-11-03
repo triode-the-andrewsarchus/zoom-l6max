@@ -1,0 +1,43 @@
+--- a/tools/l6dsp-tests/probe/prepare.py
++++ b/tools/l6dsp-tests/probe/prepare.py
+@@ -228,6 +228,7 @@
+     "-C", f"opt-level={args.opt_level}", "-C", "panic=abort", "-C", "relocation-model=static",
+     "-C", f"link-arg=-T{PROBE / 'link.ld'}", "-o", str(elf),
+ ]
++rustc += ["--cfg", "experimental_plateau_32k"]
+ if args.stack_sizes:
+     rustc += ["-Z", "emit-stack-sizes=yes"]
+ if args.mixer_input_capture:
+--- a/tools/l6dsp-tests/probe/callback.rs
++++ b/tools/l6dsp-tests/probe/callback.rs
+@@ -150,7 +150,18 @@
+         let storage = 0x80d00000 as *mut core::mem::MaybeUninit<routing::DualEfxProcessor>;
+         if !reuse {
+             #[cfg(not(max_velvet_density))]
+-            routing::DualEfxProcessor::initialize_in_place(unsafe { &mut *storage });
++            {
++                let processor = routing::DualEfxProcessor::initialize_in_place(unsafe { &mut *storage });
++                let mut params = processor.plateau.params;
++                params.size = 4.0;
++                params.predelay_ms = 500.0;
++                processor.plateau.init(params);
++                unsafe {
++                    core::ptr::write_volatile(0x83e03f20 as *mut u32, processor.plateau.params.size.to_bits());
++                    core::ptr::write_volatile(0x83e03f24 as *mut u32, processor.plateau.params.predelay_ms.to_bits());
++                    core::ptr::write_volatile(0x83e03f28 as *mut u32, core::mem::size_of::<routing::DualEfxProcessor>() as u32);
++                }
++            }
+             #[cfg(max_velvet_density)]
+             {
+                 let processor = routing::DualEfxProcessor::initialize_in_place(unsafe { &mut *storage });
+--- a/tools/l6dsp-tests/probe/mixer_capture.rs
++++ b/tools/l6dsp-tests/probe/mixer_capture.rs
+@@ -11,7 +11,7 @@
+ #[inline(always)]
+ pub unsafe fn begin(sends: &[[f32; 64]; 3], counter: *const u32) -> bool {
+     unsafe {
+-        if core::ptr::read_volatile(counter) < 100
++        if core::ptr::read_volatile(counter) < 2500
+             || !sends.iter().flatten().any(|x| *x > 1e-7 || *x < -1e-7)
+             || core::ptr::read_volatile(0x83e00800 as *const u32) != 0
+         {
