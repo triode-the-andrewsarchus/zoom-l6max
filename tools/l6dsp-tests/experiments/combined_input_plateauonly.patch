@@ -1,8 +1,6 @@
 --- a/patches/dual-efx/src/routing.rs
 +++ b/patches/dual-efx/src/routing.rs
-@@ -403,21 +403,9 @@
-     /// Processes one frame, allowing firmware control updates to remain
-     /// interleaved with audio frames.
+@@ -405,17 +405,5 @@
      #[inline(always)]
 -    pub fn process_bus_sample(&mut self, send_a: f32, send_b: f32, send_cascade: f32) -> (f32, f32) {
 -        let cascade_gain = self.advance_cascade_gain();
@@ -23,5 +21,3 @@
 +        let input = super::math::audio_input(send_b + send_cascade);
 +        self.plateau.process_sample(input, input)
      }
- 
-     /// Processes a stereo send block through the dual effect engine.
