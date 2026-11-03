@@ -7,7 +7,8 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from ainr_isolation import check_trace_controls, parse_arguments, synthetic_stereo_input, trace_controls
+from ainr_isolation import (check_allcpu_window, check_trace_controls, compare_solo_prefix,
+                            parse_arguments, synthetic_stereo_input, trace_controls)
 
 
 class ControlGuest:
@@ -34,6 +35,10 @@ class ControlGuest:
         assert index == 15
         return self.return_pc
 
+    def read(self, address, length):
+        assert address == 0x80e61000 and length == 256
+        return bytes(256)
+
 
 class IsolationHelperTests(unittest.TestCase):
     def test_trace_controls_cover_both_regions_and_restore_registers(self):
@@ -59,6 +64,12 @@ class IsolationHelperTests(unittest.TestCase):
         with patch.object(sys, 'argv', args + ['--stereo', '--trace-control']):
             _, parsed = parse_arguments()
             self.assertTrue(parsed.synthetic_stereo and parsed.trace_control and parsed.stereo)
+        with patch.object(sys, 'argv', args + ['--stereo', '--allcpu-window']), contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                parse_arguments()
+        with patch.object(sys, 'argv', args + ['--stereo', '--solo-tail', '--allcpu-window']):
+            _, parsed = parse_arguments()
+            self.assertTrue(parsed.allcpu_window)
 
     def test_trace_result_requires_exact_controls(self):
         self.assertEqual(check_trace_controls('CLONE_TRACE positive=1,1,1,1\n', True), [1, 1, 1, 1])
@@ -67,6 +78,22 @@ class IsolationHelperTests(unittest.TestCase):
                       'CLONE_TRACE positive=1,1,1,1\nCLONE_TRACE positive=1,1,1,1\n'):
             with self.subTest(trace=trace), self.assertRaisesRegex(RuntimeError, 'positive controls'):
                 check_trace_controls(trace, True)
+
+    def test_allcpu_window_brackets_solo_and_checks_controls(self):
+        guest = ControlGuest()
+        compare_solo_prefix(guest, 'saved-registers', bytes(256), bytes(256), 0x20228d8a, 0, False, True)
+        self.assertEqual([value for index, value in guest.registers if index == 15],
+                         [0x80f1ff10, 0x80f1ff18, 0x80f1ff1c, 0x80f10780, 0x80f1ff14])
+        rows = ''.join(f'ALLCPU actor={a} region={r} reads={1 if (a, r) == (0, 1) else 0} '
+                       f'writes={1 if (a, r) == (0, 1) else 0} first_read=0 first_write=0 min=0 end=0\n'
+                       for a in range(2) for r in range(4))
+        header = 'ALLCPU starts=32 ends=32 active=0 invalid=0 positive=1,1\n'
+        trace = header + rows + 'ALLCPU pc_overflow=0 ignored=0\n'
+        self.assertEqual(check_allcpu_window(trace, 32)['copied_code'][1], [1, 1])
+        for bad in (trace.replace('ends=32', 'ends=31'), trace.replace('positive=1,1', 'positive=1,0'),
+                    trace.replace('ignored=0', 'ignored=1'), trace + rows.splitlines()[0] + '\n'):
+            with self.subTest(trace=bad), self.assertRaises(RuntimeError):
+                check_allcpu_window(bad, 32)
 
     def test_synthetic_inputs_are_distinct_bounded_and_continuous(self):
         channels = [struct.unpack('<64f', synthetic_stereo_input(1, channel)) for channel in (0, 1)]

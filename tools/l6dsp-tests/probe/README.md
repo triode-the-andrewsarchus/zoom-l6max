@@ -882,6 +882,41 @@ Record the actual QEMU, wrapper, plugin, probe, fixture and replay identities.
 The trace does not cover helper instructions outside those copied ranges,
 other tasks' accesses, DMA, all input/state paths, or physical hardware.
 
+For a separate single-vCPU experiment, pass `allcpu=on` to the same QEMU
+plugin (for example, `-plugin "$L6_PLUGIN,allcpu=on"`) and use
+`--stereo --solo-tail --allcpu-window`. It brackets each solo-clone
+call with QEMU-only markers and watches CPU accesses to the solo prefix, tail,
+suffix and stock-state ranges during that interval, whether the instruction
+comes from copied code or elsewhere. Two deliberate reads check the watched
+prefix and suffix. The probe requires the expected marker and control counts,
+complete region reports, and no reporting overflow; it reports access counts
+without treating zero as proof of ownership. `--allcpu-window` cannot be
+combined with `--trace-control`, which uses the other plugin. The window does
+not cover activity outside the bracket, debugger writes, DMA or unmonitored
+addresses, and instrumentation can change scheduling. Never use it on hardware.
+
+In one 32-block run using the synthetic stereo inputs, the solo clone matched
+stock output. All 32 start and end markers and both positive controls were
+observed. The copied code recorded 115,360 reads and 74,000 writes in the
+candidate tail; other CPU instructions recorded 13,312 reads and 13,312
+writes there. Their 32 recorded instruction addresses were within
+`0x800653d8..0x8006546e`. Neither group recorded a prefix, suffix or monitored
+stock-state access inside the bracket. The trace still supplied full zeroed
+prefix and suffix scratch, so it does not qualify a compact allocation or
+prove anything about unmonitored execution and DMA.
+
+The stock MAIN, initial NOR, panel flash, options and RTC match the 128-block
+trace below. The QEMU and `l6dbg` also match that trace; QEMU source is
+unattested. The plugin and wrapper were
+`7d37071fdcb90979686c6e654dc15dfa7dc09a03f25d34c6016c137f7e115951` and
+`d5e69797b1dce4b00589d6dfc122886e57f56e903efcd84b9d6ef7e89e143769`.
+The probe, recipe, identity manifest, result and plugin log were
+`b502d61d14f48c8343ba86d836ed488ac8420ef48b8b87ccd8da5abcc1bd6940`,
+`3f7d112139892e4d53311c74afa24b46ff6d0168edad1be06cc05a6ca11f2b66`,
+`f10460ec7b050f741d8c323ebb810003039ff905dfa38e3ac069bc6021978e50`,
+`8b3f99562ecdeda34eb2fa5dc75e8d7482e4ea43652e20fff8edd4a56094c747`, and
+`4919089ae86c97883f4e8732ceb8069d563316547ffae9b2eb6325939b050743`.
+
 `--stereo` instead mirrors both natural stock calls, using 159,744 bytes of
 copied state and 96 blocks per channel. It compares each clone output and
 checks both working areas at four checkpoints. This mode needs modeled input

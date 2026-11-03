@@ -318,6 +318,25 @@ def check_trace_controls(stderr, stereo):
     return list(expected)
 
 
+def check_allcpu_window(stderr, blocks):
+    """Check markers and report bounded access counts, without deciding ownership."""
+    headers = re.findall(r'^ALLCPU starts=(\d+) ends=(\d+) active=(\d+) invalid=(\d+) positive=(\d+),(\d+)$',
+                         stderr, re.MULTILINE)
+    if len(headers) != 1 or tuple(map(int, headers[0])) != (blocks, blocks, 0, 0, 1, 1):
+        raise RuntimeError('all-CPU trace markers or controls missing or unexpected')
+    limits = re.findall(r'^ALLCPU pc_overflow=(\d+) ignored=(\d+)$', stderr, re.MULTILINE)
+    if len(limits) != 1 or tuple(map(int, limits[0])) != (0, 0):
+        raise RuntimeError('all-CPU trace exceeded its reporting limits')
+    rows = re.findall(r'^ALLCPU actor=(\d+) region=(\d+) reads=(\d+) writes=(\d+) ', stderr, re.MULTILINE)
+    counts = {(int(actor), int(region)): (int(reads), int(writes)) for actor, region, reads, writes in rows}
+    if len(rows) != 8 or set(counts) != {(actor, region) for actor in range(2) for region in range(4)}:
+        raise RuntimeError('all-CPU trace regions missing or duplicated')
+    if not all(counts[0, 1]):
+        raise RuntimeError('all-CPU trace did not observe clone tail reads and writes')
+    return {'blocks': blocks, 'copied_code': [list(counts[0, i]) for i in range(4)],
+            'other_cpu': [list(counts[1, i]) for i in range(4)]}
+
+
 def synthetic_stereo_input(frame, channel):
     """Generate distinct deterministic native-scale test signals."""
     period = 37 if channel == 0 else 53
@@ -352,17 +371,38 @@ def wait_stereo_input(g, minimum_input):
     raise RuntimeError('stock input did not reach the requested threshold')
 
 
-def compare_solo_prefix(g, initial_regs, samples, expected, ret, frame, checkpoint):
+def begin_allcpu_window(g, initial_regs, ret, frame):
+    if frame == 0:
+        # Two marker returns, followed by watched prefix and suffix reads.
+        g.write(0x80f1ff10, bytes.fromhex('704700bf704700bf0068704700687047'))
+    call_clone(g, initial_regs, 0x80e61000, 0x80f1ff10, 0, ret)
+    if g.reg(15) != ret:
+        raise RuntimeError('all-CPU start marker failed')
+    if frame == 0:
+        for offset, address in ((8, 0x80e30000), (12, 0x80e50000)):
+            call_clone(g, initial_regs, address, 0x80f1ff10 + offset, 0, ret)
+            if g.reg(15) != ret:
+                raise RuntimeError('all-CPU positive control failed')
+
+
+def compare_solo_prefix(g, initial_regs, samples, expected, ret, frame, checkpoint, allcpu_window=False):
     before = (g.read(0x20280000, 0x27000), g.read(0x80e00000, 0x27000)) if checkpoint else None
     g.write(0x80e61000, samples)
+    if allcpu_window:
+        begin_allcpu_window(g, initial_regs, ret, frame)
     call_clone(g, initial_regs, 0x80e61000, 0x80f10780, 0, ret)
     if g.reg(15) != ret or g.read(0x80e61000, 256) != expected:
         raise RuntimeError(f'channel-zero prefix output mismatch at block {frame}')
+    if allcpu_window:
+        call_clone(g, initial_regs, 0x80e61000, 0x80f1ff14, 0, ret)
+        if g.reg(15) != ret:
+            raise RuntimeError('all-CPU end marker failed')
     if before is not None and before != (g.read(0x20280000, 0x27000), g.read(0x80e00000, 0x27000)):
         raise RuntimeError(f'channel-zero clone changed checked state at block {frame}')
 
 
-def compare_stereo_block(g, frame, channel, invert_second, solo_prefix, checkpoints, synthetic_input=False):
+def compare_stereo_block(g, frame, channel, invert_second, solo_prefix, checkpoints, synthetic_input=False,
+                         allcpu_window=False):
     entry = (0x20228d86, 0x20228d94)[channel]
     ret = entry + 4
     if frame or channel:
@@ -401,7 +441,7 @@ def compare_stereo_block(g, frame, channel, invert_second, solo_prefix, checkpoi
             if g.read(0x20280000 + offset, length) != g.read(0x80e00000 + offset, length):
                 raise RuntimeError(f'clone state mismatch at block {frame}, channel {channel}, {offset:#x}')
     if solo_prefix and channel == 0:
-        compare_solo_prefix(g, initial_regs, samples, expected, ret, frame, frame in checkpoints)
+        compare_solo_prefix(g, initial_regs, samples, expected, ret, frame, frame in checkpoints, allcpu_window)
     g.expect('G' + post_regs)
     g.expect(f'z0,{ret:x},2')
     return samples, expected, peak
@@ -420,7 +460,7 @@ def prepare_stereo_clones(g, code, solo_prefix, solo_tail):
 
 
 def compare_stereo(g, code, minimum_input, invert_second, solo_prefix, blocks, solo_tail=False,
-                   trace_control=False, synthetic_input=False):
+                   trace_control=False, synthetic_input=False, allcpu_window=False):
     """Mirror both natural stock calls in QEMU, including both working areas."""
     g.expect('Hg1')
     g.expect('Z0,20228d86,2')
@@ -443,7 +483,8 @@ def compare_stereo(g, code, minimum_input, invert_second, solo_prefix, blocks, s
     checkpoints = {0, (blocks - 1) // 3, 2 * (blocks - 1) // 3, blocks - 1}
     for frame in range(blocks):
         for channel in (0, 1):
-            samples, expected, peak = compare_stereo_block(g, frame, channel, invert_second, solo_prefix, checkpoints, synthetic_input)
+            samples, expected, peak = compare_stereo_block(g, frame, channel, invert_second, solo_prefix, checkpoints,
+                                                            synthetic_input, allcpu_window)
             peaks[channel] = max(peaks[channel], peak)
             inputs[channel].extend(samples)
             outputs[channel].extend(expected)
@@ -457,6 +498,26 @@ def compare_stereo(g, code, minimum_input, invert_second, solo_prefix, blocks, s
             'solo_prefix_bytes': 0x19514 if solo_prefix and not solo_tail else None,
             'solo_tail_bytes': 0xdbc8 if solo_tail else None,
             'state_checkpoints': sorted(checkpoints), 'matches': True}
+
+
+def validate_mode_options(parser, args):
+    if args.stereo and any((args.independent, args.channel0_prefix, args.replay_tails, args.inspect_tail)):
+        parser.error('--stereo cannot be combined with mono comparison options')
+    if args.invert_second and not args.stereo:
+        parser.error('--invert-second requires --stereo')
+    if args.synthetic_stereo and not args.stereo:
+        parser.error('--synthetic-stereo requires --stereo')
+    if args.allcpu_window and (not args.stereo or args.solo != 'tail' or args.trace_control):
+        parser.error('--allcpu-window requires --stereo --solo-tail and excludes --trace-control')
+    if args.solo and not args.stereo:
+        parser.error('--solo-prefix and --solo-tail require --stereo')
+
+
+def validate_probe_bounds(parser, args):
+    if not 1 <= args.blocks <= 1000 or (args.blocks != 96 and not args.stereo):
+        parser.error('--blocks must be 1-1000 and requires --stereo when changed')
+    if not math.isfinite(args.minimum_input) or args.minimum_input < 0 or (args.minimum_input and not args.stereo):
+        parser.error('--minimum-input must be finite, nonnegative and used with --stereo')
 
 
 def parse_arguments():
@@ -476,6 +537,8 @@ def parse_arguments():
                         help='in QEMU, invert and halve second-channel input before both calls')
     parser.add_argument('--synthetic-stereo', action='store_true',
                         help='inject distinct deterministic inputs at each stopped stereo call')
+    parser.add_argument('--allcpu-window', action='store_true',
+                        help='bracket solo-tail calls for the separate all-CPU trace plugin')
     solo = parser.add_mutually_exclusive_group()
     solo.add_argument('--solo-prefix', dest='solo', action='store_const', const='prefix',
                       help='also compare a channel-zero-only clone with a 0x19514-byte prefix')
@@ -486,19 +549,8 @@ def parse_arguments():
     parser.add_argument('--minimum-input', type=float, default=0.0,
                         help='require a finite stock sample larger than this magnitude in stereo mode')
     args = parser.parse_args()
-    if args.stereo and any((args.independent, args.channel0_prefix, args.replay_tails,
-                            args.inspect_tail)):
-        parser.error('--stereo cannot be combined with mono comparison options')
-    if args.invert_second and not args.stereo:
-        parser.error('--invert-second requires --stereo')
-    if args.synthetic_stereo and not args.stereo:
-        parser.error('--synthetic-stereo requires --stereo')
-    if args.solo and not args.stereo:
-        parser.error('--solo-prefix and --solo-tail require --stereo')
-    if not 1 <= args.blocks <= 1000 or (args.blocks != 96 and not args.stereo):
-        parser.error('--blocks must be 1-1000 and requires --stereo when changed')
-    if not math.isfinite(args.minimum_input) or args.minimum_input < 0 or (args.minimum_input and not args.stereo):
-        parser.error('--minimum-input must be finite, nonnegative and used with --stereo')
+    validate_mode_options(parser, args)
+    validate_probe_bounds(parser, args)
     return parser, args
 
 
@@ -523,6 +575,7 @@ def main():
                   'probe_sha256': sha(Path(__file__).read_bytes()), 'clone_sha256': sha(code),
                   'probe_options': {'inspect_tail': args.inspect_tail, 'trace_control': args.trace_control,
                                     'synthetic_stereo': args.synthetic_stereo,
+                                    'allcpu_window': args.allcpu_window,
                                     'stereo': args.stereo, 'solo': args.solo,
                                     'invert_second': args.invert_second,
                                     'blocks': args.blocks, 'minimum_input': args.minimum_input},
@@ -557,7 +610,7 @@ def main():
             if args.stereo:
                 result = compare_stereo(Remote(socket_path), code, args.minimum_input, args.invert_second,
                                         bool(args.solo), args.blocks, args.solo == 'tail',
-                                        args.trace_control, args.synthetic_stereo)
+                                        args.trace_control, args.synthetic_stereo, args.allcpu_window)
             else:
                 result = compare(Remote(socket_path), code, args.independent, args.channel0_prefix,
                                  replay_tails, args.inspect_tail, args.trace_control)
@@ -568,6 +621,8 @@ def main():
                 raise RuntimeError(f'l6dbg exited {process.returncode}')
             if args.trace_control:
                 result['trace_controls'] = check_trace_controls((out / 'logs' / 'engine.stderr').read_text(), args.stereo)
+            if args.allcpu_window:
+                result['allcpu_window'] = check_allcpu_window((out / 'logs' / 'engine.stderr').read_text(), args.blocks)
             (out / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
             print(json.dumps(result, indent=2), flush=True)
         finally:
