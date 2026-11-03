@@ -168,9 +168,9 @@
 +                && self.channels[0].write_position == self.channels[1].write_position
 +                && self.channels[0].write_position == history.write_position
 +                && history.write_position < HISTORY_SAMPLES;
-+            let valid = aligned && (0..2).all(|c| fast_bank(&self.channels[c].banks[self.active_bank]))
++            let valid = self.build.phase == 0 && aligned && (0..2).all(|c| fast_bank(&self.channels[c].banks[self.active_bank]))
 +                && (!self.transitioning || (0..2).all(|c| fast_bank(&self.channels[c].banks[self.pending_bank])));
-+            if !valid || self.build.phase != 0 {
++            if !valid {
 +                let ((al, ar), (bl, br)) = self.process_shared_mono(history, a[offset], b[offset]);
 +                out[offset] = [al, ar, bl, br];
 +                offset += 1;

@@ -290,8 +290,8 @@ sends and produced bounded nonzero stereo output at the first selection. The
 nominal count is 15,000; these instrumented QEMU runs do not measure target
 timing or establish an adequate deadline. The updated host suite passed 25
 tests, including the bounded scheduler and cross-ring comparisons described
-above. The saved QEMU patch reproduces the measured block source, not the
-separate temporary host harness.
+above. The QEMU patch at commit `ea34324` reproduces that measured block
+source, not the separate temporary host harness.
 
 For the iterator build, MAIN and ELF were
 `e18e80e37750a1b7ab7139c220171b13eb911c67712bb636242ba24cfccab910` and
@@ -304,6 +304,37 @@ The repeated scalar observation was
 `9b6f9ea74c1d354439d4f76af29ee72aee55c917589e65718b51d184be639c68`;
 its executable and recipe match the scalar run identified below. QEMU and
 the input fixtures match the preceding comparison, with unattested QEMU source.
+
+The current experiment skips the bank scans when an in-progress bank build
+already requires the scalar fallback. A bounded 25-test host suite again passed,
+including edits, fades, ring wraps and fallback cases. In one fresh matched
+QEMU pair, the earlier and revised schedulers reached 6,034 and 6,219
+callbacks respectively at the first observation; both reconstructed the three
+sends and produced bounded nonzero stereo output, and both missed the second
+selection. Earlier repetitions varied enough that this pair does not establish
+a reliable speedup. Neither variant is an installable solution.
+
+The QEMU executable was
+`d09576d9ce1d39b9194ec8ea5d1a89e6c7a230425a0ed7897ff6995a03e7252e`;
+its source provenance is unattested. The stock MAIN, NOR, panel flash and
+options, generated audio and `l6dbg` match the preceding comparison; the
+initial panel RTC was
+`a739c81a2de75821cd9c526bc049fa10f7b902577cadf5af3faaad15d38991b1`.
+In earlier/revised order, MAINs were
+`e18e80e37750a1b7ab7139c220171b13eb911c67712bb636242ba24cfccab910` /
+`e7e67047f04f9ac775068eaca129ad414877147c61405c43e3548f06fd0592f7`,
+ELFs `c54784c1783a5bdaf07f259b4dbaafdb07eefb8bed13bd7bdd7a1f1c674813df` /
+`03950fcfb1a82af11e08ee1e3ece36ff25f8ba81a760bba0019f1945dd301bbb`,
+initial diagnostic NORs `3eff2007b38d1788e2570e45884754c7b87c2ed91cb70e13a20bc7022b409144` /
+`d4b6d75b567eb827f9be6775d1ee0c64f8014f4a21d32eeaaaf07abdf0582eb0`,
+recipes `0b89340c6eb10827169a286951bfcb68934d2a9e6650b473b26594f176afc851` /
+`7fcbc374d06329ff1beb2e4188fa8686c96fa81ea496f544d1a370ca4d88cd8f`,
+and observations `375ef94bd01de1ebf7d4d407c9413e9d9059687e92113612f69bf81653af0053` /
+`b2a3f585f01f093c7b21457aaa0cab801f85ae766df38707f8af4103e2fd8d57`.
+The revised block source was
+`7b5c51a5db1f9562756c01e104fee742703c678d1a4069ea8f9b877b62c56553`;
+the pinned-toolchain host test executable was
+`d82f7f17c95ea901140702bc5e6565ea60b822ca6a6cb9451c89e92a49381f16`.
 
 The stock and panel identities, modeled channel files, QEMU
 `13040494f8a58c681b18bef05886196ac37be526772bcb93c301875ed93d34da` and
