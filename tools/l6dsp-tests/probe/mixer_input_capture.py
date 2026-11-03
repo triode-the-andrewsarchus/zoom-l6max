@@ -59,22 +59,33 @@ def check_levels(events, label, callback_count):
             'output_peaks': [left_peak, right_peak]}
 
 
+def check_signal(source, sends, output, label):
+    if not all(math.isfinite(x) for x in (*source, *sends, *output)):
+        raise ValueError(f'{label} contains nonfinite samples')
+    if any(abs(x) > 1.0 for x in output):
+        raise ValueError(f'{label} return exceeds normalized bounds')
+    if not any(output[:64]) or not any(output[64:]):
+        raise ValueError(f'{label} return is silent')
+
+
+def read_capture(events, label):
+    source = floats(capture(events, label, 'source', 3072))
+    sends = floats(capture(events, label, 'sends', 768))
+    output = floats(capture(events, label, 'output', 512))
+    gains = capture(events, label, 'gains', 512)
+    check_signal(source, sends, output, label)
+    return source, sends, output, gains
+
+
 def check_effect(events, label, descriptor, route):
     marker, selected, count = struct.unpack('<III', capture(events, label, 'state', 12))
     signal, captured_count = struct.unpack('<II', capture(events, label, 'marker', 8))
     if (marker != 0x494e4954 or selected != descriptor or signal != 0x5349474e
             or captured_count < 100 or captured_count > count):
         raise ValueError(f'{label} callback or capture marker mismatch')
-    source = floats(capture(events, label, 'source', 3072))
-    sends = floats(capture(events, label, 'sends', 768))
-    output = floats(capture(events, label, 'output', 512))
-    gains = capture(events, label, 'gains', 512)
-    if not all(math.isfinite(x) for x in (*source, *sends, *output)):
-        raise ValueError(f'{label} contains nonfinite samples')
-    if any(abs(x) > 1.0 for x in output):
-        raise ValueError(f'{label} return exceeds normalized bounds')
-    if not any(sends[route * 64:(route + 1) * 64]) or not any(output[:64]) or not any(output[64:]):
-        raise ValueError(f'{label} send or return is silent')
+    source, sends, output, gains = read_capture(events, label)
+    if not any(sends[route * 64:(route + 1) * 64]):
+        raise ValueError(f'{label} send is silent')
     if any(x for bus in range(3) if bus != route for x in sends[bus * 64:(bus + 1) * 64]):
         raise ValueError(f'{label} unexpected send route')
     expected = reconstruct(source, gains, label)
@@ -91,6 +102,44 @@ def check(report):
     events = {e['observation'].get('name'): e['observation'] for e in report['events']}
     return {label: check_effect(events, label, descriptor, route)
             for label, descriptor, route in (('plateau', 0x2028b8dc, 1), ('velvet', 0x2028b8f8, 0))}
+
+
+def check_combined_sends(source, sends, gains, label):
+    peaks = []
+    for slot in range(3):
+        selected_gains = bytearray(gains)
+        for other in range(12):
+            if other != slot:
+                struct.pack_into('<f', selected_gains, 0x38 + 8 * other, 0.0)
+                struct.pack_into('<I', selected_gains, 0x98 + 16 * other, 0)
+        expected = reconstruct(source, selected_gains, label)
+        actual = sends[slot * 64:(slot + 1) * 64]
+        if tuple(expected) != actual or not any(actual):
+            raise ValueError(f'{label}: bus {slot} is silent or differs from reconstruction')
+        peaks.append(max(map(abs, actual)))
+    return peaks
+
+
+def check_combined_effect(events, label, descriptor):
+    config = struct.unpack('<ffII', capture(events, label, 'config', 16))
+    if config != (4.0, 500.0, 512112, 400):
+        raise ValueError(f'{label}: unexpected processor configuration {config}')
+    marker, selected, count = struct.unpack('<III', capture(events, label, 'state', 12))
+    signal, captured = struct.unpack('<II', capture(events, label, 'marker', 8))
+    if marker != 0x494e4954 or selected != descriptor or signal != 0x5349474e or not 1000 <= captured <= count:
+        raise ValueError(f'{label}: callback selection or capture marker mismatch')
+    source, sends, _output, gains = read_capture(events, label)
+    peaks = check_combined_sends(source, sends, gains, label)
+    return {'callback_count': count, 'captured_count': captured, 'send_peaks': peaks,
+            'levels': check_levels(events, label, count)}
+
+
+def check_combined(report):
+    if report.get('outcome') != 'complete' or report.get('model') != 'l6max':
+        raise ValueError('diagnostic did not complete for L6max')
+    events = {e['observation'].get('name'): e['observation'] for e in report['events']}
+    return {label: check_combined_effect(events, label, descriptor)
+            for label, descriptor in (('plateau', 0x2028b8dc), ('velvet', 0x2028b8f8))}
 
 
 def words(events, name, count):
@@ -172,10 +221,11 @@ def main():
     parser.add_argument('report', type=Path, help='l6dbg diagnostic JSON')
     parser.add_argument('--ui-route', action='store_true', help='check the combined UI routing probe')
     parser.add_argument('--ui-overflow', action='store_true', help='check the forced inspector rejection probe')
+    parser.add_argument('--combined-stress', action='store_true', help='check the QEMU-only three-bus stress capture')
     parser.add_argument('--probe-elf', type=Path, help='effect ELF from this combined UI diagnostic')
     args = parser.parse_args()
-    if args.ui_route and args.ui_overflow:
-        parser.error('--ui-route and --ui-overflow cannot be combined')
+    if sum((args.ui_route, args.ui_overflow, args.combined_stress)) > 1:
+        parser.error('capture check modes cannot be combined')
     if (args.ui_route or args.ui_overflow) != (args.probe_elf is not None):
         parser.error('a UI check and --probe-elf must be supplied together')
     try:
@@ -184,6 +234,8 @@ def main():
             result = check_ui_routes(report, callback_from_elf(args.probe_elf))
         elif args.ui_overflow:
             result = check_ui_overflow(report, callback_from_elf(args.probe_elf))
+        elif args.combined_stress:
+            result = check_combined(report)
         else:
             result = check(report)
     except (OSError, ValueError, KeyError, TypeError, struct.error, OverflowError, subprocess.CalledProcessError) as error:

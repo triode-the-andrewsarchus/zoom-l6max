@@ -3,7 +3,7 @@ import copy
 import struct
 import unittest
 
-from mixer_input_capture import check
+from mixer_input_capture import check, check_combined
 
 
 def report():
@@ -34,6 +34,31 @@ def field(result, name):
 
 
 class MixerInputCaptureTests(unittest.TestCase):
+    def test_combined_rejects_silent_bus_and_missed_selection(self):
+        good = report()
+        for label in ('plateau', 'velvet'):
+            good['events'].append({'observation': {
+                'name': f'{label}_config',
+                'bytes': list(struct.pack('<ffII', 4.0, 500.0, 512112, 400))}})
+            field(good, f'{label}_state')[8:12] = list(struct.pack('<I', 1200))
+            field(good, f'{label}_marker')[4:8] = list(struct.pack('<I', 1000))
+            field(good, f'{label}_levels')[:] = list(struct.pack('<IIIfff', 1100, 1100, 0, 0.125, 0.1, 0.1))
+            field(good, f'{label}_sends')[:] = list(struct.pack('<192f', *([0.125] * 192)))
+            gains = bytearray(field(good, f'{label}_gains'))
+            for slot in (1, 2):
+                struct.pack_into('<f', gains, 8 + 4 * slot, 1.0)
+                struct.pack_into('<f', gains, 0x38 + 8 * slot, 0.25)
+            field(good, f'{label}_gains')[:] = gains
+        self.assertEqual(check_combined(good)['plateau']['send_peaks'], [0.125] * 3)
+        bad = copy.deepcopy(good)
+        field(bad, 'plateau_sends')[:256] = [0] * 256
+        with self.assertRaisesRegex(ValueError, 'bus 0'):
+            check_combined(bad)
+        bad = copy.deepcopy(good)
+        field(bad, 'velvet_state')[4:8] = list(struct.pack('<I', 0x2028b8dc))
+        with self.assertRaisesRegex(ValueError, 'velvet: callback selection'):
+            check_combined(bad)
+
     def test_valid_capture_and_wrong_send(self):
         good = report()
         self.assertEqual(check(good)['plateau']['send_peak'], 0.125)

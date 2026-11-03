@@ -127,7 +127,7 @@ python3 tools/l6dsp-tests/probe/prepare.py FIRMWARE STATE OUTPUT \
   --callback --file-mix-handoff atomic --file-mix-project --opt-level 3
 cargo run --offline --locked -p l6fs -- card build OUTPUT/card.img \
   --spec tools/l6dsp-tests/probe/bounce-card.toml
-L6_SERVICE_AUDIO_QUEUE=0 target/debug/l6dbg OUTPUT/recipe.toml \
+target/debug/l6dbg OUTPUT/recipe.toml \
   --firmware-dir OUTPUT/firmware --state-dir OUTPUT/state --logs OUTPUT/logs \
   --qemu QEMU --gdb-socket OUTPUT/gdb.sock --sd-image OUTPUT/card.img
 python3 tools/l6dsp-tests/probe/file_mix_handoff.py OUTPUT/logs/diagnostic.json --project
@@ -263,8 +263,9 @@ Both used external QEMU
 `4902e96e8375adb69b1ebe0e5572fe1ba3fb6a0e413c8595605128a297dfd910`
 and `l6dbg`
 `ebb31e0e78b8ac31e351c7450ed3636080c85c9df212fc2c6ad3f7b561814241`;
-the QEMU source is unattested. The positive run used
-`L6_SERVICE_AUDIO_QUEUE=0`, unlike the stock run.
+the QEMU source is unattested. The positive run used the then-available
+`L6_SERVICE_AUDIO_QUEUE=0` option, unlike the stock run; the shortcut and
+option have since been removed.
 
 A subsequent store-only trace ran the stock `l6max-eq-audio-update` scenario,
 which checked both the changed mixer value and the applied audio coefficient.

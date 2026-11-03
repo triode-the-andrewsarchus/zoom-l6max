@@ -68,6 +68,55 @@ The modified preparer, callback and capture source hashes were
 `34c09dbbc9b6bdffe5798df96f0cf03f08c187daf9d280fc7341da9ba7eb622d`, and
 `a720d406a23dba63694a2fbfc93ab249132e65f6bd0ebce6e1b91d0555340709`.
 
+### Combined three-bus stress
+
+`combined_input_stress.patch` is a QEMU-only variant applied after
+`plateau_32k_input.patch` to the same disposable capture-probe tree. It
+configures full-range Plateau and a 400-tap Velvet with a 100 ms
+renewal and 90 ms transition, and routes input slots 1, 2 and 3 to A, B and
+A-to-B, respectively. It captures at callback 1,000. Apply it only to a
+disposable source copy; `combined_input_bypass.patch` applies on top to make
+the matched control return the summed sends instead of running effects.
+Neither diagnostic image may be installed.
+
+One pair used the same modeled channel files as the previous capture. Its
+recipes started playback, raised EFX sends and levels on channels 1–3 by
+eight encoder steps, selected Room and then Spring, and waited 20 guest
+seconds after each selection. They recorded configuration at `0x83e03f20`
+and the existing mixer captures. In the loaded run, all three first-selection
+sends matched their individual source/gain reconstructions and both returns
+were finite and nonzero. The guest reported size 4.0, predelay 500 ms,
+processor size 512,112 bytes and 400 Velvet taps. It counted 4,303 callbacks
+at the first observation. At the second observation the selected descriptor
+was still Room, so the intended Spring selection and complete check failed.
+In the DSP-bypassed control, both selections and all three reconstructed
+sends passed; the first observation counted 9,947 callbacks. The nominal
+20-second count is 15,000. The two inputs are deterministic modeled tones,
+the capture itself adds work, and this is not a physical timing measurement.
+The run does not establish the cause of the missed selection, hardware
+responsiveness, audio parity, memory ownership or safe installation.
+
+`mixer_input_capture.py --combined-stress REPORT` checks the parameters,
+selections, individual sends, bounded stereo output and aggregate levels for
+this variant. The loaded observation is expected to fail its second
+selection check; the bypass observation passed. The original temporary
+checker was `c9b4b677dc459eb0865bcdd6ceb5f058464735feed7e7c49edbe246caced537b`.
+The loaded/control diagnostic MAIN hashes were
+`452b330109a78867b29f2df04ced30613521b1eb0623e99468c528b1685ecba0` /
+`61e2a241cefef0b0c2438f43ca5c34fd07419b3bcfe252cc7637c8cecfb561c5`,
+ELFs `0e147599a43509dcf9d4e6adc189442fa1bb65ceabc0c5ad473369e7d4e8bd9e` /
+`a65d62f7be635da0b386b804fe22d4d6aeb3f6abe5a3e42e77d865566e545351`,
+recipes `3a2a1022076123637ca4276a026f8da5dbf6f66d6f91787894f8dd789eeff6cd` /
+`5745ef76677239ce2d14bc23f40bf7932823fb203c389025cc1fe8ce6170a887`,
+and observations `a2916ac3f07f9664fca5d05f1ce0ba121646adf30f3f218b21fbbc7339491e19` /
+`431dee7854aed28dd0030c67cc79f482b5658236865ef4163afbd63d3602d823`.
+Their initial diagnostic NORs, reconstructed from the common stock NOR and
+each MAIN, hashed to
+`f17354889c55b206589a4c995e65180281c0b4206d74b41efa8a8970c316eb68` /
+`99ef280ccc69e46e933fadfa4a8fd9a0037f7a1d8764ce875869f777137e6688`.
+Stock and panel identities, channel files, QEMU and `l6dbg` matched the
+modeled-input capture cited above. QEMU source provenance is unattested.
+
 An unmodulated, low-level 128,000-frame impulse comparison against the derived
 Multistomp core at commit `7ea50ae6e30705989d0b8414ad5a83c97dbef0db` used
 size/predelay pairs 0.01/0 ms, 1.0/0 ms and 4.0/500 ms. The two inputs to

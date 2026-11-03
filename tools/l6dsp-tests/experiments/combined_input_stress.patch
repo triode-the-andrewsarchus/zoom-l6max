@@ -1,0 +1,42 @@
+--- a/tools/l6dsp-tests/probe/callback.rs
++++ b/tools/l6dsp-tests/probe/callback.rs
+@@ -156,10 +156,17 @@
+                 params.size = 4.0;
+                 params.predelay_ms = 500.0;
+                 processor.plateau.init(params);
++                let mut velvet_params = processor.velvet.current;
++                velvet_params.length_ms = 100.0;
++                velvet_params.density = 4000.0;
++                velvet_params.refresh_seconds = 0.1;
++                velvet_params.transition_ms = 90.0;
++                processor.velvet.init(velvet_params);
+                 unsafe {
+                     core::ptr::write_volatile(0x83e03f20 as *mut u32, processor.plateau.params.size.to_bits());
+                     core::ptr::write_volatile(0x83e03f24 as *mut u32, processor.plateau.params.predelay_ms.to_bits());
+                     core::ptr::write_volatile(0x83e03f28 as *mut u32, core::mem::size_of::<routing::DualEfxProcessor>() as u32);
++                    core::ptr::write_volatile(0x83e03f2c as *mut u32, processor.velvet.channels[0].banks[processor.velvet.active_bank].count as u32);
+                 }
+             }
+             #[cfg(max_velvet_density)]
+@@ -199,9 +206,8 @@
+             }
+             #[cfg(not(knob_inspector))]
+             if !routes_initialized || cfg!(mixer_input_capture) {
+-                let route = if entry as usize == 0x2028b8dc { 2u32 } else { 1u32 };
+                 for slot in 0..12 {
+-                    core::ptr::write_volatile((0x83e00100 as *mut u32).add(slot), route);
++                    core::ptr::write_volatile((0x83e00100 as *mut u32).add(slot), if slot < 3 { slot as u32 + 1 } else { 0 });
+                 }
+             }
+             core::ptr::write_volatile(0x83e00140 as *mut u32, cfg!(mixer_route_capture) as u32);
+--- a/tools/l6dsp-tests/probe/mixer_capture.rs
++++ b/tools/l6dsp-tests/probe/mixer_capture.rs
+@@ -11,7 +11,7 @@
+ #[inline(always)]
+ pub unsafe fn begin(sends: &[[f32; 64]; 3], counter: *const u32) -> bool {
+     unsafe {
+-        if core::ptr::read_volatile(counter) < 2500
++        if core::ptr::read_volatile(counter) < 1000
+             || !sends.iter().flatten().any(|x| *x > 1e-7 || *x < -1e-7)
+             || core::ptr::read_volatile(0x83e00800 as *const u32) != 0
+         {
