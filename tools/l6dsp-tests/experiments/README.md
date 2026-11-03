@@ -242,6 +242,73 @@ The approach is informed by the MIT-licensed
 Multistomp Velvet port at commit `7ea50ae6e30705989d0b8414ad5a83c97dbef0db`;
 that pedal's tests do not qualify the L6max implementation.
 
+An uncommitted follow-up combined the block loop with the actual Velvet bank
+scheduler. It split processing at fades and fell back to per-sample processing
+while building banks or handling unsuitable state. In one 30,000-frame host
+test, it matched the original 4,802-sample-ring sample path bit for bit through
+several parameter edits, fades and wraps. A second test compared scheduler,
+bank and history state against a scalar path using the expanded ring. These
+are bounded host observations, not coverage of all control interleavings or
+corrupt state. The host test executable and the original, expanded-ring,
+block-scheduler and test-harness sources were respectively
+`392eaea0f132925ca1d498d55da7dbb966e30b3324567114469f3558da94641a`,
+`220a6aac4940983fce020a152f9905928aa63017cfaf20f41b282b4d43d84d47`,
+`dee1b59b6c995368fb316ed5b81e6fc731e9e390a1f80faf974606660580b4ab`,
+`a5965ad094478f6f32654cf38cd91986ee95e6e358feedc42db9c32a586e6f02`, and
+`aed3efeb0ddac2d7102e20fccacad93face06d6d6550dd75cd17821ce565994e`.
+
+In the combined three-bus QEMU workload, the first block-scheduler build
+completed only one callback. ARM stack metadata reported 2,456 bytes for
+the callback and 3,264 for the block routine, before deeper callees; the
+previously observed audio-task stack was about 4 KiB. Stack exhaustion is a
+plausible explanation, not a proven cause. Moving three work buffers to
+unowned QEMU scratch reduced those local frames to 1,160 and 200 bytes,
+respectively. That variant processed the three modeled sends and generated
+bounded nonzero output, but still failed the second effect selection. With
+`opt-level=z`, it reached 3,501 callbacks at the first observation versus
+3,359 for the earlier scalar run. With `opt-level=3`, a matched scalar/block
+pair reached 4,067/4,234; both missed the second selection. These are single
+instrumented runs, not physical timing measurements or a demonstrated
+solution. The prototype also reorders control writes and changes malformed
+delay handling; its scratch, stack, concurrency and full state semantics
+are not qualified. It was not integrated into the patch.
+
+The stock and panel identities, modeled channel files, QEMU
+`13040494f8a58c681b18bef05886196ac37be526772bcb93c301875ed93d34da` and
+`l6dbg` `0f113207ad23054dc91f1e8900f294c60b68fd985892213515c2e7aaf4ee87ba`
+match the rebuilt-QEMU comparison above; QEMU source provenance is unattested.
+For the first stack-resident attempt, MAIN, ELF, recipe and observation were
+`aa89b17a41560d4ca969b8e0c343b30e0db98be95c82c642d72525de81f51f2f`,
+`153949644aad79b15005162eda90626b364217f68b797c5a244b4b886f1bac22`,
+`0ff8a23a19cc66d7adcdfed6d9340acaacb2c42c373d8d5993a3deed65cbc847`, and
+`b8ef6ad84dbc33d6c8ff5061c88a7c19683ee961289f0a01e19ae4c26b050972`.
+The stack-metadata ELF was
+`f5abf7ed17d956772ac4fc99fc8cb3deac1b529aebdd0ebaf3e7b66ad7e6b90d`.
+For the scratch variant those four hashes were
+`494a1de3a6ff313ad67d14f112045c245dc6fe84aa02340989447fb3d7e50f1e`,
+`379a378781950fc97f112f4c0bdbe7e765c255d2c6c389448d9bfcbdef41d151`,
+`0623638e6366e42591d2a36956ac51638a96d8d147b204c475f6d428ea7e6c9f`, and
+`4f6fc8c947842ff3b6bc9239e2dedf0297b0a400ddaa11231e85a13916dd2283`.
+For the optimized scalar/block pair, MAIN hashes were
+`ec70b9efbdc0f513458b11e0f965b3741dee2bb0700abc247ad9691c2b758471` /
+`86d4d7e971ed38c1828fa14f3207f47db7a67351b4329f0f4bc2755131e74ff7`,
+ELFs `bb88af29a300baad26719d92e4f68f8f55cda14b104a7ea1d6fc28e4c4d34997` /
+`21b9e5f82b051761beb4c44a56db2d92c20e9d9a7359ce516fd6d78cfdc724a7`,
+recipes `b2c0ff848da35bd208fe290e8cae933c5127648d5d5ad5530d67e456f4250397` /
+`2e382fd45ff356026a49eae1dd77319fbb3d58cc715591b7418859f4f209e503`, and
+observations `4a713dbe0a00e430664594fe590f36382fb5a122a60b8da0acf97d27f2a3457d` /
+`fabeefcdf09df40e27e81e59cf0e533a4d7c98deda1b61e20bf6f25ce1f684c1`.
+The initial diagnostic NORs, reconstructed from stock and the respective MAIN,
+were `f1f1608c8950368ee75aef40589ae5f9af171e16c1b46c86df2a3540e7813036`,
+`31a319e8f28588415bb426441e6276d044e5719abf36c2c4afa3747e9a3a63e0`,
+`dc54d9845886d8a9a232afc06e1d2f8e6d53d03bda6e445ebe70c06279b6d333`, and
+`ffa12db6ca9e9c7e4c2642343cddc3d1ca6d483a5300aac45017d68d948ba6b5`.
+The scratch variant's temporary block, Velvet, routing and callback sources
+hashed to `ad5a06a2f5e33ecccd28b8fd991011d9035c70da5cbb81bc6c982a932fd08f45`,
+`dee1b59b6c995368fb316ed5b81e6fc731e9e390a1f80faf974606660580b4ab`,
+`5b6861719380ea931b43dbd8cd084656320084369e26abc5d04a0613bf20a232`, and
+`444c944924aac6dacf7c3fc207a29fad9b78b150899120e4b161f9fc7a33def9`.
+
 ## Forced late eDMA interrupt (QEMU only)
 
 [`late_dma_irq`](late_dma_irq/) contains disposable patches and a QEMU plugin
