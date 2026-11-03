@@ -1,0 +1,4 @@
+--- a/tools/l6dsp-tests/probe/callback.rs
++++ b/tools/l6dsp-tests/probe/callback.rs
+@@ -163,0 +164 @@
++                velvet_params.dynamic = false;

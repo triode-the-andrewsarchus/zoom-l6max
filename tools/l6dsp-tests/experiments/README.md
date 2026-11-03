@@ -338,6 +338,40 @@ The revised block source was
 the pinned-toolchain host test executable was
 `d82f7f17c95ea901140702bc5e6565ea60b822ca6a6cb9451c89e92a49381f16`.
 
+To isolate the cost of overlap, apply `velvet_fade_probe.patch` with
+`git apply --unidiff-zero` after the current scheduler patch in a disposable
+probe tree. It records the dynamic flag at `0x83e03f30` and increments the
+word at `0x83e03f34` when the callback begins during a transition. Apply
+`velvet_fade_static.patch` on top for the static comparison; its disabled
+renewals are a diagnostic control, not the intended effect. Add an eight-byte
+memory observation at `0x83e03f30` after each selection's configuration read.
+The counter samples callback boundaries, not individual frames. Both variants
+still use unowned QEMU scratch and must never be installed.
+
+In one matched pair with modeled channel inputs and `opt-level=3`, the
+dynamic/static first observations counted 6,343/8,957 callbacks; the transition
+counts were 5,687/0, with dynamic flags 1/0. The first selection reconstructed
+all three sends and produced bounded nonzero stereo output in each run. Both
+missed the second effect selection, and the nominal first count was 15,000.
+Other host activity overlapped the dynamic run. These observations identify a
+cost in this model, not target timing or a reason to remove transitions from
+the effect. They do not qualify the UI, ownership or installation.
+
+The QEMU executable, input fixture, stock MAIN, stock NOR, initial panel state
+and `l6dbg` match the preceding matched pair. In dynamic/static order, MAINs
+were `0bb2ba8f7d03d77a6849743ecb8cac80f6d1309f85c0e5aefcac376da5bd09bb` /
+`ff7367007a4bdeefcdd0293dc2321323cb4bad13a6c8fbe05a3a92be98940819`,
+ELFs `65e84ce7c795b709dc2a10a6b7855e281a294ef016de8c13eaaf0ed0ebebab06` /
+`3d4ca592c5170cb25746e7634579bbc964c2a3d8233a3eabd2862a20a13c7ef0`,
+initial diagnostic NORs `5cf8f8a1da002462bf9af1c9ab25d0f52e2ed3262d97e17a24041e9bade7ea01` /
+`1d68e0c9b37e67145fe62f59fd4874109a89ec025f27f44edd3c2e02f74d0cf7`,
+recipes `3307571e750a651d4a393a11f68320ad877d84c34a9756fcee349f33b3ac0eed` /
+`eae6eee76745946d304a7dc46d95dd2c2c0d4c5d2ec7fabeed576dc68535f74a`,
+observations `5019455a306de7ab835dd708b69b6919c612a129115a007525fae9896fd17745` /
+`e3150068957f834dbd2f29ee75c558917314f4bc7bf70c144f1213bb62506119`, and
+callback sources `35861bec5ef772a4a0e8931de20e65465e835f8de3f327cb2fcf68a0f842cf88` /
+`059e4e3e0383efc83975d7c7a0d6217c71b3e7df49da64a9292de8d686297bff`.
+
 The stock and panel identities, modeled channel files, QEMU
 `13040494f8a58c681b18bef05886196ac37be526772bcb93c301875ed93d34da` and
 `l6dbg` `0f113207ad23054dc91f1e8900f294c60b68fd985892213515c2e7aaf4ee87ba`

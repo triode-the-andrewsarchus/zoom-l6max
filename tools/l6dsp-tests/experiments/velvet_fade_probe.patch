@@ -1,0 +1,12 @@
+--- a/tools/l6dsp-tests/probe/callback.rs
++++ b/tools/l6dsp-tests/probe/callback.rs
+@@ -165,0 +166,4 @@
++                    core::ptr::write_volatile(0x83e03f30 as *mut u32, processor.velvet.current.dynamic as u32);
++                    core::ptr::write_volatile(0x83e03f34 as *mut u32, 0);
++                }
++                unsafe {
+@@ -305,0 +310,4 @@
++    }
++    unsafe {
++        let transitions = 0x83e03f34 as *mut u32;
++        core::ptr::write_volatile(transitions, core::ptr::read_volatile(transitions).wrapping_add(state.velvet.transitioning as u32));
