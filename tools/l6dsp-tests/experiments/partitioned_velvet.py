@@ -10,21 +10,27 @@ import numpy as np
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--tap-file', type=Path, help='optional channel, index, delay, gain text from the Rust generator')
-parser.add_argument('--partition', type=int, choices=(256, 512), default=256,
+parser.add_argument('--partition', type=int, choices=(64, 128, 256, 512), default=256,
                     help='tail partition size in frames (default: 256)')
 parser.add_argument('--build-ffts', type=int, choices=range(1, 9), default=2,
                     help='maximum bank-rebuild FFTs per callback (default: 2)')
-parser.add_argument('--restart-slot', type=int, default=3,
-                    help='slot within a partition at which the interrupted build restarts')
+parser.add_argument('--restart-slot', type=int,
+                    help='slot within a partition at which the interrupted build restarts (default: last slot, up to 3)')
 args = parser.parse_args()
 
 B = args.partition
 HEAD = 2 * B
 TAIL = 4800
 TAPS = 400
-N = B * 40
-if not 0 <= args.restart_slot < B // 64:
+P = (TAIL + B) // B
+restart_slot = min(3, B // 64 - 1) if args.restart_slot is None else args.restart_slot
+if not 0 <= restart_slot < B // 64:
     parser.error('--restart-slot must identify a 64-frame slot in the partition')
+restart_frame = 9 * B + restart_slot * 64
+# Leave room for the slowest permitted rebuild, a complete fade, and its
+# publication delay, even at the smallest partition and one FFT per callback.
+required_frames = restart_frame + 2 * (P - 2) * 64 + 2 * B + 4320 + 64
+N = max(B * 40, ((required_frames + B - 1) // B) * B)
 rng = np.random.default_rng(0x16ef)
 signals = rng.uniform(-0.25, 0.25, (2, N)).astype(np.float32)
 # Each bank has independent stereo channels. Preserve the real generator's
@@ -67,7 +73,6 @@ if args.tap_file is not None:
 old_bank1 = kernels[1].copy()
 replacements = np.stack([make_bank(), make_bank()])
 
-P = (TAIL + B) // B
 freq = np.zeros((2, 2, P - 2, B + 1), dtype=np.complex64)
 for bank in range(2):
     for ch in range(2):
@@ -84,7 +89,6 @@ previous = np.zeros((2, B), np.float32)
 actual = np.zeros((2, 2, 2, N), np.float32)
 tail_ready = np.zeros((2, 2, 2, 2, B), np.float32)
 tail_epoch = np.zeros((2, 2, 2, 2), np.int32)
-restart_frame = 9 * B + args.restart_slot * 64
 edit_points = {restart_frame - 64: 0, restart_frame: 1}
 epoch = 0
 build_job = None

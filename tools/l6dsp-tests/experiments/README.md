@@ -216,7 +216,9 @@ rustc --edition=2024 -O tools/l6dsp-tests/experiments/velvet_tap_export.rs -o /t
 python3 tools/l6dsp-tests/experiments/partitioned_velvet.py --tap-file /tmp/velvet-taps.txt
 ```
 
-Use `--partition 512` to compare the larger partition with the default 256.
+Use `--partition 64`, `128`, or `512` to compare other partitions with the
+default 256. The frame count grows when necessary to include the slowest
+permitted rebuild and the complete fade.
 Use `--build-ffts 1` through `8` to vary the per-callback rebuild budget and
 `--restart-slot` to vary the alignment of the second edit within a partition.
 The pending bank's tail transforms are skipped while its spectra are incomplete.
@@ -237,6 +239,23 @@ instantaneous; a value within the gap is not evidence that the target meets
 it. The schedule also uses about 226,096 or 229,760 bytes for the printed
 spectra and ready buffers, respectively, before other state and workspace.
 These findings apply to this schedule, not every possible convolution design.
+
+The 64- and 128-frame variants reduce the direct-filter head but increase
+spectral work per callback. Using the same Rust-generated full-range bank and
+eight instantaneous rebuild FFTs per callback, their restarted builds published
+after 1,216 frames and 576–640 frames respectively, versus the 480-frame
+shortest renewal gap. Their spectra and ready buffers occupied 234,976 and
+231,104 bytes, respectively, excluding other processor state and workspace.
+Across all three restart alignments, maximum bank and crossfade error against
+direct convolution was at most `2.99e-7`. At 64 frames the model schedules all
+eight inverse transforms in one callback; these counts are not measurements of
+whether any of that work fits. This evaluates the same two-bank schedule and
+does not rule out a different schedule or establish target timing or ownership.
+The Python model, Rust exporter and generated tap file SHA-256 values were
+`25c48895a06a6219d209f28a242109b5eab21e90026ac2584809f79c90616251`,
+`2f91ec82e155a2498f75b098461edda2e450c1d1928ae7a2eddab7a7e5cb11b1`, and
+`5e58fd3e684ce6f4392594c1b596d45cd238d08137daed99cf24a857eb883623`.
+NumPy was 2.5.4 and `rustc` was 1.99.0-nightly (1ed2df61a 2026-08-04).
 
 With one Rust-generated 400-tap bank and the other modeled banks, the 256- and
 512-frame variants' maximum bank errors were `2.39e-7` and `2.99e-7`, and
