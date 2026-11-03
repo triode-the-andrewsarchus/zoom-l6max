@@ -1423,10 +1423,10 @@ mod tests {
             (Id::VndAmount, 0.0, 100.0), (Id::VndTimeSpread, 1.0, 100.0),
             (Id::VndDensity, 10.0, 4600.0), (Id::VndDecay, -120.0, 0.0),
             (Id::VndRefresh, 0.1, 60.0), (Id::VndTransition, 1.0, 54000.0),
-            (Id::PlatPreDelay, 0.0, 190.0), (Id::PlatSize, 0.01 * 100.0, 1.2 * 100.0),
+            (Id::PlatPreDelay, 0.0, plateau::MAX_PREDELAY_MS), (Id::PlatSize, 0.01 * 100.0, plateau::MAX_SIZE * 100.0),
             (Id::PlatDecay, 0.1 * 100.0, 0.999 * 100.0),
-            (Id::PlatLowCut, 20.0, 48000.0 * 0.49),
-            (Id::PlatHighCut, 20.0, 48000.0 * 0.49),
+            (Id::PlatLowCut, 20.0, plateau::SAMPLE_RATE * 0.49),
+            (Id::PlatHighCut, 20.0, plateau::SAMPLE_RATE * 0.49),
             (Id::PlatDiffusion, 0.0, 100.0), (Id::PlatModDepth, 0.0, 16.0),
             (Id::GlobalCascade, 0.0, 100.0),
         ];

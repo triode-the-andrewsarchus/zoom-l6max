@@ -68,7 +68,7 @@ impl ParameterSnapshot {
             PlatPreDelay => (0.0, if cfg!(experimental_plateau_32k) { 500.0 } else { 190.0 }),
             PlatSize => (0.01f32 * 100.0, if cfg!(experimental_plateau_32k) { 400.0 } else { 1.2f32 * 100.0 }),
             PlatDecay => (0.1f32 * 100.0, 0.999f32 * 100.0),
-            PlatLowCut | PlatHighCut => (20.0, 48000.0 * 0.49),
+            PlatLowCut | PlatHighCut => (20.0, if cfg!(experimental_plateau_32k) { 32000.0 * 0.49 } else { 48000.0 * 0.49 }),
             PlatModDepth => (0.0, 16.0),
             VndMode | PlatFreeze => {
                 return (value == 0.0 || value == 1.0).then_some(Self { id, value });
