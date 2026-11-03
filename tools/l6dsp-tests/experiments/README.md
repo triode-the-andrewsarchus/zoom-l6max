@@ -47,8 +47,9 @@ A separate run used the same candidate and fixtures with
 `closed=on,hold=1000000`; check it with `selector_reject_check.py --closed
 --hold 1000000 --held-until-exit`. The injector reported that its forced
 closure remained active at exit. After the first rejection snapshot, the
-sampled callback count did not advance, the fade remained zero, and a later
-selection press left the type and Room lamps unchanged. Recipe completion is
+sampled callback count did not advance, the fade was zero at that first
+snapshot, and a later selection press left the type and Room lamps unchanged.
+The fade was not sampled again. Recipe completion is
 not recovery. This bounded injection does not prove that a real gate can
 stay closed indefinitely, measure audio output, or model a competing owner.
 It shows that fade replay alone is insufficient when the closure persists.

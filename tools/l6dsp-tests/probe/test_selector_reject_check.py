@@ -68,7 +68,9 @@ class SelectorRejectCheckTests(unittest.TestCase):
                  'SELECTOR_REJECT held status=1 target=1000000\n'
                  'SELECTOR_REJECT injected=1 restored=0 active=2 errors=0\n')
         kwargs = {'closed': True, 'hold': 1000000, 'held_until_exit': True}
-        self.assertFalse(check(report, trace, **kwargs)['next_selection_observed'])
+        result = check(report, trace, **kwargs)
+        self.assertFalse(result['next_selection_observed'])
+        self.assertFalse(result['fade_restored_at_first_snapshot'])
         for name, replacement in [('type_next', [2]), ('pointer_next', [0, 0, 0, 0]),
                                   ('fade_after', [1, 0, 0, 0])]:
             bad = copy.deepcopy(report)

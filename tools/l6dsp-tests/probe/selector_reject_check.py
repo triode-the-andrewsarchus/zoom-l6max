@@ -42,7 +42,7 @@ def check_held(items):
         if not valid:
             raise ValueError(f'unexpected {suffix} effect lamps')
     return {'gate_held_until_exit': True, 'callback_advanced_after_snapshot': False,
-            'next_selection_observed': False, 'fade_restored': False}
+            'next_selection_observed': False, 'fade_restored_at_first_snapshot': False}
 
 
 def check(report, trace, *, fade_restored=False, hold=0, closed=False, held_until_exit=False):
