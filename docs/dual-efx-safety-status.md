@@ -175,6 +175,10 @@ The blocking findings for L6max MAIN 1.10
   callback stopped EFX SEL cycling because it did not advance the stock
   control stream. The diagnostic now advances it and the tested six-press
   sequence progresses, but the production firmware integration is unfinished.
+  The experimental selector-timeout feedback covers the observed button
+  handler; static firmware analysis also found a separate mixer-control batch
+  path into the shared effect selector. Recovery and notifications for that
+  path remain unqualified; see the [call-chain analysis](https://github.com/derekstavis/zoom-l6max-research/blob/5d21e7d/docs/firmware/l6max-effects-ainr.md#effect-selection-and-callback-lifetime).
 - The QEMU-only pre-AINR prototype previously passed normalized sends into
   copied stock AINR and treated its output as normalized. In an active-input
   QEMU capture, the learned stock index-0 call instead received float samples
