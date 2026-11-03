@@ -70,17 +70,33 @@ mod tests {
     #[cfg(experimental_plateau_32k)]
     #[test]
     fn plateau_32k_inspector_model_accepts_full_range() {
-        use parameters::{edit_encoder, snapshot_parameter, EfxParamId as Id, ParameterBank};
-        let mut processor = Box::new(routing::DualEfxProcessor::new());
-        processor.init();
-        assert_eq!(edit_encoder(&mut processor, ParameterBank::Plateau, 0, i32::MAX), Some(Id::PlatPreDelay));
-        assert_eq!(edit_encoder(&mut processor, ParameterBank::Plateau, 1, i32::MAX), Some(Id::PlatSize));
+        use parameters::{edit_encoder, snapshot_parameter, EfxParamId as Id, ParameterBank, ParameterHandoff};
+        let mut original = Box::<routing::DualEfxProcessor>::new_uninit();
+        let processor = routing::DualEfxProcessor::initialize_in_place(&mut original);
+        assert_eq!(edit_encoder(processor, ParameterBank::Plateau, 0, i32::MAX), Some(Id::PlatPreDelay));
+        assert_eq!(edit_encoder(processor, ParameterBank::Plateau, 1, i32::MAX), Some(Id::PlatSize));
         assert_eq!(processor.plateau.params.predelay_ms, 500.0);
         assert_eq!(processor.plateau.params.size, 4.0);
+        let saved = ParameterHandoff::new();
         for id in [Id::PlatPreDelay, Id::PlatSize] {
-            let snapshot = snapshot_parameter(id, &processor);
+            let snapshot = snapshot_parameter(id, processor);
             assert!(parameter_view::ParameterSnapshot::from_words(id as u32, snapshot.value.to_bits()).is_some());
+            saved.record(id, processor);
         }
+        let mut storage = Box::<routing::DualEfxProcessor>::new_uninit();
+        let restored = routing::DualEfxProcessor::initialize_in_place(&mut storage);
+        saved.restore(restored);
+        assert_eq!(restored.plateau.params.predelay_ms, 500.0);
+        assert_eq!(restored.plateau.params.size, 4.0);
+        processor.plateau.init(restored.plateau.params);
+        let mut peak = 0.0f32;
+        for frame in 0..30_000 {
+            let input = if frame == 0 { 0.5 } else { 0.0 };
+            let actual = restored.plateau.process_sample(input, input);
+            assert_eq!(actual, processor.plateau.process_sample(input, input), "frame {frame}");
+            peak = peak.max(actual.0.abs()).max(actual.1.abs());
+        }
+        assert!(peak > 0.0001, "the restored predelay must eventually produce output");
     }
 
     #[cfg(experimental_plateau_32k)]
